@@ -39,7 +39,7 @@ const ARENA_SPOTS={
   clubbox:[["crate",-.35,0,-1,-1.2,.2],["sign",.45,0,-1,-1.0,-.4],["tyre",1,1.2,.15,0,1.57],["propane",-1,-1.0,-.55,0,0]],
   regional:[["truck",-1,-1.3,-.2,0,1.5],["crate",.3,0,-1,-1.3,0],["barrel",1,1.3,.3,0,0],["crate",-.7,0,-1,-1.3,.6],["ext",1,1.1,-.7,0,-1.2]],
   eisenhalle:[["gen",-.4,0,-1,-1.5,0],["truck",1,1.4,-.3,0,-1.5],["crate",-1,-1.3,.2,0,.4],["barrel",.5,0,-1,-1.4,0],["chest",-1,-1.4,-.6,0,1.57]]};
-const PROPS={img:{},imgWait:{},models:{},texList:[]};
+const PROPS={img:{},imgWait:{},models:{},texList:[],gen:0};
 /* ---- textures ---- */
 function propImg(name,cb){const c=PROPS.img[name];if(c){cb(c);return;}
   if(PROPS.imgWait[name]){PROPS.imgWait[name].push(cb);return;}PROPS.imgWait[name]=[cb];
@@ -50,7 +50,8 @@ function propImg(name,cb){const c=PROPS.img[name];if(c){cb(c);return;}
       out.avg=new THREE.Color(r/64/255,gg/64/255,b/64/255).convertSRGBToLinear();}catch(e){out.avg=null;}done();},undefined,()=>done());
   L.load(PROP_TEX[name]+"_nor.jpg",im=>{out.nor=im;done();},undefined,()=>done());}
 /* called by makeMats on Full and Ultra with the new materials */
-function propDressMats(M){for(const t of PROPS.texList)t.dispose();PROPS.texList=[];
+function propDropTex(){for(const t of PROPS.texList)t.dispose();PROPS.texList=[];}
+function propDressMats(M){
   if(!window.THREE||!THREE.ImageLoader)return;
   for(const k in PROP_TEX_USE){const [name,ru,rv,ns]=PROP_TEX_USE[k],m=M[k];if(!m)continue;const want=m.color.clone();
     propImg(name,im=>{if(V.mats!==M)return;
@@ -69,12 +70,12 @@ function propModel(key,cb){const c=PROPS.models[key];if(c&&c.scene){cb(c.scene);
     undefined,err=>{if(typeof console!=="undefined")console.warn("model "+key,err&&err.message);delete PROPS.models[key];});}   // tried again with the next room
 /* clones of the models in spots into group G, for as long as ok() says G is still the room on screen */
 function propPlace(G,spots,ok){if(!spots||!spots.length)return;
-  if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(r=>{if(r&&THREE.GLTFLoader&&ok())propPlace(G,spots,ok);});return;}
+  if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(()=>{if(THREE.GLTFLoader&&ok())propPlace(G,spots,ok);});return;}
   const sh=V.tier!=="lite";
   for(const s of spots)propModel(s.key,src=>{if(!ok())return;const o=src.clone();o.scale.setScalar(s.scale);o.position.set(s.x,s.y+(s.hang?0:src.userData.lift*s.scale),s.z);o.rotation.y=s.turn;o.name="prop:"+s.key;
     o.traverse(m=>{if(m.isMesh){m.castShadow=sh;m.receiveShadow=sh;}});G.add(o);});}
-function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.stage||"corner";
-  propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
+function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.stage||"corner",gen=++PROPS.gen;   // a newer dressing of the room drops this one's late arrivals
+  propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&PROPS.gen===gen&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
 function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.half*AR.U;
   propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:AR.U})),()=>AR.g===G&&V.tier!=="lite");}
 /* a new workshop stage: drop this room's props and dress it for the new one */
