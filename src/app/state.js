@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.6.0";
+const VERSION="0.1.7.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -37,9 +37,25 @@ const TIME={};              // weeks a season, hoursPerWeek (PR 7)
 const WORKSHOP_STAGES=[];   // rented corner -> own unit -> shop -> team HQ (PR 7)
 const TOOLS={};             // hand tools, 3D printer, bandsaw, drill press, welder, mill, lathe, CNC, press brake (PR 7)
 const SEASON_EVENTS=[];     // club meets, tournaments, rumbles, tag team, championship (PR 7)
-const REPAIR_COST={},REPAIR_HOURS={};   // after-fight repair bills (PR 7)
-const PIT_KITS={};          // basic, full, pro (PR 6)
-const REPAIR_TIMES={};      // pit-window repair seconds (PR 6)
+/* after-fight repair bills (app/report.js; charged from PR 7). A damaged part costs a fee of its price x (minShare + the
+   share of its hp lost x (maxShare - minShare)); a destroyed one is re-bought at full price. The chassis is never
+   re-bought: a broken chassis costs rebuildShare of its price. Hours: each repair kind's workshop hours (x the class's
+   hoursScale), half for a damaged part. A plate, a wheel, a drive pod is priced as its share of the set. */
+const REPAIR_COST={minShare:0.1,maxShare:0.6,rebuildShare:0.8};
+const REPAIR_HOURS={wheel:0.5,pod:1.5,armour:1,battery:0.5,electronics:1,weapon:2,extras:0.5,chassis:4};
+/* the pit window (app/pit.js): 60 real seconds, one repair at a time, the clock keeps running while you decide. A kit
+   (bought before each event from PR 7; free to pick when sparring) says which repairs you may do and how many, for the
+   whole event. price x the class's prizeScale. */
+const PIT_KITS={
+  basic:{name:"Basic kit",price:60, allow:{wheel:2,bodge:2},                                   line:"Spare wheels and a roll of tape."},
+  full: {name:"Full kit", price:180,allow:{wheel:4,bodge:3,belt:2,armour:2,battery:1},          line:"Adds belts, armour panels and a spare battery."},
+  pro:  {name:"Pro kit",  price:420,allow:{wheel:4,bodge:4,belt:2,armour:4,battery:2,pod:2,disc:1},line:"Adds drive pods and a spare weapon disc."}
+};
+/* pit-window repairs: seconds and what each does. A swap puts the part back to new; a bodge patches any damaged or
+   destroyed part (not the chassis or a bent disc) to half strength. belt: a damaged weapon (not bent); disc: a bent or
+   wrecked weapon (pro kit only). A swapped battery stops smoking; a bodged speed controller brings its side back. */
+const REPAIR_TIMES={wheel:15,belt:20,pod:35,battery:25,armour:30,bodge:10,disc:30};
+const PIT_S=60;
 /* driving assists by driver skill (app/controls.js): straighten holds the heading when you aren't steering (x the spin
    rate), turnDamp softens and smooths the steering (more at speed), autoSpin spins a disc up only when an enemy is near.
    Everyone drives as a rookie until PR 8's drivers; Settings → Driving assists picks "off". */
