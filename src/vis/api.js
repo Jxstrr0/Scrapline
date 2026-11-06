@@ -1,4 +1,4 @@
-/* ---- vis/api.js: the SERVO_VIS public object. The app calls these; the vis never reads game state. ---- */
+/* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
   init(canvas){if(started)return;started=true;initRenderer(canvas);rebuild();bindOrbit(canvas);requestAnimationFrame(frame);},
@@ -11,5 +11,5 @@ return{
   _state:V
 };
 })();
-window.SERVO_VIS=SERVO_VIS;
+window.SCRAP_VIS=SCRAP_VIS;
 </script>

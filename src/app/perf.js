@@ -1,6 +1,6 @@
 /* ===================== app/perf.js: graphics tiers and auto-adjust =====================
    Three tiers, lite / full / ultra (settings.gfx; null means the default: Lite on a phone, Full elsewhere).
-   Auto-adjust (settings.gfxAuto, on unless false), same rules as PEW: once the scene has settled, watch the frame rate SERVO_VIS
+   Auto-adjust (settings.gfxAuto, on unless false), same rules as PEW: once the scene has settled, watch the frame rate SCRAP_VIS
    measures. If it stays under ~27 fps for ~8 s, step ONE tier down (ultra > full > lite) and say so in a toast. It never steps
    up, and a manual tier pick after an auto-drop is respected for the rest of the session.
    Skipped while the page is hidden, for the first ~6 s, for 3 s after a tier or tab change, and whenever the view isn't
@@ -10,14 +10,14 @@ function perfReset(hold){PERF.low=0;PERF.sAt=0;if(hold)PERF.holdTo=performance.n
 /* the player picked a tier or flipped auto-adjust in Settings */
 function perfManual(){PERF.manual=true;perfReset(true);}
 function perfPoll(){
-  if(!window.SERVO_VIS)return;
+  if(!window.SCRAP_VIS)return;
   const now=performance.now();
   if(ST().gfxAuto===false||(PERF.dropped&&PERF.manual)||document.hidden||now-PERF.boot<PERF.SETTLE){perfReset(true);return;}
   if(navigator.webdriver&&PERF.force==null)return;
   const tier=gfxTier();if(tier!==PERF.tier){PERF.tier=tier;perfReset(true);}
   if(curTab!==PERF.tab){PERF.tab=curTab;perfReset(true);}
   if(now<PERF.holdTo)return;
-  const f=SERVO_VIS.fps();let fps;
+  const f=SCRAP_VIS.fps();let fps;
   if(PERF.force!=null){fps=PERF.force;if(!PERF.sAt){PERF.sAt=now;return;}}
   else if(f!==PERF.f){PERF.f=f;PERF.fAt=now;fps=f.fps;if(!PERF.sAt){PERF.sAt=now;return;}}
   else{if(now-PERF.fAt>1500)perfReset(false);return;}          // nothing drawn lately: start over
@@ -30,4 +30,4 @@ function perfPoll(){
   toast(`Graphics lowered to ${n[0].toUpperCase()+n.slice(1)} to keep things smooth. Change it in Settings.`);}
 setInterval(perfPoll,500);
 /* ?fps=1 shows the frame rate in the corner of the view */
-if(/[?&]fps=1(&|$)/.test(location.search))setInterval(()=>{const f=window.SERVO_VIS&&SERVO_VIS.fps();if(f)$("fpsHud").textContent=f.fps+" fps · "+gfxTier();},1000);
+if(/[?&]fps=1(&|$)/.test(location.search))setInterval(()=>{const f=window.SCRAP_VIS&&SCRAP_VIS.fps();if(f)$("fpsHud").textContent=f.fps+" fps · "+gfxTier();},1000);

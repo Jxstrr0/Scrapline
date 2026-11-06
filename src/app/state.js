@@ -1,18 +1,18 @@
 <script>
-/* ===================== Servo: app state =====================
+/* ===================== Scrapline: app state =====================
    The app script is one top-level script spread over app/state.js … app/help.js (in manifest order); start() runs once the
    whole block has loaded (app/boot.js schedules it through __ldGo).
    This file: VERSION, WORLD (every place name in Velmark), the career tables (filled in by later PRs, named here so every
    PR uses the same names), the S state object and its save shape, save / load / migrate / save slots, theme, graphics tier,
    and the small UI helpers every tab uses ($, fmt$, toast, the sheet).
-   localStorage keys (every access wrapped in try/catch): "srv-save" (the current game, settings included) and
-   "srv-slot1" .. "srv-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
-   check-savecode.js; stop and ask before adding one. New fields inside srv-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.0.0";
-const SIM=SERVO_SIM;
+   localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
+   "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
+   check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
+const VERSION="0.1.0.1";
+const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
-/* ---- the world (plan section 1): Velmark, the invented alpine country from Escapement ---- */
+/* ---- the world (plan section 1): Velmark, an invented alpine country ---- */
 const WORLD={
   country:"Velmark",
   region:"the Haldis",              // the northern watchmaking valley where the player starts
@@ -47,7 +47,7 @@ const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
 const SPONSORS=[];          // paint and a placing target (PR 8)
 const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
 
-/* ---- state: the srv-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
+/* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
 const SAVE_V=1;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build"};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -65,7 +65,7 @@ const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 /* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
 const MIGRATE={};
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
-function save(){try{localStorage.setItem("srv-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
+function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
 function snapshot(){return JSON.parse(JSON.stringify(S));}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
@@ -76,8 +76,8 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   for(const k of ["designs","rivals"])if(!buObjS(n[k]))n[k]={};
   for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
   S=n;return true;}
-function loadSaved(){try{const j=localStorage.getItem("srv-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
-const SLOTS=3,slotKey=i=>"srv-slot"+i;
+function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
+const SLOTS=3,slotKey=i=>"scr-slot"+i;
 /* a restored game: take it, store it, redraw everything */
 function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}save();applyAll();showTab(ST().tab||"build");toast(msg);}
 /* loading a save slot keeps this phone's settings (plan section 15) */
@@ -93,13 +93,13 @@ function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matc
 function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
-function applyGfx(){const q=gfxTier();if(window.SERVO_VIS)SERVO_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
+function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
 function applyAll(){applyTheme();applyReduce();applyGfx();hud();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 
 /* ---- formatting ---- */
-const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler (100 pfennig), copied from Escapement
+const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler, 100 pfennig: Th 4,850
 const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
