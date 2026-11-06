@@ -2,8 +2,12 @@
    These don't change the physics; they say in plain words what the physics is about to do to you ("spinner shaft will
    shear above 240 J on this material", "rear armour none: drive pods exposed"). The same rules write the post-mortem's
    redesign hints in PR 6. Plan section 4d.
-   Each rule: {id, sev, test(b) -> falsy or a value handed to text, text(b, v)}. sev is "bad" (will lose you fights),
-   "warn" (a weakness), "info" (worth knowing) or "good"; it may be a function of (b, v). stressReport sorts bad first. ---- */
+   Each rule: {id, sev, test(b, m) -> falsy or a value handed to text, text(b, v, m), bench}. sev is "bad" (will lose you
+   fights), "warn" (a weakness), "info" (worth knowing) or "good"; it may be a function of (b, v). stressReport sorts bad
+   first.
+   stressReport(b, m): m holds bench results (sim/bench.js runBench, any of them) for this same build. A rule with
+   bench:"<test>" uses the measured number when that test has run, and its line comes back with measured:true; the
+   "impact" and "drop" rules only speak once their test has run. ---- */
 const SEV_ORDER={bad:0,warn:1,info:2,good:3};
 const FACE_NAME={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const PART_NAME={drive:"drive pods",battery:"battery",electronics:"speed controllers",weapon:"weapon",extras:"extras",wheels:"wheels"};
@@ -28,16 +32,16 @@ const COMBOS=[
   {id:"bare",sev:(b,v)=>v.parts.length?"bad":"warn",
     test:b=>{for(const f of ["front","back","left","right"])if(b.armourMapJ[f].id==="none"&&!(f==="front"&&["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0))return{f,parts:partsOnFace(b,f)};return null;},
     text:(b,v)=>FACE_NAME[v.f]+" armour none"+(v.parts.length?": "+v.parts.map(s=>PART_NAME[s]).join(" and ")+" exposed.":". Nothing sits right behind it yet, but the chassis takes every hit there.")},
-  {id:"spinup",sev:(b,v)=>v>7?"bad":"warn",test:b=>b.weapon.spinUpS>4&&b.weapon.spinUpS,
+  {id:"spinup",bench:"weapon",sev:(b,v)=>v>7?"bad":"warn",test:(b,m)=>{const s=m.weapon&&m.weapon.kind==="spin"?m.weapon.spinUpS:b.weapon.spinUpS;return s>4&&s;},
     text:(b,v)=>"Spin-up "+n1(v)+" s: you lose the first exchange."},
   {id:"flip",sev:"bad",test:b=>b.weapon.type==="flipper"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
     text:(b,v)=>"Flipper can't lift a bot over "+n1(v)+" kg in this class (the limit is "+n1(b.limitKg)+" kg)."},
   {id:"lift",sev:"warn",test:b=>b.weapon.type==="lifter"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
     text:(b,v)=>"Lifter only raises "+n1(v)+" kg: a bot at the "+n1(b.limitKg)+" kg limit stays on the floor."},
-  {id:"runtime",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.runtimeS<K.runtimeMin*1.33&&b.runtimeS,
+  {id:"runtime",bench:"endurance",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:(b,m)=>{const s=m.endurance?m.endurance.runtimeS:b.runtimeS;return s!=null&&s<K.runtimeMin*1.33&&s;},
     text:(b,v)=>"Battery runtime "+n0(v)+" s"+(v<K.runtimeMin?": it goes flat before the 90 s bell.":": no margin for a three-round final.")},
-  {id:"heat",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.heat.fightDerateS!=null&&b.heat.fightDerateS<K.runtimeMin*1.33&&b.heat.fightDerateS,
-    text:(b,v)=>(b.heat.hotPart==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
+  {id:"heat",bench:"endurance",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:(b,m)=>{const s=m.endurance?m.endurance.derateS:b.heat.fightDerateS;return s!=null&&s<K.runtimeMin*1.33&&s;},
+    text:(b,v,m)=>((m.endurance?m.endurance.hotPart:b.heat.hotPart)==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
   {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
     text:(b,v)=>"The "+(b.limits.batteryW<=b.limits.escW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
   {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
@@ -45,8 +49,12 @@ const COMBOS=[
     text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
   {id:"nose",sev:"info",test:b=>Math.abs(b.com.y)>b.lengthM*0.15&&b.com.y,
     text:(b,v)=>(v>0?"Nose":"Tail")+"-heavy: the COM sits "+n0(Math.abs(v)*1000)+" mm "+(v>0?"forward":"back")+". "+(v>0?"Good for wedging, worse for turning.":"The front goes light when you push.")},
-  {id:"edgeHigh",sev:"warn",test:b=>{const g=WEDGE_GAUGES[b.cls]||[],u=g.filter(x=>x<b.height.frontEdgeMm).length;return u>g.length/2&&u;},
-    text:(b,v)=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: most wedges in this class get under you."},
+  {id:"edgeHigh",bench:"gauge",sev:"warn",test:(b,m)=>{const g=WEDGE_GAUGES[b.cls]||[],u=m.gauge?m.gauge.under:g.filter(x=>x<b.height.frontEdgeMm).length;return u>g.length/2&&u;},
+    text:(b,v,m)=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: "+(m.gauge?v+" of the "+m.gauge.rows.length+" gauges slide under it.":"most wedges in this class get under you.")},
+  {id:"impact",bench:"impact",sev:(b,v)=>v.failJ<BENCH.threatJ*classMult(b.cls).mass?"warn":"info",test:(b,m)=>m.impact&&m.impact.weakest&&m.impact.faces[m.impact.weakest],
+    text:(b,v,m)=>FACE_NAME[m.impact.weakest]+" is the weak side: "+(v.plateJ>0?"the plate gives at "+n0(v.plateJ)+" J and the ":"no plate, and the ")+v.failName+" dies at "+n0(v.failJ)+" J."},
+  {id:"drop",bench:"drop",sev:"bad",test:(b,m)=>m.drop&&(!m.drop.upright.canDrive?"up":b.height.selfRight&&!b.height.drivesInverted&&!m.drop.inverted.righter?"righter":null),
+    text:(b,v,m)=>v==="up"?"A "+n1(m.drop.heightM)+" m drop leaves it unable to drive.":"Landing upside down from "+n1(m.drop.heightM)+" m breaks the self-righter: it stays there."},
   {id:"edgeLow",sev:"good",test:b=>{const g=WEDGE_GAUGES[b.cls]||[];return g.length&&b.height.frontEdgeMm<=g[0];},
     text:b=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: almost nothing in this class gets under you."},
   {id:"invert",sev:"bad",test:b=>!b.height.invertible,text:()=>"Not invertible and no self-righter: one flip ends the fight."},
@@ -61,7 +69,7 @@ const COMBOS=[
   {id:"covered",sev:"good",test:b=>b.exposureScore<0.6&&["front","back","left","right"].every(f=>b.armourMapJ[f].id!=="none")&&b.exposureScore,
     text:()=>"Every face armoured and the insides tucked away."}
 ];
-function stressReport(b){const out=[];
-  for(const r of COMBOS){try{const v=r.test(b);if(!v)continue;   // a rule that throws is skipped, never fatal
-    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}catch(e){}}
+function stressReport(b,m){const out=[];m=m||{};
+  for(const r of COMBOS){try{const v=r.test(b,m);if(!v)continue;   // a rule that throws is skipped, never fatal
+    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev,line={id:r.id,sev,text:r.text(b,v,m)};if(r.bench&&m[r.bench])line.measured=true;out.push(line);}catch(e){}}
   return out.sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);}

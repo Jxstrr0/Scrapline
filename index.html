@@ -224,6 +224,25 @@ textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-ra
 @media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
 @media (max-height:560px) and (orientation:landscape){#view{flex-basis:46%;min-height:160px}}
 
+/* ---- the Bench tab (app/bench.js) ---- */
+.bncls{margin:0 0 12px}
+.bncls button{font-size:13px}
+.bnh{display:flex;align-items:center;gap:10px;margin:0 0 4px}
+.bnh h3{flex:1;margin:0}
+.bnh .cost{font:12px var(--mono);color:var(--muted)}
+.bnd{font-size:14px!important}
+.bnkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 6px!important;font-size:12px!important;color:var(--muted)}
+.bnkey i{display:inline-block;width:10px;height:10px;margin-right:5px;border-radius:2px;vertical-align:-1px}
+canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
+.bnk{list-style:none;margin:0;padding:0;font-size:14px;color:var(--muted)}
+.bnk li{padding:3px 0}
+.bnk small{color:var(--dim);font-size:12px}
+.bnk b{color:var(--ink);font-weight:600}
+.bnk b.readout{color:var(--lilac)}
+.bnk b.broke{color:var(--crit-t)}
+.bntag{display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid currentColor;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--lilac);vertical-align:1px}
+.lnk{color:var(--clay-t);text-decoration:underline;font:inherit;padding:0;min-height:0}
+
 /* ---- 4. accessibility preferences ---- */
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
 html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
@@ -259,9 +278,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
     <section class="tabpage" id="tab-bench" aria-labelledby="h-bench">
       <h2 id="h-bench">Bench</h2>
       <p class="lede">Prove it before it fights. Drag the view to turn the bot; pinch to zoom.</p>
-      <div class="card"><h3>Bench tests<span class="soon">PR 3</span></h3><p>Drive · Weapon · Impact per face · Wedge gauge · Endurance · Drop</p>
-        <p>The impact test hits each face harder and harder until something breaks, and tells you which part inside dies first.</p></div>
-      <div class="card"><h3>Readouts</h3><p>Numbers read like this: <span class="readout">412 J</span> · <span class="readout">8,400 rpm</span> · <span class="readout">1:30</span>. Parts are <span class="ok">intact</span>, <span class="worn">damaged</span> or <span class="broke">destroyed</span>.</p></div>
+      <div id="bnBody"></div>
     </section>
 
     <!-- FIGHT: sparring, the arena, the pit window, the post-mortem -->
@@ -578,7 +595,8 @@ const TEST_BUILDS=[
    kg, m, s, J and W. Plan section 4d. It returns, for any cfg (parts.js says the shape):
      valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
      com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
-     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back)
+     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
+     drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
@@ -723,7 +741,7 @@ function evalBuild(cfgIn){
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
   if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=wp.shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega;
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
-    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,radiusM:radM,discKg:discG/1000,
+    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:wp.recoil,
       recoilFactor:clamp(wp.recoil*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite,
       shearJ:wm.hp*wm.shearMult*M.mass,bendJ:wm.hp*M.mass,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
@@ -783,7 +801,10 @@ function evalBuild(cfgIn){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip:wh.grip,
+    limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
+    drive:{f0:F0,v0,tractionN:traction,resistN:resist},
+    power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW:el.idleW*M.power,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
     height,weapon,armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
@@ -818,8 +839,12 @@ function sameParts(a,b){if(!a||!b)return false;a=normCfg(a);b=normCfg(b);if(a.cl
    These don't change the physics; they say in plain words what the physics is about to do to you ("spinner shaft will
    shear above 240 J on this material", "rear armour none: drive pods exposed"). The same rules write the post-mortem's
    redesign hints in PR 6. Plan section 4d.
-   Each rule: {id, sev, test(b) -> falsy or a value handed to text, text(b, v)}. sev is "bad" (will lose you fights),
-   "warn" (a weakness), "info" (worth knowing) or "good"; it may be a function of (b, v). stressReport sorts bad first. ---- */
+   Each rule: {id, sev, test(b, m) -> falsy or a value handed to text, text(b, v, m), bench}. sev is "bad" (will lose you
+   fights), "warn" (a weakness), "info" (worth knowing) or "good"; it may be a function of (b, v). stressReport sorts bad
+   first.
+   stressReport(b, m): m holds bench results (sim/bench.js runBench, any of them) for this same build. A rule with
+   bench:"<test>" uses the measured number when that test has run, and its line comes back with measured:true; the
+   "impact" and "drop" rules only speak once their test has run. ---- */
 const SEV_ORDER={bad:0,warn:1,info:2,good:3};
 const FACE_NAME={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const PART_NAME={drive:"drive pods",battery:"battery",electronics:"speed controllers",weapon:"weapon",extras:"extras",wheels:"wheels"};
@@ -844,16 +869,16 @@ const COMBOS=[
   {id:"bare",sev:(b,v)=>v.parts.length?"bad":"warn",
     test:b=>{for(const f of ["front","back","left","right"])if(b.armourMapJ[f].id==="none"&&!(f==="front"&&["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0))return{f,parts:partsOnFace(b,f)};return null;},
     text:(b,v)=>FACE_NAME[v.f]+" armour none"+(v.parts.length?": "+v.parts.map(s=>PART_NAME[s]).join(" and ")+" exposed.":". Nothing sits right behind it yet, but the chassis takes every hit there.")},
-  {id:"spinup",sev:(b,v)=>v>7?"bad":"warn",test:b=>b.weapon.spinUpS>4&&b.weapon.spinUpS,
+  {id:"spinup",bench:"weapon",sev:(b,v)=>v>7?"bad":"warn",test:(b,m)=>{const s=m.weapon&&m.weapon.kind==="spin"?m.weapon.spinUpS:b.weapon.spinUpS;return s>4&&s;},
     text:(b,v)=>"Spin-up "+n1(v)+" s: you lose the first exchange."},
   {id:"flip",sev:"bad",test:b=>b.weapon.type==="flipper"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
     text:(b,v)=>"Flipper can't lift a bot over "+n1(v)+" kg in this class (the limit is "+n1(b.limitKg)+" kg)."},
   {id:"lift",sev:"warn",test:b=>b.weapon.type==="lifter"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
     text:(b,v)=>"Lifter only raises "+n1(v)+" kg: a bot at the "+n1(b.limitKg)+" kg limit stays on the floor."},
-  {id:"runtime",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.runtimeS<K.runtimeMin*1.33&&b.runtimeS,
+  {id:"runtime",bench:"endurance",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:(b,m)=>{const s=m.endurance?m.endurance.runtimeS:b.runtimeS;return s!=null&&s<K.runtimeMin*1.33&&s;},
     text:(b,v)=>"Battery runtime "+n0(v)+" s"+(v<K.runtimeMin?": it goes flat before the 90 s bell.":": no margin for a three-round final.")},
-  {id:"heat",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.heat.fightDerateS!=null&&b.heat.fightDerateS<K.runtimeMin*1.33&&b.heat.fightDerateS,
-    text:(b,v)=>(b.heat.hotPart==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
+  {id:"heat",bench:"endurance",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:(b,m)=>{const s=m.endurance?m.endurance.derateS:b.heat.fightDerateS;return s!=null&&s<K.runtimeMin*1.33&&s;},
+    text:(b,v,m)=>((m.endurance?m.endurance.hotPart:b.heat.hotPart)==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
   {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
     text:(b,v)=>"The "+(b.limits.batteryW<=b.limits.escW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
   {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
@@ -861,8 +886,12 @@ const COMBOS=[
     text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
   {id:"nose",sev:"info",test:b=>Math.abs(b.com.y)>b.lengthM*0.15&&b.com.y,
     text:(b,v)=>(v>0?"Nose":"Tail")+"-heavy: the COM sits "+n0(Math.abs(v)*1000)+" mm "+(v>0?"forward":"back")+". "+(v>0?"Good for wedging, worse for turning.":"The front goes light when you push.")},
-  {id:"edgeHigh",sev:"warn",test:b=>{const g=WEDGE_GAUGES[b.cls]||[],u=g.filter(x=>x<b.height.frontEdgeMm).length;return u>g.length/2&&u;},
-    text:(b,v)=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: most wedges in this class get under you."},
+  {id:"edgeHigh",bench:"gauge",sev:"warn",test:(b,m)=>{const g=WEDGE_GAUGES[b.cls]||[],u=m.gauge?m.gauge.under:g.filter(x=>x<b.height.frontEdgeMm).length;return u>g.length/2&&u;},
+    text:(b,v,m)=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: "+(m.gauge?v+" of the "+m.gauge.rows.length+" gauges slide under it.":"most wedges in this class get under you.")},
+  {id:"impact",bench:"impact",sev:(b,v)=>v.failJ<BENCH.threatJ*classMult(b.cls).mass?"warn":"info",test:(b,m)=>m.impact&&m.impact.weakest&&m.impact.faces[m.impact.weakest],
+    text:(b,v,m)=>FACE_NAME[m.impact.weakest]+" is the weak side: "+(v.plateJ>0?"the plate gives at "+n0(v.plateJ)+" J and the ":"no plate, and the ")+v.failName+" dies at "+n0(v.failJ)+" J."},
+  {id:"drop",bench:"drop",sev:"bad",test:(b,m)=>m.drop&&(!m.drop.upright.canDrive?"up":b.height.selfRight&&!b.height.drivesInverted&&!m.drop.inverted.righter?"righter":null),
+    text:(b,v,m)=>v==="up"?"A "+n1(m.drop.heightM)+" m drop leaves it unable to drive.":"Landing upside down from "+n1(m.drop.heightM)+" m breaks the self-righter: it stays there."},
   {id:"edgeLow",sev:"good",test:b=>{const g=WEDGE_GAUGES[b.cls]||[];return g.length&&b.height.frontEdgeMm<=g[0];},
     text:b=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: almost nothing in this class gets under you."},
   {id:"invert",sev:"bad",test:b=>!b.height.invertible,text:()=>"Not invertible and no self-righter: one flip ends the fight."},
@@ -877,29 +906,209 @@ const COMBOS=[
   {id:"covered",sev:"good",test:b=>b.exposureScore<0.6&&["front","back","left","right"].every(f=>b.armourMapJ[f].id!=="none")&&b.exposureScore,
     text:()=>"Every face armoured and the insides tucked away."}
 ];
-function stressReport(b){const out=[];
-  for(const r of COMBOS){try{const v=r.test(b);if(!v)continue;   // a rule that throws is skipped, never fatal
-    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}catch(e){}}
+function stressReport(b,m){const out=[];m=m||{};
+  for(const r of COMBOS){try{const v=r.test(b,m);if(!v)continue;   // a rule that throws is skipped, never fatal
+    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev,line={id:r.id,sev,text:r.text(b,v,m)};if(r.bench&&m[r.bench])line.measured=true;out.push(line);}catch(e){}}
   return out.sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);}
-/* ---- sim/bench.js: the six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop), PR 3 (plan
-   section 6), and WEDGE_GAUGES: the leading-edge heights (mm) of the wedges, lifters and forks common in each class, low
-   to high. The stress report (sim/combos.js) already reads them: a front edge above most of them means most wedges in the
-   class get under you. ---- */
-const WEDGE_GAUGES={
+/* ---- sim/bench.js: the six bench tests, plan section 6, and WEDGE_GAUGES. Each test takes an evalBuild() result (or a
+   cfg) and measures it by running it, mostly at the fight's 60 Hz step, so a measured number can differ from evalBuild's
+   prediction: the drive test's bot may not reach top speed on the track, a spinner's motor has less torque at low rpm,
+   the endurance run has real bursts and real derating. Nothing here is random and nothing is kept: the rig is safe
+   (Kelbo, PR 3), so the impact and drop tests report what would break on a fresh bot.
+     benchDrive      a short track: top speed reached, time over it, pull to one side; a spin on the spot
+     benchWeapon     spinners: spin-up trace, stored energy, a hit on a fixed anvil, rpm lost, recoil; flippers and
+                     lifters: test masses; hammers, crushers, wedges and pushers: strike or ram energy
+     benchImpact     a swinging mass hits each face harder and harder (single hits on a fresh bot) until a part behind
+                     it is destroyed: when the plate gives, which part dies first and at what energy (sim/damage.js)
+     benchGauge      feeler gauges at WEDGE_GAUGES slid under the front edge: who gets under you, who you get under
+     benchEndurance  fight-pace bursts (drive and weapon) until the battery is flat: runtime, heat, when motors derate
+     benchDrop       a drop from a big flipper throw, landing upright and upside down: damage, can it still drive, can
+                     it get back on its wheels
+   runBench(x, id) runs one by id; BENCH_TESTS lists them with their workshop hours (the drive and weapon tests are free).
+   stressReport(b, measured) (sim/combos.js) uses the results in place of the predictions. ---- */
+const WEDGE_GAUGES={      // the leading-edge heights (mm) of the wedges, lifters and forks common in each class, low to high
   ant:    [0.5,1,1.5,2,3],
   beetle: [1,1.5,2,3,4,6],
   hobby:  [1,2,3,4,6,8],
   feather:[1.5,2,3,5,7,10],
   heavy:  [2,3,4,6,9,12]
 };
+const BENCH={
+  trackM:2.4,        // drive test track, beetle scale (x len)
+  pullYaw:0.12,      // heading drift from an off-centre COM: pull x this x speed / track width (rad/s)
+  spinTorque:3,      // a spinner motor's torque runs out below 1/3 of top rpm (full power only above it)
+  windage:0.1,       // share of spin-up power lost to air and bearings at top rpm
+  kickShare:0.06,    // share of a spinner hit's energy that kicks the attacker back (x the weapon's recoil)
+  testMass:[0.5,0.75,1,1.25],   // flipper and lifter test masses, x the class limit
+  impactStartJ:2,    // impact test: the first swing (J at beetle scale, x mass) ...
+  impactStep:1.15,   // ... each swing this much harder ...
+  impactMaxJ:4000,   // ... and nothing in the class hits harder than this
+  cycleS:10,         // endurance: one burst cycle; the drive runs the first K.driveDuty of it, the weapon K.weaponDuty
+  weaponFrom:0.4,    //   starting this far into it (so they overlap, as they do in a fight)
+  enduranceMaxS:600,
+  derate:0.5,        // an overheated motor group runs at this share of power ...
+  recoverAt:0.85,    // ... until it cools below this share of its heat budget
+  dropM:0.7,         // drop test height at beetle scale (x len): a big flipper throw
+  dropShare:0.5,     // share of the landing the bot takes (the rest goes into the floor and the bounce)
+  threatJ:120        // a big spinner hit in the class (J at beetle scale, x mass): a face that breaks below it is a weak side
+};
+const BENCH_TESTS=[   // hours: workshop hours at beetle scale (x hoursScale), charged from PR 7
+  {id:"drive",    name:"Drive",       hours:0},
+  {id:"weapon",   name:"Weapon",      hours:0},
+  {id:"impact",   name:"Impact",      hours:2},
+  {id:"gauge",    name:"Wedge gauge", hours:0.5},
+  {id:"endurance",name:"Endurance",   hours:1.5},
+  {id:"drop",     name:"Drop",        hours:1}
+];
+const asBuild=x=>x&&x.armourMapJ?x:evalBuild(x);
+
+/* a part key in words: "left front drive pod", "Large LiPo", "Vertical spinner" */
+function benchPartName(b,key){const p=b.parts.find(q=>q.key===key);if(!p)return key;
+  if(p.slot==="drive"||p.slot==="wheels"){const side=p.pos[0]<0?"left":"right",same=b.parts.filter(q=>q.slot===p.slot&&(q.pos[0]<0)===(p.pos[0]<0));
+    const fb=same.length>1?(p.pos[1]>=Math.max(...same.map(q=>q.pos[1]))?" front":" rear"):"";
+    return side+fb+(p.slot==="drive"?" drive pod":" wheel");}
+  const pp=part(p.slot==="extras"?"extras":p.slot,p.id);return pp?pp.name:key;}
+
+function benchDrive(x){const b=asBuild(x),M=classMult(b.cls),dt=1/STEP_HZ,d=b.drive,m=Math.max(b.massKg,1e-6),track=BENCH.trackM*M.len;
+  const w=Math.max(b.trackM,1e-3),trace=[[0,0,0]];let v=0,s=0,t=0,th=0,lat=0,top=0,n=0;
+  const moves=d.f0>d.resistN&&d.v0>0;
+  while(moves&&s<track&&t<30){const F=Math.min(d.f0*Math.max(0,1-v/d.v0),d.tractionN);v=Math.max(0,v+(F-d.resistN)/m*dt);
+    th+=b.pull*BENCH.pullYaw*v/w*dt;s+=v*Math.cos(th)*dt;lat+=v*Math.sin(th)*dt;t+=dt;if(v>top)top=v;if(++n%3===0)trace.push([t,v,lat]);}
+  if(moves)trace.push([t,v,lat]);
+  let om=0,ang=0,ts=0;if(b.turnRate>0&&b.turnAccel>0)while(ang<2*Math.PI&&ts<20){om=Math.min(b.turnRate,om+b.turnAccel*dt);ang+=om*dt;ts+=dt;}
+  return{id:"drive",moves,trackM:track,timeS:moves&&s>=track?t:null,topSpeed:top,predicted:b.driveSpeed,driftMm:lat*1000,
+    spinS:ang>=2*Math.PI?ts:null,turnDegS:b.turnRate*180/Math.PI,pushN:b.pushN,trace};}
+
+function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.massKg,1e-6),g=K.g,wp=part("weapon",b.cfg.weapon);
+  const r={id:"weapon",type:w.type,name:wp?wp.name:w.type,hitJ:0};
+  if((w.type==="spinner"||w.type==="saw")&&w.inertia>0&&w.spinPowerW>0){const I=w.inertia,wm=w.omega,P=w.spinPowerW;
+    const tau0=BENCH.spinTorque*P/wm,c=BENCH.windage*P/(wm*wm*wm);
+    const spin=(from,stop)=>{let om=from,t=0,n=0,t90=null;const tr=[[0,from/wm]];
+      while(t<60){const tq=Math.min(tau0,om>0?P/om:tau0)-c*om*om;om=Math.min(wm,om+tq/I*dt);t+=dt;
+        if(t90==null&&om>=0.9*wm)t90=t;if(++n%4===0)tr.push([t,om/wm]);if(om>=stop*wm)break;}
+      tr.push([t,om/wm]);return{t,t90,tr};};
+    const up=spin(0,0.99),hitJ=w.storedJ*w.bite,after=wm*Math.sqrt(Math.max(0,1-w.bite)),back=spin(after,0.9);
+    Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:up.t,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
+      hitJ,rpmAfter:after*60/(2*Math.PI),recoverS:back.t,recoilMm:1000*hitJ*BENCH.kickShare*(w.recoil||0)/(Math.max(b.grip,0.1)*m*g),
+      shearJ:w.shearJ,bendJ:w.bendJ});
+    return r;}
+  if(w.type==="flipper"||w.type==="lifter"){const rows=BENCH.testMass.map(f=>{const kg=f*b.limitKg,lifts=w.canLiftKg>=kg;
+      const h=!lifts?0:w.type==="flipper"?Math.max(0,w.launchJ*K.flipEff/(kg*g)-(wp.strokeMm*classMult(b.cls).len/1000)):w.liftM;
+      return{kg,lifts,heightM:h};});
+    const lim=rows.find(q=>q.kg===b.limitKg)||rows[2],v0=Math.sqrt(2*g*lim.heightM),tr=[];
+    if(w.type==="flipper"&&v0>0){const T=2*v0/g;for(let i=0;i<=40;i++){const t=T*i/40;tr.push([t,Math.max(0,v0*t-g*t*t/2)]);}}
+    Object.assign(r,{kind:w.type==="flipper"?"flip":"lift",rows,canLiftKg:w.canLiftKg,shots:w.shots||null,rechargeS:w.rechargeS||null,
+      launchJ:w.launchJ||0,forceN:w.forceN||w.liftN||0,hitJ:w.type==="flipper"?w.launchJ*K.flipEff:w.energyJ,trace:tr});
+    return r;}
+  if(w.type==="hammer")return Object.assign(r,{kind:"hammer",energyJ:w.energyJ,swingS:w.swingS,hitJ:w.energyJ*(w.bite||1)});
+  if(w.type==="crusher")return Object.assign(r,{kind:"crush",energyJ:w.energyJ,forceN:w.forceN,hitJ:w.energyJ});
+  const ramJ=0.5*m*b.driveSpeed*b.driveSpeed;
+  return Object.assign(r,{kind:"ram",ramJ,pushN:b.pushN,edgeMm:b.height.frontEdgeMm,reachM:w.reachM||0,hitJ:ramJ});}
+
+function benchImpact(x){const b=asBuild(x),M=classMult(b.cls),faces={};let weakest=null;
+  for(const f of FACES){const A=b.armourMapJ[f],steps=[];let plateJ=A.hpJ>0?null:0,firstJ=null,failJ=null,fail=null,chain=[];
+    for(let E=BENCH.impactStartJ*M.mass;E<=BENCH.impactMaxJ*M.mass;E*=BENCH.impactStep){const h=hitFace(b,f,E);
+      steps.push([E,A.hpJ>0?h.plate/A.hpJ:1,h.parts.length?Math.min(1,h.parts[0].dmg/Math.max(b.parts.find(p=>p.key===h.parts[0].key).hpJ,1e-9)):0]);
+      if(plateJ==null&&h.plateBroken)plateJ=E;
+      if(firstJ==null&&h.parts.length)firstJ=E;
+      const dead=h.parts.find(p=>p.destroyed);
+      if(dead){failJ=E;fail=dead.key;chain=h.parts.map(p=>({key:p.key,name:benchPartName(b,p.key),dmg:p.dmg,destroyed:p.destroyed}));break;}}
+    faces[f]={armour:A.name,absorbJ:A.absorbJ,hpJ:A.hpJ,plateJ,firstJ,failJ,failKey:fail,failName:fail?benchPartName(b,fail):null,chain,steps};
+    if(f!=="top"&&failJ!=null&&(weakest==null||failJ<faces[weakest].failJ))weakest=f;}
+  return{id:"impact",faces,weakest,maxJ:BENCH.impactMaxJ*M.mass};}
+
+function benchGauge(x){const b=asBuild(x),M=classMult(b.cls),tol=WEDGE_RULES.tolMm*M.edge,e=b.height.frontEdgeMm;
+  const rows=(WEDGE_GAUGES[b.cls]||[]).map(mm=>({mm,under:mm<e-tol,youUnder:e<mm-tol}));
+  return{id:"gauge",edgeMm:e,tolMm:tol,rows,under:rows.filter(q=>q.under).length,youUnder:rows.filter(q=>q.youUnder).length};}
+
+function benchEndurance(x){const b=asBuild(x),P=b.power,h=b.heat,dt=0.25,cyc=BENCH.cycleS,dOn=K.driveDuty*cyc,
+    w0=BENCH.weaponFrom*cyc,w1=w0+K.weaponDuty*cyc,hasW=!!h.weapon&&P.weaponW>0,trace=[[0,1,0,0]];
+  let bat=P.batteryWs,t=0,qd=0,qw=0,dDer=false,wDer=false,dAt=null,wAt=null,peakD=0,peakW=0,derS=0,n=0;
+  const grp=(q,on,full,g,der)=>Math.max(0,q+(g.rateW*(full>0?on/full:0)-g.coolW)*dt);
+  while(bat>0&&t<BENCH.enduranceMaxS){const ph=t%cyc;
+    let dW=ph<dOn?P.driveW*(dDer?BENCH.derate:1):0,wW=hasW&&ph>=w0&&ph<w1?P.weaponW*(wDer?BENCH.derate:1):0;
+    const want=dW+wW+P.idleW,s=want>P.capW&&want>0?P.capW/want:1;dW*=s;wW*=s;
+    bat-=(dW+wW+P.idleW*s)*dt;
+    qd=grp(qd,dW,P.driveW,h.drive);if(!dDer&&qd>=h.drive.budgetJ){dDer=true;if(dAt==null)dAt=t;}else if(dDer&&qd<=BENCH.recoverAt*h.drive.budgetJ)dDer=false;
+    if(hasW){qw=grp(qw,wW,P.weaponW,h.weapon);if(!wDer&&qw>=h.weapon.budgetJ){wDer=true;if(wAt==null)wAt=t;}else if(wDer&&qw<=BENCH.recoverAt*h.weapon.budgetJ)wDer=false;}
+    if(dDer||wDer)derS+=dt;
+    const fd=h.drive.budgetJ>0?qd/h.drive.budgetJ:0,fw=hasW&&h.weapon.budgetJ>0?qw/h.weapon.budgetJ:0;if(fd>peakD)peakD=fd;if(fw>peakW)peakW=fw;
+    t+=dt;if(++n%4===0)trace.push([t,Math.max(0,bat)/P.batteryWs,fd,fw]);}
+  return{id:"endurance",runtimeS:bat<=0?t:null,ranS:t,driveDerateS:dAt,weaponDerateS:hasW?wAt:null,derateS:dAt==null?wAt:wAt==null?dAt:Math.min(dAt,wAt),
+    hotPart:wAt!=null&&(dAt==null||wAt<dAt)?"weapon":"drive",deratedS:derS,peakDrive:peakD,peakWeapon:hasW?peakW:null,hasWeapon:hasW,
+    predicted:{runtimeS:b.runtimeS,derateS:b.heat.fightDerateS},trace};}
+
+function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len,E=b.massKg*K.g*hM*BENCH.dropShare;
+  const alive=(st,k)=>!(k in st.parts)||st.parts[k]>0;
+  const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
+    return side(-1)&&side(1)&&alive(st,"battery")&&alive(st,"electronics");};
+  const skid=b.cfg.extras.indexOf("skid")>=0?part("extras","skid").underAbsorbJ*M.mass:0;
+  const up=damageState(b),upParts=[];let rest=Math.max(0,E-skid);const ins=b.parts.filter(p=>p.hpJ>0),tot=ins.reduce((a,p)=>a+p.massKg,0)||1;
+  for(const p of ins){const d=Math.min(rest*p.massKg/tot,up.parts[p.key]);if(d<=0)continue;up.parts[p.key]-=d;
+    upParts.push({key:p.key,name:benchPartName(b,p.key),dmg:d,frac:d/p.hpJ,destroyed:up.parts[p.key]<=1e-9});}
+  const inv=damageState(b),hit=hitFace(b,"top",E,inv);
+  const righter=b.cfg.extras.indexOf("selfright")>=0?alive(inv,"selfright"):b.height.selfRight&&alive(inv,"weapon");
+  const invDrive=canDrive(inv);
+  const outcome=b.height.drivesInverted&&invDrive?"drives":b.height.selfRight&&righter&&invDrive?"rights":"stuck";
+  return{id:"drop",heightM:hM,energyJ:E,skidJ:Math.min(E,skid),
+    upright:{parts:upParts,canDrive:canDrive(up),worst:upParts.reduce((a,p)=>p.frac>(a?a.frac:0)?p:a,null)},
+    inverted:{hit,parts:hit.parts.map(p=>({key:p.key,name:benchPartName(b,p.key),dmg:p.dmg,destroyed:p.destroyed})),canDrive:invDrive,righter,outcome}};}
+
+const BENCH_RUN={drive:benchDrive,weapon:benchWeapon,impact:benchImpact,gauge:benchGauge,endurance:benchEndurance,drop:benchDrop};
+/* run one test by id on a build (or cfg); runBench(x) runs all six: {drive, weapon, impact, gauge, endurance, drop} */
+function runBench(x,id){const b=asBuild(x);if(id)return BENCH_RUN[id]?BENCH_RUN[id](b):null;
+  const out={};for(const t of BENCH_TESTS)out[t.id]=BENCH_RUN[t.id](b);return out;}
 /* ---- fight.js: runFight({bots, arena, seed, rules}), the N-body fight at a fixed 60 Hz step. 2D rigid bodies with a
    cheap height axis (z, vz, inverted), WEDGE_RULES, drive, weapon state, collisions and hits, round ends, the fight log
    with the player's recorded inputs. Every bot reads {throttle, steer, weapon, selfRight} each step. PR 4a (plan 7a). ---- */
 const STEP_HZ=60;
-const WEDGE_RULES={};
+/* WEDGE_RULES: who gets under whom on front-to-front contact. tolMm (beetle scale, x edge in other classes): the lower edge
+   must beat the other by more than this; within it, it's a tie (edge material and skid plates decide, PR 4a). The bench's
+   wedge gauge (PR 3) already reads tolMm. */
+const WEDGE_RULES={tolMm:0.3};
 /* ---- damage.js: hits on faces (absorb, armour hp, then the most exposed part behind it), part failures and their
-   effects, self-damage to discs and shafts, and each part's end state: intact, damaged or destroyed. PR 4a (plan 7b). ---- */
+   effects, self-damage to discs and shafts, and each part's end state: intact, damaged or destroyed. Plan 7b.
+   PR 3 brings the first half, which the bench's impact and drop tests use: damageState(b) (every plate's and part's hp
+   left, fresh), hitOrder(b, face) (the parts behind a face, most exposed first) and hitFace(b, face, E, st). PR 4a adds
+   glancing hits, failure effects and self-damage on top. ---- */
 const PART_STATES=["intact","damaged","destroyed"];
+const DAMAGE={
+  passOn:0.7,      // a destroyed part passes this share of what was left of the hit on to the next part behind it
+  frontLead:1.1    // a weapon or bar with no cells (a wedge plate) sits in front of everything behind the front face
+};
+/* hp left on every armour plate and part, as fitted: {armour:{face:J}, parts:{key:J}} */
+function damageState(b){const st={armour:{},parts:{}};
+  for(const f of FACES)st.armour[f]=b.armourMapJ[f].hpJ;
+  for(const p of b.parts)st.parts[p.key]=p.hpJ;
+  return st;}
+/* the parts a hit on this face reaches once the plate is gone, most exposed first. A part's score is 1 / (1 + d)^2, d its
+   distance in footprint cells from that face; the wheels on a side score their own exposure (they stand proud, but a pod
+   right on the edge is hit first); from the top, every part scores its exposure. */
+function hitOrder(b,face){const c=CLASSES[b.cls],fp=c.fp,out=[];
+  for(const p of b.parts){if(!(p.hpJ>0))continue;let s=null;
+    if(p.slot==="wheels"){if((face==="left"&&p.pos[0]<0)||(face==="right"&&p.pos[0]>0))s=p.exposure;}
+    else if(!p.cells.length){if(face==="front"&&(p.slot==="weapon"||p.key==="bar"))s=DAMAGE.frontLead+(p.key==="bar"?0.01:0);}
+    else if(face==="top")s=p.exposure;
+    else{let d=1e9;for(const q of p.cells){const v=face==="front"?q[1]:face==="back"?c.gridH-1-q[1]:face==="left"?q[0]:c.gridW-1-q[0];if(v<d)d=v;}
+      d=Math.floor(d/fp);s=1/((1+d)*(1+d));}
+    if(s!=null)out.push({key:p.key,slot:p.slot,score:s,exposure:p.exposure});}
+  return out.sort((a,b)=>b.score-a.score||b.exposure-a.exposure||(a.key<b.key?-1:1));}
+/* one square hit of E joules on a face (no glancing: the plate's deflect is the fight's business). The plate's absorb
+   eats energy first, the rest damages the plate; once the plate is gone the rest reaches the most exposed part behind it,
+   and a part that is destroyed passes DAMAGE.passOn of what is left on to the next. st (damageState) is changed in
+   place; leave it out for a fresh bot. Returns {face, E, absorbed, plate, plateBroken, parts:[{key, slot, dmg, left,
+   destroyed}], through} (through: what nothing stopped, into the chassis). */
+function hitFace(b,face,E,st){st=st||damageState(b);const A=b.armourMapJ[face];
+  const out={face,E,absorbed:0,plate:0,plateBroken:false,parts:[],through:0};let rest=E;
+  if(st.armour[face]>0){const ab=Math.min(rest,A.absorbJ);rest-=ab;out.absorbed=ab;
+    const d=Math.min(rest,st.armour[face]);st.armour[face]-=d;rest-=d;out.plate=d;
+    if(st.armour[face]<=1e-9){st.armour[face]=0;out.plateBroken=rest>0||d>0;}}
+  if(rest>1e-9)for(const h of hitOrder(b,face)){const left=st.parts[h.key];if(!(left>0))continue;
+    const d=Math.min(rest,left);st.parts[h.key]=left-d;rest-=d;const dead=st.parts[h.key]<=1e-9;if(dead)st.parts[h.key]=0;
+    out.parts.push({key:h.key,slot:h.slot,dmg:d,left:st.parts[h.key],destroyed:dead});
+    if(!dead||rest<=1e-9){rest=dead?rest:0;break;}rest*=DAMAGE.passOn;}
+  out.through=rest>1e-9?rest:0;
+  return out;}
 /* ---- ai.js: the AI drivers. PR 4a ships rush and keep-away; PR 4b adds AI_STYLES (aggressive, cautious, counter,
    box-rush, hazard-pusher, opportunist). Each driver has a skill 0..1 and draws only from the fight's seeded generator. ---- */
 const AI_STYLES={};
@@ -911,7 +1120,7 @@ const JUDGE_WEIGHTS={damage:.5,aggression:.25,control:.25};
    driver skill, a style and a one-line personality. About 15 in PR 4b, growing as content. Then the SCRAP_SIM export
    object. ---- */
 const OPPONENTS=[];
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DEFAULT_CFG,TEST_BUILDS,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,COMBOS,stressReport,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DEFAULT_CFG,TEST_BUILDS,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,runBench,benchPartName,STEP_HZ,WEDGE_RULES,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
@@ -1117,7 +1326,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.2.1";
+const VERSION="0.1.3.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -1157,11 +1366,11 @@ const SPONSORS=[];          // paint and a placing target (PR 8)
 const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=2;
+const SAVE_V=3;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle"};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   career:null,                    // {year, week, act, money, loan, hours, driverXp, rep, events, results} from PR 7
-  bots:{},                        // {<classId>: {cfg, damage, draft}}: the fitted bot per class (cfg null until first fitted) and the Build tab's unfitted edits
+  bots:{},                        // {<classId>: {cfg, damage, draft, bench}}: the fitted bot per class (cfg null until first fitted), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},
   staff:[],sponsors:[],rivals:{}, // PR 7 / PR 8
@@ -1173,7 +1382,8 @@ const ST=()=>S.settings;
 const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 /* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
 const MIGRATE={
-  1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;}   // 0.1.2.0: the Build tab remembers its class
+  1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;},   // 0.1.2.0: the Build tab remembers its class
+  2:o=>o   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
@@ -1644,6 +1854,9 @@ function bSet(mut,why){const before=bEval(),c=bTry(mut),r=SIM.evalBuild(c);
 function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft))b.cfg.layout=clone(b.draft.layout);}
 const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
 
+/* the stress report: with measured numbers from the bench when the draft is the fitted, tested bot (app/bench.js) */
+function bStress(){const r=bEval(),m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m?SIM.stressReport(r,m):r.stress;}
+
 /* ---- delta lines: what an option would change, against the draft ---- */
 function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   if(r.totalG>r.limitG)return`<i class="dn">${fmtG(r.totalG-r.limitG)} over</i>`;
@@ -1699,8 +1912,8 @@ const B_SECS=[
         return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
   {id:"layout",t:"Layout & side profile",sum:()=>{const r=bEval();return`COM ${Math.round(r.com.x*1000)}, ${Math.round(r.com.y*1000)} mm`;},
     body:()=>bLayout()+bProfile()},
-  {id:"stress",t:"Stress report",sum:()=>{const s=bEval().stress,n=k=>s.filter(x=>x.sev===k).length,b=n("bad"),w=n("warn");return b?`${b} bad${w?`, ${w} weak`:""}`:w?`${w} weak`:"nothing serious";},
-    body:()=>{const s=bEval().stress;return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>`;}},
+  {id:"stress",t:"Stress report",sum:()=>{const s=bStress(),n=k=>s.filter(x=>x.sev===k).length,b=n("bad"),w=n("warn");return b?`${b} bad${w?`, ${w} weak`:""}`:w?`${w} weak`:"nothing serious";},
+    body:()=>{const s=bStress();return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>`;}},
   {id:"designs",t:"Designs",sum:()=>{const n=bDesigns().length;return n?`${n} saved`:"none saved";},body:()=>bDesignsBody()}
 ];
 /* the fitted bot's part in a slot (for the "fitted" tag) */
@@ -1801,7 +2014,7 @@ function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const bill=SIM.f
     <div class="row"><button type="button" class="btn pri" data-act="fit-ok">${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=S.career;
   if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}c.money-=bill.cost;}
-  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);}
+  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);if(curTab==="bench"&&TAB_RENDER.bench)TAB_RENDER.bench();}
 
 /* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
    are part keys (sim/build.js parts: drive0, wheel1, battery, weapon, selfright ...) or armour_<face> for a plate. */
@@ -1847,6 +2060,8 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
   if(p){B.sel=B.sel===p.dataset.part?null:p.dataset.part;bRender();return;}   // tapping a part picks it (or another one)
   if(B.sel){const c=bCellAt(e);if(c)bPlace(B.sel,c[0],c[1]);}}
 
+/* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
+document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
 TAB_RENDER.build=function(){
   if(!bRender.bound){bRender.bound=true;const tb=$("tab-build");
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});
@@ -1855,13 +2070,176 @@ TAB_RENDER.build=function(){
     tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}});
     $("bxRaw").addEventListener("toggle",bRender);
     if(/[?&]sim=1(&|$)/.test(location.search)){$("bxRaw").hidden=false;$("bxRaw").open=true;}
-    document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});}
+}
   bRender();};
 /* ===================== app/bench.js: the Bench tab =====================
-   The six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop), each with a small canvas readout;
-   the full suite costs workshop hours, drive and weapon tests are free. Results feed the stress report. Arrives in PR 3
-   (plan section 6). */
-TAB_RENDER.bench=function(){};
+   Prove the bot before it fights (docs/SCRAPLINE-PLAN.md section 6). The bench tests the FITTED bot of the class on the
+   Build tab, not the draft (Kelbo, PR 3): before anything is fitted it offers to fit the draft, and it says when the draft
+   has changes that aren't fitted yet. The rig is safe: nothing a test breaks stays broken.
+   - Six tests (SIM.BENCH_TESTS, sim/bench.js): drive and weapon are free and instant; impact, wedge gauge, endurance and
+     drop cost workshop hours (charged once the career exists, PR 7; free until then). "Run all six" runs the lot.
+   - Each test card draws a small canvas readout (a trace or bars) and the measured numbers in words.
+   - Which tests have run is kept per class in S.bots[cls].bench = {sig, done:[ids]}; sig is the fitted cfg, so refitting
+     or moving a part makes the results stale ("run them again"). Results are worked out again from the cfg (the sim is
+     deterministic), never stored.
+   - benchMeasured(cls, cfg) hands the results to the Build tab, whose stress report then uses measured numbers (tagged
+     "Bench") wherever the draft is the tested bot. */
+const BN={anim:{},open:{}};
+const BN_DESC={
+  drive:"A short straight and a spin on the spot: top speed, time over the track, pull to one side.",
+  weapon:"Spin-up, stored energy and a hit on a fixed anvil; flippers and lifters against test masses; hammers, crushers and rams by their energy.",
+  impact:"A swinging mass hits each face harder and harder until something behind it breaks: when the plate gives and which part dies first.",
+  gauge:"Feeler gauges at the edge heights common in this class, slid under your front edge.",
+  endurance:"Fight-pace bursts of drive and weapon until the battery is flat: runtime, heat, and when the motors back off.",
+  drop:"Dropped from a big flipper throw, landing on its wheels and upside down: what breaks, and whether it can carry on."
+};
+const bnSig=cfg=>JSON.stringify(SIM.normCfg(cfg));
+let bnCache={sig:"",b:null,res:{}};
+function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:SIM.evalBuild(cfg),res:{}};return bnCache;}
+function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
+/* the tests that have run on this bot as it is fitted now ([] if none, or if it has changed since) */
+function bnDone(bot){const r=bot&&bot.bench;return bot&&bot.cfg&&r&&typeof r==="object"&&Array.isArray(r.done)&&r.sig===bnSig(bot.cfg)?r.done.filter(id=>SIM.BENCH_TESTS.some(t=>t.id===id)):[];}
+/* measured results for the Build tab: only when cfg (the draft) is the fitted, tested bot */
+function benchMeasured(cls,cfg){const bot=S.bots[cls];if(!bot||!bot.cfg||!cfg||bnSig(bot.cfg)!==bnSig(cfg))return null;
+  const done=bnDone(bot);if(!done.length)return null;const m={};for(const id of done)m[id]=bnResult(bot.cfg,id);return m;}
+function bnHours(ids){const M=SIM.classMult(bCls());return Math.round(ids.reduce((a,id)=>a+(SIM.BENCH_TESTS.find(t=>t.id===id)||{hours:0}).hours,0)*M.hours*10)/10;}
+
+/* ---- running ---- */
+function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=S.career;
+  if(c&&h>0){if((c.hours||0)<h){toast(`That takes ${h} h in the workshop; you have ${c.hours||0} h this week`);return;}c.hours-=h;}
+  const was=bnDone(bot),done=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>was.indexOf(id)>=0||ids.indexOf(id)>=0);
+  bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids){BN.anim[id]=now;BN.open[id]=true;}
+  save();hud();bnRender();buzz(12);
+  toast(ids.length>1?`All six tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
+
+/* ---- the words under each canvas ---- */
+const bn1=v=>(Math.round(v*10)/10).toLocaleString("en-GB"),bn0=v=>Math.round(v).toLocaleString("en-GB");
+const rd=s=>`<b class="readout">${s}</b>`;
+function bnPartList(l){return l.map(p=>esc(p.name)).join(", ");}
+const BN_TEXT={
+  drive:(r,b)=>{const M=SIM.classMult(b.cls),straight=Math.abs(r.driftMm)<4*M.len;
+    return[`Top speed ${rd(bn1(r.topSpeed)+" m/s")} <small>(predicted ${bn1(r.predicted)})</small>`,
+      r.timeS!=null?`${bn1(r.trackM)} m in ${rd(bn1(r.timeS)+" s")}`:`<span class="broke">Doesn't move</span>`,
+      straight?"Runs straight":`Pulls ${r.driftMm<0?"left":"right"} ${rd(bn0(Math.abs(r.driftMm))+" mm")} over the track`,
+      r.spinS!=null?`Spins on the spot in ${rd(bn1(r.spinS)+" s")} (${bn0(r.turnDegS)}°/s)`:"Can't spin on the spot",
+      `Push ${rd(bn0(r.pushN)+" N")}`];},
+  weapon:(r,b)=>{if(r.kind==="spin")return[`Full speed ${rd(bn0(r.rpm)+" rpm")} in ${rd(bn1(r.spinUpS)+" s")} <small>(predicted ${bn1(r.predicted)})</small>, 90% in ${bn1(r.t90)} s`,
+      `Stores ${rd(bn0(r.storedJ)+" J")}, tip speed ${bn0(r.tipSpeed)} m/s`,
+      `Anvil hit: ${rd(bn0(r.hitJ)+" J")} lands, the disc drops to ${bn0(r.rpmAfter)} rpm and is back to 90% in ${bn1(r.recoverS)} s`,
+      `Recoil throws you back ${rd(bn0(r.recoilMm)+" mm")}`,
+      r.storedJ>r.shearJ?`<span class="broke">At full speed the shaft shears (above ${bn0(r.shearJ)} J)</span>`:r.storedJ>r.bendJ?`<span class="worn">A full-speed hit bends the disc (above ${bn0(r.bendJ)} J)</span>`:`<span class="ok">Disc and shaft take a full-speed hit</span>`];
+    if(r.kind==="flip"||r.kind==="lift")return r.rows.map(q=>`${bn1(q.kg)} kg: ${q.lifts?(r.kind==="flip"?`thrown ${rd(bn1(q.heightM)+" m")}`:`lifted ${rd(bn0(q.heightM*1000)+" mm")}`):'<span class="broke">stays down</span>'}`)
+      .concat(r.kind==="flip"?[`${r.shots} shots, ${bn1(r.rechargeS)} s to recharge`]:[`Lifts up to ${rd(bn1(r.canLiftKg)+" kg")}`]);
+    if(r.kind==="hammer")return[`Strike ${rd(bn0(r.energyJ)+" J")}, ${bn1(r.swingS)} s a swing`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}`];
+    if(r.kind==="crush")return[`Crush force ${rd(bn0(r.forceN)+" N")}, ${rd(bn0(r.energyJ)+" J")} a bite`];
+    return[`No powered weapon: rams at ${rd(bn0(r.ramJ)+" J")} at top speed`,`Push ${rd(bn0(r.pushN)+" N")}, front edge ${bn1(r.edgeMm)} mm`];},
+  impact:(r,b)=>["front","back","left","right","top"].map(f=>{const x=r.faces[f],w=f===r.weakest;
+    return`${w?'<b class="broke">':"<b>"}${FACE_LBL[f]}</b> <small>(${esc(x.armour)})</small>: ${x.plateJ>0?`plate gives at ${rd(bn0(x.plateJ)+" J")}, `:x.hpJ>0?"":"no plate, "}${x.failJ!=null?`${esc(x.failName)} dies at ${rd(bn0(x.failJ)+" J")}`:`nothing breaks up to ${bn0(r.maxJ)} J`}${w?' <span class="broke">· weakest</span>':""}`;}),
+  gauge:(r,b)=>{const mm=l=>l.map(q=>bn1(q.mm)).join(", ")+" mm";const u=r.rows.filter(q=>q.under),y=r.rows.filter(q=>q.youUnder),t=r.rows.filter(q=>!q.under&&!q.youUnder);
+    return[`Front edge ${rd(bn1(r.edgeMm)+" mm")}`,
+      u.length?`<span class="${u.length>r.rows.length/2?"broke":"worn"}">${u.length} of ${r.rows.length} get under you</span> (${mm(u)})`:'<span class="ok">Nothing gets under you</span>',
+      y.length?`You get under ${y.length} (${mm(y)})`:"You get under none of them",
+      t.length?`Too close to call: ${mm(t)} (edge material and skid plates decide)`:""].filter(Boolean);},
+  endurance:(r,b)=>{const der=(s,what)=>s==null?`${what} never backs off`:`<span class="${s<90?"broke":"worn"}">${what} overheats at ${bn0(s)} s</span>`;
+    return[r.runtimeS!=null?`Runs ${rd(bn0(r.runtimeS)+" s")} at fight pace <small>(predicted ${isFinite(r.predicted.runtimeS)?bn0(r.predicted.runtimeS):"–"})</small>${r.runtimeS<90?' <span class="broke">· flat before the bell</span>':""}`:`Still going after ${rd(bn0(r.ranS)+" s")}`,
+      der(r.driveDerateS,"Drive"),r.hasWeapon?der(r.weaponDerateS,"Weapon motor"):"",
+      `Hottest: drive ${bn0(r.peakDrive*100)}%${r.hasWeapon?`, weapon ${bn0(r.peakWeapon*100)}%`:""} of what they can soak`].filter(Boolean);},
+  drop:(r,b)=>{const up=r.upright,inv=r.inverted,dead=up.parts.filter(p=>p.destroyed);
+    return[`Dropped ${rd(bn1(r.heightM)+" m")}: ${rd(bn0(r.energyJ)+" J")} into the bot${r.skidJ?`, the skid plate takes ${bn0(r.skidJ)} J`:""}`,
+      `On its wheels: ${up.canDrive?'<span class="ok">drives away</span>':'<span class="broke">can\'t drive</span>'}${dead.length?` · ${bnPartList(dead)} destroyed`:up.worst&&up.worst.frac>0.01?` · worst: ${esc(up.worst.name)} at ${bn0(up.worst.frac*100)}%`:" · not a scratch"}`,
+      `Upside down: ${inv.outcome==="drives"?'<span class="ok">drives away inverted</span>':inv.outcome==="rights"?'<span class="ok">puts itself back</span>':'<span class="broke">stuck: that\'s a knockout</span>'}${inv.parts.some(p=>p.destroyed)?` · ${bnPartList(inv.parts.filter(p=>p.destroyed))} destroyed`:""}`];}
+};
+const BN_ARIA={drive:r=>`Speed over time, reaching ${bn1(r.topSpeed)} m/s`,impact:r=>`Energy each face takes before a part breaks; weakest ${r.weakest?FACE_LBL[r.weakest].toLowerCase():"none"}`,
+  gauge:r=>`${r.under} of ${r.rows.length} gauges get under the ${bn1(r.edgeMm)} mm edge`,endurance:r=>`Battery and motor heat over ${bn0(r.ranS)} seconds`,
+  drop:r=>`Damage from the drop, on its wheels and upside down`,weapon:r=>r.kind==="spin"?`Disc speed over time, full in ${bn1(r.spinUpS)} s`:`${r.name} test`};
+
+/* ---- canvas readouts ---- */
+const BN_KEY={   // the key under a chart: [colour token, words]
+  impact:()=>[["--lilac","the plate takes it"],["--warn","parts take damage"],["--crit-t","a part dies"]],
+  endurance:r=>[["--lilac","battery"],["--warn","drive heat"]].concat(r.hasWeapon?[["--crit-t","weapon heat"]]:[]),
+  gauge:()=>[["--crit-t","gets under you"],["--good","you get under"],["--warn","too close"]]};
+const bnCol=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||"#888";
+function bnFrame(g,w,h,o){const L=14,R=10,T=10,B=20,X=x=>L+(w-L-R)*x/o.xmax,Y=y=>h-B-(h-T-B)*y/o.ymax;
+  g.strokeStyle=bnCol("--rule");g.lineWidth=1;g.beginPath();g.moveTo(L,T);g.lineTo(L,h-B);g.lineTo(w-R,h-B);g.stroke();
+  g.fillStyle=bnCol("--muted");g.font="10px "+(bnCol("--mono")||"monospace");g.textBaseline="middle";g.textAlign="right";
+  g.textAlign="left";g.textBaseline="top";g.fillText(o.ytop,L+4,T);g.textAlign="right";g.fillText("0",L-3,h-B-10);
+  g.fillText(o.xr,w-R,h-B+4);g.textAlign="left";if(o.xl!=="")g.fillText(o.xl||"0",L,h-B+4);
+  return{X,Y,L,R,T,B};}
+function bnLine(g,F,pts,p,col,wd){const n=Math.max(2,Math.ceil(pts.length*p));g.strokeStyle=col;g.lineWidth=wd||2;g.lineJoin="round";g.beginPath();
+  pts.slice(0,n).forEach((q,i)=>i?g.lineTo(F.X(q[0]),F.Y(q[1])):g.moveTo(F.X(q[0]),F.Y(q[1])));g.stroke();}
+function bnHline(g,F,y,col,label,w,left){g.save();g.setLineDash([4,4]);g.strokeStyle=col;g.lineWidth=1;g.beginPath();g.moveTo(F.L,F.Y(y));g.lineTo(w-F.R,F.Y(y));g.stroke();g.restore();
+  if(label){g.fillStyle=col;g.textAlign=left?"left":"right";g.textBaseline="bottom";g.fillText(label,left?F.L+4:w-F.R,F.Y(y)-2);}}
+function bnBars(g,w,h,p,rows,max){   // rows: [{label, parts:[{v, col}], mark, markCol, bold}] horizontal, log or linear done by the caller (0..1)
+  const L=46,R=10,rh=(h-8)/rows.length;g.font="11px "+bnCol("--font");g.textBaseline="middle";
+  rows.forEach((r,i)=>{const y=4+i*rh,bh=Math.min(14,rh*0.6),yc=y+rh/2;g.fillStyle=r.bold?bnCol("--crit-t"):bnCol("--muted");g.textAlign="left";g.fillText(r.label,0,yc);
+    g.fillStyle=bnCol("--card2");g.fillRect(L,yc-bh/2,w-L-R,bh);let x0=0;
+    for(const s of r.parts){const x1=Math.min(1,s.v)*p;if(x1>x0){g.fillStyle=s.col;g.fillRect(L+(w-L-R)*x0,yc-bh/2,(w-L-R)*(x1-x0),bh);x0=x1;}}
+    if(r.mark!=null&&p>=1){g.fillStyle=r.markCol||bnCol("--crit-t");g.fillRect(L+(w-L-R)*Math.min(1,r.mark)-1.5,yc-bh/2-3,3,bh+6);}});}
+const BN_PLOT={
+  drive:(g,w,h,p,r)=>{const tr=r.trace,xm=tr.length?tr[tr.length-1][0]:1,ym=Math.max(r.predicted,r.topSpeed,0.1)*1.15,F=bnFrame(g,w,h,{xmax:xm||1,ymax:ym,ytop:bn1(ym)+" m/s",xr:bn1(xm)+" s"});
+    bnHline(g,F,r.predicted,bnCol("--dim"),"predicted",w);bnLine(g,F,tr.map(q=>[q[0],q[1]]),p,bnCol("--lilac"));},
+  weapon:(g,w,h,p,r)=>{
+    if(r.kind==="spin"){const tr=r.trace,xm=tr[tr.length-1][0]||1,F=bnFrame(g,w,h,{xmax:xm,ymax:1.1,ytop:bn0(r.rpm*1.1/1000)+"k rpm",xr:bn1(xm)+" s"});
+      bnHline(g,F,0.9,bnCol("--dim"),"90%",w);bnLine(g,F,tr,p,bnCol("--lilac"));return;}
+    if(r.kind==="flip"&&r.trace.length){const tr=r.trace,xm=tr[tr.length-1][0]||1,ym=Math.max(...tr.map(q=>q[1]),0.05)*1.15,F=bnFrame(g,w,h,{xmax:xm,ymax:ym,ytop:bn1(ym)+" m",xr:bn1(xm)+" s",xl:`a ${bn1(r.rows[2].kg)} kg bot`});
+      bnLine(g,F,tr,p,bnCol("--lilac"));return;}
+    if(r.kind==="flip"||r.kind==="lift"){const mx=Math.max(...r.rows.map(q=>q.heightM),0.01);
+      bnBars(g,w,h,p,r.rows.map(q=>({label:bn1(q.kg)+" kg",parts:[{v:q.heightM/mx,col:bnCol("--lilac")}],mark:q.lifts?null:0.02})),1);return;}
+    const M=SIM.classMult(bCls()),ref=SIM.BENCH.threatJ*M.mass,mx=Math.max(r.hitJ,ref)*1.2;
+    bnBars(g,w,h,p,[{label:"yours",parts:[{v:r.hitJ/mx,col:bnCol("--lilac")}]},{label:"spinner",parts:[{v:ref/mx,col:bnCol("--dim")}]}],1);},
+  impact:(g,w,h,p,r)=>{const M=SIM.classMult(bCls()),lo=SIM.BENCH.impactStartJ*M.mass,lg=v=>v<=0?0:Math.max(0,Math.log(v/lo)/Math.log(r.maxJ/lo));
+    bnBars(g,w,h,p,["front","back","left","right","top"].map(f=>{const x=r.faces[f];
+      return{label:FACE_LBL[f],bold:f===r.weakest,parts:[{v:lg(x.plateJ||0),col:bnCol("--lilac")},{v:x.failJ!=null?lg(x.failJ):1,col:bnCol("--warn")}],mark:x.failJ!=null?lg(x.failJ):null};}),1);},
+  gauge:(g,w,h,p,r)=>{const ym=Math.max(r.edgeMm,...r.rows.map(q=>q.mm))*1.25,F=bnFrame(g,w,h,{xmax:r.rows.length,ymax:ym,ytop:bn1(ym)+" mm",xr:"",xl:""}),bw=(F.X(1)-F.X(0))*0.55;
+    r.rows.forEach((q,i)=>{const x=F.X(i+0.5),y0=F.Y(0),y1=F.Y(q.mm*p);g.fillStyle=q.under?bnCol("--crit-t"):q.youUnder?bnCol("--good"):bnCol("--warn");g.fillRect(x-bw/2,y1,bw,y0-y1);
+      g.fillStyle=bnCol("--muted");g.textAlign="center";g.textBaseline="top";g.fillText(bn1(q.mm),x,h-F.B+4);});
+    bnHline(g,F,r.edgeMm,bnCol("--ink"),"your edge",w,true);},
+  endurance:(g,w,h,p,r)=>{const tr=r.trace,xm=r.ranS||1,F=bnFrame(g,w,h,{xmax:xm,ymax:1.15,ytop:"100%",xr:bn0(xm)+" s"});
+    bnHline(g,F,1,bnCol("--dim"),"derates",w);bnLine(g,F,tr.map(q=>[q[0],q[1]]),p,bnCol("--lilac"));bnLine(g,F,tr.map(q=>[q[0],Math.min(1.15,q[2])]),p,bnCol("--warn"),1.5);
+    if(r.hasWeapon)bnLine(g,F,tr.map(q=>[q[0],Math.min(1.15,q[3])]),p,bnCol("--crit-t"),1.5);},
+  drop:(g,w,h,p,r)=>{const worst=l=>l.reduce((a,q)=>Math.max(a,q.frac!=null?q.frac:q.destroyed?1:0),0),b=bnBuild(bBot().cfg).b;
+    const invFrac=r.inverted.parts.length?Math.max(...r.inverted.parts.map(q=>{const pp=b.parts.find(x=>x.key===q.key);return pp?q.dmg/pp.hpJ:0;})):0;
+    const col=f=>f>=1?bnCol("--crit-t"):f>0.3?bnCol("--warn"):bnCol("--good");
+    bnBars(g,w,h,p,[{label:"wheels",parts:[{v:Math.max(0.01,worst(r.upright.parts)),col:col(worst(r.upright.parts))}]},{label:"inverted",parts:[{v:Math.max(0.01,invFrac),col:col(invFrac)}]}],1);}
+};
+function bnPlots(){const bot=bBot();if(!bot.cfg)return;
+  for(const cv of document.querySelectorAll("#bnBody canvas[data-plot]")){const id=cv.dataset.plot,r=bnResult(bot.cfg,id),t0=BN.anim[id];delete BN.anim[id];
+    const dpr=Math.min(2,window.devicePixelRatio||1),w=cv.clientWidth||300,h=cv.clientHeight||120;cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+    const g=cv.getContext("2d");if(!g)continue;g.setTransform(dpr,0,0,dpr,0,0);
+    const draw=p=>{g.clearRect(0,0,w,h);try{BN_PLOT[id](g,w,h,p,r);}catch(e){}};
+    if(t0&&!reduced()){const go=now=>{const p=Math.min(1,Math.max(0,(now-t0)/700));draw(p);if(p<1&&cv.isConnected)requestAnimationFrame(go);};requestAnimationFrame(go);}else draw(1);}}
+
+/* ---- the tab ---- */
+function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls],career=S.career;
+  const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-bncls="${id}" class="${id===cls?"on":""}"${id===cls?' aria-pressed="true"':' aria-pressed="false"'}>${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
+  if(!bot.cfg){el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>The bench tests the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+    <div class="row"><button type="button" class="btn pri" data-bn="fit">Fit the draft</button><button type="button" class="btn" data-bn="build">Open Build</button></div></div>`;return;}
+  const b=bnBuild(bot.cfg).b,done=bnDone(bot),stale=bot.bench&&bot.bench.sig&&bot.bench.sig!==bnSig(bot.cfg),wp=SIM.part("weapon",bot.cfg.weapon);
+  const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg));
+  const paid=SIM.BENCH_TESTS.filter(t=>t.hours>0).map(t=>t.id),hAll=bnHours(SIM.BENCH_TESTS.map(t=>t.id));
+  let html=chips+`<div class="card bnbot"><h3>${esc(c.name)} · ${esc(wp?wp.name:"")}</h3><p>${fmtG(b.totalG)} of ${fmtG(b.limitG)} · ${SIM.part("chassis",bot.cfg.chassis).name} · ${done.length} of 6 tests run</p>
+    ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The bench tests what\'s fitted. <button type="button" class="lnk" data-bn="build">Open Build</button></p>':""}
+    ${stale&&!done.length?'<p class="hint worn">The bot has changed since its last tests. Run them again.</p>':""}
+    <div class="row"><button type="button" class="btn pri" data-run="all">Run all six · ${hAll} h</button></div>
+    <p class="hint">Drive and weapon tests are free. ${career?`You have ${career.hours||0} h in the workshop this week.`:"The others take workshop hours, charged once the career starts."}</p></div>`;
+  for(const t of SIM.BENCH_TESTS){const has=done.indexOf(t.id)>=0,h=bnHours([t.id]);
+    html+=`<div class="card bn" data-test="${t.id}"><div class="bnh"><h3>${t.name}</h3><span class="cost">${h?h+" h":"free"}</span><button type="button" class="btn sm${has?" ghost":""}" data-run="${t.id}">${has?"Again":"Run"}</button></div>`;
+    if(has){const r=bnResult(bot.cfg,t.id);
+      html+=`<canvas class="plot" data-plot="${t.id}" role="img" aria-label="${esc(BN_ARIA[t.id](r))}"></canvas>${BN_KEY[t.id]?`<p class="bnkey">${BN_KEY[t.id](r).map(k=>`<span><i style="background:var(${k[0]})"></i>${k[1]}</span>`).join("")}</p>`:""}<ul class="bnk">${BN_TEXT[t.id](r,b).map(s=>`<li>${s}</li>`).join("")}</ul>`;}
+    else html+=`<p class="bnd">${BN_DESC[t.id]}</p>`;
+    html+=`</div>`;}
+  const m=benchMeasured(cls,bot.cfg),st=SIM.stressReport(b,m||{});
+  html+=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
+    <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
+  el.innerHTML=html;bnPlots();}
+function bnClick(e){const t=e.target;let x;
+  if((x=t.closest("[data-run]"))){const id=x.dataset.run;bnRun(id==="all"?SIM.BENCH_TESTS.map(q=>q.id):[id]);return;}
+  if((x=t.closest("[data-bncls]"))){ST().buildCls=x.dataset.bncls;B.sel=null;B.delKey=null;save();bnRender();return;}
+  if((x=t.closest("[data-bn]"))){const a=x.dataset.bn;if(a==="build")showTab("build");else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}}}
+TAB_RENDER.bench=function(){
+  if(!bnRender.bound){bnRender.bound=true;$("tab-bench").addEventListener("click",bnClick);
+    let rt=0;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(curTab==="bench")bnPlots();},200);});}
+  bnRender();};
 /* ===================== app/debugview.js: the 2D fight view =====================
    A plain top-down canvas: arena outline, bot polygons with heading lines, weapon arcs, hit flashes sized by energy, a
    lift / inverted marker, the text log underneath. The Fight tab's first view (PR 4a), then the replay thumbnail and the

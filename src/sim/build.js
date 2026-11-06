@@ -2,7 +2,8 @@
    kg, m, s, J and W. Plan section 4d. It returns, for any cfg (parts.js says the shape):
      valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
      com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
-     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back)
+     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
+     drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
@@ -147,7 +148,7 @@ function evalBuild(cfgIn){
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
   if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=wp.shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega;
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
-    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,radiusM:radM,discKg:discG/1000,
+    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:wp.recoil,
       recoilFactor:clamp(wp.recoil*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite,
       shearJ:wm.hp*wm.shearMult*M.mass,bendJ:wm.hp*M.mass,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
@@ -207,7 +208,10 @@ function evalBuild(cfgIn){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip:wh.grip,
+    limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
+    drive:{f0:F0,v0,tractionN:traction,resistN:resist},
+    power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW:el.idleW*M.power,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
     height,weapon,armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};

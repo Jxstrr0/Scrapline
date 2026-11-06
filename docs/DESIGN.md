@@ -45,6 +45,20 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Layout:** tapping another part switches to it; a drag released off the tab still lands; the "won't fit" message says what is actually wrong.
 - Option buttons that would go over the limit get a dashed border instead of fading their text below readable contrast.
 
+## 0.1.3.0: the bench (PR 3)
+
+- **What it tests:** the fitted bot of the class on the Build tab. Nothing fitted yet: it offers to fit the draft. Draft changes not fitted: it says so. Refit or move a part and the old results go stale.
+- **Six tests,** each with a small chart and the numbers in words:
+  - **Drive:** a 2.4 m straight (longer in bigger classes) and a spin on the spot: top speed reached (against the prediction), time, how far an off-centre COM pulls it, turn rate, push.
+  - **Weapon:** spinners spin up with a real motor curve (less torque at low rpm, a little windage), so the measured spin-up is a touch slower than the prediction; then a hit on a fixed anvil (energy landed, rpm lost, time to recover) and how far the recoil throws you back. Flippers and lifters against four test masses; hammers, crushers and pushers by their energy.
+  - **Impact:** a swinging mass hits each face, harder each swing (15% steps), on a fresh bot each time, until a part behind it dies: when the plate gives, which part dies first and at what energy. The weakest side is marked. This uses the first half of the fight's damage model: the plate's absorb, then its hp, then the most exposed part behind that face, a destroyed part passing 70% of what's left to the next.
+  - **Wedge gauge:** the class's common edge heights slid under your front edge: which get under you, which you get under, which are too close to call (within the wedge tolerance).
+  - **Endurance:** fight-pace bursts of drive and weapon until the battery is flat: runtime, heat in each motor group, when they overheat and back off to half power.
+  - **Drop:** from a big flipper throw, on its wheels and upside down: what's damaged, whether it can still drive, and whether it drives inverted, rights itself or is stuck.
+- **Cost:** drive and weapon tests are free and instant; the impact (2 h), gauge (0.5 h), endurance (1.5 h) and drop (1 h) tests take workshop hours, scaled by class. Nothing is charged before the career. The rig is safe: nothing it breaks stays broken.
+- **The stress report** uses the measured numbers once a test has run (runtime, overheating, spin-up, wedges that get under you), adds the weak side from the impact test and drop failures, and tags those lines "Bench", here and on the Build tab.
+- **Save:** `v` 3. `bots[cls].bench` says which tests have run on the fitted bot; the results themselves are worked out again (the sim is deterministic).
+
 ## Known loose ends
 
 - Save slots exist in the save format but have no UI until PR 7.
