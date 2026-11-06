@@ -74,6 +74,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Bot card | **3D shot plus stats** (Kelbo, PR 9): a render of the fitted bot from the workshop camera, with its name, class, weight against the limit, weapon, top speed, weapon energy and record. A phone without 3D gets the top-down sketch instead. Shared through PEW's `phoSave` |
 | Trophies | **Event wins and titles** (Kelbo, PR 9): a card for every event you win, and a gold one for an act championship or a move up an act. They are kept in the save and shown on a shelf on the Career tab, and each one can be shared |
 | Reduced effects | **A separate Effects setting** (Kelbo, PR 9): Effects Full or Reduced covers sparks, smoke, flying parts and the hit flash. Motion stays camera shake and UI movement |
+| Free assets | **Full and Ultra only** (PR 10): Poly Haven CC0 props (a set per workshop stage and a few round the bigger arenas) and photo textures (floor, bench top, plate, arena floor, tinted to the coded colours), and CC0 recorded clangs from OpenGameArt layered under the synth. Kenney and Freesound turned the download tool away, so they weren't used. Lite loads none of it and is unchanged. Kelbo's Blender models drop into the same pipeline (`tools/pack-model.py`, `PROP_FILES`); hero shells wait for them |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -441,4 +442,4 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
 - [x] PR 8: R&D, team, sponsors, meta waves, rule changes, kit line
 - [x] PR 9: Tutorial, bot card share, settings, polish
-- [ ] PR 10: Blender props and CC0/CC-BY assets on Full/Ultra
+- [x] PR 10: Blender props and CC0/CC-BY assets on Full/Ultra (the free assets and the pipeline; Kelbo's Blender models drop in later)

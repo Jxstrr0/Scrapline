@@ -48,14 +48,15 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
 | `sim/opponents.js` | `OPPONENTS` (15: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
-| `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap |
+| `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap; recorded clangs from `sounds/` layered under it on Full / Ultra (`samples`) |
 | **SCRAP_VIS** (three.js) | |
 | `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, the painted workshop reflection, materials (`makeMats`) |
 | `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
 | `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights), the per-frame draw of the bots, the follow camera, `arenaPick()` |
 | `vis/fx.js` | sparks, flying parts, smoke and camera shake from the sim's fx events |
 | `vis/workshop.js` | the workbench, lights, `rebuild()` per tier, resize, orbit / pinch controls, the frame loop (30 fps cap on Lite) and the fps meter |
-| `vis/api.js` | **the SCRAP_VIS public object** (`init`, `setQuality`, `setBot`, `setRun`, `setView`, `fps`, `_state`), IIFE close, `</script>` |
+| `vis/props.js` | Full / Ultra dressing (PR 10): photo textures on the floor, bench, plate and arena floor (`PROP_TEX`, `PROP_TEX_USE`), glTF props per workshop stage and arena (`PROP_FILES`, `SHOP_SPOTS`, `ARENA_SPOTS`), `propShop`, `propArena`, `propShopSwap`; Lite never calls it |
+| `vis/api.js` | **the SCRAP_VIS public object** (`init`, `setQuality`, `setBot`, `setRun`, `setView`, `setStage`, `fps`, `_state`), IIFE close, `</script>` |
 | **app** | |
 | `app/state.js` | `<script>`, VERSION, `$`, `WORLD`, the career tables (named, filled by later PRs), `S` and `freshState` (the scr-save shape), `save` / `snapshot` / `hydrate` / `migrate` / slots / `applyLoaded` / `loadSlot`, theme, motion and tier helpers, `fmt$`, `hud`, `toast`, the sheet |
 | `app/perf.js` | auto-adjust graphics (`PERF`, `perfPoll`, `perfManual`), `?fps=1` meter |
@@ -76,3 +77,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `html/tail.html` | `</body></html>` (no trailing newline) |
 
 To find code, grep `src/`: `grep -rn "function showTab" src/`.
+
+## Media folders
+
+`models/` (`.glb`), `textures/` (`_diff.jpg` and `_nor.jpg` pairs) and `sounds/` (`.mp3`) sit at the repo root, beside `index.html`, each with a `CREDITS.md` (name, author, licence, URL). They are loaded on Full and Ultra only, and the service worker caches them as they are fetched. Fetch a Poly Haven asset with `python3 tools/get-polyhaven.py model ID models/NAME.glb` or `tex ID textures/NAME --size 512`; pack any other glTF (Kelbo's Blender exports) with `tools/pack-model.py`.
