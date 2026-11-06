@@ -95,6 +95,15 @@ for (const cls of SIM.CLASS_IDS) {
   if (over.valid || over.verdict !== "over") fail("an all-AR500 steel beetle should be over the limit");
   const odd = SIM.evalBuild({ cls: "beetle", weapon: "laser" });
   if (odd.valid || !odd.errors.some((e) => /laser/.test(e))) fail("an unknown part should be reported");
+  /* unknown ids from a damaged save: reported, swapped for the default part, never a crash, and mass and cost agree */
+  for (const bad of [{ armour: { front: "plate9" } }, { battery: "zzz", electronics: "basic" }, { electronics: "zzz" }, { chassis: "zzz" }, { extras: ["jet"] }, { wheels: "mecanum", weapon: "zap" }]) {
+    const cfg = Object.assign({}, SIM.DEFAULT_CFG, bad), lbl = JSON.stringify(bad);
+    let r; try { r = SIM.evalBuild(cfg); } catch (e) { fail(`${lbl}: evalBuild threw ${e.message}`); continue; }
+    if (r.valid || !r.errors.some((e) => /^Unknown/.test(e))) fail(`${lbl}: the unknown id should be reported`);
+    const fixed = SIM.evalBuild(SIM.normCfg(cfg));
+    if (!fixed.valid || Math.abs(fixed.totalG - r.totalG) > 1e-6) fail(`${lbl}: the default part's mass should stand in (${r.totalG} vs ${fixed.totalG})`);
+    if (SIM.fitBill(null, cfg).cost !== r.cost) fail(`${lbl}: fitBill and evalBuild disagree on cost`);
+  }
 }
 
 /* ---- 5. pay on fit: the whole bot from nothing is evalBuild's cost; one change pays for that part only ---- */
@@ -110,6 +119,11 @@ for (const cls of SIM.CLASS_IDS) {
   if (!SIM.sameParts(a, Object.assign({}, a, { layout: { battery: [0, 3] } })) || SIM.sameParts(a, b)) fail("sameParts");
   const w = SIM.fitBill(a, Object.assign({}, a, { weapon: "drum" }));
   if (!w.lines.some((l) => l.slot === "weaponMaterial")) fail("a new weapon should pay for its material");
+  /* taking things off: listed as removed, never as a Th 0 line; with no weapon the material doesn't matter */
+  const off = SIM.fitBill(a, Object.assign({}, a, { weapon: "none", armour: Object.assign({}, a.armour, { back: "none" }) }));
+  if (off.lines.length || off.removed.map((l) => l.slot).sort().join() !== "armour,weapon") fail("taking the weapon and a plate off: " + JSON.stringify(off));
+  const pusher = Object.assign({}, a, { weapon: "none" });
+  if (!SIM.sameParts(pusher, Object.assign({}, pusher, { weaponMaterial: "ti" }))) fail("with no weapon, the material shouldn't count as a change");
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }

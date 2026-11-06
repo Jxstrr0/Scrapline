@@ -37,11 +37,11 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const r3=v=>Math.round(v*1000)/1000;
 
 function evalBuild(cfgIn){
-  const errors=[],cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
-  const pick=(slot,id)=>{const p=part(slot,id);if(p)return p;errors.push("Unknown "+slot+" \""+id+"\"");return part(slot,DEFAULT_CFG[slot]);};
+  const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
+  const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
-  const ex=[];for(const id of cfg.extras){const p=part("extras",id);if(p)ex.push(p);else errors.push("Unknown extra \""+id+"\"");}
+  const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
   /* ---- geometry (mm) ---- */
@@ -59,7 +59,8 @@ function evalBuild(cfgIn){
   addM("chassis","chassis",ch.id,ch.massPerCell*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
 
   /* armour: plate area x thickness x density; the top covers the whole outline */
-  const faceArea={front:(W-2*cut*1000)*H,back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
+  const faceArea={front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
+    back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
   for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000;
@@ -206,7 +207,7 @@ function evalBuild(cfgIn){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
     height,weapon,armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
@@ -217,17 +218,23 @@ function evalBuild(cfgIn){
 /* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
    part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
    material, so it pays for the material too. fitted null (or another class) means the whole bot.
-   Returns {lines:[{slot, face, id, name, cost, hours}], cost, hours}. evalBuild's cost is fitBill(null, cfg).cost. ---- */
+   Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
+   replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
+   fitBill(null, cfg).cost. ---- */
 function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.cls?normCfg(fitted):null,M=classMult(b.cls),lines=[];
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if(!a||a[s]!==b[s])add(s,b[s]);
+  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon))add("weaponMaterial",b.weaponMaterial);
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
-  return{lines,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
+  const removed=[],off=(slot,id,face)=>{const p=part(slot,id);if(p)removed.push({slot,face:face||null,id,name:p.name});};
+  if(a){if(a.weapon!=="none"&&b.weapon==="none")off("weapon",a.weapon);
+    for(const f of FACES)if(a.armour[f]!=="none"&&b.armour[f]==="none")off("armour",a.armour[f],f);
+    for(const e of a.extras)if(b.extras.indexOf(e)<0)off("extras",e);}
+  return{lines,removed,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
 /* the same cfg? (layout aside: moving parts round the chassis is free) */
 function sameParts(a,b){if(!a||!b)return false;a=normCfg(a);b=normCfg(b);if(a.cls!==b.cls)return false;
-  for(const s of PART_SLOTS)if(a[s]!==b[s])return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
+  for(const s of PART_SLOTS)if(a[s]!==b[s]&&!(s==="weaponMaterial"&&a.weapon==="none"&&b.weapon==="none"))return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
   return a.extras.slice().sort().join()===b.extras.slice().sort().join();}
