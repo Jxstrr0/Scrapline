@@ -33,7 +33,7 @@ function openSettings(){
 <div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
 <p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
 <div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
-<div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On","rookie"],["0","Off"]],ST().assists===false?"0":"1")}
+<div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
 <div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>

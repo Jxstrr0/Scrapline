@@ -3,8 +3,9 @@
    SIM.OPPONENTS with its own driver, or a test build), in any arena (the class's own first), one on one or a four-bot
    rumble, or a best of three with a pit window between rounds (app/pit.js: you fix your bot under a 60 s clock with the
    kit you picked; their crew fixes theirs; damage carries from round to round). You drive it yourself (app/controls.js)
-   or hand it to SCRAP_SIM's AI in a style you pick and watch. No stakes and nothing saved: this is the Fight tab before
-   the career exists, and it stays. After the bell: the post-mortem (app/report.js) and Replay, which re-runs the sim
+   or hand it to SCRAP_SIM's AI in a style you pick and watch. No stakes and nothing saved: free practice, before the
+   career and during it (Kelbo, PR 7). A career event's bouts (app/career.js) run here too: ftEvent starts one with the
+   day's damage, the bell hands the result straight to the career, and the pit window after it carries to the next fight. After the bell: the post-mortem (app/report.js) and Replay, which re-runs the sim
    from the log (seed, builds, your recorded inputs) in the same arena view; the scrub bar jumps by re-running the sim
    from the start to that moment (a round is a few thousand steps, a blink), so it works on every tier.
    Fight mode: the 3D view grows to fill the screen (#app.fighting hides the panel and the tab bar) and an overlay (#fov)
@@ -42,21 +43,39 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};ftFrame.done=null;
   ftEnter();ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
-function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;
-  if(F.reason==="stopped"){B.over=true;B.stopped=true;return;}
+function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
+  F.bots.forEach((o,i)=>{B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
+  if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
-  F.bots.forEach((o,i)=>{B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});
-  if(B.wins[0]>=2||B.wins[1]>=2||B.n>=3)B.over=true;}
-function ftBoutWinner(B){return B.wins[0]>B.wins[1]?0:B.wins[1]>B.wins[0]?1:null;}
+  const need=B.need||2,max=B.max||3;if(Object.keys(B.wins).some(t=>B.wins[t]>=need)||B.n>=max)B.over=true;
+  ftEvDone(B,F);}
+/* a career event's bout is over (or stopped): the career records it at once and hands back the bell's banner */
+function ftEvDone(B,F){if(B.over&&B.ev&&!B.reported){B.reported=true;B.banner=B.ev.onDone(B,F);}}
+function ftBoutWinner(B){const a=B.wins[0]||0,b=B.wins[1]||0;return a>b?0:b>a?1:null;}
 /* the pit between rounds: you fix yours (PIT.open), their crew fixes theirs (pitAuto), then the next round */
 function ftPit(){const B=FT.bout,F=FT.F;if(!B||B.over)return;const e=$("fEnd");if(e)e.hidden=true;
   const theirs=pitAuto(F.bots[1].b,B.dmg[1],B.flags[1],B.left[1]);
+  if(!PIT_KITS[B.kit]){B.pits.push({mine:[],lost:null,theirs});ftNextRound();return;}   // an event entered with no kit: nothing to work with
   PIT.open({host:$("fov"),b:F.bots[0].b,dmg:B.dmg[0],flags:B.flags[0],kit:B.kit,left:B.left[0],title:`Pit window · round ${B.n+1} next`,
     onDone:r=>{B.pits.push({mine:r.done,lost:r.lost,theirs});ftNextRound();}});}
-function ftNextRound(){const B=FT.bout;const seed=(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
+function ftNextRound(){const B=FT.bout;const seed=B.ev?B.ev.seedN(B.n):(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
   const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:Object.assign({},B.flags[i])}));
-  ftGo(SIM.newFight({seed,fx:true,arena:ftArena(FT.F.cls),bots}));
+  ftGo(SIM.newFight({seed,fx:true,arena:B.ev?B.ev.arena:ftArena(FT.F.cls),bots}));
   const t=B.pits[B.pits.length-1].theirs;toast(`${FT.F.bots[1].name}'s crew: ${t.length?t.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing to fix"}`);}
+/* ---- career events (app/career.js) ----
+   ftEvent(o): one of your bouts at an event, driven by you. o: {bots (newFight specs, with the day's damage), seed,
+   seedN(n) (round n's seed), arena, bo (1 or 3), teams, kit, left (each bot's kit counts, shared with the day), label,
+   title, onDone(B, F) (records it; returns the bell's banner {t, s, cls, pit}), pit() (the pit window after the bout
+   when you have another fight: {dmg, flags, kit, left, title}, or null)}. */
+function ftEvent(o){const cls=o.bots[0].cfg.cls,bot=bBot(cls);FT.you=true;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;
+  FT.bout={seed:o.seed,bots:o.bots,kit:o.kit,wins:{},n:0,dmg:o.bots.map(b=>clone(b.damage||{})),flags:o.bots.map(b=>Object.assign({},b.flags||{})),left:o.left,pits:[],over:false,need:Math.ceil(o.bo/2),max:o.bo,ev:o};
+  ftGo(SIM.newFight({seed:o.seed,fx:true,arena:o.arena,bots:o.bots}));}
+/* a quick-simmed bout's fights, to look at on the Fight tab (results, post-mortem, replay) */
+function ftShowSim(Fs,res,day,nx){FT.rounds=Fs.map(F=>{F.recorded=true;F.ev=true;return{F,log:null};});FT.rv=Fs.length-1;FT.rp=null;FT.sig=bnSig(bBot(day.cls).cfg);
+  FT.bout=nx.bo>1?{wins:res.wins,n:Fs.length,over:true,pits:[],stopped:false}:null;}
+function ftEvPit(){const B=FT.bout,sp=B&&B.ev&&B.ev.pit(),F=FT.F;if(!sp){ftEvBack();return;}const e=$("fEnd");if(e)e.hidden=true;
+  PIT.open({host:$("fov"),b:F.bots[0].b,dmg:sp.dmg,flags:sp.flags,kit:sp.kit,left:sp.left,title:sp.title,onDone:()=>{save();ftEvBack();}});}
+function ftEvBack(){ftExit();showTab("career");}
 /* the round shown on the results card */
 const ftShown=()=>FT.rounds[FT.rv]?FT.rounds[FT.rv].F:null;
 /* ---- replay: the same fight again from its log ---- */
@@ -116,7 +135,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
     <div class="fbots" id="fBots">${F.bots.map(o=>`<div class="fbot" data-i="${o.i}"><canvas class="fsil" width="44" height="44" aria-hidden="true"></canvas><div class="fbinfo"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">${esc(o.name)}</b>
       <span class="fbar" title="weapon"><i data-b="w"></i></span><span class="fbar" title="battery"><i data-b="bat"></i></span><span class="fbar" title="heat"><i data-b="heat"></i></span><small data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
-    <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">Stop the fight</button></div></div>
+    <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">${FT.bout&&FT.bout.ev?"Forfeit":"Stop the fight"}</button></div></div>
     <div class="fend" id="fEnd" hidden role="alertdialog" aria-labelledby="fEndT"><b id="fEndT"></b><p id="fEndS"></p><div class="row" id="fEndBtns"></div></div>
     ${FT.rp?`<div class="frp" id="fRp"><button type="button" class="fbtn" data-fv="rpplay" aria-pressed="false">Pause</button>
       <input type="range" id="fRpPos" min="0" max="${FT.rp.steps}" step="15" value="0" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(FT.F.rules.roundS)}</span>
@@ -135,10 +154,12 @@ function ftExit(){FT.on=false;PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=nul
 function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
   if(a==="pause")ftPause(!FT.paused);
   else if(a==="resume")ftPause(false);
-  else if(a==="quit"){if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}ftExit();}
+  else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
+  else if(a==="evpit")ftEvPit();
+  else if(a==="evback")ftEvBack();
   else if(a==="again"){ftExit();ftStart();}
   else if(a==="pit")ftPit();
-  else if(a==="endbout"){if(FT.bout&&!FT.bout.over){FT.bout.over=true;FT.bout.stopped=true;}ftExit();}
+  else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
   else if(a==="rpplay"){if(F.over){ftSeek(0);return;}ftPause(!FT.paused);b.textContent=FT.paused?"Play":"Pause";b.setAttribute("aria-pressed",FT.paused);}
   else if(a==="rpspeed"){const sp=[1,2,0.5],k=(sp.indexOf(FT.rp.speed)+1)%sp.length;FT.rp.speed=sp[k];b.textContent=(sp[k]===0.5?"½":sp[k])+"×";}
@@ -172,10 +193,12 @@ function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),
 function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
-  else if(B&&F.reason!=="stopped"){const sc=`${B.wins[0]}–${B.wins[1]}`,w=ftBoutWinner(B);
+  else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
+    btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
+  else if(B&&F.reason!=="stopped"){const sc=`${B.wins[0]||0}–${B.wins[1]||0}`,w=ftBoutWinner(B);
     if(B.over)r={t:w==null?`Bout drawn ${sc}`:w===0?`You win the bout ${sc}`:`${F.bots[1].name} wins the bout ${sc}`,s:`Round ${B.n}: ${r.t}. ${r.s}`,cls:w==null?"":w===0?"ok":"broke"};
     else{r={t:`Round ${B.n}: ${r.t}`,s:`${r.s} · ${sc} in the bout. Sixty seconds in the pit, then round ${B.n+1}.`,cls:r.cls};
-      btns='<button type="button" class="btn pri" data-fv="pit">To the pit</button><button type="button" class="btn" data-fv="endbout">Stop the bout</button>';}}
+      btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
   $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
   const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
 function ftResult(F){if(F.reason==="stopped")return{t:"Fight stopped",s:"",cls:""};
@@ -257,8 +280,8 @@ function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`;return;}
   {const R0=ftShown()||FT.F;if(R0&&!FT.on&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
   const R=ftShown(),drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon),you=FT.style==="you";
-  el.innerHTML=chips+`<div class="card"><h3>Sparring</h3>
-    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against anyone in the class, in any arena. No stakes: the repair bill is shown, never charged.</p>
+  el.innerHTML=chips+ftEvCard()+`<div class="card"><h3>Sparring</h3>
+    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against anyone in the class, in any arena. No stakes: free practice, fresh every time, and the repair bill is shown, never charged.</p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
     ${ftPicker(cls)}
     <div class="field"><span class="lbl">Format</span>${segHtml("ftMode","ftmode",[["duel","One on one"],["bo3","Best of three","pit between"],["rumble","Rumble","four bots"]],FT.mode)}</div>
@@ -273,11 +296,15 @@ function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls
     ${rpHtml(R)}
     <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`:""}`;
   if(R){ftHud(R);ftLog(R);rpDraw(R);}}
-function ftKitLine(){const k=PIT_KITS[FT.kit],c=SIM.CLASSES[bCls()];return`${esc(k.line)} Free when sparring; ${fmt$(Math.round(k.price*c.prizeScale))} for an event from the career on.`;}
+/* while a career event is on: the way back to it */
+function ftEvCard(){const c=S.career;if(!crOn()||!(c.day||CR.end))return"";const nm=c.day?crEv(c.day.ev).name:CR.end.name;
+  return`<div class="card crback"><h3>${esc(nm)}</h3><p>${c.day?"You're at an event.":"The event is over."} Sparring here is free practice and changes nothing.</p><div class="row"><button type="button" class="btn pri" data-ft="career">Back to the event</button></div></div>`;}
+function ftKitLine(){const k=PIT_KITS[FT.kit],c=SIM.CLASSES[bCls()];return`${esc(k.line)} Free when sparring; ${fmt$(Math.round(k.price*c.prizeScale))} at a career event.`;}
 /* the bout's score, the pit work between rounds, and a chip per round to look at */
 function ftBoutHtml(){const B=FT.bout,n=FT.rounds.length;let h="";
-  if(B&&n){const w=ftBoutWinner(B),opp=FT.rounds[0].F.bots[1].name;
-    h+=`<p class="ftres ${B.over&&!B.stopped?w===0?"ok":w==null?"":"broke":""}">${B.stopped||!B.over?"Bout stopped":w==null?"Bout drawn":w===0?"You win the bout":esc(opp)+" wins the bout"} <span class="readout">${B.wins[0]}–${B.wins[1]}</span></p>`;
+  if(B&&n&&B.banner)h+=`<p class="ftres ${B.banner.cls||""}">${esc(B.banner.t)}</p>`;   // an event bout: the career's own line (rumbles and tag count by team)
+  else if(B&&n){const w=ftBoutWinner(B),opp=FT.rounds[0].F.bots[1].name;
+    h+=`<p class="ftres ${B.over&&!B.stopped?w===0?"ok":w==null?"":"broke":""}">${B.stopped||!B.over?"Bout stopped":w==null?"Bout drawn":w===0?"You win the bout":esc(opp)+" wins the bout"} <span class="readout">${B.wins[0]||0}–${B.wins[1]||0}</span></p>`;
     if(B.pits.length)h+=`<ul class="ftpits">${B.pits.map((p,i)=>`<li>Pit ${i+1}: you ${p.mine.length?p.mine.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"fixed nothing"}${p.lost?` <span class="worn">(the ${PIT_NAMES[p.lost.kind].toLowerCase()} wasn't finished)</span>`:""} · their crew ${p.theirs.length?p.theirs.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing"}</li>`).join("")}</ul>`;}
   if(n>1)h+=`<div class="seg ftrounds" role="group" aria-label="Round">${FT.rounds.map((r,i)=>`<button type="button" data-ftrv="${i}" class="${i===FT.rv?"on":""}" aria-pressed="${i===FT.rv}">Round ${i+1}</button>`).join("")}</div>`;
   return h;}
@@ -296,6 +323,7 @@ function ftClick(e){const t=e.target;let x;
     if(a==="go")ftStart();
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
+    else if(a==="career")showTab("career");
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
   if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;save();ftRender();visBot();return;}

@@ -36,7 +36,7 @@ function benchMeasured(cls,cfg){const bot=S.bots[cls];if(!bot||!bot.cfg||!cfg||b
 function bnHours(ids){const M=SIM.classMult(bCls());return Math.round(ids.reduce((a,id)=>a+(SIM.BENCH_TESTS.find(t=>t.id===id)||{hours:0}).hours,0)*M.hours*10)/10;}
 
 /* ---- running ---- */
-function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=S.career;
+function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=crOn()?S.career:null;
   if(c&&h>0){if((c.hours||0)<h){toast(`That takes ${h} h in the workshop; you have ${c.hours||0} h this week`);return;}c.hours-=h;}
   const was=bnDone(bot),done=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>was.indexOf(id)>=0||ids.indexOf(id)>=0);
   bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids){BN.anim[id]=now;BN.open[id]=true;}
@@ -141,7 +141,7 @@ function bnPlots(){const bot=bBot();if(!bot.cfg)return;
     if(t0&&!reduced()){const go=now=>{const p=Math.min(1,Math.max(0,(now-t0)/700));draw(p);if(p<1&&cv.isConnected)requestAnimationFrame(go);};requestAnimationFrame(go);}else draw(1);}}
 
 /* ---- the tab ---- */
-function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls],career=S.career;
+function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls],career=crOn()?S.career:null;
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-bncls="${id}" class="${id===cls?"on":""}"${id===cls?' aria-pressed="true"':' aria-pressed="false"'}>${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg){el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>The bench tests the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-bn="fit">Fit the draft</button><button type="button" class="btn" data-bn="build">Open Build</button></div></div>`;return;}

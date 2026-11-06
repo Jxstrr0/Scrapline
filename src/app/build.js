@@ -7,8 +7,9 @@
      centre of mass marked; the side profile strip shows clearance and front edge height in mm;
    - designs: named blueprints per class, plus the sim's TEST_BUILDS as starting points.
    Pay on fit, no refund (plan section 1): edits make a draft (S.bots[cls].draft); the Fit bar shows what fitting it costs
-   (SIM.fitBill: every part that differs from the fitted bot, at full price) and Fit charges it once the career exists
-   (PR 7; until then it is free). Going over the weight limit is refused, never fitted. Moving parts on the grid is free.
+   (SIM.fitBill: every part that differs from the fitted bot, at full price) and Fit charges it in the career (money and
+   workshop hours, cut by tools: crFitHours); before the career it is free. In the career a part may need a tool and a
+   class may not be open yet (crFitBlock, app/career.js). Going over the weight limit is refused, never fitted. Moving parts on the grid is free.
    ?sim=1 adds the raw evalBuild() result at the bottom. */
 const B={open:{stress:true},face:"front",sel:null,drag:null,delKey:null};
 const fmtG=g=>Math.abs(g)>=10000?(g/1000).toLocaleString("en-GB",{maximumFractionDigits:1})+" kg":Math.round(g).toLocaleString("en-GB")+" g";
@@ -75,7 +76,9 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
 function bOpts(slot,cur,fittedId,mk,price){const base=bEval(),cls=bCls(),M=SIM.classMult(cls);
   return`<div class="opts">`+SIM.PARTS[slot].map(p=>{const c=bTry(x=>mk(x,p.id)),r=p.id===cur?base:SIM.evalBuild(c),on=p.id===cur;
     const pr=price===false?"":p.cost?fmt$(p.cost*M.cost):"—";
-    return`<button type="button" class="opt${on?" on":""}${r.totalG>r.limitG&&!on?" over":""}" data-slot="${slot}" data-id="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${fittedId===p.id?'<span class="tag">fitted</span>':""}</span><span class="pr">${pr}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,slot)}</small></button>`;}).join("")+`</div>`;}
+    return`<button type="button" class="opt${on?" on":""}${r.totalG>r.limitG&&!on?" over":""}" data-slot="${slot}" data-id="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${fittedId===p.id?'<span class="tag">fitted</span>':""}${bLock(slot,p.id)}</span><span class="pr">${pr}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,slot)}</small></button>`;}).join("")+`</div>`;}
+/* in the career a part may need a tool first: shown on the option, refused at Fit (app/career.js) */
+const bLock=(slot,id)=>{const w=crPartLock(slot,id);return w?`<span class="tag lock">${esc(w)}</span>`:"";};
 const bName=(slot,id)=>{const p=SIM.part(slot,id);return p?p.name:id;};
 
 /* ---- each section: title, a one-line summary, and its body ---- */
@@ -102,7 +105,7 @@ const B_SECS=[
   {id:"extras",t:"Extras",sum:()=>draft().extras.length?draft().extras.map(e=>bName("extras",e).toLowerCase()).join(", "):"none",
     body:()=>{const base=bEval(),M=SIM.classMult(bCls()),f=bBot().cfg;
       return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=SIM.evalBuild(c);
-        return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
+        return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}${bLock("extras",p.id)}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
   {id:"layout",t:"Layout & side profile",sum:()=>{const r=bEval();return`COM ${Math.round(r.com.x*1000)}, ${Math.round(r.com.y*1000)} mm`;},
     body:()=>bLayout()+bProfile()},
   {id:"stress",t:"Stress report",sum:()=>{const s=bStress(),n=k=>s.filter(x=>x.sev===k).length,b=n("bad"),w=n("warn");return b?`${b} bad${w?`, ${w} weak`:""}`:w?`${w} weak`:"nothing serious";},
@@ -196,17 +199,20 @@ function bFitBar(r){const b=bBot(),fb=$("fitBar");
   const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid,n=bill.lines.length,off=bill.removed.length;
   const what=[n?`${n} new part${n===1?"":"s"}`:"",off?`${off} taken off`:""].filter(Boolean).join(", ")||"Parts changed";
   fb.hidden=false;
-  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${ok?`${fmt$(bill.cost)} · ${bill.hours} h in the workshop`:r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok?"":" disabled"}>Fit</button>`;}
+  const blk=ok?crFitBlock(b.draft):null;
+  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${!ok?(r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")):blk?`<span class="worn">${esc(blk)}</span>`:`${fmt$(bill.cost)} · ${crFitHours(bill)} h in the workshop`}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok&&!blk?"":" disabled"}>Fit</button>`;}
 
 /* ---- fit: show the bill, then charge it (once the career exists) ---- */
-function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const bill=SIM.fitBill(b.cfg,b.draft),c=S.career,free=!c;
+function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
+  const bill=SIM.fitBill(b.cfg,b.draft),c=crOn()?S.career:null,free=!c,h=crFitHours(bill);
   const face=l=>l.face?` (${FACE_LBL[l.face].toLowerCase()})`:"";
   openSheet("Fit these parts",`<ul class="bill">${bill.lines.map(l=>`<li><span>${esc(l.name)}${face(l)}</span><span>${fmt$(l.cost)}</span></li>`).join("")}${bill.removed.map(l=>`<li><span>${esc(l.name)}${face(l)} taken off</span><span>—</span></li>`).join("")}
-    <li class="tot"><span>Total · ${bill.hours} h</span><span>${fmt$(bill.cost)}</span></li></ul>
-    <p class="hint">${free?"No charge yet: money starts with the career.":`Paid in full; parts taken off are gone. You have ${fmt$(c.money||0)}.`}</p>
+    <li class="tot"><span>Total · ${h} h</span><span>${fmt$(bill.cost)}</span></li></ul>
+    <p class="hint">${free?"No charge: money starts with the career (Career tab).":`Paid in full; parts taken off are gone. You have ${fmt$(c.money||0)} and ${crR1(c.hours)} h this week.`}</p>
     <div class="row"><button type="button" class="btn pri" data-act="fit-ok">${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
-function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=S.career;
-  if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}c.money-=bill.cost;}
+function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=crOn()?S.career:null,h=crFitHours(bill),blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
+  if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}if(c.hours<h){toast(`That takes ${h} h in the workshop; you have ${crR1(c.hours)} h this week`);return;}
+    crPay(bill.cost,`Fitted: ${SIM.CLASSES[bCls()].name.toLowerCase()}, ${bill.lines.length} part${bill.lines.length===1?"":"s"}`);c.hours=crR1(c.hours-h);}
   bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
 
 /* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
