@@ -402,7 +402,7 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 
 ## Checklist
 
-- [ ] PR 0: Scaffold, tabs, PWA, Settings, world and palette, save safety, CLAUDE.md
+- [x] PR 0: Scaffold, tabs, PWA, Settings, world and palette, save safety, CLAUDE.md
 - [ ] PR 1: Classes, parts tables, layout grid, height profile, heat, build maths, stress report, node tests
 - [ ] PR 2: Build tab: weight bar, layout editor, side profile, deltas, designs
 - [ ] PR 3: Bench tests including wedge gauge and drop test
