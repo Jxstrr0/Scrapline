@@ -9,12 +9,15 @@
      spinner    a disc in the floor that spins and lights while it fires
      crowd      a cheap canvas texture of heads beyond the walls (Full and Ultra only; Lite gets a plain dark backdrop)
      props      lights, crates and the like beyond the walls (Full and Ultra only, vis/props.js)
+     kit        on Full and Ultra the arena kit (models/arena-kit.glb, vis/props.js) swaps in for the coded kerbs, posts,
+                hazards and pit rim once it loads, opens a real hole for the pit and adds stands; AR.kit lists what it swaps
    Camera: tilted top-down (about 55 degrees), following the middle of the bots still in it, pulling back as they spread;
    it shakes on hits (fx.js), never under reduced motion. Lite: flat materials, no shadows. ---- */
-const AR={F:null,g:null,U:4,bots:[],haz:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
+const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
   if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
+  for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
 function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
   g.fillStyle="#141311";g.fillRect(0,0,512,64);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;   // fixed pattern, no Math.random
@@ -22,40 +25,41 @@ function crowdTex(){const c=document.createElement("canvas");c.width=512;c.heigh
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;return t;}
 function buildArena(F){
   arenaClear();const M=V.mats,lite=V.tier==="lite",U=AR.U=4/F.M.len,A=F.arena,H=A.half*U,g=new THREE.Group();
+  const kit=AR.kit={walls:[],posts:[],crowd:[],pit:null,floor:null,grid:null,H};
   const X=x=>x*U,Z=y=>-y*U;   // sim (x, y) to scene (x, z)
   /* floor and grid */
   const fl=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),M.arenaFloor);fl.rotation.x=-Math.PI/2;fl.receiveShadow=!lite;g.add(fl);
-  const step=0.3*4,pts=[];for(let v=-H+step;v<H-1e-6;v+=step){pts.push(v,0.002,-H,v,0.002,H,-H,0.002,v,H,0.002,v);}
-  const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));
-  const gm=new THREE.LineBasicMaterial({color:new THREE.Color(0x3a3833).convertSRGBToLinear()});const grid=new THREE.LineSegments(gg,gm);grid.userData.own=true;g.add(grid);
+  const gm=new THREE.LineBasicMaterial({color:new THREE.Color(0x3a3833).convertSRGBToLinear()});const grid=new THREE.LineSegments(arenaGrid(H,null),gm);grid.userData.own=true;g.add(grid);
+  kit.floor=fl;kit.grid=grid;
   /* the outside floor, so the walls don't float */
-  const out=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);out.rotation.x=-Math.PI/2;out.position.y=-0.01;g.add(out);
+  const out=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);out.rotation.x=-Math.PI/2;out.position.y=-0.01;g.add(out);kit.out=out;
   /* walls: a kerb all round and a glass screen; the camera looks from +z, so that screen is the faint one */
   const kh=0.35,sh=1.1,t=0.15;
   for(const [x,z,w,d,near] of [[0,-H-t/2,2*H+2*t,t,0],[0,H+t/2,2*H+2*t,t,1],[-H-t/2,0,t,2*H,0],[H+t/2,0,t,2*H,0]]){
     const k=new THREE.Mesh(new THREE.BoxGeometry(w,kh,d),M.wall);k.position.set(x,kh/2,z);k.castShadow=!lite;k.receiveShadow=!lite;g.add(k);
+    kit.walls.push({k,x,z,len:Math.max(w,d),along:w>d?"x":"z",near});
     const s=new THREE.Mesh(new THREE.BoxGeometry(w,sh,d*0.3),near?M.glass:M.glass);s.position.set(x,kh+sh/2,z);s.renderOrder=2;if(!near)g.add(s);
     if(near){const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}
     else{const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}}
   /* posts at the corners carry the hazard lights */
   AR.lamps=[];for(const sx of [-1,1])for(const sz of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(0.2,kh+sh+0.2,0.2),M.wall);p.position.set(sx*(H+t/2),(kh+sh+0.2)/2,sz*(H+t/2));g.add(p);
-    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),kh+sh+0.26,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);}
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),kh+sh+0.26,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);kit.posts.push({p,lamp});}
   /* the crowd: Full and Ultra */
   if(!lite){const tex=crowdTex();tex.repeat.set(4,1);const cm=new THREE.MeshBasicMaterial({map:tex,fog:true});cm.userData={};
-    for(const [x,z,ry] of [[0,-H-3,0],[-H-3,0,Math.PI/2],[H+3,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(2*H+6,2.2),cm);c.position.set(x,1.6,z);c.rotation.y=ry;c.userData.own=true;g.add(c);}}
+    for(const [x,z,ry] of [[0,-H-3,0],[-H-3,0,Math.PI/2],[H+3,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(2*H+6,2.2),cm);c.position.set(x,1.6,z);c.rotation.y=ry;c.userData.own=true;g.add(c);kit.crowd.push(c);}}
   /* the pit, under a cover until it opens */
   AR.pitCover=null;if(A.pit){const r=A.pit.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
     const hole=new THREE.Mesh(new THREE.PlaneGeometry(w,d),M.pit);hole.rotation.x=-Math.PI/2;hole.position.set(cx,0.012,cz);g.add(hole);
     const rim=new THREE.Mesh(new THREE.PlaneGeometry(w+0.12,d+0.12),M.hazOn);rim.rotation.x=-Math.PI/2;rim.position.set(cx,0.006,cz);g.add(rim);   // an amber edge round the hole
     const cov=new THREE.Mesh(new THREE.BoxGeometry(w,0.03,d),M.hatch);cov.position.set(cx,0.03,cz);cov.receiveShadow=!lite;g.add(cov);
-    AR.pitCover={m:cov,x0:cx,w};}
+    AR.pitCover={m:cov,x0:cx,w};kit.pit={hole,rim,cx,cz,w,d};}
   /* hazards */
   AR.haz=A.haz.map(h=>{if(h.type==="pusher"){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]);
       const m=new THREE.Mesh(new THREE.BoxGeometry(w,kh*0.9,d),M.haz.clone());m.userData.own=true;m.position.set(X((r[0]+r[2])/2),kh*0.45,Z((r[1]+r[3])/2));m.castShadow=!lite;g.add(m);
-      return{h,m,base:m.position.clone(),n:[h.n[0],-h.n[1]],reach:Math.min(w,d)*0.8};}
+      return{h,m,base:m.position.clone(),n:[h.n[0],-h.n[1]],reach:Math.min(w,d)*0.8,w,d,ht:kh*0.9};}
     const R=h.rM*U,m=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.03,lite?24:40),M.haz.clone());m.userData.own=true;m.position.set(X(h.at[0]),0.016,Z(h.at[1]));g.add(m);
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
-    return{h,m};});
+    return{h,m,R,bar};});
   /* bots */
   AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
     return{o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0};});
@@ -68,6 +72,16 @@ function buildArena(F){
   AR.cam={x:0,z:0,d:H*3,shake:0};
   V.scene.add(g,L);propArena(F);return g;}
 
+/* the floor grid every 30 cm (beetle scale) across the arena; with a hole [x0, z0, x1, z1] (the kit's open pit) the lines
+   stop at its edge instead of crossing the void */
+function arenaGrid(H,hole){const step=0.3*4,pts=[],y=0.002;
+  const seg=(a0,a1,fixed,alongX)=>{const put=(p,q)=>{if(q-p<1e-4)return;if(alongX)pts.push(p,y,fixed,q,y,fixed);else pts.push(fixed,y,p,fixed,y,q);};
+    if(!hole){put(a0,a1);return;}const [h0,h1,f0,f1]=alongX?[hole[0],hole[2],hole[1],hole[3]]:[hole[1],hole[3],hole[0],hole[2]];
+    if(fixed<=f0||fixed>=f1){put(a0,a1);return;}put(a0,Math.max(a0,h0));put(Math.min(a1,h1),a1);};
+  for(let v=-H+step;v<H-1e-6;v+=step){seg(-H,H,v,false);seg(-H,H,v,true);}
+  const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));return gg;}
+/* lamps and hazards: amber while they fire, and glowing on Full and Ultra (Lite keeps the plain colour change) */
+function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.emissive&&V.tier!=="lite")m.emissive.copy(V.mats.hazOn.color).multiplyScalar(on?.7:0);}
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
@@ -96,10 +110,10 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
       if(W.type==="crusher")a=a*0.4;u.arm.rotation.x=a;}}
   /* hazards: lit while they fire; a pusher shoves out, a floor spinner spins */
   let any=false;
-  AR.haz.forEach((z,i)=>{const s=F.hz[i],on=s&&F.t<s.until;any=any||on;z.m.material.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);
+  AR.haz.forEach((z,i)=>{const s=F.hz[i],on=s&&F.t<s.until;any=any||on;hazLit(z.m.material,on);if(z.glow)hazLit(z.glow,on);
     if(z.h.type==="pusher"){const k=on?Math.min(1,(z.h.activeS-(s.until-F.t))/0.08):0;z.m.position.set(z.base.x+z.n[0]*z.reach*k,z.base.y,z.base.z+z.n[1]*z.reach*k);}
     else if(on)z.m.rotation.y+=dt*18;});
-  for(const l of AR.lamps||[])l.material.color.copy(any?V.mats.hazOn.color:V.mats.haz.color);
+  for(const l of AR.lamps||[])hazLit(l.material,any);
   /* the pit cover slides off when it opens */
   if(AR.pitCover){const open=F.arena.pit&&F.t>=F.arena.pit.openS;if(open&&AR.pitOpenAt==null)AR.pitOpenAt=now;
     const k=AR.pitOpenAt==null?0:Math.min(1,(now-AR.pitOpenAt)/600);AR.pitCover.m.position.x=AR.pitCover.x0+AR.pitCover.w*1.05*k;AR.pitCover.m.visible=k<1;}

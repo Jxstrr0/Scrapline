@@ -250,7 +250,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Textures** (`textures/`, Poly Haven CC0, 512 px): the workshop floor, the bench top, the steel plate and the arena floor, each with a normal map. Each one is tinted so its average matches the coded colour, so the scene keeps the Lite palette and gains grain and wear.
 - **Recorded sounds** (`sounds/`, three CC0 packs from OpenGameArt, credited in `sounds/CREDITS.md`): 18 short mp3s (about 120 KB) for hits, big hits, walls, landings, hazards and parts coming off. On Full and Ultra one plays under each synth clang (random variant, pitch and volume by hit energy) and the synth drops to under half; until they decode, the synth plays alone. A part coming off has a sound only with the recordings.
 - **Lite** loads none of it: no models, textures, sounds or GLTFLoader, the same triangles and the same synth as 0.1.10.0. A tier change drops the props and textures.
-- **Not yet:** Kelbo's Blender models (stage interiors, the arena shell and hazards, a trailer, trophies, hero shells). They drop in the same way: pack with `tools/pack-model.py`, add to `PROP_FILES` and the spots, credit as original.
+- **Not yet:** Kelbo's Blender models (stage interiors, the arena shell and hazards (done in 0.1.13.0), a trailer, trophies, hero shells). They drop in the same way: pack with `tools/pack-model.py`, add to `PROP_FILES` and the spots, credit as original.
 - **Saves:** nothing new (no `SAVE_V` change).
 
 ## 0.1.12.0: a balance pass
@@ -284,6 +284,21 @@ Measured with `node tools/fight-test.js all -m` (12 seeds at driver skill 0.5 an
 - **Named opponents** (not held to the target): Zange 86 → 82%, Walzwerk 75 → 69%, Schraubstock 68 → 67%. Zange is the Eisenhalle's top bot with a 0.75-skill driver, so it stays strong; crusher damage turned out not to be what makes it win. Lawine went up, 42 → 62%.
 - **Single-hit knockouts:** 0.6% ant, 0.5% beetle, 2.0% hobby, 3.1% feather, 7.1% heavy (was 3.4%: the harder hammer and the heavier wedge victims). All are inside the plan's targets.
 - **Saves:** nothing new (no `SAVE_V` change). A fitted bot keeps its parts; the new numbers apply from the next fight.
+
+## 0.1.13.0: the arena kit (Blender) and a visual pass
+
+- **The arena kit** (`models/arena-kit.glb`, 185 KB, about 3,900 triangles for every piece): original models, built in Blender 5.2 from a script (`tools/blender-arena-kit.py`, run with `bpy`) and packed like the other props. Full and Ultra only; the coded pieces show until it loads, and stay on Lite.
+  - **Walls:** kerb units with a sloped steel face, bolts and a cap, tiled along each wall; screen uprights along the far and side walls (none on the camera's side, so nothing stands between you and the bots).
+  - **Corner posts** with a base plate, gussets and a caged beacon; the beacons glow amber while a hazard fires.
+  - **Wall rams:** yellow with black diagonal stripes on the top and the face (modelled at the rams' real 1 by 3 shape, so the stripes don't stretch), and a light bar that glows while it fires.
+  - **Floor spinners:** a bolted disc with a toothed bar and a ring that glows while it fires.
+  - **The pit:** a real hole in the floor with a dark well under it, so a bot that drops in is seen to fall; a striped edge round it; the floor grid stops at its edge. The cover slides off as before.
+  - **Stands** with a seated crowd round the back and both sides of the club box, the regional arena and the Eisenhalle (not the test box or the tabletop); the old flat crowd moves back and up to read as the upper seats. The props beyond the walls sit in the gap in front of the stands.
+  - The many kerb, stand and pit-edge clones are merged into one mesh per material when they land, so the kit costs a few draw calls (about 85 in the Eisenhalle on Full).
+- **Ultra's bloom target has a 24-bit depth buffer** (three's default there is 16-bit): thin layers no longer flicker through, which had broken the bots' team stripe into dashes on Ultra.
+- **Lite:** unchanged (the same picture as 0.1.12.0, pixel for pixel, in every arena).
+- **Saves:** nothing new (no `SAVE_V` change).
+- **Still to come from Blender:** the workshop's room for each stage, the trailer, trophies and hero shells. Each is a script like the kit's, or Kelbo's own export, dropped in through `vis/props.js`.
 
 ## Known loose ends
 

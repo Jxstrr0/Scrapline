@@ -2520,12 +2520,15 @@ function buildPlaceholderBot(){
      spinner    a disc in the floor that spins and lights while it fires
      crowd      a cheap canvas texture of heads beyond the walls (Full and Ultra only; Lite gets a plain dark backdrop)
      props      lights, crates and the like beyond the walls (Full and Ultra only, vis/props.js)
+     kit        on Full and Ultra the arena kit (models/arena-kit.glb, vis/props.js) swaps in for the coded kerbs, posts,
+                hazards and pit rim once it loads, opens a real hole for the pit and adds stands; AR.kit lists what it swaps
    Camera: tilted top-down (about 55 degrees), following the middle of the bots still in it, pulling back as they spread;
    it shakes on hits (fx.js), never under reduced motion. Lite: flat materials, no shadows. ---- */
-const AR={F:null,g:null,U:4,bots:[],haz:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
+const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
   if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
+  for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
 function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
   g.fillStyle="#141311";g.fillRect(0,0,512,64);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;   // fixed pattern, no Math.random
@@ -2533,40 +2536,41 @@ function crowdTex(){const c=document.createElement("canvas");c.width=512;c.heigh
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;return t;}
 function buildArena(F){
   arenaClear();const M=V.mats,lite=V.tier==="lite",U=AR.U=4/F.M.len,A=F.arena,H=A.half*U,g=new THREE.Group();
+  const kit=AR.kit={walls:[],posts:[],crowd:[],pit:null,floor:null,grid:null,H};
   const X=x=>x*U,Z=y=>-y*U;   // sim (x, y) to scene (x, z)
   /* floor and grid */
   const fl=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),M.arenaFloor);fl.rotation.x=-Math.PI/2;fl.receiveShadow=!lite;g.add(fl);
-  const step=0.3*4,pts=[];for(let v=-H+step;v<H-1e-6;v+=step){pts.push(v,0.002,-H,v,0.002,H,-H,0.002,v,H,0.002,v);}
-  const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));
-  const gm=new THREE.LineBasicMaterial({color:new THREE.Color(0x3a3833).convertSRGBToLinear()});const grid=new THREE.LineSegments(gg,gm);grid.userData.own=true;g.add(grid);
+  const gm=new THREE.LineBasicMaterial({color:new THREE.Color(0x3a3833).convertSRGBToLinear()});const grid=new THREE.LineSegments(arenaGrid(H,null),gm);grid.userData.own=true;g.add(grid);
+  kit.floor=fl;kit.grid=grid;
   /* the outside floor, so the walls don't float */
-  const out=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);out.rotation.x=-Math.PI/2;out.position.y=-0.01;g.add(out);
+  const out=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);out.rotation.x=-Math.PI/2;out.position.y=-0.01;g.add(out);kit.out=out;
   /* walls: a kerb all round and a glass screen; the camera looks from +z, so that screen is the faint one */
   const kh=0.35,sh=1.1,t=0.15;
   for(const [x,z,w,d,near] of [[0,-H-t/2,2*H+2*t,t,0],[0,H+t/2,2*H+2*t,t,1],[-H-t/2,0,t,2*H,0],[H+t/2,0,t,2*H,0]]){
     const k=new THREE.Mesh(new THREE.BoxGeometry(w,kh,d),M.wall);k.position.set(x,kh/2,z);k.castShadow=!lite;k.receiveShadow=!lite;g.add(k);
+    kit.walls.push({k,x,z,len:Math.max(w,d),along:w>d?"x":"z",near});
     const s=new THREE.Mesh(new THREE.BoxGeometry(w,sh,d*0.3),near?M.glass:M.glass);s.position.set(x,kh+sh/2,z);s.renderOrder=2;if(!near)g.add(s);
     if(near){const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}
     else{const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}}
   /* posts at the corners carry the hazard lights */
   AR.lamps=[];for(const sx of [-1,1])for(const sz of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(0.2,kh+sh+0.2,0.2),M.wall);p.position.set(sx*(H+t/2),(kh+sh+0.2)/2,sz*(H+t/2));g.add(p);
-    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),kh+sh+0.26,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);}
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),kh+sh+0.26,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);kit.posts.push({p,lamp});}
   /* the crowd: Full and Ultra */
   if(!lite){const tex=crowdTex();tex.repeat.set(4,1);const cm=new THREE.MeshBasicMaterial({map:tex,fog:true});cm.userData={};
-    for(const [x,z,ry] of [[0,-H-3,0],[-H-3,0,Math.PI/2],[H+3,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(2*H+6,2.2),cm);c.position.set(x,1.6,z);c.rotation.y=ry;c.userData.own=true;g.add(c);}}
+    for(const [x,z,ry] of [[0,-H-3,0],[-H-3,0,Math.PI/2],[H+3,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(2*H+6,2.2),cm);c.position.set(x,1.6,z);c.rotation.y=ry;c.userData.own=true;g.add(c);kit.crowd.push(c);}}
   /* the pit, under a cover until it opens */
   AR.pitCover=null;if(A.pit){const r=A.pit.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
     const hole=new THREE.Mesh(new THREE.PlaneGeometry(w,d),M.pit);hole.rotation.x=-Math.PI/2;hole.position.set(cx,0.012,cz);g.add(hole);
     const rim=new THREE.Mesh(new THREE.PlaneGeometry(w+0.12,d+0.12),M.hazOn);rim.rotation.x=-Math.PI/2;rim.position.set(cx,0.006,cz);g.add(rim);   // an amber edge round the hole
     const cov=new THREE.Mesh(new THREE.BoxGeometry(w,0.03,d),M.hatch);cov.position.set(cx,0.03,cz);cov.receiveShadow=!lite;g.add(cov);
-    AR.pitCover={m:cov,x0:cx,w};}
+    AR.pitCover={m:cov,x0:cx,w};kit.pit={hole,rim,cx,cz,w,d};}
   /* hazards */
   AR.haz=A.haz.map(h=>{if(h.type==="pusher"){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]);
       const m=new THREE.Mesh(new THREE.BoxGeometry(w,kh*0.9,d),M.haz.clone());m.userData.own=true;m.position.set(X((r[0]+r[2])/2),kh*0.45,Z((r[1]+r[3])/2));m.castShadow=!lite;g.add(m);
-      return{h,m,base:m.position.clone(),n:[h.n[0],-h.n[1]],reach:Math.min(w,d)*0.8};}
+      return{h,m,base:m.position.clone(),n:[h.n[0],-h.n[1]],reach:Math.min(w,d)*0.8,w,d,ht:kh*0.9};}
     const R=h.rM*U,m=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.03,lite?24:40),M.haz.clone());m.userData.own=true;m.position.set(X(h.at[0]),0.016,Z(h.at[1]));g.add(m);
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
-    return{h,m};});
+    return{h,m,R,bar};});
   /* bots */
   AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
     return{o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0};});
@@ -2579,6 +2583,16 @@ function buildArena(F){
   AR.cam={x:0,z:0,d:H*3,shake:0};
   V.scene.add(g,L);propArena(F);return g;}
 
+/* the floor grid every 30 cm (beetle scale) across the arena; with a hole [x0, z0, x1, z1] (the kit's open pit) the lines
+   stop at its edge instead of crossing the void */
+function arenaGrid(H,hole){const step=0.3*4,pts=[],y=0.002;
+  const seg=(a0,a1,fixed,alongX)=>{const put=(p,q)=>{if(q-p<1e-4)return;if(alongX)pts.push(p,y,fixed,q,y,fixed);else pts.push(fixed,y,p,fixed,y,q);};
+    if(!hole){put(a0,a1);return;}const [h0,h1,f0,f1]=alongX?[hole[0],hole[2],hole[1],hole[3]]:[hole[1],hole[3],hole[0],hole[2]];
+    if(fixed<=f0||fixed>=f1){put(a0,a1);return;}put(a0,Math.max(a0,h0));put(Math.min(a1,h1),a1);};
+  for(let v=-H+step;v<H-1e-6;v+=step){seg(-H,H,v,false);seg(-H,H,v,true);}
+  const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));return gg;}
+/* lamps and hazards: amber while they fire, and glowing on Full and Ultra (Lite keeps the plain colour change) */
+function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.emissive&&V.tier!=="lite")m.emissive.copy(V.mats.hazOn.color).multiplyScalar(on?.7:0);}
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
@@ -2607,10 +2621,10 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
       if(W.type==="crusher")a=a*0.4;u.arm.rotation.x=a;}}
   /* hazards: lit while they fire; a pusher shoves out, a floor spinner spins */
   let any=false;
-  AR.haz.forEach((z,i)=>{const s=F.hz[i],on=s&&F.t<s.until;any=any||on;z.m.material.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);
+  AR.haz.forEach((z,i)=>{const s=F.hz[i],on=s&&F.t<s.until;any=any||on;hazLit(z.m.material,on);if(z.glow)hazLit(z.glow,on);
     if(z.h.type==="pusher"){const k=on?Math.min(1,(z.h.activeS-(s.until-F.t))/0.08):0;z.m.position.set(z.base.x+z.n[0]*z.reach*k,z.base.y,z.base.z+z.n[1]*z.reach*k);}
     else if(on)z.m.rotation.y+=dt*18;});
-  for(const l of AR.lamps||[])l.material.color.copy(any?V.mats.hazOn.color:V.mats.haz.color);
+  for(const l of AR.lamps||[])hazLit(l.material,any);
   /* the pit cover slides off when it opens */
   if(AR.pitCover){const open=F.arena.pit&&F.t>=F.arena.pit.openS;if(open&&AR.pitOpenAt==null)AR.pitOpenAt=now;
     const k=AR.pitOpenAt==null?0:Math.min(1,(now-AR.pitOpenAt)/600);AR.pitCover.m.position.x=AR.pitCover.x0+AR.pitCover.w*1.05*k;AR.pitCover.m.visible=k<1;}
@@ -2729,7 +2743,10 @@ function rebuild(){
   if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
   if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(()=>{if(V.tier!=="ultra"||!THREE.EffectComposer||!THREE.RenderPass||!THREE.UnrealBloomPass)return;
-    V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
+    /* the composer's own target asks for a stencil buffer only to get a 24-bit depth buffer: three's default here is 16-bit,
+       which let thin layers (the bot's team stripe, the arena kit's hazard stripes) flicker through on Ultra */
+    const sz=V.r.getDrawingBufferSize(new THREE.Vector2());
+    V.comp=new THREE.EffectComposer(V.r,new THREE.WebGLRenderTarget(sz.x||1,sz.y||1,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat,stencilBuffer:true}));V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
     V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
   resize(true);
 }
@@ -2805,8 +2822,12 @@ function frame(now){
                 GLTFLoader comes with the SCR_LIBS addons (window.__scrPost). Each file loads once and is kept (its meshes
                 carry userData.keep, so the workshop and arena teardown skip them); a tier change or a new room just drops
                 the clones. Anything that lands after its room was replaced is dropped.
-   Kelbo's Blender models (the stage interiors, the arena shell and hazards, the trailer, trophies) drop in the same way: pack
-   the export with tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
+     arena kit  models/arena-kit.glb, original work built in Blender from tools/blender-arena-kit.py: kerbs with a steel face,
+                screen uprights, corner posts with beacons, striped wall rams, toothed floor spinners, a striped pit edge and
+                well, and stands with a crowd. arenaKit swaps it in for the coded pieces vis/arena.js listed in AR.kit, merging
+                the many kerb and stand clones into one mesh per material so it costs a few draw calls.
+   More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
+   tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
 /* material name -> [texture, repeat u, repeat v, normal strength] */
 const PROP_TEX_USE={floor:["floor",14,14,.8],bench:["ply",2,1.25,.5],plate:["plate",2.4,1.8,.6],arenaFloor:["plate",5,5,.6]};
@@ -2814,7 +2835,8 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   oil:"models/oil-tin.glb",lube:"models/lube-spray.glb",chest:"models/tool-chest.glb",weld:"models/welding-cart.glb",
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
-  meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb"};
+  meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
+  kit:"models/arena-kit.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
    [key, x, y, z, turn] in scene units; y 0 is the bench top, -1.4 the floor. The camera starts at -x +z, so the room reads
@@ -2875,9 +2897,74 @@ function propPlace(G,spots,ok){if(!spots||!spots.length)return;
 function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.stage||"corner",gen=++PROPS.gen;   // a newer dressing of the room drops this one's late arrivals
   propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&PROPS.gen===gen&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
 function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.half*AR.U;
+  arenaKit(G);
   propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:AR.U})),()=>AR.g===G&&V.tier!=="lite");}
 /* a new workshop stage: drop this room's props and dress it for the new one */
 function propShopSwap(){const G=V.shop;if(!G)return;for(const o of G.children.filter(c=>c.name.indexOf("prop:")===0))G.remove(o);propShop();}
+/* ---- the arena kit ---- */
+/* arenas that get stands round three sides (the camera's side stays open); the test box and the tabletop don't */
+const KIT_STANDS={clubbox:1,regional:1,eisenhalle:1};
+function arenaKit(G){const go=()=>propModel("kit",src=>{if(AR.g===G&&V.tier!=="lite"&&AR.kit)kitBuild(G,src);});
+  if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(()=>{if(THREE.GLTFLoader&&AR.g===G)go();});return;}go();}
+/* every mesh in objs, baked into G's space and merged per material: positions and normals turned to plain floats (the
+   packed files store them quantized, which can't be merged as they are) */
+function kitBake(G,objs,shadow){const by=new Map(),v=new THREE.Vector3();
+  const rd=(A,i,c)=>{const arr=A.isInterleavedBufferAttribute?A.data.array:A.array,x=c===0?A.getX(i):c===1?A.getY(i):A.getZ(i);
+    if(!A.normalized)return x;const k=arr instanceof Int16Array?32767:arr instanceof Int8Array?127:arr instanceof Uint16Array?65535:arr instanceof Uint8Array?255:1;return Math.max(-1,x/k);};
+  for(const o of objs){o.updateMatrixWorld(true);o.traverse(m=>{if(!m.isMesh)return;
+    const mw=m.matrixWorld,nm=new THREE.Matrix3().getNormalMatrix(mw),g=m.geometry,P=g.attributes.position,N=g.attributes.normal,n=P.count;
+    let e=by.get(m.material);if(!e)by.set(m.material,e={p:[],n:[],i:[],at:0});
+    for(let i=0;i<n;i++){v.set(rd(P,i,0),rd(P,i,1),rd(P,i,2)).applyMatrix4(mw);e.p.push(v.x,v.y,v.z);
+      if(N){v.set(rd(N,i,0),rd(N,i,1),rd(N,i,2)).applyMatrix3(nm).normalize();e.n.push(v.x,v.y,v.z);}else e.n.push(0,1,0);}
+    if(g.index)for(let i=0;i<g.index.count;i++)e.i.push(g.index.getX(i)+e.at);else for(let i=0;i<n;i++)e.i.push(i+e.at);
+    e.at+=n;});}
+  for(const [mat,e] of by){const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(e.p,3));
+    gg.setAttribute("normal",new THREE.Float32BufferAttribute(e.n,3));gg.setIndex(e.i);gg.computeBoundingSphere();
+    const mesh=new THREE.Mesh(gg,mat);mesh.castShadow=shadow;mesh.receiveShadow=true;mesh.name="kit:baked";G.add(mesh);}}
+/* a piece of the kit by name; own(mesh) gives that one mesh a material of its own (lamps and glows change colour) */
+function kitPiece(src,name){const s=src.getObjectByName(name);return s?s.clone():null;}
+function kitOwn(o,name){const m=o.getObjectByName(name);if(!m)return null;let mesh=m;if(!mesh.isMesh)m.traverse(c=>{if(c.isMesh)mesh=c;});
+  if(!mesh.isMesh)return null;const mat=mesh.material.clone();mesh.material=mat;AR.kitMats.push(mat);return mat;}
+function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))return;
+  /* walls: kerb units along each wall, screen uprights on the three far ones; the coded kerbs hide */
+  const walls=[],kh=0.35;
+  for(const W of K.walls){const n=Math.max(1,Math.round(W.len/1.1)),seg=W.len/n;W.k.visible=false;
+    /* turn each unit so its steel face (+z) looks into the arena */
+    const ry=W.along==="x"?(W.z<0?0:Math.PI):(W.x<0?Math.PI/2:-Math.PI/2),ax=W.along==="x"?[1,0]:[0,1];
+    for(let i=0;i<n;i++){const off=-W.len/2+seg*(i+.5);
+      for(const nm of W.near?["kerb"]:["kerb","frame"]){const o=kitPiece(src,nm);o.position.set(W.x+ax[0]*off,0,W.z+ax[1]*off);o.rotation.y=ry;o.scale.set(seg,1,1);walls.push(o);}}}
+  kitBake(G,walls,true);
+  /* corner posts with their beacons */
+  const lamps=[];for(const P of K.posts){P.p.visible=P.lamp.visible=false;const o=kitPiece(src,"post");o.position.set(P.p.position.x,0,P.p.position.z);
+    const lm=kitOwn(o,"post_lamp");o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});G.add(o);if(lm)lamps.push({material:lm});}
+  if(lamps.length)AR.lamps=lamps;
+  /* hazards: the coded slab or disc stays as the moving thing the tick animates, drawn by the kit piece inside it */
+  for(const z of AR.haz){const isP=z.h.type==="pusher",o=kitPiece(src,isP?"pusher":"spinner");if(!o)continue;
+    z.m.material.visible=false;if(z.bar)z.bar.visible=false;
+    if(isP){const [nx,nz]=z.n,alongX=Math.abs(nx)>=Math.abs(nz);o.rotation.y=Math.atan2(-nz,nx);
+      o.scale.set(alongX?z.w:z.d,z.ht,(alongX?z.d:z.w)/3);o.position.y=-z.ht/2;z.glow=kitOwn(o,"pusher_glow");}
+    else{o.scale.set(z.R,1,z.R);o.position.y=-0.016;z.glow=kitOwn(o,"spinner_glow");}
+    o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});z.m.add(o);}
+  /* the pit: a real hole in the floor with a well under it, so a bot that drops in is seen to fall; a striped edge round it */
+  if(K.pit){const p=K.pit,x0=p.cx-p.w/2,x1=p.cx+p.w/2,z0=p.cz-p.d/2,z1=p.cz+p.d/2;
+    /* a square plane (half size h) with the pit cut out, UVs 0..1 like the PlaneGeometry it replaces so the texture repeat holds */
+    const holed=h=>{const sh=new THREE.Shape([new THREE.Vector2(-h,-h),new THREE.Vector2(h,-h),new THREE.Vector2(h,h),new THREE.Vector2(-h,h)]);
+      sh.holes.push(new THREE.Path([new THREE.Vector2(x0,-z1),new THREE.Vector2(x0,-z0),new THREE.Vector2(x1,-z0),new THREE.Vector2(x1,-z1)]));
+      const fg=new THREE.ShapeGeometry(sh),uv=fg.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(uv.getX(i)+h)/(2*h),(uv.getY(i)+h)/(2*h));return fg;};
+    for(const [m,h] of [[K.floor,H],[K.out,30]]){m.geometry.dispose();m.geometry=holed(h);}   // the arena floor and the room floor under it
+    p.hole.visible=false;p.rim.visible=false;
+    K.grid.geometry.dispose();K.grid.geometry=arenaGrid(H,[x0,z0,x1,z1]);
+    const well=kitPiece(src,"pitwell");if(well){well.position.set(p.cx,0,p.cz);well.scale.set(p.w,4,p.d);G.add(well);}
+    const edges=[];for(const [x,z,len,ry] of [[p.cx,z0-.05,p.w+.2,0],[p.cx,z1+.05,p.w+.2,0],[x0-.05,p.cz,p.d,Math.PI/2],[x1+.05,p.cz,p.d,Math.PI/2]]){
+      const o=kitPiece(src,"pitedge");o.position.set(x,0,z);o.rotation.y=ry;o.scale.set(len,1,1);edges.push(o);}
+    kitBake(G,edges,false);}
+  /* stands round the back and the sides, behind the props; the flat crowd moves back and up, to read as the upper seats */
+  if(KIT_STANDS[AR.F.arena.id]){const st=[],off=H+2.05;
+    for(const [ax,az,ry] of [[0,-1,0],[-1,0,Math.PI/2],[1,0,-Math.PI/2]]){const n=Math.ceil((2*H+1)/4);
+      for(let i=0;i<n;i++){const a=(i-(n-1)/2)*4,o=kitPiece(src,"stands");if(!o)break;
+        o.position.set(ax?ax*off:a,0,az?az*off:a);o.rotation.y=ry;st.push(o);}}
+    kitBake(G,st,false);
+    for(const c of K.crowd){c.position.y=2.9;c.position.x*=(H+5)/(H+3);c.position.z*=(H+5)/(H+3);}}}
 /* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
@@ -2922,7 +3009,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.12.0";
+const VERSION="0.1.13.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
