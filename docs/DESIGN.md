@@ -97,12 +97,73 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   
   The balance targets are printed, not enforced, until PR 4b.
 
+## 0.1.5.0: opponents, arenas, judges and balance (PR 4b)
+
+- **Arenas** (`ARENAS` in `sim/arenas.js`), each a walled square with its hazards' numbers written down like a weapon's:
+  - **Test box:** walls only.
+  - **Tabletop** (ants): a small table with an open pit on one side.
+  - **Club box** (beetles and hobbyweights, the Gemeindehalle): a pit by one wall that opens at 0:20, and a wall pusher opposite.
+  - **Regional arena** (featherweights): two pushers, a floor spinner, and a pit in a corner that opens at 0:30.
+  - **The Eisenhalle** (heavyweights, the Scrapline Open): pushers on two walls, two floor spinners, and a pit that opens at 0:45.
+  
+  A **pusher** shoves anything in its strike zone across the floor and dents the face that meets it. A **floor spinner** hits from below, throws the bot up and sideways and spins it. Both re-arm after a few seconds. The layout turns by a quarter turn picked from the seed (same seed, same layout), and the start spots are turned to keep as far as they can from the pit and the floor spinners.
+- **The judges** (`JUDGE_WEIGHTS`): at the bell, damage counts 50, aggression 25 and control 25, and the scores always add up to 100 (rounded to tenths so each row and the totals add up exactly).
+  - Damage is the hp each side took off the other in this fight; carried-in damage and knocks between teammates don't count.
+  - Aggression is time spent closing or in contact, less time running away.
+  - Control is time the other bot spent lifted, pinned on a wall, stuck upside down, or under a wedge that is driving it about (sat still underneath isn't control). Each shove into a hazard adds a few seconds.
+  
+  The Fight tab shows the three scores in a table.
+- **New rules:**
+  - **Pin limit:** a pin (under a wedge, or against a wall) is broken after 10 s, like a lift: the pinner backs straight away from the pinned bot for 1.2 s (forwards if it was pinning with its rear).
+  - **Discs against wedges:**
+    - A vertical disc or drum spinning above half speed meets a wedge first, so nothing gets under its front (not even on a tie between two equal front edges).
+    - A vertical that hits a sloped front (wedge, flipper, lifter) catches the lip: 1.8x the energy (drum 1.3x), no glance.
+    - A sloped front adds to the chance a horizontal disc or undercutter glances off.
+  - **Gyro:** a vertical disc at full speed fights turning (heavyweights' discs more so).
+  - **Self-flip:** a big hit can throw a vertical spinner onto its back.
+  - **Shock:** a hit with 60% or more of the disc's full energy has a small chance (per class, halved by failsafe electronics) to shake the electronics loose, whatever the armour. This is where the heavier classes' single-hit knockouts come from.
+  - **Featherweights** keep a little more grip when caught on a wedge (30% against 20%).
+  - **Heavyweight hits** count 1.2x, because their discs spin up slower and land fewer full hits.
+- **Eight AI styles** (`AI_STYLES`): rush and keep-away from PR 4a, plus:
+  - **aggressive:** rushes and fires early;
+  - **cautious:** circles wide and backs away from a charge;
+  - **counter:** waits, then strikes when the enemy commits;
+  - **box-rush:** pushes the enemy into a wall;
+  - **hazard-pusher:** lines up and pushes the enemy into the pit or a hazard;
+  - **opportunist:** goes for the most damaged enemy.
+  
+  `"auto"` picks a style from the build:
+  - spinners keep away;
+  - wedges, lifters, flippers and pushers push to hazards (to the wall in a plain box);
+  - everything else goes aggressive.
+  
+  Every style keeps off the pit from two seconds before it opens, brakes hard at its edge, backs off when stuck or when two bots are circling each other in contact, and reverses out from under a wedge.
+- **15 opponents** (`OPPONENTS` in `sim/opponents.js`), three per class, each with a build within its weight limit, a driver (style and skill), a home venue and a one-line personality.
+- **The Fight tab** now has:
+  - pickers for the opponent (the named ones and the test builds), the arena (the class's own first) and your bot's driving style;
+  - the opponent's personality line;
+  - the pit and hazards in the top-down view;
+  - "The pit opens at m:ss";
+  - the judges' table;
+  - log lines for hazards, pin releases, shocks and self-flips.
+- **Balance** (`tools/fight-test.js`, 12 seeds at driver skill 0.5 and 0.85, each class in its own arena): every test build lands within 35-65% against the other test builds, give or take the sampling noise. Sloppy budget is left out of the target. Single-hit knockouts run 0.2% (ant), 0.5% (beetle), 1.3% (hobby), 3.5% (feather) and 3.6% (heavy). In beetle, wedge beats horizontal spinner 65% and vertical beats wedge 75%. The full table is in the 0.1.5.0 commit message.
+- **Tuning that moved:**
+  - `FIGHT`: damage share 0.40 (was 0.65), throw share 0.15 (was 0.35), vertical zone width 0.7, undercutter zone 0.8.
+  - `PARTS`: horizontal disc 5,600 rpm and bite 0.62; drum 11,000 rpm; undercutter 5,500 rpm and bite 0.62.
+  - The Brick test build has grippy PU wheels and an anti-spinner bar.
+
 ## Known loose ends
 
 - Save slots exist in the save format but have no UI until PR 7.
 - The control scheme and handedness settings arrive with the arena in PR 5.
-- Balance is first-pass (PR 4b tunes it): spinners win most beetle matchups; hammers barely dent a thick HDPE top (its absorb eats a 25 J blow whole); flippers and wedges have nothing to finish with until PR 4b's pits and judges; the "Sloppy budget" build loses nearly everything, as it should.
-- Carried-in damage counts in the time-up decision and in the HUD's damage %; PR 4b's judges should score only what was dealt in this fight.
+- Balance sits at the edges in places (0.1.5.0 numbers):
+  - Lifter 65-67% in ant, beetle and hobby; Undercutter 69% in ant.
+  - Drum 68%, Invertible box 68% and Hammer 32% in beetle; Drum 67% in feather; Wedge 70% in heavy.
+  - The harness fails a test build more than 5 points outside 35-65% (not on a `-q` quick pass, where 4 seeds are mostly noise); inside that, it just lists it (sampling noise is about 3-4 points at 12 seeds).
+  - The pit decides most small-class fights (79% of ant fights, 64% of beetle).
+  - Named crushers are strong: Schraubstock 67%, Zange 86% (crushers aren't among the test builds). The career (PR 7) sets who meets whom.
+- The pin limit takes over the player's drive for 1.2 s, and nothing on screen says so yet (PR 5's controls).
+- The HUD's damage % still includes carried-in damage (the judges don't).
 - Fight flags (bent disc, smoke, speed-controller side) are in the result but not carried into the next fight yet; the pit (PR 6) decides what a repair clears.
 - Airborne bots skip collisions, so a tipped bot can land overlapping the other for a step or two before they push apart.
 - Replays moved between phones: the sim uses `Math.sin`, `cos`, `atan2` and `hypot`, which browsers don't promise to round identically, so a replay could drift on another engine. Decide before PR 6 stores replays (keep the result, not just the inputs, or use our own trig).

@@ -49,6 +49,12 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Modes | 1v1, **rumbles** (3–4 bot free-for-all), **tag team** (2v2), and **minibots**. The sim is N-body from PR 4 |
 | Parts economy | **Pay on fit, no refund** (Kelbo, PR 2; PEW's swap rule, "no refund on cut metal"). No parts inventory. Build-tab edits are a draft; tapping **Fit** shows the bill for every part that differs from the fitted bot, at full price, then charges it. Parts taken off are gone. A new weapon pays for its material too. Moving parts on the grid is free. Nothing is charged before the career exists (PR 7) |
 | Bench | **Tests the fitted bot only** (Kelbo, PR 3): the draft has to be fitted first, and the Bench says when the draft has unfitted changes. **The rig is safe:** nothing the impact or drop test breaks is kept; the bench costs workshop hours (from PR 7), never repairs |
+| Balance set | **Sloppy budget is left out of the 35–65% archetype target** (Kelbo, PR 4b): it is the "how not to build" example and may lose. Glass cannon counts. The harness still prints Sloppy's numbers |
+| Balance arena | **Each class balances in its own usual arena** (`CLASSES[cls].arenaId`, with its hazards; Kelbo, PR 4b). The plain test box stays for the bench and debugging |
+| Hold limit | A lifter or crusher lets go after **10 s** (`FIGHT.holdMaxS`, PR 4a review), as most real leagues rule |
+| Pin limit | A pin (under a wedge, or against a wall) is broken after the same **10 s**: the pinner backs off for 1.2 s (`FIGHT.releaseS`; PR 4b default, after real league rules) |
+| Balance slack | `tools/fight-test.js` fails a test build more than **5 points** outside 35–65% and lists one inside that, since 12 seeds carry 3–4 points of noise (PR 4b default; tighten it with more seeds if wanted) |
+| Lethality | Single-hit knockouts come from a **shock** rule: a hit at 60%+ of the disc's full energy has a small chance per class (failsafe electronics halve it) to shake the electronics loose. Heavyweight hits count 1.2x (`FIGHT.shock`, `FIGHT.lethal`; PR 4b default) |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -410,7 +416,7 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 2: Build tab: weight bar, layout editor, side profile, deltas, designs
 - [x] PR 3: Bench tests including wedge gauge and drop test
 - [x] PR 4a: N-body headless sim, height axis, wedge rules, damage, input recording, two AIs, debug view, first harness
-- [ ] PR 4b: AI styles, arenas with hazard numbers, judges, 15 opponents, balance targets
+- [x] PR 4b: AI styles, arenas with hazard numbers, judges, 15 opponents, balance targets
 - [ ] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
 - [ ] PR 6: Pit window and pit kits, post-mortem with repair bill, copy build, replay
 - [ ] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
