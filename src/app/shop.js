@@ -42,5 +42,5 @@ function shClick(e){const x=e.target.closest("[data-shstage],[data-shtool],[data
   if(x.dataset.shsave){const i=+x.dataset.shsave;if(!shSure("sv:"+i))return;
     try{localStorage.setItem(slotKey(i),JSON.stringify(S));}catch(err){toast("Couldn't save: storage is full");shRender();return;}shRender();toast(`Saved in slot ${i}`);return;}
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
-    FT.F=null;FT.rounds=[];FT.bout=null;CR.end=null;loadSlot(o,`Slot ${i} loaded`);}}
+    loadSlot(o,`Slot ${i} loaded`);}}
 TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;shRender();};
