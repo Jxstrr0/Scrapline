@@ -207,7 +207,7 @@ html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: 
 @media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
 /* a phone on its side (PR 9): the 3D view on the left, the tab and the tab bar on the right, so neither is a sliver */
 @media (max-height:560px) and (orientation:landscape){#app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-  #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:44%}#tabs button{font-size:11px}}
+  #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:calc(env(safe-area-inset-left,0px) + (100% - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))*.44);right:env(safe-area-inset-right,0px)}#tabs button{font-size:11px}}
 
 /* ---- the Bench tab (app/bench.js) ---- */
 .bncls{margin:0 0 12px}
