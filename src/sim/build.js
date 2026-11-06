@@ -200,11 +200,8 @@ function evalBuild(cfgIn){
     secsToDerate:minN(heatD.secsToDerate,heatW_&&heatW_.secsToDerate),fightDerateS:minN(heatD.fightDerateS,heatW_&&heatW_.fightDerateS),
     hotPart:heatW_&&heatW_.fightDerateS!=null&&(heatD.fightDerateS==null||heatW_.fightDerateS<heatD.fightDerateS)?"weapon":"drive"};
 
-  /* ---- cost and hours ---- */
-  let cost=0,hours=0;const ch_=(p,n)=>{cost+=p.cost*(n||1);hours+=p.hours*(n||1);};
-  ch_(ch);ch_(dr);ch_(wh);ch_(bt);ch_(el);ch_(wp);if(wp.type!=="none")ch_(wm);for(const e of ex)ch_(e);
-  for(const f of FACES)ch_(pick("armour",cfg.armour[f]));
-  cost=Math.round(cost*M.cost);hours=Math.round(hours*M.hours*10)/10;
+  /* ---- cost and hours: the whole bot bought new (fitBill, below) ---- */
+  const bill=fitBill(null,cfg),cost=bill.cost,hours=bill.hours;
 
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
@@ -216,3 +213,21 @@ function evalBuild(cfgIn){
   b.stress=stressReport(b);
   b.verdict=!b.valid?(totalG>c.limitG?"over":"invalid"):b.stress.some(s=>s.sev==="bad"||s.sev==="warn")?"flaws":"valid";
   return b;}
+
+/* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
+   part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
+   material, so it pays for the material too. fitted null (or another class) means the whole bot.
+   Returns {lines:[{slot, face, id, name, cost, hours}], cost, hours}. evalBuild's cost is fitBill(null, cfg).cost. ---- */
+function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.cls?normCfg(fitted):null,M=classMult(b.cls),lines=[];
+  let cost=0,hours=0;
+  const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
+    lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
+  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if(!a||a[s]!==b[s])add(s,b[s]);
+  if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon))add("weaponMaterial",b.weaponMaterial);
+  for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
+  for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
+  return{lines,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
+/* the same cfg? (layout aside: moving parts round the chassis is free) */
+function sameParts(a,b){if(!a||!b)return false;a=normCfg(a);b=normCfg(b);if(a.cls!==b.cls)return false;
+  for(const s of PART_SLOTS)if(a[s]!==b[s])return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
+  return a.extras.slice().sort().join()===b.extras.slice().sort().join();}

@@ -50,7 +50,7 @@ function game(over) {
     v: 1, settings: { seen: true, theme: "light", gfx: "lite", gfxAuto: true, reduce: null, sound: true, tab: "bench" },
     career: { year: 2028, week: 27, act: "circuit", money: 48250, loan: 0, hours: 12, driverXp: 340, rep: { club: 12, circuit: 40 },
       events: [{ wk: 26, id: "stahl-open", place: 2 }], results: Array.from({ length: 30 }, (_, i) => ({ wk: i, won: i % 3 > 0, ko: i % 4 === 0 })) },
-    bots: { beetle: { cfg: { cls: "beetle", chassis: "alu-box", weapon: "vsp", armour: { front: "hdpe-10", top: "none" } }, damage: { "wheel-fl": 0.4 } } },
+    bots: { beetle: { cfg: { cls: "beetle", chassis: "alu", weapon: "vsp", armour: { front: "hdpe10", top: "none" } }, damage: { wheel0: 0.4 }, draft: { cls: "beetle", chassis: "alu", weapon: "drum" } } },
     designs: { beetle: [{ name: "Grauwald drum · Kiste ⚙", cfg: { cls: "beetle", weapon: "drum" } }] },
     unlocks: { tools: { drill: true, printer: true }, rnd: {} },
     staff: [], sponsors: [{ id: "haldis-tool", paint: "#2f6fb0", target: 3 }], rivals: { "jonas-r": { met: 4, won: 2 } },
