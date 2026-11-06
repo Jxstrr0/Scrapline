@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.11.0";
+const VERSION="0.1.12.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -172,7 +172,7 @@ const ASSISTS={
 const RND={
   cells:     {name:"High-discharge cells",  price:400, hours:10,act:0,needs:null,       line:"A battery that gives everything at once. Spinners spin up faster."},
   disc:      {name:"Your own disc profile", price:600, hours:14,act:0,needs:null,       fab:true,line:"Design the disc: one to three teeth, a light or heavy rim, and a name. The fabricator cuts it."},
-  pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty shots, harder, and a faster recharge."},
+  pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty-four shots, harder, and a faster recharge."},
   crusher:   {name:"Crusher",               price:900, hours:20,act:0,needs:"drillpress",line:"Hydraulic jaws that bite down and hold on."},
   brushless: {name:"Custom motor winding",  price:700, hours:16,act:0,needs:"lathe",    line:"Brushless drive and its speed controller. Much faster, and hotter."},
   saw:       {name:"Overhead saw",          price:1000,hours:20,act:1,needs:"lathe",    line:"A saw on an arm that grinds through top plates."},

@@ -64,11 +64,11 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **The fight is run by the sim, not the view.** `SIM.newFight({bots, arena, seed, rules})` then `SIM.stepFight(F, inputs)` at a fixed 60 Hz, or `SIM.runFight(opts)` to the end. Same seed, same builds, same player inputs: the same fight, every time, in a browser or in node. Any number of bots, each with a team, so rumbles and tag team are just longer bot lists.
 - **Bodies:** each bot is its build's outline (a box, or the custom shape with its cut corners) with the build's mass and yaw inertia, pushed by tank steering: each side's wheels push like a DC motor (full push at a standstill, none at top speed), capped by grip. Tyres scrub when turning and resist sliding sideways. A lost wheel takes its share of that side's grip, a lost drive pod its share of the push; a side with no pods, no wheels or a dead speed controller is out.
 - **Height:** bots can be in the air (a flip, a big vertical spinner hit, a lifter tipping them). In the air there's no drive and no bumping into other bots; landing hurts by the drop test's maths, and a big enough throw can land a bot upside down. Upside down, a bot whose wheels stand proud of both faces drives on; anything else has to self-right (a self-righter takes 1.2 s; a flipper fires a shot) or it is stuck.
-- **Wedges:** when a bot's front touches another bot, the lower edge gets under if it is lower by more than the tolerance (0.3 mm on a beetle): the other bot's front edge, or its ground clearance on any other face. The bot that's under keeps a fifth of its grip, its own weapon lands half, and the wedge's hits skip its armour's deflect. Front to front within the tolerance, a skid plate wins, then the harder edge.
+- **Wedges:** when a bot's front touches another bot, the lower edge gets under if it is lower by more than the tolerance (0.3 mm on a beetle): the other bot's front edge, or its ground clearance on any other face. The bot that's under keeps a fifth of its grip (40% in feather, 45% in heavy, from 0.1.12.0), its own weapon lands half, and the wedge's hits skip its armour's deflect. Front to front within the tolerance, a skid plate wins, then the harder edge.
 - **Weapons,** each with a working zone in front of the bot (a circle round a horizontal disc):
   - **Spinners** spin up on the bench's motor curve and slow with the weapon off. A hit needs a quarter of top speed and lands stored energy x bite (a little random each time). A hit on a plate that deflects, unless the target is lifted, glances off for 30%. The disc loses that share of its energy. The target takes 65% as damage and 35% as a throw (verticals and drums throw upward), and the attacker is kicked back by the weapon's recoil.
   - **Self-damage:** a hit over the material's bend rating bends the disc (half energy from then on, and it spins up slower); a huge hit at full speed can shear the shaft.
-  - **Flippers** fire a shot (12, with a second to recharge) and launch anything they can lift, as high as their energy allows. **Lifters** hold a bot up (a tenth of its grip) and tip it over after 0.8 s if the arm is long enough; any hold lets go after 10 s (the league's hold limit), and the lifter needs 2 s before it can grab again. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
+  - **Flippers** fire a shot (18 from 0.1.12.0, was 12; with a second to recharge) and launch anything they can lift, as high as their energy allows. **Lifters** hold a bot up (a tenth of its grip) and tip it over after 0.8 s if the arm is long enough; any hold lets go after 10 s (the league's hold limit), and the lifter needs 2 s before it can grab again. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
 - **Damage:** every hit goes through the bench's damage model (absorb, plate, then the most exposed part behind the face). The fight adds the effects:
   - a dead side;
   - a damaged battery that may smoke (power drops to 60%);
@@ -122,7 +122,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - **Gyro:** a vertical disc at full speed fights turning (heavyweights' discs more so).
   - **Self-flip:** a big hit can throw a vertical spinner onto its back.
   - **Shock:** a hit with 60% or more of the disc's full energy has a small chance (per class, halved by failsafe electronics) to shake the electronics loose, whatever the armour. This is where the heavier classes' single-hit knockouts come from.
-  - **Featherweights** keep a little more grip when caught on a wedge (30% against 20%).
+  - **Featherweights** keep a little more grip when caught on a wedge (30% against 20%; 40% from 0.1.12.0, when heavyweights got 45%).
   - **Heavyweight hits** count 1.2x, because their discs spin up slower and land fewer full hits.
 - **Eight AI styles** (`AI_STYLES`): rush and keep-away from PR 4a, plus:
   - **aggressive:** rushes and fires early;
@@ -253,14 +253,43 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Not yet:** Kelbo's Blender models (stage interiors, the arena shell and hazards, a trailer, trophies, hero shells). They drop in the same way: pack with `tools/pack-model.py`, add to `PROP_FILES` and the spots, credit as original.
 - **Saves:** nothing new (no `SAVE_V` change).
 
+## 0.1.12.0: a balance pass
+
+Measured with `node tools/fight-test.js all -m` (12 seeds at driver skill 0.5 and 0.85, each class in its own arena) before and after. Every test build now lands within 35-65% against the other test builds or no more than 2 points outside it, which is inside the sampling noise (before: up to 5 points out).
+
+- **Pits:** the tabletop's pit is narrower (0.2 by 0.3 m at beetle scale, was 0.28 by 0.4) and so is the club box's (0.26 by 0.4 m, was 0.34 by 0.52). Pit finishes drop from 79% to 68% of ant fights, 64% to 56% in beetle, 56% to 47% in hobby, so weapons decide more of them.
+- **`PARTS`:**
+  - Pneumatic flipper: 18 shots (was 12). It ran out of gas in long fights and lost on the judges. The high-pressure flipper is 24 (was 20), so it stays the upgrade.
+  - Hammer: 30 J a blow (was 25).
+  - Drum: bite 0.88 (was 1.00). This also tones down the Invertible box, which carries a drum.
+  - Vertical disc: bite 0.85 (was 0.90).
+  - Lifter: forks reach 45 mm (was 60), so it has to drive in further to get under.
+- **`WEDGE_RULES.underGripClass`:** a bot riding up a wedge keeps 40% of its grip in feather (was 30%) and 45% in heavy (was 20%), so a heavyweight wedge can't steer its victim around for a judges' win.
+- **Before → after**, against the other test builds:
+
+  | Build | Ant | Beetle | Hobby | Feather | Heavy |
+  |---|---|---|---|---|---|
+  | Wedge | 49 → 51 | 53 → 59 | 51 → 61 | 65 → 60 | 70 → 61 |
+  | Lifter | 67 → 66 | 65 → 65 | 66 → 61 | 63 → 57 | 61 → 61 |
+  | Flipper | 42 → 38 | 37 → 46 | 43 → 39 | 41 → 55 | 35 → 48 |
+  | Horizontal spinner | 59 → 67 | 58 → 60 | 64 → 67 | 56 → 65 | 63 → 66 |
+  | Vertical spinner | 54 → 53 | 63 → 61 | 64 → 62 | 66 → 67 | 62 → 63 |
+  | Drum | 59 → 58 | 68 → 62 | 57 → 53 | 67 → 60 | 62 → 59 |
+  | Hammer | 37 → 41 | 32 → 38 | 41 → 46 | 43 → 39 | 54 → 50 |
+  | Undercutter | 69 → 61 | 66 → 58 | 53 → 51 | 51 → 49 | 45 → 43 |
+  | Glass cannon | 52 → 52 | 47 → 44 | 48 → 48 | 40 → 43 | 40 → 38 |
+  | Brick | 41 → 47 | 36 → 40 | 39 → 48 | 40 → 39 | 37 → 45 |
+  | Invertible box | 55 → 55 | 68 → 63 | 65 → 56 | 65 → 63 | 66 → 63 |
+
+- **Named opponents** (not held to the target): Zange 86 → 82%, Walzwerk 75 → 69%, Schraubstock 68 → 67%. Zange is the Eisenhalle's top bot with a 0.75-skill driver, so it stays strong; crusher damage turned out not to be what makes it win. Lawine went up, 42 → 62%.
+- **Single-hit knockouts:** 0.6% ant, 0.5% beetle, 2.0% hobby, 3.1% feather, 7.1% heavy (was 3.4%: the harder hammer and the heavier wedge victims). All are inside the plan's targets.
+- **Saves:** nothing new (no `SAVE_V` change). A fitted bot keeps its parts; the new numbers apply from the next fight.
+
 ## Known loose ends
 
-- Balance sits at the edges in places (0.1.5.0 numbers):
-  - Lifter 65-67% in ant, beetle and hobby; Undercutter 69% in ant.
-  - Drum 68%, Invertible box 68% and Hammer 32% in beetle; Drum 67% in feather; Wedge 70% in heavy.
-  - The harness fails a test build more than 5 points outside 35-65% (not on a `-q` quick pass, where 4 seeds are mostly noise); inside that, it just lists it (sampling noise is about 3-4 points at 12 seeds).
-  - The pit decides most small-class fights (79% of ant fights, 64% of beetle).
-  - Named crushers are strong: Schraubstock 67%, Zange 86% (crushers aren't among the test builds). The career (PR 7) sets who meets whom.
+- Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.
+  - The pit still decides most small-class fights (68% of ant, 56% of beetle).
+  - Named bots are stronger than the test builds by design (better drivers): Zange 82%, Glockenschlag 75%, Holzwurm 71%. The career sets who meets whom.
 - The pin limit takes over the player's drive for 1.2 s; the fight screen's note says so.
 - The HUD shows the weapon's speed as a bar, not rpm.
 - The 3D view doesn't interpolate between sim steps; Lite draws at 30 fps, so this hasn't mattered.
