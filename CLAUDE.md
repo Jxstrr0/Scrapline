@@ -10,7 +10,7 @@ Sister project: Prairie Engine Works (`Jxstrr0/350Chev`, PEW). The stack, build 
 - three.js **r128** from cdnjs. The bloom addons for Ultra come from jsdelivr `three@0.128.0` (the `SCR_LIBS` list in `src/html/body.html`, loaded on demand through `window.__scrPost`; a Lite phone never loads them). Google Fonts: Space Grotesk (UI) and JetBrains Mono (readouts). Nothing else external.
 - PWA: `manifest.webmanifest`, `icons/`, and the generated `sw.js`. Installed copies work offline.
 - Assets: CC0 and CC-BY only, never NC or ND. Every one gets a line in a `CREDITS.md` next to its folder (`sounds/`, `models/`, `textures/`: name, author, licence, URL); Kelbo's own Blender work is noted as original. Ask Kelbo when a licence is unclear.
-- Node 16 or newer for the scripts (22 is what was last used). Nothing to install. `tools/make-icons.js` needs Playwright (run by hand; output is committed).
+- Node 16 or newer for the scripts (22 is what was last used). Nothing to install. `tools/make-icons.js` needs Playwright (run by hand; output is committed). `tools/pack-model.py` (packs a glTF into one `.glb`) and `tools/get-polyhaven.py` (fetches a Poly Haven model or texture) need Python 3; run by hand, output committed.
 
 ## Commands (repo root)
 
@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.10.0)
+## Current status (0.1.11.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -160,8 +160,15 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **Settings → Effects** (Kelbo: separate from Motion): Reduced cuts sparks, flying parts, smoke and the 2D hit rings (`fxLow()`, `SCRAP_VIS.setRun({fxLow})`).
   - **Landscape** on a phone: the 3D view on the left, the panel on the right.
   - **Saves:** `SAVE_V` 7 (`settings.effects`, `settings.tutDone`, `career.trophies`).
-- Next: PR 10, Blender props and CC0/CC-BY assets on Full/Ultra.
-- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; an R&D project finishes and its part fits; a hire's wages come out at Close week; a sponsor signs and its colour shows on the bot; a save slot saves and loads; a fresh install offers the tutorial and it runs to the end, then the workshop is as it was; the bot card shares; a trophy card opens from the shelf; Effects Reduced shows fewer sparks; landscape puts the view on the left; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
+- PR 10 done (0.1.11.0): free assets on Full and Ultra.
+  - **`vis/props.js`:** 20 Poly Haven CC0 props (`models/`): a set per workshop stage (`SHOP_SPOTS`, `SCRAP_VIS.setStage` from `visStage()` in `app/build.js`) and a few round the bigger arenas (`ARENA_SPOTS`). Photo textures (`textures/`) on the floor, bench, plate and arena floor, tinted to the coded colours. GLTFLoader is in `SCR_LIBS`.
+  - **`sound/synth.js`:** 18 CC0 recorded clangs (`sounds/`, OpenGameArt) under the synth on Full and Ultra (`samples(on)` from `applyGfx`).
+  - **Lite:** loads none of it and is unchanged.
+  - **Tools:** `tools/pack-model.py` (PEW's copy) and `tools/get-polyhaven.py` (downloads a model or texture; run by hand, output committed).
+  - Kelbo's Blender models (stage interiors, arena shell and hazards, trailer, trophies, hero shells) drop in later: pack, add to `PROP_FILES` and the spots, credit as original.
+  - **Saves:** nothing new (no `SAVE_V` change).
+- Next: the plan's checklist is done. Still to come: Kelbo's Blender batches (the PR 10 pipeline) and the known loose ends in `docs/DESIGN.md`.
+- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; an R&D project finishes and its part fits; a hire's wages come out at Close week; a sponsor signs and its colour shows on the bot; a save slot saves and loads; a fresh install offers the tutorial and it runs to the end, then the workshop is as it was; the bot card shares; a trophy card opens from the shelf; Effects Reduced shows fewer sparks; on Full the workshop has its props and textured floor with no "Graphics lowered" toast, and hits sound recorded; on Lite the workshop looks as before; landscape puts the view on the left; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
 

@@ -25,11 +25,11 @@ function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholde
 function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
 /* rebuild everything that depends on the tier */
 function rebuild(){
-  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();});V[k]=null;}   // keep: a cached prop model (vis/props.js)
   const fight=AR.F;arenaClear();placeBotClear();botCacheClear();
   makeMats(V.tier);
   V.shop=buildShop();V.lights=buildLights();
-  V.scene.add(V.shop,V.lights);placeBot();
+  V.scene.add(V.shop,V.lights);placeBot();propShop();
   if(fight){buildArena(fight);fxInit();}
   showView();
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
