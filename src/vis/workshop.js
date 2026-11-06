@@ -1,5 +1,6 @@
 /* ---- vis/workshop.js: the workbench (a steel plate on a wooden bench in a dark corner of a machine shop, cold overhead
-   light), orbit and pinch controls, framing, and the frame loop that spins the placeholder bot's disc. ---- */
+   light) with the bot the app last passed to setBot (the placeholder until then), orbit and pinch controls, framing, the
+   two views ("workshop" and "arena": V.view) and the frame loop. ---- */
 function buildShop(){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite";
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);floor.rotation.x=-Math.PI/2;floor.position.y=-1.4;g.add(floor);
@@ -16,14 +17,24 @@ function buildLights(){
   const rim=new THREE.DirectionalLight(0xffd2b8,lite?.3:.45);rim.position.set(5,2.5,-6);g.add(rim);
   return g;
 }
+/* the workshop's bot: the build passed to setBot, scaled to sit on the plate (a beetle and a heavyweight look the same size) */
+function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
+  if(V.botB){const g=botMesh(V.botB,0),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
+  else V.bot=buildPlaceholderBot();
+  V.bot.visible=V.view==="workshop";V.scene.add(V.bot);}
+function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
 /* rebuild everything that depends on the tier */
 function rebuild(){
-  for(const k of ["bot","shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  const fight=AR.F;arenaClear();placeBotClear();botCacheClear();
   makeMats(V.tier);
-  V.shop=buildShop();V.lights=buildLights();V.bot=buildPlaceholderBot();
-  V.scene.add(V.shop,V.lights,V.bot);
+  V.shop=buildShop();V.lights=buildLights();
+  V.scene.add(V.shop,V.lights);placeBot();
+  if(fight){buildArena(fight);fxInit();}
+  showView();
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
+  if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
   if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(ok=>{if(!ok||V.tier!=="ultra")return;
     V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
@@ -41,10 +52,15 @@ function placeCam(){
   V.cam.position.set(o.tx+Math.sin(o.yaw)*cp*o.dist,o.ty+Math.sin(o.pitch)*o.dist,o.tz+Math.cos(o.yaw)*cp*o.dist);
   V.cam.lookAt(o.tx,o.ty,o.tz);
 }
-/* one finger turns, two fingers pinch to zoom, the mouse wheel zooms. Each finger is tracked by pointerId. */
+/* which scene shows: the workshop (bench, lights, bot) or the arena */
+function showView(){const ws=V.view==="workshop"||!AR.g;
+  for(const o of [V.shop,V.lights,V.bot])if(o)o.visible=ws;if(AR.g){AR.g.visible=!ws;AR.lights.visible=!ws;}
+  V.scene.fog.near=ws?12:40;V.scene.fog.far=ws?28:110;V.cam.near=ws?.1:.3;V.cam.far=ws?100:200;V.cam.fov=ws?36:50;V.cam.updateProjectionMatrix();}
+/* one finger turns, two fingers pinch to zoom, the mouse wheel zooms. Each finger is tracked by pointerId. Workshop only:
+   in the arena the fingers drive (app/controls.js). */
 function bindOrbit(el){
   const P=new Map();let pinch0=0,dist0=0;
-  el.addEventListener("pointerdown",e=>{el.setPointerCapture&&el.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  el.addEventListener("pointerdown",e=>{if(V.view!=="workshop")return;el.setPointerCapture&&el.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(P.size===2){const [a,b]=[...P.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);dist0=V.orbit.dist;}});
   el.addEventListener("pointermove",e=>{const p=P.get(e.pointerId);if(!p)return;
     if(P.size===1){V.orbit.yaw-=(e.clientX-p.x)*.008;V.orbit.pitch=Math.max(.15,Math.min(1.4,V.orbit.pitch+(e.clientY-p.y)*.006));}
@@ -52,7 +68,7 @@ function bindOrbit(el){
     if(P.size===2&&pinch0){const [a,b]=[...P.values()],d=Math.hypot(a.x-b.x,a.y-b.y);V.orbit.dist=Math.max(3.5,Math.min(14,dist0*pinch0/Math.max(d,1)));}});
   const up=e=>{P.delete(e.pointerId);if(P.size<2)pinch0=0;};
   el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
-  el.addEventListener("wheel",e=>{e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
+  el.addEventListener("wheel",e=>{if(V.view!=="workshop")return;e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
 }
 /* Lite renders at most 30 frames a second (plan section 16); Full and Ultra follow the display */
 function frame(now){
@@ -61,10 +77,10 @@ function frame(now){
   if(V.tier==="lite"&&now-V.last<30){return;}
   const dt=Math.min(.1,(now-(V.last||now))/1000);V.last=now;
   resize(false);
-  const u=V.bot&&V.bot.userData;
-  if(u&&u.disc){V.ang+=dt*TAU*1.6*(V.run.spin||0);u.disc.rotation.y=V.ang;}   // a slow idle spin: the real rpm comes with the sim
-  fxTick(dt);
-  placeCam();
+  if(V.view==="arena"&&AR.g){arenaTick(dt,now);fxTick(dt);}
+  else{const u=V.bot&&V.bot.userData;V.ang+=dt*TAU*1.6*(V.run.spin||0);   // a slow idle spin on the bench
+    if(u&&u.disc)u.disc.rotation.y=V.ang;else if(u&&u.spin)u.spin.rotation[u.spin.userData.axis]=V.ang;
+    placeCam();}
   if(V.comp)V.comp.render();else V.r.render(V.scene,V.cam);
   V.frames++;
   if(now-V.fpsAt>=1000){V.fpsObj={fps:Math.round(V.frames*1000/(now-V.fpsAt)),at:now};V.frames=0;V.fpsAt=now;}

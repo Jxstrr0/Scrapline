@@ -35,6 +35,7 @@
 }
 :root[data-theme=light] #view,:root[data-theme=light] #intro{
   --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189; --clay-t:#D97757; --lilac:#B48CE8; --rule:#34322D; --card:#1F1E1B; --card2:#2A2925;
+  --warn:#E2A93B; --good:#4CC38A; --crit-t:#F06A6E;
 }
 
 /* ---- 2. layout ---- */
@@ -199,6 +200,7 @@ textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-ra
 
 #pwaBar,#bkBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:60;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--lift);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transform:translate(-50%,16px);transition:opacity .25s,transform .25s}
 #pwaBar.on,#bkBar.on{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: they come back after it */
 #pwaBar .btn,#bkBar .btn{flex:0 0 auto}
 .pwalater{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
 
@@ -227,8 +229,8 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .ftopp{display:flex;flex-wrap:wrap;gap:6px}
 .ftopp button{min-height:40px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--card2);font-size:14px;color:var(--muted)}
 .ftopp button.on{color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay);background:var(--card)}
-canvas.ftcv{display:block;width:100%;aspect-ratio:1/1;height:auto;margin:4px 0 8px;border-radius:10px;background:#1A1917;touch-action:pan-y}
 .ftres{margin:0 0 8px;min-height:1.4em;font-weight:700;font-size:16px}
+.ftres.ok{color:var(--good)} .ftres.broke{color:var(--crit-t)}
 #ftHud{margin-top:10px}
 .ftbot{padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
 .ftbot small{color:var(--dim);margin-left:4px}
@@ -255,3 +257,52 @@ canvas.ftcv{display:block;width:100%;aspect-ratio:1/1;height:auto;margin:4px 0 8
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
 html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
 @media (prefers-reduced-transparency:reduce){#hud{background:#0A0A09eb}.hudbtn{background:#1F1E1B}#scrim{background:rgba(6,6,5,.85)}}
+
+/* ---- fight mode (app/fight.js): the 3D view fills the screen, the overlay #fov carries the HUD and the controls.
+   It sits inside #view, so it is dark in both themes. ---- */
+#app.fighting #panel,#app.fighting #tabs,#app.fighting #hud,#app.fighting #tag{display:none}
+#app.fighting #view{flex:1 1 auto}
+.fov{position:absolute;inset:0;z-index:3;color:var(--ink);font-size:13px;pointer-events:none;touch-action:none;-webkit-user-select:none;user-select:none}
+.fov button,.fov .ctl{pointer-events:auto}
+.fovtop{position:absolute;z-index:2;inset:0 0 auto 0;display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(#0A0A09cc,#0A0A0900)}
+.fclock{font:700 20px var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac);min-width:3.2em}
+.fnote{flex:1;font-size:13px;color:var(--warn);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbtn{min-height:40px;min-width:48px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:#1F1E1Bd9;color:var(--ink);font-size:14px;font-weight:600}
+.fbtn[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--clay)}
+.fbots{position:absolute;z-index:2;top:56px;left:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px}
+.fbot{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:10px;background:#141413b3;max-width:calc(50% - 3px)}
+.fbot.out{opacity:.55}
+.fsil{width:44px;height:44px;flex:0 0 auto}
+.fbinfo{display:grid;grid-template-columns:auto auto auto;gap:3px 4px;align-items:center;min-width:0}
+.fbinfo b{grid-column:1/-1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbinfo small{grid-column:1/-1;color:var(--warn);font-size:12px;min-height:1em}
+.fbar{display:block;width:30px;height:5px;border-radius:3px;background:#34322D;overflow:hidden}
+.fbar i{display:block;height:100%;width:0;background:var(--lilac)}
+.fbar i.lo{background:var(--warn)}
+.fcv{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94%,calc(100% - 150px));aspect-ratio:1/1;max-height:calc(100% - 150px);border-radius:10px;background:#1A1917}
+.fpause,.fend{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 32px));padding:18px;border-radius:14px;background:#1F1E1Bf2;border:1px solid var(--rule);text-align:center;pointer-events:auto}
+.fpause p{margin:0 0 12px;font-size:18px;font-weight:700}
+.fend b{display:block;font-size:22px;margin-bottom:4px}
+.fend p{margin:0 0 14px;color:var(--muted)}
+/* direct controls: a floating stick on the left half, the weapon on the right (swapped when left-handed) */
+.ctl{position:absolute;z-index:1;inset:0;pointer-events:none}
+.ctlpad{position:absolute;left:0;bottom:0;width:55%;height:62%;pointer-events:auto;touch-action:none}
+.ctl.lefty .ctlpad{left:auto;right:0}
+.ctlbase,.ctlknob{position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;opacity:.35;transition:opacity .15s}
+.ctlbase{width:112px;height:112px;margin:-56px 0 0 -56px;border:2px solid #F2EFE866;background:#14141333}
+.ctlknob{width:52px;height:52px;margin:-26px 0 0 -26px;background:var(--clay)}
+.ctlpad .ctlbase,.ctlpad .ctlknob{left:80px;top:calc(100% - 90px)}
+.ctl.lefty .ctlpad .ctlbase,.ctl.lefty .ctlpad .ctlknob{left:calc(100% - 80px)}
+.ctlhint{position:absolute;left:52px;bottom:24px;font-size:12px;color:var(--muted)}
+.ctl.lefty .ctlhint{left:auto;right:52px}
+.ctlbtn{position:absolute;right:22px;bottom:30px;width:92px;height:92px;border-radius:50%;border:2px solid var(--clay);background:#D977574d;color:var(--ink);font-weight:700;font-size:14px;touch-action:none;pointer-events:auto}
+.ctlbtn.down{background:var(--clay);color:var(--on-clay)}
+.ctl.lefty .ctlbtn{right:auto;left:22px}
+.ctlsr{bottom:136px;width:76px;height:76px;border-color:var(--warn);background:#E2A93B40;font-size:12px}
+.ctl.lefty .ctlsr{left:30px}
+.ctl:not(.lefty) .ctlsr{right:30px}
+.ctltap{position:absolute;inset:0;pointer-events:auto;touch-action:none}
+.ctlmark{position:absolute;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid var(--lilac);pointer-events:none}
+.ctlmark.attack{border-color:var(--clay)} .ctlmark.back{border-color:var(--warn)}
+.ctlhint2{position:absolute;left:12px;right:12px;bottom:14px;margin:0;text-align:center;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-transparency:reduce){.fbot{background:#141413}.fovtop{background:#0A0A09eb}.fpause,.fend{background:#1F1E1B}}

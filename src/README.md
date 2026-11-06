@@ -48,12 +48,12 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
 | `sim/opponents.js` | `OPPONENTS` (15: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
-| `sound/synth.js` | the whole block: synthesized clangs and motor whine (PR 5; a stub now) |
+| `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap |
 | **SCRAP_VIS** (three.js) | |
 | `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, the painted workshop reflection, materials (`makeMats`) |
-| `vis/bot.js` | the robot mesh; now `buildPlaceholderBot()` (plywood box, clay sides, wheels, horizontal spinner); PR 5 makes it parametric |
-| `vis/arena.js` | the arena scene (PR 5) |
-| `vis/fx.js` | sparks, flying parts, dents, smoke, camera shake (PR 5) |
+| `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
+| `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights), the per-frame draw of the bots, the follow camera, `arenaPick()` |
+| `vis/fx.js` | sparks, flying parts, smoke and camera shake from the sim's fx events |
 | `vis/workshop.js` | the workbench, lights, `rebuild()` per tier, resize, orbit / pinch controls, the frame loop (30 fps cap on Lite) and the fps meter |
 | `vis/api.js` | **the SCRAP_VIS public object** (`init`, `setQuality`, `setBot`, `setRun`, `setView`, `fps`, `_state`), IIFE close, `</script>` |
 | **app** | |
@@ -65,8 +65,8 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/build.js` | the Build tab: weight bar and summary, section rows with deltas, armour sketch, layout editor, side profile, stress report, designs, the draft and Fit (pay on fit, `SIM.fitBill`); `?sim=1` adds the raw result |
 | `app/bench.js` | the Bench tab: the fitted bot's six tests with canvas readouts, which have run (`bots[cls].bench`), `benchMeasured` for the Build tab's stress report |
 | `app/debugview.js` | `DEBUGVIEW.draw`: the 2D top-down fight view (dark in both themes): bots, zones, the pit (dashed while shut), pushers and floor spinners |
-| `app/controls.js` | direct and tactical driving, keyboard, gamepad, assists (PR 5) |
-| `app/fight.js` | the Fight tab: the test fight (fitted bot against a named opponent or a test build, in any arena, AI against AI), the judges' table, the fixed-step loop (5 steps a frame at most, paused when hidden), the readouts and the log in words; sparring and the HUD in PR 5 |
+| `app/controls.js` | `CONTROLS`: the direct (stick and buttons) and tactical (tap) overlays, keyboard, gamepad, assists; `read(F, o)` gives the step's input |
+| `app/fight.js` | the Fight tab: sparring setup (opponent, one on one or rumble, arena, you or an AI style), fight mode (the full-screen arena and its overlay: clock, bot strips with damage silhouettes, pause, 2D, the end banner), feedback to vis, sound and buzz, the fixed-step loop (5 steps a frame at most, paused when hidden), the results card, the judges' table and the log in words |
 | `app/pit.js` | the 60 s pit window (PR 6) |
 | `app/report.js` | the post-mortem, repair bill, copy build, replay (PR 6) |
 | `app/shop.js` | the Shop tab (PR 7); now the Saves card buttons |

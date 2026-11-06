@@ -15,6 +15,7 @@ function showTab(t){
   document.querySelectorAll("#tabs button").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
   document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+t));
   if(TAB_RENDER[t])TAB_RENDER[t]();
+  visBot();
   $("panel").scrollTop=tabScroll[t]||0;
   save();}
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(b)showTab(b.dataset.tab);});
@@ -29,6 +30,12 @@ function openSettings(){
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Theme</span>${segHtml("themeSeg","theme",[["dark","Dark","night shift"],["light","Light","daylight"],["auto","Auto","follow phone"]],ST().theme||"dark")}</div>
 <div class="field"><span class="lbl">Motion</span>${segHtml("reduceSeg","reduce",[["auto","Auto","follow phone"],["1","Reduced"],["0","Full"]],ST().reduce==null?"auto":ST().reduce?"1":"0")}</div>
+<div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
+<p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
+<div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
+<div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On","rookie"],["0","Off"]],ST().assists===false?"0":"1")}
+<p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
+<div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
 ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
@@ -39,6 +46,10 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
+  pick("ctlSeg","ctl",v=>{ST().controls=v;});
+  pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
+  pick("asSeg","assist",v=>{ST().assists=v==="1";});
+  pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();});
   buStoreLine();
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
 }

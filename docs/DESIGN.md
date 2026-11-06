@@ -154,15 +154,39 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 
 ## Known loose ends
 
+## 0.1.6.0: the arena, your own driving, hit feedback, sparring (PR 5)
+
+- **The bot in 3D** (`vis/bot.js`) is made from the build, on every tier:
+  - the chassis polygon extruded to its height, in its material, with an armour panel per face as thick as the plate;
+  - the wheels where the layout put them (tracks as belts);
+  - the weapon by type: horizontal disc, undercutter, vertical disc, drum, saw on uprights, hammer or crusher arm, flipper plate, lifter forks, a wedge's ramp;
+  - a team stripe on top (clay for you, then lilac, green and blue).
+  
+  Damaged parts turn grey and destroyed ones vanish. Meshes are cached by build and freed when they drop out of the cache. The workshop shows the draft on the Build tab and the fitted bot elsewhere.
+- **The arena** (`vis/arena.js`): a floor with a 30 cm grid, steel kerbs with glass screens (the near one left open), corner posts whose lamps light while a hazard fires, wall pushers that shove out, floor spinners that spin, and a pit under a hatch cover that slides away when it opens. Full and Ultra add a crowd beyond the walls and shadows.
+- **The camera** looks down at about 55 degrees, follows the middle of the bots still in the fight and pulls back as they spread, fitting the narrower side of the screen. It shakes on hits, never under reduced motion.
+- **Fight mode:** the arena fills the screen. The top bar has the clock, a note (the pit, the pin limit, self-righting), 2D and Pause. Under it is a strip per bot: a damage silhouette (each face and part green, amber or red), then weapon, battery and heat bars, and a state line. When the fight ends, a banner offers Rematch or Results.
+- **Controls** (`app/controls.js`, Settings → Controls):
+  - **Direct:** a stick that appears where your left thumb lands, a weapon button on the right, and a self-right button when you're stuck upside down. Left-handed swaps the sides.
+  - **Tactical:** tap the floor to drive there, tap an opponent to attack it, tap your own bot to back off.
+  - **Keyboard:** W A S D or the arrows, space, R. **Gamepads:** left stick, A or the right trigger, Y or B.
+  - Each thumb follows its own pointer, so two never fight.
+  - The weapon button switches a spinner on and off, fires a flipper or hammer, and lifts while held.
+- **Assists** (`ASSISTS` in state.js; Settings → Driving assists): you drive as a rookie, which means auto-straighten, turn damping, and a disc that only spins up when they're near. Drivers (PR 8) will shrink these.
+- **Hit feedback** (`vis/fx.js`): sparks scaled by the hit (Lite 90 at most, Full and Ultra 260, bloomed on Ultra), a destroyed part or broken plate flying off, smoke from a smoking battery, camera shake. Sound (`sound/synth.js`): clangs scaled by the hit, a whine following each disc, a drive hum (Settings → Sound). The phone buzzes for hits on or by you, harder for bigger ones.
+- **Sparring:** any opponent in the class, any arena, one on one or a four-bot rumble, driven by you or by the AI in any style (the speed choice is for AI fights). No stakes and no repair bill. The results card has the outcome, the judges, every bot's state and the log.
+- **Saves:** `SAVE_V` 4 adds `settings.controls`, `leftHanded` and `assists`.
+
 - Save slots exist in the save format but have no UI until PR 7.
-- The control scheme and handedness settings arrive with the arena in PR 5.
 - Balance sits at the edges in places (0.1.5.0 numbers):
   - Lifter 65-67% in ant, beetle and hobby; Undercutter 69% in ant.
   - Drum 68%, Invertible box 68% and Hammer 32% in beetle; Drum 67% in feather; Wedge 70% in heavy.
   - The harness fails a test build more than 5 points outside 35-65% (not on a `-q` quick pass, where 4 seeds are mostly noise); inside that, it just lists it (sampling noise is about 3-4 points at 12 seeds).
   - The pit decides most small-class fights (79% of ant fights, 64% of beetle).
   - Named crushers are strong: Schraubstock 67%, Zange 86% (crushers aren't among the test builds). The career (PR 7) sets who meets whom.
-- The pin limit takes over the player's drive for 1.2 s, and nothing on screen says so yet (PR 5's controls).
+- The pin limit takes over the player's drive for 1.2 s; the fight screen's note says so.
+- The HUD shows the weapon's speed as a bar, not rpm.
+- The 3D view doesn't interpolate between sim steps; Lite draws at 30 fps, so this hasn't mattered.
 - The HUD's damage % still includes carried-in damage (the judges don't).
 - Fight flags (bent disc, smoke, speed-controller side) are in the result but not carried into the next fight yet; the pit (PR 6) decides what a repair clears.
 - Airborne bots skip collisions, so a tipped bot can land overlapping the other for a step or two before they push apart.
