@@ -241,6 +241,15 @@ canvas.ftcv{display:block;width:100%;aspect-ratio:1/1;height:auto;margin:4px 0 8
 .ftlog li:last-child{border-bottom:0}
 .ftlog .ftt{display:inline-block;min-width:3.4em;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim)}
 .ftlog .readout{color:var(--lilac)}
+.ftopp+.ftopp{margin-top:6px}
+.ftopp button small{color:var(--dim)}
+.ftjudge{width:100%;border-collapse:collapse;margin:0 0 10px;font-size:14px}
+.ftjudge caption{text-align:left;font-weight:700;margin-bottom:4px}
+.ftjudge th,.ftjudge td{padding:4px 6px;border-bottom:1px solid var(--rule);text-align:right}
+.ftjudge th[scope=row]{text-align:left;font-weight:500;color:var(--muted)}
+.ftjudge th small{color:var(--dim)}
+.ftjudge tr:last-child th,.ftjudge tr:last-child td{border-bottom:0;font-weight:700}
+.ftjudge td.readout{color:var(--lilac);font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* ---- 4. accessibility preferences ---- */
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}

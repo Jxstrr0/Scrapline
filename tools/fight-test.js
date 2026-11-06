@@ -1,20 +1,26 @@
 #!/usr/bin/env node
 /* Scrapline: the fight harness (plan sections 7f and 8e). Run from the repo root after `node build.js`:
-     node tools/fight-test.js            beetle: every TEST_BUILDS build against every other, 20 seeds each, both AIs
+     node tools/fight-test.js            beetle: every test build and beetle opponent against every other, 20 seeds each,
+                                         two driving styles (each build's own "auto" style, then aggressive)
      node tools/fight-test.js all        every class (a few minutes)
      node tools/fight-test.js hobby -q   one class, 4 seeds (quick)
      node tools/fight-test.js -m         also print the matchup matrix (row's win % against column)
+     node tools/fight-test.js -a box     fight in another arena (any ARENAS id) instead of each class's own
    It cuts SCRAP_SIM out of the built index.html (so it tests what ships) and prints, per archetype: win %, draw %, the
    average share of hp it lost, the average fight length and the share of its fights that ended in a knockout. It exits 1
    if a fight is not repeatable, a replay from the log differs, a log is over 20 KB, a result holds NaN or a fight runs past
    the bell, a step is over budget (2 ms for a 1v1, 4 ms for a 4-bot rumble, plan section 16), carried-in damage is lost,
    or the plan's phone-test moments never happen (a wedge getting under a high-fronted box, a flipper landing a bot
-   upside down). The balance targets (no archetype above 65% or below 35%) are printed, not enforced, until PR 4b. */
+   upside down, plan 8e: a hazard-pusher winning by the pit, the judges' scores on every decision), or a test build is
+   outside the balance target (35-65% in its class, in the class's own arena; Sloppy budget is left out, plan section 1).
+   Named opponents (OPPONENTS, marked *) fight with their own drivers and are printed, not held to the target.
+   The single-hit knockout rate (a knockout where one hit broke everything that mattered) is printed against the plan's
+   lethality target. -a <arena> fights a class in another arena (the target isn't checked then). */
 "use strict";
 const fs = require("fs"), path = require("path");
 const ROOT = path.join(__dirname, "..");
 const args = process.argv.slice(2), quick = args.includes("-q"), matrix = args.includes("-m");
-const named = args.filter((a) => !a.startsWith("-"));
+const named = args.filter((a, i) => !a.startsWith("-") && args[i - 1] !== "-a");
 let fails = 0;
 const fail = (m) => { fails++; console.log("FAIL " + m); };
 
@@ -27,16 +33,22 @@ const SIM = mod.exports;
 
 const classes = named.includes("all") ? SIM.CLASS_IDS : named.filter((c) => SIM.CLASSES[c]);
 if (!classes.length) classes.push("beetle");
-const SEEDS = quick ? 4 : 20, STYLES = ["rush", "keepaway"], SKILL = 0.7;
+const ai = args.indexOf("-a"), arenaArg = ai >= 0 ? args[ai + 1] : null;
+const SEEDS = quick ? 4 : 20, STYLES = ["auto", "aggressive"], SKILL = 0.7;
 const builds = SIM.TEST_BUILDS;
+const OUTSIDE = { sloppy: 1 };   // left out of the archetype target (plan section 1): the "how not to build" example
 const cfgOf = (t, cls) => Object.assign({}, t.cfg, { cls });
 const pct = (v) => (v * 100).toFixed(0).padStart(3) + "%";
 const nowUs = () => Number(process.hrtime.bigint()) / 1000;
+const arenaFor = (cls) => arenaArg || SIM.CLASSES[cls].arenaId;
+/* the field in a class: every test build (driven by the style under test) and the class's opponents (their own drivers) */
+const fieldOf = (cls) => builds.map((t) => ({ id: t.id, name: t.name, cfg: cfgOf(t, cls), arch: true }))
+  .concat(SIM.OPPONENTS.filter((o) => o.cls === cls).map((o) => ({ id: o.id, name: o.name + " *", cfg: SIM.opponentCfg(o), driver: o.driver })));
 
 function fight(cls, a, b, seed, style, extra) {
-  return SIM.runFight(Object.assign({ seed, bots: [
-    { cfg: cfgOf(a, cls), name: a.id, driver: { style, skill: SKILL } },
-    { cfg: cfgOf(b, cls), name: b.id, driver: { style, skill: SKILL } }] }, extra || {}));
+  const drv = (x) => x.driver ? Object.assign({}, x.driver) : { style, skill: SKILL };
+  return SIM.runFight(Object.assign({ seed, arena: arenaFor(cls), bots: [
+    { cfg: cfgOf(a, cls), name: a.id, driver: drv(a) }, { cfg: cfgOf(b, cls), name: b.id, driver: drv(b) }] }, extra || {}));
 }
 function finite(r) {
   if (!(r.timeS <= SIM.FIGHT.roundS + 1e-6) || !r.over) return false;
@@ -44,18 +56,23 @@ function finite(r) {
   return true;
 }
 
-let allSteps = 0, allUs = 0, worstFightUs = 0;
+let allSteps = 0, allUs = 0, worstFightUs = 0, pitByPusher = 0, judgedOk = 0, judged = 0;
 for (const cls of classes) {
-  const st = {}; for (const t of builds) st[t.id] = { n: 0, w: 0, d: 0, share: 0, len: 0, ko: 0 };
-  const mx = {}; for (const t of builds) { mx[t.id] = {}; for (const u of builds) mx[t.id][u.id] = { n: 0, w: 0 }; }
-  let fights = 0, kos = 0, lenSum = 0, under = 0, flippedInv = 0, bigLog = 0;
+  const field = fieldOf(cls), st = {}, mx = {};
+  for (const t of field) { st[t.id] = { n: 0, w: 0, d: 0, share: 0, len: 0, ko: 0 }; mx[t.id] = {}; for (const u of field) mx[t.id][u.id] = { n: 0, w: 0 }; }
+  let fights = 0, kos = 0, oneHit = 0, pits = 0, decisions = 0, lenSum = 0, under = 0, flippedInv = 0, bigLog = 0;
   const t0 = nowUs();
-  for (let i = 0; i < builds.length; i++) for (let j = i + 1; j < builds.length; j++) {
+  for (let i = 0; i < field.length; i++) for (let j = i + 1; j < field.length; j++) {
     for (const style of STYLES) for (let s = 1; s <= SEEDS; s++) {
-      const swap = s % 2 === 0, A = swap ? builds[j] : builds[i], B = swap ? builds[i] : builds[j];
+      const swap = s % 2 === 0, A = swap ? field[j] : field[i], B = swap ? field[i] : field[j];
       const f0 = nowUs(), r = fight(cls, A, B, s * 7919 + i * 31 + j, style), us = nowUs() - f0;
-      allSteps += r.log.steps; allUs += us; if (us / Math.max(r.log.steps, 1) > worstFightUs) worstFightUs = us / Math.max(r.log.steps, 1);
-      fights++; lenSum += r.timeS; if (r.reason === "ko" || r.reason === "pit") kos++;
+      allSteps += r.log.steps; allUs += us; if (r.log.steps >= 600 && us / r.log.steps > worstFightUs) worstFightUs = us / r.log.steps;   // a short fight is mostly warm-up
+      fights++; lenSum += r.timeS;
+      if (r.reason === "ko" || r.reason === "pit") kos++;
+      if (r.reason === "pit") pits++;
+      if (r.reason === "judges" || r.reason === "draw") { decisions++; judged++; const e = r.log.entries[r.log.entries.length - 1]; if (e && e.k === "end" && e.j) judgedOk++; }
+      if (r.reason === "ko") { const lo = r.bots.find((o) => o.out === "ko"); if (lo && lo.stats.failHits === 1) oneHit++; }
+      if (r.reason === "pit" && r.winner != null && r.bots[r.winner].style === "hazard") pitByPusher++;
       if (!finite(r)) fail(`${cls} ${A.id} v ${B.id} seed ${s} ${style}: NaN or ran past the bell`);
       const sz = JSON.stringify(r.log).length; if (sz > bigLog) bigLog = sz;
       if (sz > SIM.FIGHT.logMaxB) fail(`${cls} ${A.id} v ${B.id}: log ${sz} B is over ${SIM.FIGHT.logMaxB}`);
@@ -71,23 +88,29 @@ for (const cls of classes) {
       });
     }
   }
-  const secs = (nowUs() - t0) / 1e6;
-  console.log(`\n${SIM.CLASSES[cls].name}: ${fights} fights in ${secs.toFixed(1)} s · ${pct(kos / fights)} knockouts · average ${(lenSum / fights).toFixed(1)} s · biggest log ${(bigLog / 1024).toFixed(1)} KB`);
+  const secs = (nowUs() - t0) / 1e6, heavyish = cls === "feather" || cls === "heavy";
+  console.log(`\n${SIM.CLASSES[cls].name} in the ${SIM.ARENAS[arenaFor(cls)].name}: ${fights} fights in ${secs.toFixed(1)} s · ${pct(kos / fights)} knockouts (${pct(pits / fights)} pit) · ${pct(decisions / fights)} decisions · single-hit KOs ${(100 * oneHit / fights).toFixed(1)}% (target ${heavyish ? "3-8%" : "under 3%"}) · average ${(lenSum / fights).toFixed(1)} s · biggest log ${(bigLog / 1024).toFixed(1)} KB`);
   console.log("  archetype            win   draw  hp lost  length  KO");
-  for (const t of builds) {
-    const x = st[t.id], win = (x.w + x.d / 2) / x.n, flag = win > 0.65 ? "  above 65%" : win < 0.35 ? "  below 35%" : "";
-    console.log(`  ${t.name.padEnd(19)} ${pct(win)}  ${pct(x.d / x.n)}  ${pct(x.share / x.n)}   ${(x.len / x.n).toFixed(1).padStart(5)} s ${pct(x.ko / x.n)}${flag}`);
+  const off = [];
+  for (const t of field) {
+    const x = st[t.id], win = (x.w + x.d / 2) / x.n, out = win > 0.65 ? "  above 65%" : win < 0.35 ? "  below 35%" : "";
+    if (out && t.arch && !OUTSIDE[t.id]) off.push(`${t.name} ${pct(win).trim()}`);
+    console.log(`  ${t.name.padEnd(19)} ${pct(win)}  ${pct(x.d / x.n)}  ${pct(x.share / x.n)}   ${(x.len / x.n).toFixed(1).padStart(5)} s ${pct(x.ko / x.n)}${t.arch ? (OUTSIDE[t.id] ? "  (outside the target)" : out) : ""}`);
   }
+  console.log("  (* a named opponent, driving its own style; the 35-65% target is for the test builds)");
+  if (off.length && !arenaArg) fail(`${cls}: archetypes outside 35-65%: ${off.join(", ")}`);
   if (matrix) {
     console.log("  matchups (row's win % against column; a draw counts half):");
-    console.log("            " + builds.map((t) => t.id.slice(0, 5).padStart(6)).join(""));
-    for (const t of builds) console.log("  " + t.id.padEnd(9) + " " + builds.map((u) => t === u ? "     ·" : String(Math.round(100 * mx[t.id][u.id].w / Math.max(mx[t.id][u.id].n, 1))).padStart(6)).join(""));
+    console.log("              " + field.map((t) => t.id.slice(0, 5).padStart(6)).join(""));
+    for (const t of field) console.log("  " + t.id.slice(0, 11).padEnd(11) + " " + field.map((u) => t === u ? "     ·" : String(Math.round(100 * mx[t.id][u.id].w / Math.max(mx[t.id][u.id].n, 1))).padStart(6)).join(""));
   }
   if (cls === "beetle" || classes.length === 1) {
     if (!under) fail(`${cls}: the wedge never got under the brick (plan 7f phone test)`);
     if (!flippedInv) fail(`${cls}: no flipper ever landed a bot upside down (plan 7f phone test)`);
   }
 }
+if (!arenaArg && classes.some((c) => SIM.ARENAS[SIM.CLASSES[c].arenaId].pit) && !pitByPusher) fail("a hazard-pusher never won by the pit (plan 8e phone test)");
+if (judged && judgedOk < judged) fail(`${judged - judgedOk} decisions have no judges' scores in the log`);
 
 /* ---- the checks that don't depend on the class ---- */
 const cls = classes[0], T = (id) => builds.find((t) => t.id === id);

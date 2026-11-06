@@ -58,6 +58,10 @@ const FIGHT={
   crushS:1, crushOpenS:0.6, crushAbsorb:0.5,   // a crusher's bite, opening again, and the share of absorb its point leaves
   hammerShare:0.9,            // share of a hammer blow that goes into damage
   rightS:1.2,                 // seconds to self-right
+  hazCtrlS:3,                 // the judges count a shove into a hazard as this many seconds of control for whoever pushed
+  /* the judges' bookkeeping: closing at this share of the bot's top speed counts as aggression (away from the enemy at it,
+     as retreating); pinned against a wall means slower than pinV x top speed with an enemy on it */
+  judge:{closeV:0.2,pinV:0.3},
   ramShare:0.3, ramMinJ:0.5,  // collisions (bots and walls): this share of the energy lost is damage, above ramMinJ (x mass)
   airM:0.03,                  // a spinner's throw that lifts a bot less than this (m, x len) is a jolt, not a flight
   microJ:1,                   // log entries under this (J, x mass) are merged into the last one
@@ -118,10 +122,16 @@ function zoneTouch(o,t){const Z=o.zone;if(!Z||o.air||t.air||t.out==="pit")return
   const c=toWorld(o,(Z.x0+Z.x1)/2,(Z.y0+Z.y1)/2),q=closestOnPoly(P,c[0],c[1]);return{px:q[0],py:q[1]};}
 
 /* ---- setting up ---- */
-function arenaOf(a,cls){const M=classMult(cls);let A=typeof a==="string"?ARENAS[a]:a&&typeof a==="object"?a:null;
+/* an arena at the class's scale, turned by k x 90 degrees (k from the seed: sim/arenas.js) */
+function arenaOf(a,cls,seed){const M=classMult(cls),L=M.len;let A=typeof a==="string"?ARENAS[a]:a&&typeof a==="object"?a:null;
   if(!A)A={id:"box",name:"Test box",sizeM:FIGHT.arenaM};
-  const side=(A.sizeM||FIGHT.arenaM)*M.len;
-  return{id:A.id||"custom",name:A.name||"Arena",half:side/2,wallE:A.wallE!=null?A.wallE:FIGHT.wallE,pit:A.pit?A.pit.map(v=>v*M.len):null,def:A};}
+  const k=((seed>>>0)>>>4)&3,rot=(x,y)=>{for(let i=0;i<k;i++){const t=x;x=-y;y=t;}return[x,y];};
+  const rect=r=>{const p=rot(r[0],r[1]),q=rot(r[2],r[3]);return[Math.min(p[0],q[0])*L,Math.min(p[1],q[1])*L,Math.max(p[0],q[0])*L,Math.max(p[1],q[1])*L];};
+  const side=(A.sizeM||FIGHT.arenaM)*L,P=A.pit?(Array.isArray(A.pit)?{rect:A.pit,openS:0}:A.pit):null;
+  const haz=(A.hazards||[]).map(h=>{const o=Object.assign({},h);if(h.rect)o.rect=rect(h.rect);if(h.n)o.n=rot(h.n[0],h.n[1]);
+    if(h.at){const p=rot(h.at[0],h.at[1]);o.at=[p[0]*L,p[1]*L];}if(h.rM)o.rM=h.rM*L;return o;});
+  return{id:A.id||"custom",name:A.name||"Arena",half:side/2,wallE:A.wallE!=null?A.wallE:FIGHT.wallE,
+    pit:P?{rect:rect(P.rect),openS:P.openS||0}:null,haz,turn:k,def:A};}
 function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cls);
   const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
@@ -130,24 +140,30 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,
-    input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},stats:{dealt:0,taken:0,hits:0,landed:0}};
+    input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},wallT:null,airBy:null,invBy:null,
+    stats:{dealt:0,taken:0,hits:0,landed:0,failHits:0},jd:{close:0,contact:0,retreat:0,ctrl:0}};
   o.rad=Math.max(...o.poly.map(p=>Math.hypot(p[0],p[1])));
   o.fx=damageEffects(b,o.st,o.flags);
   return o;}
 function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.bots||[]).filter(s=>s&&s.cfg);
   if(specs.length<2)throw new Error("newFight needs two bots or more");
   const cls=normCfg(specs[0].cfg).cls,rules=Object.assign({roundS:FIGHT.roundS,koS:FIGHT.koS},opts.rules||{});
-  const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(opts.arena,cls),rules,bots:[],
+  const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(opts.arena,cls,seed),rules,bots:[],
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
     spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
       bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,
         driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null}))}};   // copies: the log is the fight as it started
-  F.bots=specs.map((s,i)=>newBot(s,i,F));
+  F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
   const n=F.bots.length,R=F.arena.half*0.6;
-  F.bots.forEach((o,i)=>{const a=-Math.PI/2+2*Math.PI*i/n+rRange(F.rng,-0.04,0.04);o.x=R*Math.cos(a);o.y=R*Math.sin(a);
+  /* the ring is turned so the pit is as far as it can be from the nearest start: in a 1v1, both bots equally far */
+  let off=-Math.PI/2;if(F.arena.pit){const r=F.arena.pit.rect,cx=(r[0]+r[2])/2,cy=(r[1]+r[3])/2;let best=-1;
+    for(let k=0;k<8;k++){const a0=-Math.PI/2+k*Math.PI/4/n;let m=1e9;for(let i=0;i<n;i++){const a=a0+2*Math.PI*i/n;m=Math.min(m,Math.hypot(R*Math.cos(a)-cx,R*Math.sin(a)-cy));}
+      if(m>best+1e-9){best=m;off=a0;}}}
+  F.bots.forEach((o,i)=>{const a=off+2*Math.PI*i/n+rRange(F.rng,-0.04,0.04);o.x=R*Math.cos(a);o.y=R*Math.sin(a);
+    if(F.arena.pit){const r=F.arena.pit.rect,e=o.rad*1.2;for(let k=0;k<20&&o.x>r[0]-e&&o.x<r[2]+e&&o.y>r[1]-e&&o.y<r[3]+e;k++){o.x*=0.9;o.y*=0.9;}}   // never start over the pit
     o.h=wrapA(a+Math.PI+rRange(F.rng,-0.08,0.08));o.pw=worldPoly(o,o.poly);
-    if(o.driver)o.ai=aiNew(o,(seed^Math.imul(0x9E3779B1,i+1))>>>0);
+    if(o.driver)o.ai=aiNew(o,(seed^Math.imul(0x9E3779B1,i+1))>>>0,F);
     else F.rec[i]={v:[[],[],[]],last:[FIGHT.inputLevels+1,FIGHT.inputLevels+1,0]};});
   return F;}
 
@@ -168,17 +184,18 @@ function logHit(F,k,a,v,face,E,res){const small=E<FIGHT.microJ*F.M.mass&&!(res&&
   return logIt(F,e);}
 
 /* ---- damage to a bot, and the failures it sets off ---- */
-function fxDiff(F,o,before){const a=before,b=o.fx,L=(k,extra)=>logIt(F,Object.assign({k:"fail",v:o.i,what:k},extra||{}));
+function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>logIt(F,Object.assign({k:"fail",v:o.i,what:k},extra||{}));
   for(const s of ["left","right"])if(!a.sides[s].out&&b.sides[s].out)L("side",{side:s});
   if(a.power===1&&b.power<1&&b.power>0&&o.flags.smoke&&!o.flags.cell)L("smoke");
   if(!a.dead&&b.dead)L("dead",{why:b.dead});
   if(a.motorOk&&!b.motorOk&&b.weaponOk)L("motor");
   if(a.weaponOk&&!b.weaponOk)L("weapon");
   if(a.righter&&!b.righter)L("righter");
-  if(!a.flexing&&b.flexing)L("flex");}
+  if(!a.flexing&&b.flexing)L("flex");
+  return F.log.length-n0;}
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics;
-  const res=kind==="land"?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1));
+  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1));
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
   if(res.plate==null)res.plate=0;
@@ -192,9 +209,9 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
     logIt(F,{k:"fail",v:o.i,what:"esc",side:o.flags.esc});}
   o.fx=damageEffects(o.b,st,o.flags);
   const e=logHit(F,kind,kind==="land"?-1:att,o.i,kind==="land"?(opts.inverted?"top":"under"):face,opts.logE!=null?opts.logE:E,res);
-  if(kind==="land")e.inv=opts.inverted?1:0;if(!e.x)delete e.x;if(opts.gl)e.gl=1;if(!e.p)delete e.p;
-  for(const p of res.parts)if(p.destroyed)logIt(F,{k:"fail",v:o.i,what:"part",key:p.key});
-  fxDiff(F,o,before);
+  if(kind==="land")e.inv=opts.inverted?1:0;if(!e.x)delete e.x;if(opts.gl)e.gl=1;if(!e.p)delete e.p;if(opts.tag)Object.assign(e,opts.tag);
+  let broke=0;for(const p of res.parts)if(p.destroyed){broke++;logIt(F,{k:"fail",v:o.i,what:"part",key:p.key});}
+  if(fxDiff(F,o,before)+broke>0)o.stats.failHits++;   // a hit that broke something (lethality: tools/fight-test.js)
   return res;}
 
 /* ---- each step ---- */
@@ -240,7 +257,8 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
   return 0;}
 
 /* a bot sent up: vz, a forward push, and whether it will land upside down */
-function launch(F,t,vz,flip,by){t.air=true;t.vz=vz;t.z=Math.max(t.z,0.001);t.zPeak=t.z;t.flipNext=!!flip;t.under=null;t.held=null;
+function launch(F,t,vz,flip,by,att){t.air=true;t.vz=vz;t.z=Math.max(t.z,0.001);t.zPeak=t.z;t.flipNext=!!flip;t.under=null;t.held=null;
+  t.airBy=by?by.i:att!=null?att:null;
   if(by){const f=[Math.cos(by.h),Math.sin(by.h)],v=FIGHT.flipFwd*Math.sqrt(by.M.len);t.vx+=f[0]*v;t.vy+=f[1]*v;t.w+=rRange(F.rng,-6,6);}}
 function invertChance(F,hM){const a=FIGHT.invertM[0]*F.M.len,b=FIGHT.invertM[1]*F.M.len;return FIGHT.invertMax*Math.max(0,Math.min(1,(hM-a)/(b-a)));}
 function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon).strokeMm*o.M.len/1000;let hit=false;
@@ -273,7 +291,7 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     else{dx=Math.cos(o.h);dy=Math.sin(o.h);}
     const l=Math.hypot(dx,dy)||1,up=FIGHT.up[w.id]!=null?FIGHT.up[w.id]:0,jh=J*Math.sqrt(1-up*up);dx/=l;dy/=l;
     impulseAt(t,dx*jh,dy*jh,c.px,c.py);
-    if(up>0){const vz=J*up/t.m,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*t.M.len)launch(F,t,vz,F.rng()<invertChance(F,hM),null);}   // a smaller hop is a jolt, not a flight
+    if(up>0){const vz=J*up/t.m,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*t.M.len)launch(F,t,vz,F.rng()<invertChance(F,hM),null,o.i);}   // a smaller hop is a jolt, not a flight
     const kick=jh*FIGHT.recoilShare*(w.recoil||0);impulseAt(o,-dx*kick,-dy*kick,c.px,c.py);
     /* self-damage: a big hit bends the disc; a huge one at full speed shears the shaft */
     if(!o.flags.bent&&E>w.bendJ*(0.85+0.3*F.rng())){o.flags.bent=true;o.fx=damageEffects(o.b,o.st,o.flags);logIt(F,{k:"self",v:o.i,what:"bent",E:r2(E)});}
@@ -338,13 +356,44 @@ function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_
   Y.under={by:X.i,until:F.t+hold};if(X.under&&X.under.by===Y.i)X.under=null;}
 function walls(F,o){const H=F.arena.half;
   for(const ax of [0,1])for(const sg of [-1,1]){let pen=0,pt=null;for(const v of o.pw){const p=v[ax]*sg-H;if(p>pen){pen=p;pt=v;}}
-    if(!pt)continue;if(ax)o.y-=sg*pen;else o.x-=sg*pen;o.pw=worldPoly(o,o.poly);
+    if(!pt)continue;o.wallT=F.t;if(ax)o.y-=sg*pen;else o.x-=sg*pen;o.pw=worldPoly(o,o.poly);
     const nx=ax?0:-sg,ny=ax?-sg:0,r=[pt[0]-o.x,pt[1]-o.y],v=[o.vx-o.w*r[1],o.vy+o.w*r[0]],vn=v[0]*nx+v[1]*ny;
     if(vn<0){const cn=r[0]*ny-r[1]*nx,km=1/o.m+cn*cn/o.I,j=-(1+F.arena.wallE)*vn/km;impulseAt(o,nx*j,ny*j,pt[0],pt[1]);
       const tx=-ny,ty=nx,vt=v[0]*tx+v[1]*ty,ct=r[0]*ty-r[1]*tx,kt=1/o.m+ct*ct/o.I;let jt=-vt/kt;const lim=FIGHT.contactMu*j;jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(o,tx*jt,ty*jt,pt[0],pt[1]);
       const E=0.5/km*vn*vn*(1-F.arena.wallE*F.arena.wallE)*FIGHT.ramShare;if(E>FIGHT.ramMinJ*F.M.mass&&!o.air){damageBot(F,o,faceAt(o,pt[0],pt[1]),E,"wall",-1);fxPush(F,{k:"wall",x:pt[0],y:pt[1],E});}}}}
 /* the pit (from PR 4b's arenas): a bot whose centre is over it on the ground falls in */
-function pitCheck(F,o){const P=F.arena.pit;if(!P||o.air||o.out)return;if(o.x>P[0]&&o.x<P[2]&&o.y>P[1]&&o.y<P[3])outBot(F,o,"pit");}
+function pitOpen(F){const P=F.arena.pit;return!!P&&F.t>=P.openS;}
+function pitCheck(F,o){if(!pitOpen(F)||o.air||o.out)return;const P=F.arena.pit.rect;if(o.x>P[0]&&o.x<P[2]&&o.y>P[1]&&o.y<P[3])outBot(F,o,"pit");}
+/* hazards (sim/arenas.js): a bot on the ground in the zone triggers it; while it is active it hits each bot in the zone once */
+function inHaz(h,o){if(h.type==="spinner")return Math.hypot(o.x-h.at[0],o.y-h.at[1])<h.rM+o.rad*0.3;
+  const r=h.rect;return o.pw.some(v=>v[0]>r[0]&&v[0]<r[2]&&v[1]>r[1]&&v[1]<r[3]);}
+function stepHazards(F){const H=F.arena.haz;
+  for(let i=0;i<H.length;i++){const h=H[i],s=F.hz[i];if(F.t<(h.startS||0))continue;
+    if(F.t>=s.until&&F.t>=s.ready&&F.bots.some(o=>!o.out&&!o.air&&inHaz(h,o))){s.until=F.t+h.activeS;s.ready=F.t+h.periodS;s.hit={};}
+    if(F.t>=s.until)continue;
+    for(const o of F.bots)if(!o.out&&!o.air&&!s.hit[o.i]&&inHaz(h,o)){s.hit[o.i]=1;hazHit(F,h,i,o);}}}
+/* the enemy that shoved o into a hazard: the last one touching it within a second */
+function hazBy(F,o){let best=null,bt=-1;for(const k in o.touch){const t=F.bots[k];if(t&&t.team!==o.team&&!t.out&&F.t-o.touch[k]<1&&o.touch[k]>bt){bt=o.touch[k];best=t;}}return best;}
+function hazHit(F,h,i,o){const sq=Math.sqrt(F.M.len),E=h.J*F.M.mass,by=hazBy(F,o),tag={h:i,what:h.type};let nx,ny;
+  if(h.type==="pusher"){nx=h.n[0];ny=h.n[1];damageBot(F,o,faceAt(o,o.x-nx*o.rad,o.y-ny*o.rad),E,"haz",-1,{tag});}
+  else{const a=F.rng()*2*Math.PI;nx=Math.cos(a);ny=Math.sin(a);damageBot(F,o,"under",E,"haz",-1,{below:1,tag});
+    o.w=Math.max(-FIGHT.maxSpin,Math.min(FIGHT.maxSpin,o.w+(F.rng()<0.5?-1:1)*h.spinRad));}
+  o.vx+=nx*h.kickMs*sq;o.vy+=ny*h.kickMs*sq;
+  if(h.vzMs>0){const vz=h.vzMs*sq,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*o.M.len)launch(F,o,vz,F.rng()<invertChance(F,hM),null,by?by.i:null);}
+  if(by)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
+/* the judges' bookkeeping, each step (JUDGE_WEIGHTS, sim/arenas.js) */
+function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
+  for(const o of F.bots){if(o.out)continue;let t=null,bd=1e9;
+    for(const q of F.bots)if(q.team!==o.team&&!q.out){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
+    if(!t)continue;const J=o.jd,vs=Math.max(o.b.driveSpeed||0,0.1),touching=o.touch[t.i]!=null&&F.t-o.touch[t.i]<0.1,
+      vt=bd>1e-6?((t.x-o.x)*o.vx+(t.y-o.y)*o.vy)/bd:0,mob=mobile(o)&&!o.air;
+    if(touching)J.contact+=dt;else if(mob&&vt>G.closeV*vs)J.close+=dt;else if(mob&&vt<-G.closeV*vs)J.retreat+=dt;
+    /* o held, under, upside down (and stuck that way) or pinned: whoever is doing it gets the time */
+    let by=null;
+    if(o.held!=null)by=F.bots[o.held];else if(o.under)by=F.bots[o.under.by];
+    else if(o.inverted&&!o.b.height.drivesInverted)by=o.invBy!=null?F.bots[o.invBy]:t;
+    else if(touching&&o.wallT!=null&&F.t-o.wallT<0.1&&Math.hypot(o.vx,o.vy)<G.pinV*vs)by=t;
+    if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
 function outBot(F,o,why){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;}
@@ -357,14 +406,14 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
     /* a knocked-out bot still rolls to a stop (its drive is dead, so it draws nothing) but no longer heats or drains */
     const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out)stepHeat(F,o,dW,wW);
     /* self-righting */
-    if(o.inverted&&!o.air&&!o.out){if(o.righting>0){o.righting-=dt;if(o.righting<=0){o.righting=0;o.inverted=false;logIt(F,{k:"right",v:o.i});}}
+    if(o.inverted&&!o.air&&!o.out){if(o.righting>0){o.righting-=dt;if(o.righting<=0){o.righting=0;o.inverted=false;o.invBy=null;logIt(F,{k:"right",v:o.i});}}
       else if(o.input.selfRight&&o.fx.righter&&!o.fx.dead&&!o.flat){const by=o.fx.righterBy;
         if(by==="weapon"&&o.b.weapon.type==="flipper"){if(o.wp.shots>0&&o.wp.recharge<=0){o.wp.shots--;o.wp.recharge=o.b.weapon.rechargeS||1;o.righting=0.3;}}
         else o.righting=FIGHT.rightS;}}
     else o.righting=0;
     /* the height axis */
     if(o.air){o.vz-=K.g*dt;o.z+=o.vz*dt;if(o.z>o.zPeak)o.zPeak=o.z;
-      if(o.z<=0&&o.vz<0){o.z=0;o.vz=0;o.air=false;if(o.flipNext){o.inverted=!o.inverted;o.flipNext=false;logIt(F,{k:"inv",v:o.i,inv:o.inverted?1:0});}
+      if(o.z<=0&&o.vz<0){o.z=0;o.vz=0;o.air=false;if(o.flipNext){o.inverted=!o.inverted;o.flipNext=false;o.invBy=o.inverted?o.airBy:null;logIt(F,{k:"inv",v:o.i,inv:o.inverted?1:0});}
         damageBot(F,o,"top",o.m*K.g*o.zPeak*BENCH.dropShare,"land",-1,{inverted:o.inverted});fxPush(F,{k:"land",x:o.x,y:o.y,E:o.m*K.g*o.zPeak,v:o.i});o.stats.landed++;o.zPeak=0;}}
     else o.z=o.under?WEDGE_RULES.liftMm*o.M.len/1000:o.held!=null?((F.bots[o.held].b.weapon.liftM)||0.02)*0.5:0;
     if(o.under&&F.t>o.under.until)o.under=null;
@@ -372,6 +421,9 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots)if(!o.out)spinnerHits(F,o);
   for(let i=0;i<F.bots.length;i++)for(let j=i+1;j<F.bots.length;j++){const A=F.bots[i],B=F.bots[j];collide(F,A,B);A.pw=worldPoly(A,A.poly);B.pw=worldPoly(B,B.poly);}
   for(const o of F.bots)if(o.out!=="pit"){walls(F,o);pitCheck(F,o);}
+  if(F.arena.pit&&F.arena.pit.openS>0&&!F.pitLogged&&pitOpen(F)){F.pitLogged=true;logIt(F,{k:"pitopen"});}
+  if(F.arena.haz.length)stepHazards(F);
+  stepJudge(F);
   /* knockouts: immobile for koS seconds. Upside down and unable to right counts; being knocked about doesn't stop the
      count (an immobile bot thrown by a spinner is still immobile); getting mobile again (righted) does */
   for(const o of F.bots){if(o.out)continue;const still=!mobile(o)&&!(o.righting>0&&o.fx.righter);
@@ -381,13 +433,22 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   if(teams.length<=1){F.over=true;F.endT=F.t;F.winner=teams.length?teams[0]:null;
     const last=F.bots.filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
   else if(F.t>=F.rules.roundS-1e-9){F.over=true;F.endT=F.t;judgeFight(F);}
-  if(F.over)logIt(F,{k:"end",w:F.winner,why:F.reason});
+  if(F.over){const e=logIt(F,{k:"end",w:F.winner,why:F.reason});if(F.judge)e.j=F.judge.scores;}
   return F;}
-/* time up. First pass (PR 4a): the team that has lost the smaller share of its hp wins, a draw within 1%. PR 4b
-   replaces this with the judges (JUDGE_WEIGHTS: damage, aggression, control). */
-function judgeFight(F){const sc={};for(const o of F.bots){sc[o.team]=(sc[o.team]||0)+damageShare(o.b,o.st)/F.bots.filter(q=>q.team===o.team).length;}
-  const ks=Object.keys(sc).sort((a,b)=>sc[a]-sc[b]);F.judge=sc;
-  if(ks.length>1&&sc[ks[1]]-sc[ks[0]]<0.01){F.winner=null;F.reason="draw";}else{F.winner=F.bots.find(o=>String(o.team)===ks[0]).team;F.reason="time";}}
+/* time up: the judges (JUDGE_WEIGHTS, sim/arenas.js). Among the teams still in it, each term is shared in proportion to
+   what each did (evenly when nobody did any), x 100 x its weight, so the scores add up to 100. A draw only when the
+   totals are within half a point. */
+function judgeFight(F){const W=JUDGE_WEIGHTS,raw={};
+  for(const o of F.bots){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
+    s.damage+=o.stats.dealt;s.aggression+=Math.max(0,o.jd.close+o.jd.contact-o.jd.retreat);s.control+=o.jd.ctrl;}
+  const ks=Object.keys(raw).filter(k=>F.bots.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
+  for(const k of ks){sc[k]={damage:0,aggression:0,control:0,total:0};tot[k]=0;}
+  for(const term of ["damage","aggression","control"]){const sum=ks.reduce((a,k)=>a+raw[k][term],0);
+    for(const k of ks){const v=100*W[term]*(sum>1e-9?raw[k][term]/sum:1/ks.length);sc[k][term]=Math.round(v*10)/10;tot[k]+=v;}}
+  for(const k of ks)sc[k].total=Math.round(tot[k]*10)/10;
+  const order=ks.slice().sort((a,b)=>tot[b]-tot[a]);F.judge={scores:sc,raw};
+  if(order.length>1&&tot[order[0]]-tot[order[1]]<0.5){F.winner=null;F.reason="draw";}
+  else{F.winner=F.bots.find(o=>String(o.team)===order[0]).team;F.reason="judges";}}
 
 /* ---- the player's inputs, packed: three channels (throttle, steer, buttons), one value per input tick (30 Hz). Each
    channel is a list of tokens: a byte with the top bit set is a small step, value += ((b >> 3) & 15) - 7, held for
@@ -437,7 +498,8 @@ function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules
 function fightResult(F){return{over:F.over,winner:F.winner,reason:F.reason,timeS:r2(F.endT!=null?F.endT:F.t),judge:F.judge||null,
   bots:F.bots.map(o=>({i:o.i,name:o.name,team:o.team,out:o.out,inverted:o.inverted,damage:damageTaken(o.b,o.st),states:resStates(o),
     flags:Object.assign({},o.flags),
-    share:r2(damageShare(o.b,o.st)),stats:{dealt:r2(o.stats.dealt),taken:r2(o.stats.taken),hits:o.stats.hits,landed:o.stats.landed}})),
+    share:r2(damageShare(o.b,o.st)),stats:{dealt:r2(o.stats.dealt),taken:r2(o.stats.taken),hits:o.stats.hits,landed:o.stats.landed,failHits:o.stats.failHits},
+    judge:{close:r2(o.jd.close),contact:r2(o.jd.contact),retreat:r2(o.jd.retreat),control:r2(o.jd.ctrl)},style:o.ai?o.ai.style:null})),
   log:fightLog(F)};}
 /* part states; a bent disc has its hp but still needs the pit */
 function resStates(o){const s=partStates(o.b,o.st);if(o.flags.bent&&s.weapon==="intact")s.weapon="damaged";return s;}
