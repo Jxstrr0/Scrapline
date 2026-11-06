@@ -18,7 +18,7 @@ node build.js --check    # exit 1 if index.html or sw.js != what src/ builds; na
 - Every file except the last ends with a newline (`build.js` refuses otherwise). `html/tail.html` holds the page's last line, with no trailing newline. Empty files are refused: a stub needs at least its header comment.
 - A new file must be added to `manifest.txt` at the right position; `build.js` refuses to build if a file in `src/` is missing from it, and refuses leftover merge-conflict markers.
 - Scope is shared within each script block. `SCRAP_SIM` is one IIFE over the sim files, `SCRAP_VIS` one IIFE over the vis files, and the app is one top-level script over the app files. `start()` runs after the whole app block has loaded (`__ldGo` in `app/boot.js`), so later app files can add to tables and `TAB_RENDER` freely.
-- `src/sim/` must never call `Math.random`, `Date.now` or `performance.now` (determinism; `tools/sim-test.js` checks from PR 1). All randomness comes from `rng(seed)`.
+- `src/sim/` must never call `Math.random`, `Date.now` or `performance.now` (determinism; `tools/sim-test.js` checks). All randomness comes from `rng(seed)`. `node tools/sim-test.js` also checks every part's fields and every test build in every class.
 
 ## PWA files (repo root, not in src/)
 
@@ -38,10 +38,10 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `html/ld-libs.html`, `ld-sim.html`, `ld-vis.html` | one-line `<script>__ld(fraction,"message")</script>` loading-bar steps after the block they report |
 | **SCRAP_SIM** (maths, runs in node) | |
 | `sim/rng.js` | `<script>`, header, IIFE open; `rng(seed)` (mulberry32), `rRange`, `rInt`, `rPick` |
-| `sim/parts.js` | `CLASSES`, `PARTS`, `DEFAULT_CFG` (PR 1; the five classes and their limits now) |
-| `sim/build.js` | `K`, `evalBuild(cfg)`: grams and mm in, SI out (PR 1; a stub now) |
-| `sim/combos.js` | `COMBOS` stress-report rules (PR 1) |
-| `sim/bench.js` | the six bench tests, `WEDGE_GAUGES` (PR 3) |
+| `sim/parts.js` | `CLASSES`, `classMult`, `PARTS` (every option at beetle scale), the chassis grid (`cellOn`, `footprints`, `placeOk`, `autoLayout`), `normCfg`, `DEFAULT_CFG`, `TEST_BUILDS` |
+| `sim/build.js` | `K`, `evalBuild(cfg)`: grams and mm in, SI out (its header lists every field) |
+| `sim/combos.js` | `COMBOS` stress-report rules and `stressReport(b)` |
+| `sim/bench.js` | `WEDGE_GAUGES` (the stress report reads them); the six bench tests (PR 3) |
 | `sim/fight.js` | `runFight`, `STEP_HZ`, `WEDGE_RULES` (PR 4a) |
 | `sim/damage.js` | hits, part failures, `PART_STATES` (PR 4a) |
 | `sim/ai.js` | AI drivers, `AI_STYLES` (PR 4a / 4b) |
@@ -62,7 +62,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/savecode.js` | Back up / Restore: `buCode`, `buRead`, `buWrite`, the two sheets; save safety: backup files, `buPersist`, the storage line, the reminder bar |
 | `app/pwa.js` | service worker registration, the "New version ready" bar, `PWA.canInstall` / `install` / `iosTip` |
 | `app/boot.js` | `TABS`, `TAB_RENDER`, `showTab`, the Settings sheet, intro, `start()` (scheduled with `__ldGo`) |
-| `app/build.js` | the Build tab (PR 2); `?sim=1` shows the raw `evalBuild()` result |
+| `app/build.js` | the Build tab (PR 2); now the raw build maths for any class and test build (`?sim=1` opens the raw result) |
 | `app/bench.js` | the Bench tab (PR 3) |
 | `app/debugview.js` | the 2D top-down fight view (PR 4a) |
 | `app/controls.js` | direct and tactical driving, keyboard, gamepad, assists (PR 5) |
