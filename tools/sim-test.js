@@ -155,6 +155,10 @@ for (const cls of SIM.CLASS_IDS) {
   if (SIM.runBench(SIM.evalBuild(SIM.TEST_BUILDS.find((t) => t.id === "invert").cfg), "drop").inverted.outcome !== "drives") fail("the invertible box should drive away upside down");
   if (SIM.runBench(SIM.evalBuild(SIM.TEST_BUILDS.find((t) => t.id === "hsp").cfg), "drop").inverted.outcome !== "rights") fail("the self-righter should put the hsp back");
   if (SIM.runBench(B({ wheels: "tracks" }), "drop").inverted.outcome !== "stuck") fail("tracks, a vertical spinner and no self-righter should be stuck upside down");
+  const capped = B({ electronics: "basic", battery: "small" }), ce = SIM.runBench(capped, "endurance");
+  if (!(capped.powerScale < 0.9) || Math.abs(ce.runtimeS / capped.runtimeS - 1) > 0.1) fail(`a power-capped bot's endurance (${ce.runtimeS} s) should match its prediction (${capped.runtimeS} s)`);
+  const slow = Object.assign({}, B({}), {}); slow.weapon = Object.assign({}, slow.weapon, { spinPowerW: 0.5 });
+  const sw = SIM.runBench(slow, "weapon"); if (sw.spinUpS !== null || !SIM.stressReport(slow, { weapon: sw }).some((l) => l.id === "spinup" && /never/.test(l.text))) fail("a disc that never gets to full speed should say so");
   if (SIM.BENCH_TESTS.length !== 6 || SIM.BENCH_TESTS.filter((t) => t.hours === 0).map((t) => t.id).join() !== "drive,weapon") fail("six tests, the drive and weapon tests free");
 }
 

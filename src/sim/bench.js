@@ -76,7 +76,8 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
         if(t90==null&&om>=0.9*wm)t90=t;if(++n%4===0)tr.push([t,om/wm]);if(om>=stop*wm)break;}
       tr.push([t,om/wm]);return{t,t90,tr};};
     const up=spin(0,0.99),hitJ=w.storedJ*w.bite,after=wm*Math.sqrt(Math.max(0,1-w.bite)),back=spin(after,0.9);
-    Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:up.t,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
+    const full=up.tr[up.tr.length-1][1]>=0.99;   // spinUpS and t90 are null if it never gets there in 60 s
+    Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:full?up.t:null,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
       hitJ,rpmAfter:after*60/(2*Math.PI),recoverS:back.t,recoilMm:1000*hitJ*BENCH.kickShare*(w.recoil||0)/(Math.max(b.grip,0.1)*m*g),
       shearJ:w.shearJ,bendJ:w.bendJ});
     return r;}
@@ -110,15 +111,16 @@ function benchGauge(x){const b=asBuild(x),M=classMult(b.cls),tol=WEDGE_RULES.tol
   return{id:"gauge",edgeMm:e,tolMm:tol,rows,under:rows.filter(q=>q.under).length,youUnder:rows.filter(q=>q.youUnder).length};}
 
 function benchEndurance(x){const b=asBuild(x),P=b.power,h=b.heat,dt=0.25,cyc=BENCH.cycleS,dOn=K.driveDuty*cyc,
-    w0=BENCH.weaponFrom*cyc,w1=w0+K.weaponDuty*cyc,hasW=!!h.weapon&&P.weaponW>0,trace=[[0,1,0,0]];
+    w0=BENCH.weaponFrom*cyc,w1=w0+K.weaponDuty*cyc,drawW=P.weaponW>0,hasW=!!h.weapon&&drawW,ps=b.powerScale,trace=[[0,1,0,0]];
   let bat=P.batteryWs,t=0,qd=0,qw=0,dDer=false,wDer=false,dAt=null,wAt=null,peakD=0,peakW=0,derS=0,n=0;
   const grp=(q,on,full,g,der)=>Math.max(0,q+(g.rateW*(full>0?on/full:0)-g.coolW)*dt);
   while(bat>0&&t<BENCH.enduranceMaxS){const ph=t%cyc;
-    let dW=ph<dOn?P.driveW*(dDer?BENCH.derate:1):0,wW=hasW&&ph>=w0&&ph<w1?P.weaponW*(wDer?BENCH.derate:1):0;
-    const want=dW+wW+P.idleW,s=want>P.capW&&want>0?P.capW/want:1;dW*=s;wW*=s;
-    bat-=(dW+wW+P.idleW*s)*dt;
-    qd=grp(qd,dW,P.driveW,h.drive);if(!dDer&&qd>=h.drive.budgetJ){dDer=true;if(dAt==null)dAt=t;}else if(dDer&&qd<=BENCH.recoverAt*h.drive.budgetJ)dDer=false;
-    if(hasW){qw=grp(qw,wW,P.weaponW,h.weapon);if(!wDer&&qw>=h.weapon.budgetJ){wDer=true;if(wAt==null)wAt=t;}else if(wDer&&qw<=BENCH.recoverAt*h.weapon.budgetJ)wDer=false;}
+    /* the battery or ESC holds the motors to powerScale of full power, as evalBuild has it (and as the drive and weapon
+       tests feel it); an overheated group backs off further */
+    const dW=ph<dOn?P.driveW*ps*(dDer?BENCH.derate:1):0,wW=drawW&&ph>=w0&&ph<w1?P.weaponW*ps*(wDer?BENCH.derate:1):0;
+    bat-=(dW+wW+P.idleW)*dt;
+    qd=grp(qd,dW,P.driveW*ps,h.drive);if(!dDer&&qd>=h.drive.budgetJ){dDer=true;if(dAt==null)dAt=t;}else if(dDer&&qd<=BENCH.recoverAt*h.drive.budgetJ)dDer=false;
+    if(hasW){qw=grp(qw,wW,P.weaponW*ps,h.weapon);if(!wDer&&qw>=h.weapon.budgetJ){wDer=true;if(wAt==null)wAt=t;}else if(wDer&&qw<=BENCH.recoverAt*h.weapon.budgetJ)wDer=false;}
     if(dDer||wDer)derS+=dt;
     const fd=h.drive.budgetJ>0?qd/h.drive.budgetJ:0,fw=hasW&&h.weapon.budgetJ>0?qw/h.weapon.budgetJ:0;if(fd>peakD)peakD=fd;if(fw>peakW)peakW=fw;
     t+=dt;if(++n%4===0)trace.push([t,Math.max(0,bat)/P.batteryWs,fd,fw]);}
@@ -131,7 +133,8 @@ function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len
   const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
     return side(-1)&&side(1)&&alive(st,"battery")&&alive(st,"electronics");};
   const skid=b.cfg.extras.indexOf("skid")>=0?part("extras","skid").underAbsorbJ*M.mass:0;
-  const up=damageState(b),upParts=[];let rest=Math.max(0,E-skid);const ins=b.parts.filter(p=>p.hpJ>0),tot=ins.reduce((a,p)=>a+p.massKg,0)||1;
+  /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods, shared by mass */
+  const up=damageState(b),upParts=[];let rest=Math.max(0,E-skid);const ins=b.parts.filter(p=>p.hpJ>0&&(p.slot==="wheels"||p.slot==="drive")),tot=ins.reduce((a,p)=>a+p.massKg,0)||1;
   for(const p of ins){const d=Math.min(rest*p.massKg/tot,up.parts[p.key]);if(d<=0)continue;up.parts[p.key]-=d;
     upParts.push({key:p.key,name:benchPartName(b,p.key),dmg:d,frac:d/p.hpJ,destroyed:up.parts[p.key]<=1e-9});}
   const inv=damageState(b),hit=hitFace(b,"top",E,inv);

@@ -869,8 +869,8 @@ const COMBOS=[
   {id:"bare",sev:(b,v)=>v.parts.length?"bad":"warn",
     test:b=>{for(const f of ["front","back","left","right"])if(b.armourMapJ[f].id==="none"&&!(f==="front"&&["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0))return{f,parts:partsOnFace(b,f)};return null;},
     text:(b,v)=>FACE_NAME[v.f]+" armour none"+(v.parts.length?": "+v.parts.map(s=>PART_NAME[s]).join(" and ")+" exposed.":". Nothing sits right behind it yet, but the chassis takes every hit there.")},
-  {id:"spinup",bench:"weapon",sev:(b,v)=>v>7?"bad":"warn",test:(b,m)=>{const s=m.weapon&&m.weapon.kind==="spin"?m.weapon.spinUpS:b.weapon.spinUpS;return s>4&&s;},
-    text:(b,v)=>"Spin-up "+n1(v)+" s: you lose the first exchange."},
+  {id:"spinup",bench:"weapon",sev:(b,v)=>v>7?"bad":"warn",test:(b,m)=>{const w=m.weapon&&m.weapon.kind==="spin"?m.weapon:null,s=w?(w.spinUpS==null?Infinity:w.spinUpS):b.weapon.spinUpS;return s>4&&s;},
+    text:(b,v)=>isFinite(v)?"Spin-up "+n1(v)+" s: you lose the first exchange.":"The disc never gets to full speed: the motor can't push it there."},
   {id:"flip",sev:"bad",test:b=>b.weapon.type==="flipper"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
     text:(b,v)=>"Flipper can't lift a bot over "+n1(v)+" kg in this class (the limit is "+n1(b.limitKg)+" kg)."},
   {id:"lift",sev:"warn",test:b=>b.weapon.type==="lifter"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
@@ -988,7 +988,8 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
         if(t90==null&&om>=0.9*wm)t90=t;if(++n%4===0)tr.push([t,om/wm]);if(om>=stop*wm)break;}
       tr.push([t,om/wm]);return{t,t90,tr};};
     const up=spin(0,0.99),hitJ=w.storedJ*w.bite,after=wm*Math.sqrt(Math.max(0,1-w.bite)),back=spin(after,0.9);
-    Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:up.t,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
+    const full=up.tr[up.tr.length-1][1]>=0.99;   // spinUpS and t90 are null if it never gets there in 60 s
+    Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:full?up.t:null,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
       hitJ,rpmAfter:after*60/(2*Math.PI),recoverS:back.t,recoilMm:1000*hitJ*BENCH.kickShare*(w.recoil||0)/(Math.max(b.grip,0.1)*m*g),
       shearJ:w.shearJ,bendJ:w.bendJ});
     return r;}
@@ -1022,15 +1023,16 @@ function benchGauge(x){const b=asBuild(x),M=classMult(b.cls),tol=WEDGE_RULES.tol
   return{id:"gauge",edgeMm:e,tolMm:tol,rows,under:rows.filter(q=>q.under).length,youUnder:rows.filter(q=>q.youUnder).length};}
 
 function benchEndurance(x){const b=asBuild(x),P=b.power,h=b.heat,dt=0.25,cyc=BENCH.cycleS,dOn=K.driveDuty*cyc,
-    w0=BENCH.weaponFrom*cyc,w1=w0+K.weaponDuty*cyc,hasW=!!h.weapon&&P.weaponW>0,trace=[[0,1,0,0]];
+    w0=BENCH.weaponFrom*cyc,w1=w0+K.weaponDuty*cyc,drawW=P.weaponW>0,hasW=!!h.weapon&&drawW,ps=b.powerScale,trace=[[0,1,0,0]];
   let bat=P.batteryWs,t=0,qd=0,qw=0,dDer=false,wDer=false,dAt=null,wAt=null,peakD=0,peakW=0,derS=0,n=0;
   const grp=(q,on,full,g,der)=>Math.max(0,q+(g.rateW*(full>0?on/full:0)-g.coolW)*dt);
   while(bat>0&&t<BENCH.enduranceMaxS){const ph=t%cyc;
-    let dW=ph<dOn?P.driveW*(dDer?BENCH.derate:1):0,wW=hasW&&ph>=w0&&ph<w1?P.weaponW*(wDer?BENCH.derate:1):0;
-    const want=dW+wW+P.idleW,s=want>P.capW&&want>0?P.capW/want:1;dW*=s;wW*=s;
-    bat-=(dW+wW+P.idleW*s)*dt;
-    qd=grp(qd,dW,P.driveW,h.drive);if(!dDer&&qd>=h.drive.budgetJ){dDer=true;if(dAt==null)dAt=t;}else if(dDer&&qd<=BENCH.recoverAt*h.drive.budgetJ)dDer=false;
-    if(hasW){qw=grp(qw,wW,P.weaponW,h.weapon);if(!wDer&&qw>=h.weapon.budgetJ){wDer=true;if(wAt==null)wAt=t;}else if(wDer&&qw<=BENCH.recoverAt*h.weapon.budgetJ)wDer=false;}
+    /* the battery or ESC holds the motors to powerScale of full power, as evalBuild has it (and as the drive and weapon
+       tests feel it); an overheated group backs off further */
+    const dW=ph<dOn?P.driveW*ps*(dDer?BENCH.derate:1):0,wW=drawW&&ph>=w0&&ph<w1?P.weaponW*ps*(wDer?BENCH.derate:1):0;
+    bat-=(dW+wW+P.idleW)*dt;
+    qd=grp(qd,dW,P.driveW*ps,h.drive);if(!dDer&&qd>=h.drive.budgetJ){dDer=true;if(dAt==null)dAt=t;}else if(dDer&&qd<=BENCH.recoverAt*h.drive.budgetJ)dDer=false;
+    if(hasW){qw=grp(qw,wW,P.weaponW*ps,h.weapon);if(!wDer&&qw>=h.weapon.budgetJ){wDer=true;if(wAt==null)wAt=t;}else if(wDer&&qw<=BENCH.recoverAt*h.weapon.budgetJ)wDer=false;}
     if(dDer||wDer)derS+=dt;
     const fd=h.drive.budgetJ>0?qd/h.drive.budgetJ:0,fw=hasW&&h.weapon.budgetJ>0?qw/h.weapon.budgetJ:0;if(fd>peakD)peakD=fd;if(fw>peakW)peakW=fw;
     t+=dt;if(++n%4===0)trace.push([t,Math.max(0,bat)/P.batteryWs,fd,fw]);}
@@ -1043,7 +1045,8 @@ function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len
   const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
     return side(-1)&&side(1)&&alive(st,"battery")&&alive(st,"electronics");};
   const skid=b.cfg.extras.indexOf("skid")>=0?part("extras","skid").underAbsorbJ*M.mass:0;
-  const up=damageState(b),upParts=[];let rest=Math.max(0,E-skid);const ins=b.parts.filter(p=>p.hpJ>0),tot=ins.reduce((a,p)=>a+p.massKg,0)||1;
+  /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods, shared by mass */
+  const up=damageState(b),upParts=[];let rest=Math.max(0,E-skid);const ins=b.parts.filter(p=>p.hpJ>0&&(p.slot==="wheels"||p.slot==="drive")),tot=ins.reduce((a,p)=>a+p.massKg,0)||1;
   for(const p of ins){const d=Math.min(rest*p.massKg/tot,up.parts[p.key]);if(d<=0)continue;up.parts[p.key]-=d;
     upParts.push({key:p.key,name:benchPartName(b,p.key),dmg:d,frac:d/p.hpJ,destroyed:up.parts[p.key]<=1e-9});}
   const inv=damageState(b),hit=hitFace(b,"top",E,inv);
@@ -1409,7 +1412,8 @@ const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null
 const mqReduce=window.matchMedia?matchMedia("(prefers-reduced-motion: reduce)"):null;
 function applyTheme(){const t=ST().theme||"dark",eff=t==="auto"?(mqLight&&mqLight.matches?"light":"dark"):t;
   document.documentElement.setAttribute("data-theme",eff);
-  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";}
+  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";
+  try{if(curTab==="bench")bnPlots();}catch(e){}}   // canvases read the palette when drawn (curTab and bnPlots: boot.js, bench.js)   // canvases read the palette when drawn
 function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matches):!!r;}
 function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -1857,6 +1861,9 @@ const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catc
 /* the stress report: with measured numbers from the bench when the draft is the fitted, tested bot (app/bench.js) */
 function bStress(){const r=bEval(),m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m?SIM.stressReport(r,m):r.stress;}
 
+/* the weak side: measured by the impact test when the draft is the tested bot, else predicted */
+function bWeak(r){const m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m&&m.impact&&m.impact.weakest||r.weakestFace;}
+
 /* ---- delta lines: what an option would change, against the draft ---- */
 function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   if(r.totalG>r.limitG)return`<i class="dn">${fmtG(r.totalG-r.limitG)} over</i>`;
@@ -1994,7 +2001,7 @@ function bRender(){if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.s
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
   const m=$("bwMeter");m.setAttribute("aria-valuemax",c.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
-  $("bCap").innerHTML=`<span><b>${r.driveSpeed.toFixed(1)}</b> m/s</span><span>${w.energyJ>=1?`<b class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</b> J`:`<b>${w.type==="none"?"no weapon":w.type}</b>`}</span><span>weak <b>${FACE_LBL[r.weakestFace].toLowerCase()}</b></span><span><b class="readout">${fmtS(r.runtimeS)}</b> run</span><span class="chip ${v[0]}">${v[1]}</span>`;
+  $("bCap").innerHTML=`<span><b>${r.driveSpeed.toFixed(1)}</b> m/s</span><span>${w.energyJ>=1?`<b class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</b> J`:`<b>${w.type==="none"?"no weapon":w.type}</b>`}</span><span>weak <b>${FACE_LBL[bWeak(r)].toLowerCase()}</b></span><span><b class="readout">${fmtS(r.runtimeS)}</b> run</span><span class="chip ${v[0]}">${v[1]}</span>`;
   $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
@@ -2093,7 +2100,12 @@ const BN_DESC={
   endurance:"Fight-pace bursts of drive and weapon until the battery is flat: runtime, heat, and when the motors back off.",
   drop:"Dropped from a big flipper throw, landing on its wheels and upside down: what breaks, and whether it can carry on."
 };
-const bnSig=cfg=>JSON.stringify(SIM.normCfg(cfg));
+/* a bot's signature: its parts and where they actually sit (autoLayout), so putting a part back where it was, or writing
+   down the automatic place, isn't a change */
+const bnSigMemo=new Map();
+function bnSig(cfg){const k=JSON.stringify(SIM.normCfg(cfg));let s=bnSigMemo.get(k);
+  if(s==null){const n=SIM.normCfg(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
+  return s;}
 let bnCache={sig:"",b:null,res:{}};
 function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:SIM.evalBuild(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
@@ -2123,7 +2135,7 @@ const BN_TEXT={
       straight?"Runs straight":`Pulls ${r.driftMm<0?"left":"right"} ${rd(bn0(Math.abs(r.driftMm))+" mm")} over the track`,
       r.spinS!=null?`Spins on the spot in ${rd(bn1(r.spinS)+" s")} (${bn0(r.turnDegS)}°/s)`:"Can't spin on the spot",
       `Push ${rd(bn0(r.pushN)+" N")}`];},
-  weapon:(r,b)=>{if(r.kind==="spin")return[`Full speed ${rd(bn0(r.rpm)+" rpm")} in ${rd(bn1(r.spinUpS)+" s")} <small>(predicted ${bn1(r.predicted)})</small>, 90% in ${bn1(r.t90)} s`,
+  weapon:(r,b)=>{if(r.kind==="spin")return[r.spinUpS!=null?`Full speed ${rd(bn0(r.rpm)+" rpm")} in ${rd(bn1(r.spinUpS)+" s")} <small>(predicted ${isFinite(r.predicted)?bn1(r.predicted):"–"})</small>, 90% in ${bn1(r.t90)} s`:`<span class="broke">Doesn't reach ${bn0(r.rpm)} rpm in a minute</span>${r.t90!=null?`, 90% in ${bn1(r.t90)} s`:""}`,
       `Stores ${rd(bn0(r.storedJ)+" J")}, tip speed ${bn0(r.tipSpeed)} m/s`,
       `Anvil hit: ${rd(bn0(r.hitJ)+" J")} lands, the disc drops to ${bn0(r.rpmAfter)} rpm and is back to 90% in ${bn1(r.recoverS)} s`,
       `Recoil throws you back ${rd(bn0(r.recoilMm)+" mm")}`,
@@ -2151,7 +2163,7 @@ const BN_TEXT={
 };
 const BN_ARIA={drive:r=>`Speed over time, reaching ${bn1(r.topSpeed)} m/s`,impact:r=>`Energy each face takes before a part breaks; weakest ${r.weakest?FACE_LBL[r.weakest].toLowerCase():"none"}`,
   gauge:r=>`${r.under} of ${r.rows.length} gauges get under the ${bn1(r.edgeMm)} mm edge`,endurance:r=>`Battery and motor heat over ${bn0(r.ranS)} seconds`,
-  drop:r=>`Damage from the drop, on its wheels and upside down`,weapon:r=>r.kind==="spin"?`Disc speed over time, full in ${bn1(r.spinUpS)} s`:`${r.name} test`};
+  drop:r=>`Damage from the drop, on its wheels and upside down`,weapon:r=>r.kind==="spin"?`Disc speed over time${r.spinUpS!=null?`, full in ${bn1(r.spinUpS)} s`:", never full"}`:`${r.name} test`};
 
 /* ---- canvas readouts ---- */
 const BN_KEY={   // the key under a chart: [colour token, words]

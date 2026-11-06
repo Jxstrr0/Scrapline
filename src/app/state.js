@@ -91,7 +91,8 @@ const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null
 const mqReduce=window.matchMedia?matchMedia("(prefers-reduced-motion: reduce)"):null;
 function applyTheme(){const t=ST().theme||"dark",eff=t==="auto"?(mqLight&&mqLight.matches?"light":"dark"):t;
   document.documentElement.setAttribute("data-theme",eff);
-  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";}
+  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";
+  try{if(curTab==="bench")bnPlots();}catch(e){}}   // canvases read the palette when drawn (curTab and bnPlots: boot.js, bench.js)   // canvases read the palette when drawn
 function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matches):!!r;}
 function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
