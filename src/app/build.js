@@ -21,9 +21,14 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 
 /* ---- the bot and its draft for the class on the Build tab ---- */
 function bCls(){const c=ST().buildCls;return SIM.CLASSES[c]?c:"beetle";}
+/* a save from an older or damaged game may hold a draft or bot with missing fields or unknown ids: each one goes through
+   normCfg once (unknown parts become the defaults) before anything reads it */
+const bNormed=new WeakSet();
 function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
   if(!b||typeof b!=="object")b=S.bots[cls]={cfg:null,damage:{},draft:null};
-  if(!b.draft||typeof b.draft!=="object")b.draft=SIM.normCfg(Object.assign({},b.cfg||SIM.DEFAULT_CFG,{cls}));
+  if(!b.damage||typeof b.damage!=="object")b.damage={};
+  if(b.cfg&&!bNormed.has(b.cfg)){b.cfg=typeof b.cfg==="object"?SIM.normCfg(Object.assign({},b.cfg,{cls})):null;if(b.cfg)bNormed.add(b.cfg);}
+  if(!b.draft||!bNormed.has(b.draft)){b.draft=SIM.normCfg(Object.assign({},b.draft&&typeof b.draft==="object"?b.draft:b.cfg||SIM.DEFAULT_CFG,{cls}));bNormed.add(b.draft);}
   return b;}
 const draft=()=>bBot().draft;
 /* evalBuild results for this draft, kept until it changes */
@@ -34,7 +39,7 @@ const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 /* change the draft. Refused (with the grams) if it would go over the limit and adds weight. */
 function bSet(mut,why){const before=bEval(),c=bTry(mut),r=SIM.evalBuild(c);
   if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
-  bBot().draft=SIM.normCfg(c);bLayoutSync();save();bRender();if(why)toast(why);return true;}
+  bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
 /* moving parts is free: if the draft and the fitted bot have the same parts, the fitted bot takes the new layout */
 function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft))b.cfg.layout=clone(b.draft.layout);}
 const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
@@ -131,7 +136,8 @@ function bPlace(key,cx,cy){const cfg=draft(),c=SIM.CLASSES[cfg.cls],f=SIM.footpr
   if(f.mount==="left")x=0;if(f.mount==="right")x=c.gridW-f.w;if(f.mount==="front")y=0;
   x=Math.max(0,Math.min(c.gridW-f.w,x));y=Math.max(0,Math.min(c.gridH-f.h,y));
   const taken=new Set();for(const g of SIM.footprints(cfg)){if(g.key===key)continue;const p=r.layout.place[g.key];if(!p)continue;for(let i=0;i<g.w;i++)for(let j=0;j<g.h;j++)taken.add((p[0]+i)+","+(p[1]+j));}
-  if(!SIM.placeOk(cfg,f,x,y,taken)){toast(f.mount==="front"?"The weapon has to sit on the front row":f.mount==="edge"?"A horizontal spinner has to sit on an edge":"Something's already there");buzz(20);return;}
+  if(!SIM.placeOk(cfg,f,x,y,taken)){const shape=SIM.placeOk(cfg,f,x,y,null);
+    toast(shape?"Something's already there":f.mount==="edge"&&!(y===0||x===0||y+f.h===c.gridH||x+f.w===c.gridW)?"A horizontal spinner has to sit on an edge":"It doesn't fit there");buzz(20);return;}
   const place=Object.assign({},r.layout.place,{[key]:[x,y]});B.sel=null;
   bSet(d=>{d.layout=place;});buzz(8);}
 function bCellAt(ev){const g=$("lGrid");if(!g)return null;const rc=g.getBoundingClientRect(),c=SIM.CLASSES[bCls()];
@@ -169,7 +175,8 @@ function bDesignsBody(){const L=bDesigns(),cls=bCls();
     <p>Load puts a design in the draft; nothing is bought until you fit it.</p>`;}
 
 /* ---- the pinned bar, the Fit bar, the rows ---- */
-function bRender(){const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
+function bRender(){if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
+  const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
@@ -180,51 +187,64 @@ function bRender(){const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limi
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
 function bFitBar(r){const b=bBot(),fb=$("fitBar");
   if(b.cfg&&SIM.sameParts(b.cfg,b.draft)){fb.hidden=true;return;}
-  const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid;
+  const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid,n=bill.lines.length,off=bill.removed.length;
+  const what=[n?`${n} new part${n===1?"":"s"}`:"",off?`${off} taken off`:""].filter(Boolean).join(", ")||"Parts changed";
   fb.hidden=false;
-  fb.innerHTML=`<span class="ft"><b>${b.cfg?`${bill.lines.length} part${bill.lines.length===1?"":"s"} changed`:"Nothing fitted yet"}</b>${ok?`${fmt$(bill.cost)} · ${bill.hours} h in the workshop`:r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok?"":" disabled"}>Fit</button>`;}
+  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${ok?`${fmt$(bill.cost)} · ${bill.hours} h in the workshop`:r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok?"":" disabled"}>Fit</button>`;}
 
 /* ---- fit: show the bill, then charge it (once the career exists) ---- */
 function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const bill=SIM.fitBill(b.cfg,b.draft),c=S.career,free=!c;
   const face=l=>l.face?` (${FACE_LBL[l.face].toLowerCase()})`:"";
-  openSheet("Fit these parts",`<ul class="bill">${bill.lines.map(l=>`<li><span>${esc(l.name)}${face(l)}</span><span>${fmt$(l.cost)}</span></li>`).join("")}
+  openSheet("Fit these parts",`<ul class="bill">${bill.lines.map(l=>`<li><span>${esc(l.name)}${face(l)}</span><span>${fmt$(l.cost)}</span></li>`).join("")}${bill.removed.map(l=>`<li><span>${esc(l.name)}${face(l)} taken off</span><span>—</span></li>`).join("")}
     <li class="tot"><span>Total · ${bill.hours} h</span><span>${fmt$(bill.cost)}</span></li></ul>
     <p class="hint">${free?"No charge yet: money starts with the career.":`Paid in full; parts taken off are gone. You have ${fmt$(c.money||0)}.`}</p>
     <div class="row"><button type="button" class="btn pri" data-act="fit-ok">${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=S.career;
   if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}c.money-=bill.cost;}
-  b.cfg=clone(b.draft);b.damage={};save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);}
+  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);}
+
+/* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
+   are part keys (sim/build.js parts: drive0, wheel1, battery, weapon, selfright ...) or armour_<face> for a plate. */
+function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))delete d[x];};
+  for(const l of bill.lines.concat(bill.removed)){const s=l.slot;
+    if(s==="armour")hit(x=>x==="armour_"+l.face);
+    else if(s==="drive")hit(x=>/^drive\d$/.test(x));
+    else if(s==="wheels")hit(x=>/^wheel\d$/.test(x));
+    else if(s==="weapon"||s==="weaponMaterial")hit(x=>x==="weapon");
+    else if(s==="extras")hit(x=>x===l.id);
+    else hit(x=>x===s);}}
 
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
   if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec;B.open[id]=!B.open[id];bRender();return;}
-  if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;save();bRender();return;}
+  if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
     bSet(c=>{if(s==="armour")c.armour[B.face]=id;else c[s]=id;});return;}
   if((x=t.closest(".opt[data-extra]"))){const id=x.dataset.extra;bSet(c=>{c.extras=c.extras.indexOf(id)>=0?c.extras.filter(e=>e!==id):c.extras.concat([id]);});return;}
-  if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src)return;
+  if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src||!src.cfg||typeof src.cfg!=="object")return;
     const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=SIM.evalBuild(cfg);
-    bBot().draft=SIM.normCfg(cfg);bLayoutSync();save();bRender();
+    B.sel=null;bBot().draft=SIM.normCfg(cfg);bNormed.add(bBot().draft);bLayoutSync();save();bRender();
     const bill=SIM.fitBill(bBot().cfg,bBot().draft);toast(r.totalG>r.limitG?`${src.name} is over the limit in this class`:`${src.name} loaded into the draft${bill.lines.length?" · fitting it costs "+fmt$(bill.cost):""}`);return;}
   if((x=t.closest("[data-del]"))){const k=x.dataset.del;if(B.delKey!==k){B.delKey=k;bRender();clearTimeout(bClick.t);bClick.t=setTimeout(()=>{B.delKey=null;if(curTab==="build")bRender();},3000);return;}
     const L=bDesigns(),d=L.splice(+k.slice(1),1)[0];B.delKey=null;save();bRender();toast(`Deleted ${d?d.name:"the design"}`);return;}
   if((x=t.closest("[data-act]"))){const a=x.dataset.act;
     if(a==="armour-all"){const id=draft().armour[B.face];bSet(c=>{for(const f of ["front","back","left","right"])c.armour[f]=id;},`${bName("armour",id)} on all four sides`);}
     else if(a==="layout-reset"){B.sel=null;bSet(c=>{c.layout={};},"Parts back in their usual places");}
-    else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);B.sel=null;save();bRender();toast("Back to the fitted bot");}
+    else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);bNormed.add(b.draft);B.sel=null;save();bRender();toast("Back to the fitted bot");}
     else if(a==="fit")bFitOpen();
     else if(a==="design-save"){const L=bDesigns();if(L.length>=D_MAX){toast(`${D_MAX} designs per class. Delete one first.`);return;}
       const nm=($("dName").value||"").trim().slice(0,32)||`Design ${L.length+1}`;L.push({name:nm,cfg:clone(draft())});save();bRender();toast(`Saved ${nm}`);}
     return;}}
 /* layout: tap or drag a part, tap a cell */
-function bDown(e){const p=e.target.closest(".lpart");if(!p)return;B.drag={key:p.dataset.part,x:e.clientX,y:e.clientY,moved:false,id:e.pointerId};}
+function bDown(e){const p=e.target.closest(".lpart");if(!p)return;B.drag={key:p.dataset.part,x:e.clientX,y:e.clientY,moved:false,id:e.pointerId};
+  try{$("tab-build").setPointerCapture(e.pointerId);}catch(err){}}   // the release still reaches us if it lands outside the tab
 function bMove(e){const d=B.drag;if(!d||e.pointerId!==d.id)return;if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>8)d.moved=true;}
-function bUp(e){const g=e.target.closest&&e.target.closest("#lGrid"),d=B.drag;B.drag=null;
+function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.target,g=tg.closest&&tg.closest("#lGrid"),d=B.drag;B.drag=null;   // with the pointer captured, e.target is the tab
   if(d&&d.moved){const c=bCellAt(e);if(c)bPlace(d.key,c[0],c[1]);return;}
   if(!g)return;
-  const p=e.target.closest(".lpart");
-  if(p&&(!B.sel||B.sel===p.dataset.part)){B.sel=B.sel===p.dataset.part?null:p.dataset.part;bRender();return;}
+  const p=tg.closest(".lpart");
+  if(p){B.sel=B.sel===p.dataset.part?null:p.dataset.part;bRender();return;}   // tapping a part picks it (or another one)
   if(B.sel){const c=bCellAt(e);if(c)bPlace(B.sel,c[0],c[1]);}}
 
 TAB_RENDER.build=function(){
