@@ -302,7 +302,8 @@ function ftEvCard(){const c=S.career;if(!crOn()||!(c.day||CR.end))return"";const
 function ftKitLine(){const k=PIT_KITS[FT.kit],c=SIM.CLASSES[bCls()];return`${esc(k.line)} Free when sparring; ${fmt$(Math.round(k.price*c.prizeScale))} at a career event.`;}
 /* the bout's score, the pit work between rounds, and a chip per round to look at */
 function ftBoutHtml(){const B=FT.bout,n=FT.rounds.length;let h="";
-  if(B&&n){const w=ftBoutWinner(B),opp=FT.rounds[0].F.bots[1].name;
+  if(B&&n&&B.banner)h+=`<p class="ftres ${B.banner.cls||""}">${esc(B.banner.t)}</p>`;   // an event bout: the career's own line (rumbles and tag count by team)
+  else if(B&&n){const w=ftBoutWinner(B),opp=FT.rounds[0].F.bots[1].name;
     h+=`<p class="ftres ${B.over&&!B.stopped?w===0?"ok":w==null?"":"broke":""}">${B.stopped||!B.over?"Bout stopped":w==null?"Bout drawn":w===0?"You win the bout":esc(opp)+" wins the bout"} <span class="readout">${B.wins[0]||0}–${B.wins[1]||0}</span></p>`;
     if(B.pits.length)h+=`<ul class="ftpits">${B.pits.map((p,i)=>`<li>Pit ${i+1}: you ${p.mine.length?p.mine.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"fixed nothing"}${p.lost?` <span class="worn">(the ${PIT_NAMES[p.lost.kind].toLowerCase()} wasn't finished)</span>`:""} · their crew ${p.theirs.length?p.theirs.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing"}</li>`).join("")}</ul>`;}
   if(n>1)h+=`<div class="seg ftrounds" role="group" aria-label="Round">${FT.rounds.map((r,i)=>`<button type="button" data-ftrv="${i}" class="${i===FT.rv?"on":""}" aria-pressed="${i===FT.rv}">Round ${i+1}</button>`).join("")}</div>`;

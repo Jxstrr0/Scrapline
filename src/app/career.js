@@ -5,7 +5,8 @@
    Time: you act (fit, bench, repair, enter the week's event and fight it), then Close week: rent comes out, the week's
    workshop hours come in (WORKSHOP_STAGES; unused hours carry over up to TIME.bankWeeks weeks' worth). 52 weeks a
    season, 20 seasons. At the end of a season you move up an act (TIME.acts: Garage, Circuit, Heavyweight, Legacy) if
-   you placed top two at the act's championship or your rep reached its repTo.
+   you placed top two at the act's championship or your rep reached its repTo; the Heavyweight act only by winning the
+   Scrapline Open Final (repTo is not used there).
    Events (SEASON_EVENTS, EVENT_KINDS): one a week at most, in your act's calendar and the one before's. Entering pays the
    entry fee, travel (WORLD.venues km and nights, x the stage's travel) and a pit kit (PIT_KITS x the class's prizeScale,
    or none), and takes the day's workshop hours. The field is drawn from the seed: rivals in the class, the class's named
@@ -73,7 +74,9 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   for(const s of["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
   for(const f of SIM.FACES)if(crPartLock("armour",c.armour[f]))c.armour[f]=CR_START.armour;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
-function crStart(){S.career=crFresh();S.unlocks.tools={hand:true};S.rivals={};S.lastFight=null;S.bots={};
+/* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
+function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
+function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.rivals={};S.lastFight=null;S.bots={};
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -212,13 +215,21 @@ function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
   ftShowSim(res.Fs,res,day,nx);CR.seen=true;const f=day.fights[day.fights.length-1];
   toast(`${f.draw?"Draw":f.won?"Won":"Lost"}: ${f.label} vs ${f.vs}`);}
 function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const e=crEv(day.ev),T=nx.teams||[0,1];
-  ST().buildCls=day.cls;showTab("fight");
+  ST().buildCls=day.cls;day.live=nx.label;save();showTab("fight");
   ftEvent({arena:crArena(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
     kit:day.kit,left:nx.idx.map(i=>day.field[i].left||{}),label:nx.label,title:e.name,
-    onDone:(B,F)=>{CR.seen=true;const res={wt:B.stopped?T.find(t=>t!==T[0]):crBoutWinner(B.wins,F,Array.from(new Set(T))),wins:B.wins,Fs:FT.rounds.map(r=>r.F),teams:T};
+    onDone:(B,F)=>{CR.seen=true;delete day.live;const res={wt:B.stopped?T.find(t=>t!==T[0]):crBoutWinner(B.wins,F,Array.from(new Set(T))),wins:B.wins,Fs:FT.rounds.map(r=>r.F),teams:T};
       nx.idx.forEach((i,k)=>{if(B.dmg[k]){day.field[i].dmg=B.dmg[k];day.field[i].flags=crFlags(B.flags[k]||{});}});
       crAfterMine(day,nx,res,true,!!B.stopped);return crBanner(day,nx,res);},
     pit:()=>{const n2=crNext(S.career.day);return n2&&day.kit!=="none"?{dmg:day.field[0].dmg,flags:day.field[0].flags,kit:day.kit,left:day.field[0].left,title:`Pit window · ${n2.label} next`}:null;}});}
+/* a driven fight the app closed on (reload, the phone killed it): it counts as a forfeit, so a losing fight can't be
+   fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
+function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
+  const nx=crNext(day);delete day.live;if(!nx){save();return;}const T=nx.teams||[0,1];
+  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
+  const res={wt:T.find(t=>t!==T[0]),wins:{},Fs:[F],teams:T};
+  crRecord(day,nx,res,true);for(const i of nx.idx)if(i!==0)crCrew(day,i);crAdvance(day);save();hud();
+  toast(`The ${nx.label} was left unfinished: counted as a forfeit`);}
 /* after one of your matches: xp, the record, your crew's pit work after a quick sim, then the other fights */
 function crAfterMine(day,nx,res,driven,stopped){const c=S.career,me=res.teams[0];
   c.driverXp+=(driven?TIME.xp.drive:TIME.xp.sim)+(res.wt===me&&!stopped?TIME.xp.win:0);
@@ -269,11 +280,11 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   if(up)c.act++;c.year++;c.season++;c.week=1;
   if(c.season>=WORLD.seasons){c.over=true;c.done=true;}
   setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>
-    ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act<3?`<p class="hint">To move up: place top two at ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
+    ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>`}`),200);}
 
 /* ---- the tab ---- */
-function crRender(){const el=$("crBody");if(!el)return;const c=S.career;
+function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();const c=S.career;
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start: what you've fitted while sparring isn't kept (it was free). Your saved designs stay, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
@@ -303,15 +314,16 @@ function crEvLine(e){const k=EVENT_KINDS[e.kind],v=WORLD.venues[e.venue],t=crTra
   return`<p>${esc(SIM.CLASSES[e.cls].name)} · ${esc(k.name.toLowerCase())} at ${esc(v.name)} · ${fmt}.</p>
     <p class="hint">Entry ${fmt$(crEntry(e))} · travel ${fmt$(t.cost)}${t.nights?`, ${t.nights} night${t.nights>1?"s":""} away`:""} · ${t.hours} h of your week · first prize ${fmt$(crPrize(e,0))}.</p>`;}
 function crRivalsAt(e){const rs=RIVALS.filter(r=>r.bots[e.cls]);if(!rs.length)return"";return`<p class="hint">Rivals in the class: ${rs.map(r=>esc(r.name)).join(", ")}.</p>`;}
-function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;CR.kit=CR.kit||"basic";const t=crTravel(e);
+function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;const f=EVENT_KINDS[e.kind].format,noPit=f==="rumble"||f==="tag";
+  CR.kit=noPit?"none":CR.kitPick||"basic";const t=crTravel(e);
   const kits=[["none","No kit","free"]].concat(Object.keys(PIT_KITS).map(k=>[k,PIT_KITS[k].name.replace(" kit",""),fmt$(crKitPrice(k,e.cls))]));
   const tot=()=>crEntry(e)+t.cost+crKitPrice(CR.kit,e.cls);
-  openSheet("Enter "+e.name,`${crEvLine(e)}<div class="field"><span class="lbl">Pit kit</span>${segHtml("crKit","crkit",kits,CR.kit)}<p class="hint" id="crKitLine">${crKitLine(e)}</p></div>
+  openSheet("Enter "+e.name,`${crEvLine(e)}${noPit?`<p class="hint">One fight and no pit window, so no pit kit.</p>`:`<div class="field"><span class="lbl">Pit kit</span>${segHtml("crKit","crkit",kits,CR.kit)}<p class="hint" id="crKitLine">${crKitLine(e)}</p></div>`}
     <ul class="bill"><li><span>Entry</span><span>${fmt$(crEntry(e))}</span></li><li><span>Travel</span><span>${fmt$(t.cost)}</span></li><li><span>Pit kit</span><span id="crKitP">${fmt$(crKitPrice(CR.kit,e.cls))}</span></li><li><b>Total</b><b id="crTot">${fmt$(tot())}</b></li></ul>
     <p class="hint">You have ${fmt$(c.money)} and ${crR1(c.hours)} h; the day takes ${t.hours} h. Your fitted ${esc(SIM.CLASSES[e.cls].name.toLowerCase())} goes as it is${crDmgTxt(e.cls)}.</p>
     <p class="worn" id="crWhy"></p><div class="row"><button type="button" class="btn pri" data-cr="enter-ok">Enter</button></div>`);
-  const upd=()=>{$("crKitP").textContent=fmt$(crKitPrice(CR.kit,e.cls));$("crTot").textContent=fmt$(tot());$("crKitLine").textContent=crKitLine(e);const w=crCantEnter(e,CR.kit);$("crWhy").textContent=w||"";document.querySelector('[data-cr="enter-ok"]').disabled=!!w;};
-  $("crKit").addEventListener("click",ev=>{const b=ev.target.closest("[data-crkit]");if(!b)return;CR.kit=b.dataset.crkit;$("crKit").querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});upd();});upd();}
+  const upd=()=>{$("crKitP").textContent=fmt$(crKitPrice(CR.kit,e.cls));$("crTot").textContent=fmt$(tot());if($("crKitLine"))$("crKitLine").textContent=crKitLine(e);const w=crCantEnter(e,CR.kit);$("crWhy").textContent=w||"";document.querySelector('[data-cr="enter-ok"]').disabled=!!w;};
+  if($("crKit"))$("crKit").addEventListener("click",ev=>{const b=ev.target.closest("[data-crkit]");if(!b)return;CR.kit=CR.kitPick=b.dataset.crkit;$("crKit").querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});upd();});upd();}
 function crKitLine(e){return CR.kit==="none"?"No spares: the pit window has nothing to work with.":PIT_KITS[CR.kit].line+" "+Object.keys(PIT_KITS[CR.kit].allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${PIT_KITS[CR.kit].allow[k]}`).join(" · ");}
 function crDmgTxt(cls){const b=S.bots[cls];if(!b||!b.cfg)return"";const bill=crBill(cls);return bill&&bill.lines.length?`, <span class="worn">damage and all (${bill.lines.length} part${bill.lines.length>1?"s":""} still broken)</span>`:"";}
 function crEnter(){const c=S.career,e=crThisWeek();if(!e)return;const kit=CR.kit||"none",w=crCantEnter(e,kit);if(w){toast(w);return;}const t=crTravel(e);

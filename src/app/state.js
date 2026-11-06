@@ -41,7 +41,7 @@ const WORLD={
    Driver skill: xp per fight (drive is a fight you drove, sim a quick sim, win on top). levels are the assist levels
    (ASSISTS) by xp; skill is the AI's skill number when your bot is quick-simmed.
    acts: the classes each act's events are in. You move up an act at the end of a season if you placed top two at that
-   act's championship, or your rep reached repTo. */
+   act's championship, or your rep reached repTo; out of the Heavyweight act only by winning the Open Final. */
 const TIME={weeks:52,bankWeeks:2,eventHours:6,nightHours:4,perKm:0.3,night:45,
   startMoney:1500,loan:1000,loanRate:0.1,loanShare:0.5,
   xp:{drive:3,sim:1,win:2},levels:[["rookie",0],["club",25],["pro",70]],skill:{base:0.5,perXp:0.002,max:0.9},
@@ -207,9 +207,9 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;
 /* a restored game: take it, store it, redraw everything */
-function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}save();applyAll();showTab(ST().tab||"build");toast(msg);}
+function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();save();applyAll();showTab(ST().tab||"build");toast(msg);}
 /* loading a save slot keeps this phone's settings (plan section 15) */
-function loadSlot(o,msg){const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
+function loadSlot(o,msg){const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
 
 /* ---- settings that change the page ---- */
 const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null;
