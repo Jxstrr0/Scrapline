@@ -181,7 +181,7 @@ function bDesignsBody(){const L=bDesigns(),cls=bCls();
     <p>Load puts a design in the draft; nothing is bought until you fit it.</p>`;}
 
 /* ---- the pinned bar, the Fit bar, the rows ---- */
-function bRender(){if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
+function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
   const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
@@ -255,6 +255,10 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
 
 /* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
 document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
+/* the workshop's bot in 3D: the draft on the Build tab, the fitted bot elsewhere (the draft while nothing is fitted) */
+function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():SIM.evalBuild(bot.cfg);
+  SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
+  if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
   if(!bRender.bound){bRender.bound=true;const tb=$("tab-build");
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});

@@ -38,7 +38,7 @@ function shopEnv(){
 /* materials per tier: the same names, cheaper shading on Lite */
 function makeMats(tier){
   const lite=tier==="lite";
-  if(V.mats)for(const k in V.mats)V.mats[k].dispose();
+  if(V.mats)for(const k in V.mats)(Array.isArray(V.mats[k])?V.mats[k]:[V.mats[k]]).forEach(m=>m.dispose());
   if(!lite&&!V.env)V.env=shopEnv();
   const C=h=>new THREE.Color(h).convertSRGBToLinear();
   /* Lite has no reflection to darken bare metal, so its Phong base colour runs at 55% with a soft highlight, or polished
@@ -59,7 +59,20 @@ function makeMats(tier){
     rubber:matte(0x1a1a1a,.95),
     bench:matte(0x55493c,.8),
     plate:metal(0x6d7177,.55),
-    floor:matte(0x232322,1)
+    floor:matte(0x232322,1),
+    ti:metal(0x9a9da3,.4),
+    arenaFloor:matte(0x2e2d2a,.9),
+    wall:matte(0x4a4740,.8),
+    glass:new THREE.MeshBasicMaterial({color:C(0x8fa3b5),transparent:true,opacity:.12,depthWrite:false}),
+    pit:new THREE.MeshBasicMaterial({color:C(0x050505)}),
+    hatch:matte(0x3a352c,.9),
+    haz:matte(0x6b5b3c,.6),
+    hazOn:new THREE.MeshBasicMaterial({color:C(0xe2a93b)}),
+    crowd:new THREE.MeshBasicMaterial({color:0xffffff}),
+    blur:new THREE.MeshBasicMaterial({color:C(0xc9ced4),transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}),
+    spark:new THREE.PointsMaterial({color:C(0xffd59a),size:lite?3:4,sizeAttenuation:false,transparent:true,opacity:1,depthWrite:false,blending:THREE.AdditiveBlending}),
+    smoke:new THREE.MeshBasicMaterial({color:C(0x8a8a86),transparent:true,opacity:.35,depthWrite:false}),
+    team:BOT_TEAM.map(h=>matte(h,.5))
   };
   return V.mats;
 }

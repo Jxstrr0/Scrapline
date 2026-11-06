@@ -246,8 +246,8 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .ftopp{display:flex;flex-wrap:wrap;gap:6px}
 .ftopp button{min-height:40px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--card2);font-size:14px;color:var(--muted)}
 .ftopp button.on{color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay);background:var(--card)}
-canvas.ftcv{display:block;width:100%;aspect-ratio:1/1;height:auto;margin:4px 0 8px;border-radius:10px;background:#1A1917;touch-action:pan-y}
 .ftres{margin:0 0 8px;min-height:1.4em;font-weight:700;font-size:16px}
+.ftres.ok{color:var(--good)} .ftres.broke{color:var(--crit-t)}
 #ftHud{margin-top:10px}
 .ftbot{padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
 .ftbot small{color:var(--dim);margin-left:4px}
@@ -274,6 +274,55 @@ canvas.ftcv{display:block;width:100%;aspect-ratio:1/1;height:auto;margin:4px 0 8
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
 html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
 @media (prefers-reduced-transparency:reduce){#hud{background:#0A0A09eb}.hudbtn{background:#1F1E1B}#scrim{background:rgba(6,6,5,.85)}}
+
+/* ---- fight mode (app/fight.js): the 3D view fills the screen, the overlay #fov carries the HUD and the controls.
+   It sits inside #view, so it is dark in both themes. ---- */
+#app.fighting #panel,#app.fighting #tabs,#app.fighting #hud,#app.fighting #tag{display:none}
+#app.fighting #view{flex:1 1 auto}
+.fov{position:absolute;inset:0;z-index:3;color:var(--ink);font-size:13px;pointer-events:none;touch-action:none;-webkit-user-select:none;user-select:none}
+.fov button,.fov .ctl{pointer-events:auto}
+.fovtop{position:absolute;z-index:2;inset:0 0 auto 0;display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(#0A0A09cc,#0A0A0900)}
+.fclock{font:700 20px var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac);min-width:3.2em}
+.fnote{flex:1;font-size:13px;color:var(--warn);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbtn{min-height:40px;min-width:48px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:#1F1E1Bd9;color:var(--ink);font-size:14px;font-weight:600}
+.fbtn[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--clay)}
+.fbots{position:absolute;z-index:2;top:56px;left:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px}
+.fbot{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:10px;background:#141413b3;max-width:calc(50% - 3px)}
+.fbot.out{opacity:.55}
+.fsil{width:44px;height:44px;flex:0 0 auto}
+.fbinfo{display:grid;grid-template-columns:auto auto auto;gap:3px 4px;align-items:center;min-width:0}
+.fbinfo b{grid-column:1/-1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbinfo small{grid-column:1/-1;color:var(--warn);font-size:12px;min-height:1em}
+.fbar{display:block;width:30px;height:5px;border-radius:3px;background:#34322D;overflow:hidden}
+.fbar i{display:block;height:100%;width:0;background:var(--lilac)}
+.fbar i.lo{background:var(--warn)}
+.fcv{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94%,calc(100% - 150px));aspect-ratio:1/1;max-height:calc(100% - 150px);border-radius:10px;background:#1A1917}
+.fpause,.fend{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 32px));padding:18px;border-radius:14px;background:#1F1E1Bf2;border:1px solid var(--rule);text-align:center;pointer-events:auto}
+.fpause p{margin:0 0 12px;font-size:18px;font-weight:700}
+.fend b{display:block;font-size:22px;margin-bottom:4px}
+.fend p{margin:0 0 14px;color:var(--muted)}
+/* direct controls: a floating stick on the left half, the weapon on the right (swapped when left-handed) */
+.ctl{position:absolute;z-index:1;inset:0;pointer-events:none}
+.ctlpad{position:absolute;left:0;bottom:0;width:55%;height:62%;pointer-events:auto;touch-action:none}
+.ctl.lefty .ctlpad{left:auto;right:0}
+.ctlbase,.ctlknob{position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;opacity:.35;transition:opacity .15s}
+.ctlbase{width:112px;height:112px;margin:-56px 0 0 -56px;border:2px solid #F2EFE866;background:#14141333}
+.ctlknob{width:52px;height:52px;margin:-26px 0 0 -26px;background:var(--clay)}
+.ctlpad .ctlbase,.ctlpad .ctlknob{left:80px;top:calc(100% - 90px)}
+.ctl.lefty .ctlpad .ctlbase,.ctl.lefty .ctlpad .ctlknob{left:calc(100% - 80px)}
+.ctlhint{position:absolute;left:52px;bottom:24px;font-size:12px;color:var(--muted)}
+.ctl.lefty .ctlhint{left:auto;right:52px}
+.ctlbtn{position:absolute;right:22px;bottom:30px;width:92px;height:92px;border-radius:50%;border:2px solid var(--clay);background:#D977574d;color:var(--ink);font-weight:700;font-size:14px;touch-action:none;pointer-events:auto}
+.ctlbtn.down{background:var(--clay);color:var(--on-clay)}
+.ctl.lefty .ctlbtn{right:auto;left:22px}
+.ctlsr{bottom:136px;width:76px;height:76px;border-color:var(--warn);background:#E2A93B40;font-size:12px}
+.ctl.lefty .ctlsr{left:30px}
+.ctl:not(.lefty) .ctlsr{right:30px}
+.ctltap{position:absolute;inset:0;pointer-events:auto;touch-action:none}
+.ctlmark{position:absolute;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid var(--lilac);pointer-events:none}
+.ctlmark.attack{border-color:var(--clay)} .ctlmark.back{border-color:var(--warn)}
+.ctlhint2{position:absolute;left:12px;right:12px;bottom:14px;margin:0;text-align:center;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-transparency:reduce){.fbot{background:#141413}.fovtop{background:#0A0A09eb}.fpause,.fend{background:#1F1E1B}}
 </style>
 
 <div id="app">
@@ -1983,9 +2032,49 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 <script>__ld(.5,"Parts maths loaded")</script>
 <script>
 /* ===================== Scrapline: sound (SCRAP_SOUND) =====================
-   Web Audio, all synthesized: clangs scaled by hit energy, motor and weapon whine following rpm, the pit clock. CC0
-   samples layer on top on Full / Ultra in PR 10. Arrives with the arena in PR 5 (docs/SCRAPLINE-PLAN.md section 9). */
-const SCRAP_SOUND={ready:false,hit(){},whine(){},stop(){}};
+   Web Audio, all synthesized, nothing loaded. The app calls these; the synth never reads game state.
+     unlock()            on the first tap or key (browsers only start audio after a gesture)
+     hit(e, kind)        a clang: a noise burst through a band-pass plus three inharmonic partials, louder and lower
+                         the harder the hit (e 0..1, already scaled by the app for the class); kind "wall" and "land"
+                         are duller, "haz" adds a thump. At most ~14 a second.
+     whine(i, w, d)      bot i's motors: w the weapon's share of full speed (a rising saw whine), d the drive's share of
+                         top speed (a low hum). Smoothed, so the app can call it a few times a second.
+     stop()              fade everything out (a fight ends, the tab is left, Settings turns sound off)
+   CC0 samples layer on top on Full / Ultra in PR 10 (docs/SCRAPLINE-PLAN.md section 9). */
+const SCRAP_SOUND=(function(){
+"use strict";
+let ctx=null,master=null,noise=null,lastHit=0,hits=0;const motors=[];
+function unlock(){if(ctx){if(ctx.state==="suspended")ctx.resume().catch(()=>{});return;}
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  try{ctx=new AC();}catch(e){ctx=null;return;}
+  master=ctx.createGain();master.gain.value=0.55;
+  const comp=ctx.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=6;master.connect(comp);comp.connect(ctx.destination);
+  const n=ctx.sampleRate*0.6|0,buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);let s=22222;
+  for(let i=0;i<n;i++){s=(s*16807)%2147483647;d[i]=s/1073741823.5-1;}noise=buf;}
+function hit(e,kind){if(!ctx||ctx.state!=="running")return;const t=ctx.currentTime;
+  if(t-lastHit<0.07){if(++hits>3)return;}else hits=0;lastHit=t;
+  e=Math.max(0.03,Math.min(1,e||0));const dull=kind==="wall"||kind==="land",vol=0.12+0.6*e;
+  const src=ctx.createBufferSource();src.buffer=noise;src.playbackRate.value=0.8+Math.random()*0.4;   // the synth isn't part of the sim: Math.random is fine here
+  const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.frequency.value=dull?600:1800-900*e;bp.Q.value=dull?0.7:1.4;
+  const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0008,t+(dull?0.12:0.08+0.2*e));
+  src.connect(bp);bp.connect(g);g.connect(master);src.start(t);src.stop(t+0.4);
+  if(!dull){const base=380+500*(1-e);for(const [m,a] of [[1,1],[2.76,0.5],[5.4,0.25]]){const o=ctx.createOscillator(),og=ctx.createGain();o.type="sine";o.frequency.value=base*m;
+      og.gain.setValueAtTime(vol*0.35*a,t);og.gain.exponentialRampToValueAtTime(0.0005,t+0.15+0.5*e/m);o.connect(og);og.connect(master);o.start(t);o.stop(t+0.8);}}
+  if(kind==="haz"||e>0.6){const o=ctx.createOscillator(),og=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(40,t+0.2);
+    og.gain.setValueAtTime(vol*0.8,t);og.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.connect(og);og.connect(master);o.start(t);o.stop(t+0.3);}}
+function motor(i){if(motors[i])return motors[i];const w=ctx.createOscillator(),wf=ctx.createBiquadFilter(),wg=ctx.createGain(),d=ctx.createOscillator(),dg=ctx.createGain();
+  w.type="sawtooth";wf.type="lowpass";wf.frequency.value=2400;w.connect(wf);wf.connect(wg);wg.connect(master);wg.gain.value=0;
+  d.type="triangle";d.connect(dg);dg.connect(master);dg.gain.value=0;w.start();d.start();
+  return motors[i]={w,wf,wg,d,dg};}
+function whine(i,ws,ds){if(!ctx||ctx.state!=="running")return;const m=motor(i),t=ctx.currentTime,k=i===0?1:0.6;
+  ws=Math.max(0,Math.min(1,ws||0));ds=Math.max(0,Math.min(1,ds||0));
+  m.w.frequency.setTargetAtTime(90+ws*820+i*23,t,0.15);m.wg.gain.setTargetAtTime(ws>0.02?0.035*k*(0.3+0.7*ws):0,t,0.12);
+  m.d.frequency.setTargetAtTime(55+ds*90+i*7,t,0.1);m.dg.gain.setTargetAtTime(ds>0.05?0.05*k*ds:0,t,0.1);}
+function stop(){if(!ctx)return;const t=ctx.currentTime;for(const m of motors)if(m){m.wg.gain.setTargetAtTime(0,t,0.08);m.dg.gain.setTargetAtTime(0,t,0.08);}}
+const gesture=()=>unlock();
+window.addEventListener("pointerdown",gesture,{passive:true});window.addEventListener("keydown",gesture);
+return{get ready(){return!!ctx&&ctx.state==="running";},unlock,hit,whine,stop};
+})();
 </script>
 <script>
 /* ===================== Scrapline: 3D (SCRAP_VIS) =====================
@@ -2027,7 +2116,7 @@ function shopEnv(){
 /* materials per tier: the same names, cheaper shading on Lite */
 function makeMats(tier){
   const lite=tier==="lite";
-  if(V.mats)for(const k in V.mats)V.mats[k].dispose();
+  if(V.mats)for(const k in V.mats)(Array.isArray(V.mats[k])?V.mats[k]:[V.mats[k]]).forEach(m=>m.dispose());
   if(!lite&&!V.env)V.env=shopEnv();
   const C=h=>new THREE.Color(h).convertSRGBToLinear();
   /* Lite has no reflection to darken bare metal, so its Phong base colour runs at 55% with a soft highlight, or polished
@@ -2048,26 +2137,159 @@ function makeMats(tier){
     rubber:matte(0x1a1a1a,.95),
     bench:matte(0x55493c,.8),
     plate:metal(0x6d7177,.55),
-    floor:matte(0x232322,1)
+    floor:matte(0x232322,1),
+    ti:metal(0x9a9da3,.4),
+    arenaFloor:matte(0x2e2d2a,.9),
+    wall:matte(0x4a4740,.8),
+    glass:new THREE.MeshBasicMaterial({color:C(0x8fa3b5),transparent:true,opacity:.12,depthWrite:false}),
+    pit:new THREE.MeshBasicMaterial({color:C(0x050505)}),
+    hatch:matte(0x3a352c,.9),
+    haz:matte(0x6b5b3c,.6),
+    hazOn:new THREE.MeshBasicMaterial({color:C(0xe2a93b)}),
+    crowd:new THREE.MeshBasicMaterial({color:0xffffff}),
+    blur:new THREE.MeshBasicMaterial({color:C(0xc9ced4),transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}),
+    spark:new THREE.PointsMaterial({color:C(0xffd59a),size:lite?3:4,sizeAttenuation:false,transparent:true,opacity:1,depthWrite:false,blending:THREE.AdditiveBlending}),
+    smoke:new THREE.MeshBasicMaterial({color:C(0x8a8a86),transparent:true,opacity:.35,depthWrite:false}),
+    team:BOT_TEAM.map(h=>matte(h,.5))
   };
   return V.mats;
 }
-/* ---- vis/bot.js: the robot mesh. For now a stand-in: a plywood box with clay side panels, four rubber wheels and a
-   steel horizontal spinner disc with two teeth. PR 5 makes it parametric from the build (chassis polygon and grid, armour
-   per face, wheels, weapon by type, dents and missing parts from the damage state), cached by build hash and disposed. ---- */
+/* ---- vis/bot.js: the robot mesh, made from the build (an evalBuild() result the app passes in; the vis only looks up the
+   wheel size in SCRAP_SIM's parts table). Everything is code, on every tier:
+     chassis   the build's polygon, extruded from the clearance to the chassis height, in the chassis material
+     armour    a panel per face, as thick as the plate (drawn at least 2 mm so it reads), in the plate's material
+     wheels    one per wheel part, at its place in the layout; tracks as a belt
+     weapon    by type: horizontal disc, vertical disc, drum, undercutter, saw on an arm, hammer arm, crusher jaw,
+               flipper plate, lifter forks, a wedge's ramp (a pusher has a plain front)
+   The mesh is in metres with its origin at the centre of mass (where the sim puts the bot), front along -z; the app's view
+   scales it. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
+   by build hash (a few at a time) and their geometry and materials are disposed when they drop out of the cache. A team
+   colour paints the side panels: clay for you, lilac, green and blue for the others. ---- */
+const BOT_TEAM=[0xd97757,0xb48ce8,0x4cc38a,0x7fb3e6];
+const BOT_CACHE=new Map();   // hash -> group; kept to BOT_CACHE_MAX, oldest first out
+const BOT_CACHE_MAX=6;
+function botHash(b,team){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier;}
+function disposeTree(g){g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});}
+/* a clone leaving the scene: its geometry belongs to the cached source, only its own (damage-tinted) materials go */
+function disposeClone(g){if(g.parent)g.parent.remove(g);g.traverse(o=>{if(o.material&&o.userData.own)o.material.dispose();});}
+/* a mesh from the cache, or a new one. The workshop and the arena each get their own clone (same geometry, shared materials) */
+function botMesh(b,team){const k=botHash(b,team);let g=BOT_CACHE.get(k);
+  if(g){BOT_CACHE.delete(k);BOT_CACHE.set(k,g);}   // most recently used last
+  else{g=buildBot(b,team);BOT_CACHE.set(k,g);
+    while(BOT_CACHE.size>BOT_CACHE_MAX){const [k0,g0]=BOT_CACHE.entries().next().value;BOT_CACHE.delete(k0);disposeTree(g0);}}   // a clone still on screen re-uploads it
+  return cloneBot(g);}
+function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
+/* clone keeps geometry shared; part materials that get tinted by damage are cloned per instance (userData.own) */
+function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,wheels:[]});
+  g.traverse(o=>{if(!o.isMesh)return;const u=o.userData;
+    if(u.part){o.material=o.material.clone();o.userData={part:u.part,own:true,base:o.material.color.clone()};(g.userData.parts[u.part]||(g.userData.parts[u.part]=[])).push(o);}
+    else if(u.role==="blur"){o.material=o.material.clone();o.userData={role:"blur",own:true};g.userData.blur=o;}
+    if(u.wheel)g.userData.wheels.push(o);});
+  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;});
+  return g;}
+function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.plate:M.alu;}
+function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.plate:M.steel;}
+
+function buildBot(b,team){
+  const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?20:40,cfg=b.cfg,cx=b.com.x,cy=b.com.y;
+  const L=b.lengthM,Wd=b.widthM,hw=Wd/2,hl=L/2,len=L/0.27;   // len: rough class scale from the length, for small fixed sizes
+  const clr=Math.max(0.001,b.height.clearanceMm/1000),H=Math.max(clr+0.01,b.height.heightMm/1000),bodyH=H-clr;
+  const P=(x,y)=>[x-cx,-(y-cy)];   // build coords (m, y forward) to mesh (x, z), origin at the centre of mass
+  const add=(geo,mat,x,y,z,part)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(part)m.userData.part=part;g.add(m);return m;};
+  /* chassis: the polygon extruded, a little inset so the armour panels sit on it */
+  const sh=new THREE.Shape();b.polygon.forEach((p,i)=>{const q=P(p[0],p[1]);i?sh.lineTo(q[0],-q[1]):sh.moveTo(q[0],-q[1]);});
+  const cg=new THREE.ExtrudeGeometry(sh,{depth:bodyH,bevelEnabled:false});cg.rotateX(-Math.PI/2);cg.translate(0,clr,0);
+  add(cg,chassisMat(cfg.chassis),0,0,0,"chassis");
+  /* armour panels, per face; thickness drawn at least 2 mm (x class) so a plate reads on a phone */
+  const A=b.armourMapJ||{},th=f=>A[f]&&A[f].id!=="none"?Math.max(0.002*len,(A[f].thickMm||0)/1000):0;
+  const front=P(0,hl),back=P(0,-hl),sloped=["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0;
+  if(th("front")&&!sloped)add(new THREE.BoxGeometry(Wd,bodyH*0.92,th("front")),armourMat(A.front.id),front[0],clr+bodyH*0.48,front[1]-th("front")/2,"armour_front");
+  if(th("back"))add(new THREE.BoxGeometry(Wd,bodyH*0.92,th("back")),armourMat(A.back.id),back[0],clr+bodyH*0.48,back[1]+th("back")/2,"armour_back");
+  for(const s of ["left","right"])if(th(s)){const x=(s==="left"?-hw:hw)-cx,t=th(s);
+    add(new THREE.BoxGeometry(t,bodyH*0.92,L*0.96),armourMat(A[s].id),x+(s==="left"?t/2:-t/2),clr+bodyH*0.48,cy,"armour_"+s);}
+  if(th("top"))add(new THREE.BoxGeometry(Wd*0.98,th("top"),L*0.98),armourMat(A.top.id),-cx,H+th("top")/2,cy,"armour_top");
+  /* team paint: a stripe down the top, so you can tell the bots apart from above */
+  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);paint.position.set(-cx,H+th("top")+0.0008*len,cy+L*0.05);g.add(paint);
+  /* wheels (or tracks), from the layout */
+  const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
+  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
+  if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
+  else{const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
+    for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
+      const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;}}
+  /* the weapon */
+  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th});
+  if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
+  return g;}
+
+function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw,hl,H,clr,bodyH,len,seg,front}=k;
+  const mount=w.mountM?P(w.mountM[0],w.mountM[1]):front,r=Math.max(0.01*len,w.radiusM||0.04),mat=M.disc;
+  const teeth=(grp,R,n,thick,axis)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(R*0.32,thick*1.4,R*0.18),M.steel);
+    t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.rotation.y=-a;grp.add(t);}};
+  if(T==="spinner"||T==="saw"){const spin=new THREE.Group();spin.userData.role="spin";
+    if(id==="hsp"||id==="under"){const thick=Math.max(0.004*len,r*0.08);
+      const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,2,thick);
+      spin.position.set(mount[0],id==="under"?clr+thick:clr+bodyH*0.55,mount[1]);spin.userData.axis="y";
+      if(id==="hsp")add(new THREE.CylinderGeometry(r*0.15,r*0.15,bodyH*0.5,12),M.steel,mount[0],clr+bodyH*0.3,mount[1]);}
+    else{   // vertical disc, drum, saw: spin about the x axis
+      const drum=id==="drum",width=drum?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):Math.max(0.005*len,r*0.14);
+      const geo=new THREE.CylinderGeometry(r,r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
+      const d=new THREE.Mesh(geo,mat);d.userData.part="weapon";spin.add(d);
+      if(drum){for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*0.9,r*0.25,r*0.25),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
+      else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
+      const cyH=id==="saw"?H+r*0.6:r+Math.max(0.001,(b.height.frontEdgeMm||2)/1000);
+      spin.position.set(mount[0],cyH,mount[1]);spin.userData.axis="x";
+      /* the uprights that hold it */
+      for(const s of [-1,1])add(new THREE.BoxGeometry(0.004*len,id==="saw"?r*1.2:r*1.2,r*0.8),M.steel,mount[0]+s*(width/2+0.003*len),id==="saw"?H+r*0.3:cyH,mount[1]+r*0.25);}
+    g.add(spin);
+    /* a blur disc that shows when it's up to speed (opacity set per frame) */
+    const blur=new THREE.Mesh(spin.userData.axis==="y"?new THREE.CircleGeometry(r*1.05,seg):new THREE.CircleGeometry(r*1.05,seg),M.blur.clone());
+    blur.userData.role="blur";
+    if(spin.userData.axis==="y")blur.rotation.x=-Math.PI/2;else blur.rotation.y=Math.PI/2;
+    blur.position.copy(spin.position);blur.position.y+=spin.userData.axis==="y"?r*0.05:0;g.add(blur);
+    return;}
+  if(T==="wedge"||T==="lifter"||T==="flipper"){
+    /* a ramp from the front edge to the floor ahead of the bot */
+    const reach=Math.max(0.01*len,(w.reachM||0.04)),top=clr+bodyH*0.95,run=reach+0.004*len,slope=Math.atan2(top,run);
+    const ramp=new THREE.Mesh(new THREE.BoxGeometry(b.widthM,0.003*len,Math.hypot(top,run)),T==="wedge"?M.steel:M.alu);
+    ramp.position.set(front[0],top/2,front[1]-run/2);ramp.rotation.x=-slope;ramp.userData.part="weapon";
+    if(T==="wedge"){g.add(ramp);return;}
+    if(T==="lifter"){const f=new THREE.Group();f.userData.role="forks";
+      for(const s of [-1,1]){const fk=new THREE.Mesh(new THREE.BoxGeometry(0.006*len,0.004*len,reach+bodyH),M.steel);fk.position.set(s*b.widthM*0.25,0,-(reach+bodyH)/2);fk.userData.part="weapon";f.add(fk);}
+      f.position.set(front[0],clr+0.002*len,front[1]+bodyH*0.3);g.add(f);
+      ramp.scale.set(1,1,0.4);ramp.position.set(front[0],top*0.8,front[1]-run*0.2);g.add(ramp);return;}
+    /* flipper: the ramp is the plate, hinged at the top front, swinging up when it fires */
+    const f=new THREE.Group();f.userData.role="flip";const plate=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.9,0.003*len,b.lengthM*0.55),M.alu);
+    plate.position.set(0,0,-b.lengthM*0.275);plate.userData.part="weapon";f.add(plate);   // hinged at the back, the tip at the front edge
+    f.position.set(front[0],H+0.003*len,front[1]+b.lengthM*0.55);g.add(f);g.add(ramp);return;}
+  if(T==="hammer"||T==="crusher"){const arm=new THREE.Group();arm.userData.role="arm";
+    const al=T==="hammer"?b.lengthM*0.7:b.lengthM*0.45;
+    const beam=new THREE.Mesh(new THREE.BoxGeometry(0.008*len,0.008*len,al),M.alu);beam.position.set(0,0,-al/2);beam.userData.part="weapon";arm.add(beam);
+    const head=new THREE.Mesh(T==="hammer"?new THREE.BoxGeometry(0.03*len,0.02*len,0.016*len):new THREE.BoxGeometry(0.012*len,0.025*len,0.03*len),M.steel);
+    head.position.set(0,T==="hammer"?-0.008*len:-0.012*len,-al);head.userData.part="weapon";arm.add(head);
+    arm.position.set(0,H+0.012*len,T==="hammer"?hl*0.3:front[1]+al*0.6);g.add(arm);
+    if(T==="crusher"){const jaw=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.4,0.004*len,0.03*len),M.steel);jaw.position.set(front[0],clr+0.003*len,front[1]-0.012*len);g.add(jaw);}
+    return;}
+  /* a pusher: a plain plate on the front */
+  if(!k.th("front"))add(new THREE.BoxGeometry(b.widthM,bodyH*0.7,0.003*len),M.hdpe,front[0],clr+bodyH*0.4,front[1]-0.0015*len);}
+
+/* parts the sim says are damaged go grey, destroyed ones disappear. states: {key: "intact"|"damaged"|"destroyed"} */
+function botDamage(g,states){const parts=g.userData.parts||{};
+  for(const key in parts){const s=states[key]||"intact";for(const m of parts[key]){m.visible=s!=="destroyed"||key==="chassis";
+    if(m.userData.base){m.material.color.copy(m.userData.base);if(s==="damaged")m.material.color.multiplyScalar(0.55);else if(s==="destroyed")m.material.color.multiplyScalar(0.3);}}}}
+
+/* the workshop's bot. Until a build is passed in, the placeholder (a plywood box with clay sides and a horizontal disc) */
 function buildPlaceholderBot(){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?24:48;
-  /* chassis: plywood top and bottom, clay side panels, a darker HDPE front */
   const W=1.6,L=2.0,H=.42,Y=.32;
   const ply=new THREE.Mesh(new THREE.BoxGeometry(W,.05,L),M.ply);ply.position.y=Y+H/2;g.add(ply);
   const base=new THREE.Mesh(new THREE.BoxGeometry(W,.05,L),M.ply);base.position.y=Y-H/2;g.add(base);
   for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(.08,H,L),M.paint);p.position.set(s*(W/2-.04),Y,0);g.add(p);}
   const back=new THREE.Mesh(new THREE.BoxGeometry(W,H,.08),M.hdpe);back.position.set(0,Y,-L/2+.04);g.add(back);
   const front=new THREE.Mesh(new THREE.BoxGeometry(W,H,.1),M.hdpe);front.position.set(0,Y,L/2-.05);g.add(front);
-  /* wheels, set into the sides */
   const wg=new THREE.CylinderGeometry(.24,.24,.14,seg);
   for(const s of [-1,1])for(const z of [-.55,.55]){const w=new THREE.Mesh(wg,M.rubber);w.rotation.z=Math.PI/2;w.position.set(s*(W/2+.08),.24,z);g.add(w);}
-  /* the weapon: a horizontal disc on a short mast at the front, two teeth on the rim */
   const mast=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.2,12),M.steel);mast.position.set(0,Y+H/2+.1,L/2-.25);g.add(mast);
   const disc=new THREE.Group();
   const plate=new THREE.Mesh(new THREE.CylinderGeometry(.62,.62,.05,seg*2),M.disc);disc.add(plate);
@@ -2076,17 +2298,187 @@ function buildPlaceholderBot(){
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.09,16),M.alu);disc.add(hub);
   disc.position.set(0,Y+H/2+.21,L/2-.25);g.add(disc);
   if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-  g.userData={disc};
+  g.userData={disc,placeholder:true};
   return g;
 }
-/* ---- vis/arena.js: the arena scene. Floor, walls (see-through on the camera side), hazards from SCRAP_SIM's ARENAS
-   table, a cheap crowd texture and hazard lights. Lite: flat materials, no shadows. Arrives in PR 5 (plan section 9). ---- */
-function buildArena(){return null;}
-/* ---- vis/fx.js: hit feedback. Sparks (capped particles), a part mesh flying off, dent decals, smoke on battery damage,
-   camera shake scaled by hit energy (none under reduced motion). Arrives in PR 5 (plan section 9). ---- */
-function fxTick(){}
+/* ---- vis/arena.js: the arena view. setFight(F) builds the scene from a SCRAP_SIM fight the app passes in (F.arena:
+   floor, walls, the pit, wall pushers and floor spinners; F.bots: a mesh per bot from its build) and each frame draws the
+   bots where the sim has them. The vis reads F; it never steps it. Units: the scene is in "beetle metres x 4" (AU per sim
+   metre is 4 / the class's length scale), so every class fills the screen the same way.
+     floor      dark plate with a faint grid every 30 cm (beetle scale)
+     walls      steel kerbs with a glass screen on top; the screen nearest the camera is see-through
+     pit        a black hole under a hatched cover that slides away when it opens
+     pusher     a slab in the wall that shoves out and lights amber while it fires
+     spinner    a disc in the floor that spins and lights while it fires
+     crowd      a cheap canvas texture of heads beyond the walls (Full and Ultra only; Lite gets a plain dark backdrop)
+   Camera: tilted top-down (about 55 degrees), following the middle of the bots still in it, pulling back as they spread;
+   it shakes on hits (fx.js), never under reduced motion. Lite: flat materials, no shadows. ---- */
+const AR={F:null,g:null,U:4,bots:[],haz:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
+function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
+  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own)o.material.dispose();});}
+  if(AR.lights){V.scene.remove(AR.lights);AR.lights=null;}
+  AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
+function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
+  g.fillStyle="#141311";g.fillRect(0,0,512,64);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;   // fixed pattern, no Math.random
+  for(let i=0;i<420;i++){const x=r()*512,y=14+r()*46,l=40+r()*60|0;g.fillStyle=`hsl(${r()*360|0},${10+r()*25|0}%,${l*0.4|0}%)`;g.beginPath();g.arc(x,y,3+r()*2,0,7);g.fill();}
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;return t;}
+function buildArena(F){
+  arenaClear();const M=V.mats,lite=V.tier==="lite",U=AR.U=4/F.M.len,A=F.arena,H=A.half*U,g=new THREE.Group();
+  const X=x=>x*U,Z=y=>-y*U;   // sim (x, y) to scene (x, z)
+  /* floor and grid */
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),M.arenaFloor);fl.rotation.x=-Math.PI/2;fl.receiveShadow=!lite;g.add(fl);
+  const step=0.3*4,pts=[];for(let v=-H+step;v<H-1e-6;v+=step){pts.push(v,0.002,-H,v,0.002,H,-H,0.002,v,H,0.002,v);}
+  const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));
+  const gm=new THREE.LineBasicMaterial({color:new THREE.Color(0x3a3833).convertSRGBToLinear()});const grid=new THREE.LineSegments(gg,gm);grid.userData.own=true;g.add(grid);
+  /* the outside floor, so the walls don't float */
+  const out=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);out.rotation.x=-Math.PI/2;out.position.y=-0.01;g.add(out);
+  /* walls: a kerb all round and a glass screen; the camera looks from +z, so that screen is the faint one */
+  const kh=0.35,sh=1.1,t=0.15;
+  for(const [x,z,w,d,near] of [[0,-H-t/2,2*H+2*t,t,0],[0,H+t/2,2*H+2*t,t,1],[-H-t/2,0,t,2*H,0],[H+t/2,0,t,2*H,0]]){
+    const k=new THREE.Mesh(new THREE.BoxGeometry(w,kh,d),M.wall);k.position.set(x,kh/2,z);k.castShadow=!lite;k.receiveShadow=!lite;g.add(k);
+    const s=new THREE.Mesh(new THREE.BoxGeometry(w,sh,d*0.3),near?M.glass:M.glass);s.position.set(x,kh+sh/2,z);s.renderOrder=2;if(!near)g.add(s);
+    if(near){const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}
+    else{const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}}
+  /* posts at the corners carry the hazard lights */
+  AR.lamps=[];for(const sx of [-1,1])for(const sz of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(0.2,kh+sh+0.2,0.2),M.wall);p.position.set(sx*(H+t/2),(kh+sh+0.2)/2,sz*(H+t/2));g.add(p);
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),kh+sh+0.26,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);}
+  /* the crowd: Full and Ultra */
+  if(!lite){const tex=crowdTex();tex.repeat.set(4,1);const cm=new THREE.MeshBasicMaterial({map:tex,fog:true});cm.userData={};
+    for(const [x,z,ry] of [[0,-H-3,0],[-H-3,0,Math.PI/2],[H+3,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(2*H+6,2.2),cm);c.position.set(x,1.6,z);c.rotation.y=ry;c.userData.own=true;g.add(c);}}
+  /* the pit, under a cover until it opens */
+  AR.pitCover=null;if(A.pit){const r=A.pit.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
+    const hole=new THREE.Mesh(new THREE.PlaneGeometry(w,d),M.pit);hole.rotation.x=-Math.PI/2;hole.position.set(cx,0.012,cz);g.add(hole);
+    const rim=new THREE.Mesh(new THREE.PlaneGeometry(w+0.12,d+0.12),M.hazOn);rim.rotation.x=-Math.PI/2;rim.position.set(cx,0.006,cz);g.add(rim);   // an amber edge round the hole
+    const cov=new THREE.Mesh(new THREE.BoxGeometry(w,0.03,d),M.hatch);cov.position.set(cx,0.03,cz);cov.receiveShadow=!lite;g.add(cov);
+    AR.pitCover={m:cov,x0:cx,w};}
+  /* hazards */
+  AR.haz=A.haz.map(h=>{if(h.type==="pusher"){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]);
+      const m=new THREE.Mesh(new THREE.BoxGeometry(w,kh*0.9,d),M.haz.clone());m.userData.own=true;m.position.set(X((r[0]+r[2])/2),kh*0.45,Z((r[1]+r[3])/2));m.castShadow=!lite;g.add(m);
+      return{h,m,base:m.position.clone(),n:[h.n[0],-h.n[1]],reach:Math.min(w,d)*0.8};}
+    const R=h.rM*U,m=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.03,lite?24:40),M.haz.clone());m.userData.own=true;m.position.set(X(h.at[0]),0.016,Z(h.at[1]));g.add(m);
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
+    return{h,m};});
+  /* bots */
+  AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i);g.add(mesh);mesh.scale.setScalar(U);
+    return{o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0};});
+  /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
+  const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.5));
+  const key=new THREE.DirectionalLight(0xeef3fa,lite?1.0:1.45);key.position.set(-H*0.6,H*2.2,H*0.9);
+  if(!lite){key.castShadow=true;key.shadow.mapSize.set(1024,1024);const c=key.shadow.camera;c.left=c.bottom=-H-1;c.right=c.top=H+1;c.near=1;c.far=H*5;key.shadow.bias=-.0008;key.shadow.radius=2;}
+  L.add(key);const rim=new THREE.DirectionalLight(0xffd2b8,.35);rim.position.set(H,H*0.6,-H*1.5);L.add(rim);
+  AR.lights=L;AR.g=g;AR.F=F;AR.pitOpenAt=null;
+  AR.cam={x:0,z:0,d:H*3,shake:0};
+  V.scene.add(g,L);return g;}
+
+/* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
+function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
+  for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
+    /* falling into the pit: sink and fade out over half a second */
+    if(o.out==="pit"){B.fall=Math.min(1,B.fall+dt*2);m.position.y=-B.fall*3;m.visible=B.fall<1;continue;}
+    const lift=(o.held!=null?0.06:o.under?0.012:0)*4;
+    B.inv+=((o.inverted?1:0)-B.inv)*Math.min(1,dt*10);   // roll over smoothly when the sim flips it
+    m.position.set(o.x*U,(o.z||0)*U+lift+B.inv*(u.H||0.05)*U,-o.y*U);
+    m.rotation.set(0,o.h-Math.PI/2,0);m.rotateZ(B.inv*Math.PI);
+    if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
+    /* wheels turn with speed */
+    const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type==="CylinderGeometry")w.rotation.x=B.wheelA;
+    /* the weapon */
+    const W=o.b.weapon;
+    if(u.spin){const r=Math.min(o.wp.om,45);u.spin.rotation[u.spin.userData.axis]+=r*dt*(u.spin.userData.axis==="x"?-1:1);
+      if(u.blur)u.blur.material.opacity=o.fx&&o.fx.weaponOk===false?0:0.45*Math.min(1,o.wp.om/(W.omega||1));
+      u.spin.visible=!(o.fx&&o.fx.weaponOk===false&&o.st.parts.weapon<=0);}
+    if(u.flip){if(o.wp.shots<B.shots)B.flipT=now;B.shots=o.wp.shots;const k=Math.max(0,1-(now-B.flipT)/350);u.flip.rotation.x=1.1*Math.sin(Math.min(1,k*1.4)*Math.PI/2);}
+    if(u.forks){const want=o.wp.held!=null?0.45:0;u.forks.rotation.x+=(want-u.forks.rotation.x)*Math.min(1,dt*8);}
+    if(u.arm){const ph=o.wp.phase,S=W.swingS||0.7,t=o.wp.t||0;let a=0.9;
+      if(ph===1)a=0.9-1.25*Math.min(1,t/(W.type==="hammer"?S/2:S));else if(ph===2)a=-0.35+1.25*Math.min(1,t/0.5);
+      if(W.type==="crusher")a=a*0.4;u.arm.rotation.x=a;}}
+  /* hazards: lit while they fire; a pusher shoves out, a floor spinner spins */
+  let any=false;
+  AR.haz.forEach((z,i)=>{const s=F.hz[i],on=s&&F.t<s.until;any=any||on;z.m.material.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);
+    if(z.h.type==="pusher"){const k=on?Math.min(1,(z.h.activeS-(s.until-F.t))/0.08):0;z.m.position.set(z.base.x+z.n[0]*z.reach*k,z.base.y,z.base.z+z.n[1]*z.reach*k);}
+    else if(on)z.m.rotation.y+=dt*18;});
+  for(const l of AR.lamps||[])l.material.color.copy(any?V.mats.hazOn.color:V.mats.haz.color);
+  /* the pit cover slides off when it opens */
+  if(AR.pitCover){const open=F.arena.pit&&F.t>=F.arena.pit.openS;if(open&&AR.pitOpenAt==null)AR.pitOpenAt=now;
+    const k=AR.pitOpenAt==null?0:Math.min(1,(now-AR.pitOpenAt)/600);AR.pitCover.m.position.x=AR.pitCover.x0+AR.pitCover.w*1.05*k;AR.pitCover.m.visible=k<1;}
+  /* camera: the middle of the bots still in it */
+  const live=AR.bots.filter(B=>!B.o.out);let cx=0,cz=0,spread=0;
+  if(live.length){for(const B of live){cx+=B.o.x*U;cz+=-B.o.y*U;}cx/=live.length;cz/=live.length;for(const B of live)spread=Math.max(spread,Math.hypot(B.o.x*U-cx,-B.o.y*U-cz));}
+  const H=F.arena.half*U,lim=H*0.45;cx=Math.max(-lim,Math.min(lim,cx));cz=Math.max(-lim,Math.min(lim,cz));
+  /* frame a span that holds both bots with room to spare (at least 5 units, at most the whole arena), across the narrower
+     side of the screen: a tall phone stands further back */
+  const span=Math.max(5,Math.min(2*H+1.5,spread*2.2+3.5)),tH=Math.tan(V.cam.fov*Math.PI/360),tW=tH*(V.w&&V.h?V.w/V.h:1);
+  const wantD=Math.max(span/2/tW,span*0.85/2/tH),c=AR.cam,k=Math.min(1,dt*3);
+  c.x+=(cx-c.x)*k;c.z+=(cz-c.z)*k;c.d+=(wantD-c.d)*k;
+  const pitch=0.98,d=c.d;
+  let sx=0,sy=0;if(c.shake>0&&!V.run.reduce){sx=(Math.sin(now*0.091)+Math.sin(now*0.137))*c.shake;sy=(Math.cos(now*0.083)+Math.sin(now*0.121))*c.shake;}
+  c.shake=Math.max(0,c.shake-dt*c.shake*6-dt*0.01);
+  V.cam.position.set(c.x+sx,Math.sin(pitch)*d+sy,c.z+Math.cos(pitch)*d);V.cam.lookAt(c.x+sx*0.5,0,c.z);}
+
+/* a screen point (CSS px in the canvas) to sim metres on the floor, or null (tactical controls) */
+function arenaPick(px,py){if(!AR.F||!V.w)return null;const v=new THREE.Vector3(px/V.w*2-1,-(py/V.h)*2+1,0.5).unproject(V.cam),o=V.cam.position;
+  const dir=v.sub(o).normalize();if(dir.y>=-1e-4)return null;const t=-o.y/dir.y,x=o.x+dir.x*t,z=o.z+dir.z*t;return{x:x/AR.U,y:-z/AR.U};}
+/* ---- vis/fx.js: hit feedback in the arena. The app passes the sim's fx events in (SCRAP_VIS.fx([...]), from F.fxq) plus
+   a "part" event when a part is destroyed; energies are divided by the class's mass multiplier, so a beetle and a
+   heavyweight hit of the same weight look alike.
+     sparks   one pool of points (Lite 90, Full and Ultra 260); a hit throws 4 + energy-scaled sparks, white-hot to amber,
+              falling under gravity. On Ultra they are bright enough for the bloom to catch.
+     parts    a destroyed part's mesh is copied and flung off, spinning, then fades (at most 6 in the air)
+     smoke    a bot whose battery smokes trails grey puffs (Lite: fewer, larger)
+     shake    the camera shakes in proportion to the hit (none under reduced motion: arena.js)
+   Particles use no Math.random either: a small seeded generator, so a replay looks the same. ---- */
+const FX={pts:null,n:0,pos:null,vel:null,life:null,chunks:[],puffs:[],seed:12345,smokeT:0};
+const fxR=()=>(FX.seed=(FX.seed*16807)%2147483647)/2147483647;
+function fxInit(){fxClear();const lite=V.tier==="lite",n=FX.n=lite?90:260;
+  FX.pos=new Float32Array(n*3);FX.vel=new Float32Array(n*3);FX.life=new Float32Array(n);
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(FX.pos,3));
+  const col=new Float32Array(n*3);g.setAttribute("color",new THREE.BufferAttribute(col,3));
+  const m=V.mats.spark.clone();m.vertexColors=true;m.userData={};
+  FX.pts=new THREE.Points(g,m);FX.pts.frustumCulled=false;FX.pts.userData.own=true;FX.pts.renderOrder=3;
+  for(let i=0;i<n;i++)FX.pos[i*3+1]=-99;
+  if(AR.g)AR.g.add(FX.pts);}
+function fxClear(){for(const c of FX.chunks)if(c.m.parent)c.m.parent.remove(c.m);for(const p of FX.puffs){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();}
+  FX.chunks=[];FX.puffs=[];if(FX.pts){FX.pts.geometry.dispose();FX.pts.material.dispose();if(FX.pts.parent)FX.pts.parent.remove(FX.pts);FX.pts=null;}}
+let fxNext=0;
+function fxSpark(x,y,z,n,speed){if(!FX.pts)return;const col=FX.pts.geometry.attributes.color.array;
+  for(let k=0;k<n;k++){const i=fxNext;fxNext=(fxNext+1)%FX.n;const a=fxR()*Math.PI*2,up=0.3+fxR()*0.9,s=speed*(0.4+fxR());
+    FX.pos[i*3]=x;FX.pos[i*3+1]=y;FX.pos[i*3+2]=z;FX.vel[i*3]=Math.cos(a)*s;FX.vel[i*3+1]=up*s;FX.vel[i*3+2]=Math.sin(a)*s;FX.life[i]=0.25+fxR()*0.45;
+    const hot=fxR();col[i*3]=1;col[i*3+1]=0.65+0.35*hot;col[i*3+2]=0.25+0.6*hot*hot;}
+  FX.pts.geometry.attributes.color.needsUpdate=true;}
+/* events in sim coordinates: {k, x, y, E, v}; part: {k:"part", v, key} */
+function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F.M.mass,1e-6);
+  for(const e of list){
+    if(e.k==="part"){fxChunk(e.v,e.key);continue;}
+    const En=(e.E||0)/mm,x=e.x*U,z=-e.y*U,big=e.k==="hit"||e.k==="flip"||e.k==="haz";
+    if(e.k==="land"&&En<4)continue;
+    const n=Math.min(big?40:14,Math.round((big?4:1)+En*(big?0.35:0.12)));if(n>0)fxSpark(x,big?0.25:0.08,z,n,1.5+Math.min(5,Math.sqrt(En)*0.5));
+    AR.cam.shake=Math.min(0.45,AR.cam.shake+Math.min(0.3,En*(big?0.004:0.0015)));}}
+/* a destroyed part flies off: a copy of its mesh in a world-space chunk */
+function fxChunk(i,key){const B=AR.bots[i];if(!B)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
+  if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);}
+  const src=ms[0],m=src.clone();m.material=src.material.clone();m.material.transparent=true;m.userData={own:true};
+  B.mesh.updateMatrixWorld(true);src.getWorldPosition(m.position);src.getWorldQuaternion(m.quaternion);m.scale.setScalar(AR.U);
+  AR.g.add(m);const a=fxR()*Math.PI*2;FX.chunks.push({m,v:[Math.cos(a)*2.5,3+fxR()*2,Math.sin(a)*2.5],w:[fxR()*12-6,fxR()*12-6,fxR()*12-6],t:0});
+  fxSpark(m.position.x,m.position.y,m.position.z,12,3);}
+function fxTick(dt){if(!FX.pts&&!FX.chunks.length)return;const g=-9;
+  if(FX.pts){for(let i=0;i<FX.n;i++){if(FX.life[i]<=0)continue;FX.life[i]-=dt;const j=i*3;
+      FX.vel[j+1]+=g*dt;FX.pos[j]+=FX.vel[j]*dt;FX.pos[j+1]+=FX.vel[j+1]*dt;FX.pos[j+2]+=FX.vel[j+2]*dt;
+      if(FX.pos[j+1]<0.01){FX.pos[j+1]=0.01;FX.vel[j+1]*=-0.3;FX.vel[j]*=0.6;FX.vel[j+2]*=0.6;}
+      if(FX.life[i]<=0)FX.pos[j+1]=-99;}
+    FX.pts.geometry.attributes.position.needsUpdate=true;}
+  for(const c of FX.chunks){c.t+=dt;c.v[1]+=g*dt;c.m.position.x+=c.v[0]*dt;c.m.position.y+=c.v[1]*dt;c.m.position.z+=c.v[2]*dt;
+    if(c.m.position.y<0.05){c.m.position.y=0.05;c.v[1]*=-0.35;c.v[0]*=0.6;c.v[2]*=0.6;c.w=c.w.map(x=>x*0.6);}
+    c.m.rotation.x+=c.w[0]*dt;c.m.rotation.y+=c.w[1]*dt;c.m.rotation.z+=c.w[2]*dt;if(c.t>2)c.m.material.opacity=Math.max(0,1-(c.t-2));}
+  FX.chunks=FX.chunks.filter(c=>{if(c.t>3){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();return false;}return true;});
+  /* smoke from a bot whose battery is smoking */
+  FX.smokeT-=dt;if(AR.F&&FX.smokeT<=0){const lite=V.tier==="lite";FX.smokeT=lite?0.35:0.15;
+    for(const B of AR.bots)if(B.o.flags&&B.o.flags.smoke&&!B.o.out&&FX.puffs.length<(lite?8:24)){const r=(lite?0.25:0.16)*(0.8+fxR()*0.5),m=new THREE.Mesh(new THREE.SphereGeometry(r,6,4),V.mats.smoke);
+      m.position.set(B.mesh.position.x,B.mesh.position.y+0.4,B.mesh.position.z);AR.g.add(m);FX.puffs.push({m,t:0});}}
+  for(const p of FX.puffs){p.t+=dt;p.m.position.y+=dt*0.8;p.m.scale.setScalar(1+p.t*1.5);}
+  FX.puffs=FX.puffs.filter(p=>{if(p.t>1.6){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();return false;}return true;});}
 /* ---- vis/workshop.js: the workbench (a steel plate on a wooden bench in a dark corner of a machine shop, cold overhead
-   light), orbit and pinch controls, framing, and the frame loop that spins the placeholder bot's disc. ---- */
+   light) with the bot the app last passed to setBot (the placeholder until then), orbit and pinch controls, framing, the
+   two views ("workshop" and "arena": V.view) and the frame loop. ---- */
 function buildShop(){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite";
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);floor.rotation.x=-Math.PI/2;floor.position.y=-1.4;g.add(floor);
@@ -2103,14 +2495,24 @@ function buildLights(){
   const rim=new THREE.DirectionalLight(0xffd2b8,lite?.3:.45);rim.position.set(5,2.5,-6);g.add(rim);
   return g;
 }
+/* the workshop's bot: the build passed to setBot, scaled to sit on the plate (a beetle and a heavyweight look the same size) */
+function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
+  if(V.botB){const g=botMesh(V.botB,0),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
+  else V.bot=buildPlaceholderBot();
+  V.bot.visible=V.view==="workshop";V.scene.add(V.bot);}
+function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
 /* rebuild everything that depends on the tier */
 function rebuild(){
-  for(const k of ["bot","shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  const fight=AR.F;arenaClear();placeBotClear();botCacheClear();
   makeMats(V.tier);
-  V.shop=buildShop();V.lights=buildLights();V.bot=buildPlaceholderBot();
-  V.scene.add(V.shop,V.lights,V.bot);
+  V.shop=buildShop();V.lights=buildLights();
+  V.scene.add(V.shop,V.lights);placeBot();
+  if(fight){buildArena(fight);fxInit();}
+  showView();
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
+  if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
   if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(ok=>{if(!ok||V.tier!=="ultra")return;
     V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
@@ -2128,10 +2530,15 @@ function placeCam(){
   V.cam.position.set(o.tx+Math.sin(o.yaw)*cp*o.dist,o.ty+Math.sin(o.pitch)*o.dist,o.tz+Math.cos(o.yaw)*cp*o.dist);
   V.cam.lookAt(o.tx,o.ty,o.tz);
 }
-/* one finger turns, two fingers pinch to zoom, the mouse wheel zooms. Each finger is tracked by pointerId. */
+/* which scene shows: the workshop (bench, lights, bot) or the arena */
+function showView(){const ws=V.view==="workshop"||!AR.g;
+  for(const o of [V.shop,V.lights,V.bot])if(o)o.visible=ws;if(AR.g){AR.g.visible=!ws;AR.lights.visible=!ws;}
+  V.scene.fog.near=ws?12:40;V.scene.fog.far=ws?28:110;V.cam.near=ws?.1:.3;V.cam.far=ws?100:200;V.cam.fov=ws?36:50;V.cam.updateProjectionMatrix();}
+/* one finger turns, two fingers pinch to zoom, the mouse wheel zooms. Each finger is tracked by pointerId. Workshop only:
+   in the arena the fingers drive (app/controls.js). */
 function bindOrbit(el){
   const P=new Map();let pinch0=0,dist0=0;
-  el.addEventListener("pointerdown",e=>{el.setPointerCapture&&el.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  el.addEventListener("pointerdown",e=>{if(V.view!=="workshop")return;el.setPointerCapture&&el.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(P.size===2){const [a,b]=[...P.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);dist0=V.orbit.dist;}});
   el.addEventListener("pointermove",e=>{const p=P.get(e.pointerId);if(!p)return;
     if(P.size===1){V.orbit.yaw-=(e.clientX-p.x)*.008;V.orbit.pitch=Math.max(.15,Math.min(1.4,V.orbit.pitch+(e.clientY-p.y)*.006));}
@@ -2139,7 +2546,7 @@ function bindOrbit(el){
     if(P.size===2&&pinch0){const [a,b]=[...P.values()],d=Math.hypot(a.x-b.x,a.y-b.y);V.orbit.dist=Math.max(3.5,Math.min(14,dist0*pinch0/Math.max(d,1)));}});
   const up=e=>{P.delete(e.pointerId);if(P.size<2)pinch0=0;};
   el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
-  el.addEventListener("wheel",e=>{e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
+  el.addEventListener("wheel",e=>{if(V.view!=="workshop")return;e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
 }
 /* Lite renders at most 30 frames a second (plan section 16); Full and Ultra follow the display */
 function frame(now){
@@ -2148,10 +2555,10 @@ function frame(now){
   if(V.tier==="lite"&&now-V.last<30){return;}
   const dt=Math.min(.1,(now-(V.last||now))/1000);V.last=now;
   resize(false);
-  const u=V.bot&&V.bot.userData;
-  if(u&&u.disc){V.ang+=dt*TAU*1.6*(V.run.spin||0);u.disc.rotation.y=V.ang;}   // a slow idle spin: the real rpm comes with the sim
-  fxTick(dt);
-  placeCam();
+  if(V.view==="arena"&&AR.g){arenaTick(dt,now);fxTick(dt);}
+  else{const u=V.bot&&V.bot.userData;V.ang+=dt*TAU*1.6*(V.run.spin||0);   // a slow idle spin on the bench
+    if(u&&u.disc)u.disc.rotation.y=V.ang;else if(u&&u.spin)u.spin.rotation[u.spin.userData.axis]=V.ang;
+    placeCam();}
   if(V.comp)V.comp.render();else V.r.render(V.scene,V.cam);
   V.frames++;
   if(now-V.fpsAt>=1000){V.fpsObj={fps:Math.round(V.frames*1000/(now-V.fpsAt)),at:now};V.frames=0;V.fpsAt=now;}
@@ -2159,14 +2566,25 @@ function frame(now){
 /* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
-  init(canvas){if(started)return;started=true;initRenderer(canvas);rebuild();bindOrbit(canvas);requestAnimationFrame(frame);},
-  setQuality(tier){tier=tier==="ultra"||tier==="full"?tier:"lite";if(tier===V.tier&&V.bot)return;V.tier=tier;if(started)rebuild();},
-  setBot(cfg){/* PR 5: rebuild the parametric bot from the build, cached by build hash */},
+  init(canvas){if(started)return;started=true;V.view="workshop";initRenderer(canvas);rebuild();bindOrbit(canvas);requestAnimationFrame(frame);},
+  setQuality(tier){tier=tier==="ultra"||tier==="full"?tier:"lite";if(tier===V.tier&&V.mats)return;V.tier=tier;if(started)rebuild();},
+  /* the workshop's bot: an evalBuild() result (null: the placeholder). Cached by build hash; old meshes are disposed */
+  setBot(b){const k=b?JSON.stringify(b.cfg):null;if(k===V.botK)return;V.botK=k;V.botB=b||null;if(started&&V.mats)placeBot();},
   setRun(o){Object.assign(V.run,o||{});},
-  setView(name){/* PR 5: "workshop", "arena", "replay" */},
+  /* "workshop" or "arena" */
+  setView(name){V.view=name==="arena"?"arena":"workshop";if(started)showView();},
+  /* the fight to draw in the arena view (a SCRAP_SIM fight object; null clears it). The vis reads it, never steps it */
+  setFight(F){if(!started)return;if(!F){arenaClear();showView();return;}if(F===AR.F)return;buildArena(F);fxInit();showView();},
+  /* hit feedback: the sim's fx events ({k, x, y, E, v}) and {k:"part", v, key} when a part is destroyed */
+  fx(list){if(started&&list&&list.length)fxEvents(list);},
+  /* one bot's part states ({key: "intact"|"damaged"|"destroyed"}, from SCRAP_SIM.partStates) */
+  damage(i,states){const B=AR.bots[i];if(B)botDamage(B.mesh,states);},
+  /* a point on the canvas (CSS px) to the arena floor in sim metres, or null */
+  pick(x,y){return arenaPick(x,y);},
   fps(){return V.fpsObj;},
   get tier(){return V.tier;},
-  _state:V
+  get view(){return V.view;},
+  _state:V,_arena:AR
 };
 })();
 window.SCRAP_VIS=SCRAP_VIS;
@@ -2182,7 +2600,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.5.0";
+const VERSION="0.1.6.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -2214,7 +2632,15 @@ const SEASON_EVENTS=[];     // club meets, tournaments, rumbles, tag team, champ
 const REPAIR_COST={},REPAIR_HOURS={};   // after-fight repair bills (PR 7)
 const PIT_KITS={};          // basic, full, pro (PR 6)
 const REPAIR_TIMES={};      // pit-window repair seconds (PR 6)
-const ASSISTS={};           // auto-straighten, turn damping, weapon auto-spin by driver skill (PR 5)
+/* driving assists by driver skill (app/controls.js): straighten holds the heading when you aren't steering (x the spin
+   rate), turnDamp softens and smooths the steering (more at speed), autoSpin spins a disc up only when an enemy is near.
+   Everyone drives as a rookie until PR 8's drivers; Settings → Driving assists picks "off". */
+const ASSISTS={
+  rookie:{straighten:0.6,turnDamp:0.45,autoSpin:true},
+  club:  {straighten:0.35,turnDamp:0.3,autoSpin:true},
+  pro:   {straighten:0.15,turnDamp:0.15,autoSpin:false},
+  off:   {straighten:0,turnDamp:0,autoSpin:false}
+};
 const RIVALS=[];            // named builders who remember fights (PR 7)
 const RND={};               // R&D projects (PR 8)
 const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
@@ -2222,8 +2648,8 @@ const SPONSORS=[];          // paint and a placing target (PR 8)
 const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=3;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle"};}
+const SAVE_V=4;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   career:null,                    // {year, week, act, money, loan, hours, driverXp, rep, events, results} from PR 7
   bots:{},                        // {<classId>: {cfg, damage, draft, bench}}: the fitted bot per class (cfg null until first fitted), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
@@ -2239,7 +2665,8 @@ const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 /* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
 const MIGRATE={
   1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;},   // 0.1.2.0: the Build tab remembers its class
-  2:o=>o   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
+  2:o=>o,   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
+  3:o=>{const s=o.settings;if(s&&typeof s==="object"){if(s.controls!=="tactical")s.controls="direct";s.leftHanded=!!s.leftHanded;if(s.assists!==false)s.assists=true;}return o;}   // 0.1.6.0: control scheme, handedness, assists
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
@@ -2619,6 +3046,7 @@ function showTab(t){
   document.querySelectorAll("#tabs button").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
   document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+t));
   if(TAB_RENDER[t])TAB_RENDER[t]();
+  visBot();
   $("panel").scrollTop=tabScroll[t]||0;
   save();}
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(b)showTab(b.dataset.tab);});
@@ -2633,6 +3061,12 @@ function openSettings(){
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Theme</span>${segHtml("themeSeg","theme",[["dark","Dark","night shift"],["light","Light","daylight"],["auto","Auto","follow phone"]],ST().theme||"dark")}</div>
 <div class="field"><span class="lbl">Motion</span>${segHtml("reduceSeg","reduce",[["auto","Auto","follow phone"],["1","Reduced"],["0","Full"]],ST().reduce==null?"auto":ST().reduce?"1":"0")}</div>
+<div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
+<p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
+<div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
+<div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On","rookie"],["0","Off"]],ST().assists===false?"0":"1")}
+<p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
+<div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
 ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
@@ -2643,6 +3077,10 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
+  pick("ctlSeg","ctl",v=>{ST().controls=v;});
+  pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
+  pick("asSeg","assist",v=>{ST().assists=v==="1";});
+  pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();});
   buStoreLine();
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
 }
@@ -2848,7 +3286,7 @@ function bDesignsBody(){const L=bDesigns(),cls=bCls();
     <p>Load puts a design in the draft; nothing is bought until you fit it.</p>`;}
 
 /* ---- the pinned bar, the Fit bar, the rows ---- */
-function bRender(){if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
+function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
   const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
@@ -2922,6 +3360,10 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
 
 /* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
 document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
+/* the workshop's bot in 3D: the draft on the Build tab, the fitted bot elsewhere (the draft while nothing is fitted) */
+function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():SIM.evalBuild(bot.cfg);
+  SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
+  if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
   if(!bRender.bound){bRender.bound=true;const tb=$("tab-build");
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});
@@ -3171,68 +3613,245 @@ function toW(o,lx,ly){const c=Math.cos(o.h),s=Math.sin(o.h);return[o.x+lx*s+ly*c
 function mixDark(hex,t){const n=parseInt(hex.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255,m=v=>Math.round(v*(1-t)+0x1A*t);return`rgb(${m(r)},${m(g)},${m(b)})`;}
 function fmtClock(F){const left=Math.max(0,Math.ceil(F.rules.roundS-F.t-1e-6));return`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,"0")}`;}
 /* ===================== app/controls.js: driving =====================
-   Two schemes, picked in Settings: direct (left-thumb stick, right-thumb weapon button, swapped when left-handed) and
-   tactical (tap where to go, tap the opponent to attack, tap your bot to back off). Both produce the same per-step
-   {throttle, steer, weapon, selfRight}. Multi-touch by pointerId with setPointerCapture; keyboard WASD + space + R;
-   gamepad. ASSISTS by driver skill. Arrives in PR 5 (plan section 9). */
-const CONTROLS={read(){return{throttle:0,steer:0,weapon:0,selfRight:0};}};
-/* ===================== app/fight.js: the Fight tab =====================
-   An AI-against-AI fight of the bot fitted in the Build tab's class against a named opponent in that class
-   (SIM.OPPONENTS, with its own driver) or any test build (SIM.TEST_BUILDS), in any arena (the class's own by default),
-   played in the top-down debug view (app/debugview.js) with the fight log in words underneath. Your bot is driven by
-   SCRAP_SIM's AI in the style you pick ("auto" picks one for the build and the arena); a time-up fight shows the judges'
-   three scores. No stakes, nothing saved. PR 5 brings the 3D arena and your own driving, PR 6 the pit window.
+   Turns thumbs, keys and gamepads into the sim's per-step input {throttle, steer, weapon, selfRight} (throttle and steer
+   -1..1; positive steer turns right). Nothing else drives the player's bot.
+     direct     (Settings → Controls) a floating stick wherever the left thumb lands on the left half of the arena, a
+                weapon button on the right, and a self-right button above it while you're upside down. Left-handed
+                swaps the sides. Spinners: the weapon button switches the disc on and off (on at the bell). Flippers and
+                hammers fire on a press; a lifter lifts while it's held.
+     tactical   tap the floor to drive there, tap the opponent to attack it, tap your own bot to back off. A small path
+                follower turns the order into throttle and steer; attacking fires the weapon when the target is in reach.
+     keyboard   W A S D or the arrow keys, space for the weapon, R to self-right (works alongside either scheme)
+     gamepad    left stick, A (or the right trigger) for the weapon, Y or B to self-right
+   Multi-touch: each control follows its own pointerId with setPointerCapture, so two thumbs never steal each other's input.
+   ASSISTS (state.js) by driver skill apply to both schemes: auto-straighten (holds the heading when you aren't steering),
+   turn damping (softens the steering, more at speed), and weapon auto-spin (a spinner spins up only when an enemy is
+   near, saving battery). Settings → Driving assists turns them off. The player's skill is the rookie's until PR 8's
+   drivers. */
+const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown:false,wToggle:true,sr:false,keys:{},order:null,steerS:0,
+  pads:false,lastPick:0};
+function ctlAssist(){return ST().assists===false?ASSISTS.off:ASSISTS[CTL.skill||"rookie"]||ASSISTS.rookie;}
+/* build the overlay inside the arena view; the Fight tab calls it when a fight starts with you driving */
+function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tactical":"direct";CTL.left=!!ST().leftHanded;
+  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.order=null;CTL.steerS=0;CTL.keys={};
+  const el=document.createElement("div");el.id="ctl";el.className="ctl "+CTL.scheme+(CTL.left?" lefty":"");
+  el.innerHTML=CTL.scheme==="direct"
+    ?`<div class="ctlpad" data-c="pad" aria-hidden="true"><i class="ctlbase"></i><i class="ctlknob"></i><span class="ctlhint">Drive</span></div>
+      <button type="button" class="ctlbtn ctlwpn" data-c="wpn" aria-label="Weapon"><span>Weapon</span></button>
+      <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>`
+    :`<div class="ctltap" data-c="tap" aria-hidden="true"></div><i class="ctlmark" hidden></i>
+      <p class="ctlhint2">Tap the floor to drive there · tap them to attack · tap your bot to back off</p>
+      <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>`;
+  host.appendChild(el);CTL.el=el;CTL.on=true;
+  const pad=el.querySelector("[data-c=pad]"),wpn=el.querySelector("[data-c=wpn]"),sr=el.querySelector("[data-c=sr]"),tap=el.querySelector("[data-c=tap]");
+  const cap=(e)=>{try{e.target.setPointerCapture(e.pointerId);}catch(x){}};
+  if(pad){pad.addEventListener("pointerdown",e=>{if(CTL.stick)return;e.preventDefault();cap(e);const r=pad.getBoundingClientRect();
+      CTL.stick={id:e.pointerId,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,rx:r.left,ry:r.top};ctlDrawStick();});
+    pad.addEventListener("pointermove",e=>{const s=CTL.stick;if(!s||s.id!==e.pointerId)return;s.x=e.clientX;s.y=e.clientY;ctlDrawStick();});
+    const end=e=>{const s=CTL.stick;if(!s||s.id!==e.pointerId)return;CTL.stick=null;ctlDrawStick();};
+    pad.addEventListener("pointerup",end);pad.addEventListener("pointercancel",end);pad.addEventListener("lostpointercapture",end);}
+  if(wpn){wpn.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.wpn=e.pointerId;CTL.wDown=true;CTL.wPress=true;wpn.classList.add("down");});
+    const end=e=>{if(CTL.wpn!==e.pointerId)return;CTL.wpn=null;CTL.wDown=false;wpn.classList.remove("down");};
+    wpn.addEventListener("pointerup",end);wpn.addEventListener("pointercancel",end);wpn.addEventListener("lostpointercapture",end);
+    wpn.addEventListener("click",e=>e.preventDefault());}
+  if(sr){sr.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.sr=true;sr.classList.add("down");});
+    const end=()=>{CTL.sr=false;sr.classList.remove("down");};sr.addEventListener("pointerup",end);sr.addEventListener("pointercancel",end);}
+  if(tap)tap.addEventListener("pointerdown",e=>{e.preventDefault();ctlTap(e);});}
+function ctlUnmount(){if(CTL.el&&CTL.el.parentNode)CTL.el.parentNode.removeChild(CTL.el);CTL.el=null;CTL.on=false;CTL.stick=null;CTL.keys={};}
+/* the stick: knob offset from where the thumb landed, at most 56 px */
+const CTL_R=56;
+function ctlStickVec(){const s=CTL.stick;if(!s)return null;let dx=s.x-s.x0,dy=s.y-s.y0;const d=Math.hypot(dx,dy);if(d>CTL_R){dx*=CTL_R/d;dy*=CTL_R/d;}
+  const dead=0.12,f=v=>Math.abs(v)<dead?0:(v-Math.sign(v)*dead)/(1-dead);return{x:f(dx/CTL_R),y:f(-dy/CTL_R),dx,dy};}
+function ctlDrawStick(){if(!CTL.el)return;const base=CTL.el.querySelector(".ctlbase"),knob=CTL.el.querySelector(".ctlknob"),hint=CTL.el.querySelector(".ctlhint");if(!base)return;
+  const s=CTL.stick;if(!s){base.style.opacity=knob.style.opacity=base.style.left=base.style.top=knob.style.left=knob.style.top="";if(hint)hint.hidden=false;return;}
+  const v=ctlStickVec(),x=s.x0-s.rx,y=s.y0-s.ry;base.style.opacity=knob.style.opacity="1";if(hint)hint.hidden=true;
+  base.style.left=x+"px";base.style.top=y+"px";knob.style.left=(x+v.dx)+"px";knob.style.top=(y+v.dy)+"px";}
+/* tactical: what did the tap land on? */
+function ctlTap(e){const F=FT.F;if(!F)return;const r=CTL.el.getBoundingClientRect(),p=SCRAP_VIS.pick(e.clientX-r.left,e.clientY-r.top);if(!p)return;
+  const me=F.bots[0];let hit=null,best=1e9;
+  for(const o of F.bots){if(o.out)continue;const d=Math.hypot(o.x-p.x,o.y-p.y);if(d<o.rad*1.6+0.03*F.M.len&&d<best){best=d;hit=o;}}
+  if(hit===me)CTL.order={k:"back",t:F.t+0.8};else if(hit&&hit.team!==me.team)CTL.order={k:"attack",v:hit.i};else CTL.order={k:"go",x:p.x,y:p.y};
+  const m=CTL.el.querySelector(".ctlmark");if(m){m.hidden=false;m.className="ctlmark "+CTL.order.k;m.style.left=(e.clientX-r.left)+"px";m.style.top=(e.clientY-r.top)+"px";
+    clearTimeout(ctlTap.t);ctlTap.t=setTimeout(()=>{m.hidden=true;},700);}
+  buzz(6);}
+/* keyboard: held keys (the Fight tab only listens while a fight is live) */
+const CTL_KEYS={KeyW:"up",ArrowUp:"up",KeyS:"down",ArrowDown:"down",KeyA:"left",ArrowLeft:"left",KeyD:"right",ArrowRight:"right",Space:"wpn",KeyR:"sr"};
+document.addEventListener("keydown",e=>{if(!CTL.on)return;const k=CTL_KEYS[e.code];if(!k||e.target.closest("input,textarea,select"))return;e.preventDefault();
+  if(k==="wpn"&&!CTL.keys.wpn)CTL.wPress=true;CTL.keys[k]=true;});
+document.addEventListener("keyup",e=>{const k=CTL_KEYS[e.code];if(k)CTL.keys[k]=false;});
+window.addEventListener("blur",()=>{CTL.keys={};});
+function ctlPad(){if(!navigator.getGamepads)return null;let gp=null;try{for(const g of navigator.getGamepads())if(g&&g.connected){gp=g;break;}}catch(e){return null;}
+  if(!gp)return null;const ax=v=>Math.abs(v)<0.15?0:v,b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed);
+  return{x:ax(gp.axes[0]||0),y:-ax(gp.axes[1]||0),wpn:b(0)||b(7),sr:b(3)||b(1)};}
+
+/* this step's input for bot o in fight F */
+function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CTL.on||!o)return out;
+  const A=ctlAssist(),W=o.b.weapon,spinner=W.type==="spinner"||W.type==="saw",foe=ctlFoe(F,o),near=foe&&Math.hypot(foe.x-o.x,foe.y-o.y)<(o.rad+foe.rad)*4;
+  let thr=0,st=0,wpn=false,sr=CTL.sr,steering=false;
+  const v=ctlStickVec(),K=CTL.keys,gp=ctlPad();
+  if(v){thr=v.y;st=v.x;steering=Math.abs(v.x)>0;}
+  if(K.up||K.down||K.left||K.right){thr=(K.up?1:0)-(K.down?1:0);st=(K.right?1:0)-(K.left?1:0);steering=st!==0;}
+  if(gp){if(gp.x||gp.y){thr=gp.y;st=gp.x;steering=!!gp.x;}if(gp.wpn&&!CTL.gpW)CTL.wPress=true;CTL.gpW=gp.wpn;sr=sr||gp.sr||K.sr;}else sr=sr||K.sr;
+  const held=CTL.wDown||K.wpn||(gp&&gp.wpn);
+  if(CTL.scheme==="tactical"&&CTL.order){const t=ctlTactical(F,o,CTL.order);if(t){if(!(v||K.up||K.down||K.left||K.right||(gp&&(gp.x||gp.y)))){thr=t.throttle;st=t.steer;steering=true;}if(t.weapon)wpn=true;}}
+  /* the weapon */
+  if(spinner){if(CTL.wPress)CTL.wToggle=!CTL.wToggle;wpn=CTL.wToggle&&(!A.autoSpin||near||CTL.order&&CTL.order.k==="attack");}
+  else if(W.type==="lifter")wpn=wpn||held;
+  else wpn=wpn||CTL.wPress||held&&W.type!=="flipper";
+  CTL.wPress=false;
+  /* assists: soften the steering at speed, smooth it, and hold the heading while you're not steering */
+  st*=1-A.turnDamp*Math.min(1,Math.abs(thr));
+  CTL.steerS+=(st-CTL.steerS)*(1-A.turnDamp*0.6);st=CTL.steerS;
+  if(!steering&&Math.abs(thr)>0.2&&A.straighten>0)st=Math.max(-1,Math.min(1,st+A.straighten*o.w*0.25));
+  out.throttle=Math.max(-1,Math.min(1,thr));out.steer=Math.max(-1,Math.min(1,st));out.weapon=wpn?1:0;out.selfRight=sr?1:0;
+  /* the self-right button shows only when it's needed */
+  const srb=CTL.el&&CTL.el.querySelector("[data-c=sr]");if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
+  return out;}
+function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}
+/* tactical orders to throttle and steer: point at the target, go when roughly facing it */
+function ctlTactical(F,o,ord){let tx,ty,wpn=false;
+  if(ord.k==="back"){if(F.t>ord.t){CTL.order=null;return null;}return{throttle:-1,steer:0,weapon:0};}
+  if(ord.k==="attack"){const t=F.bots[ord.v];if(!t||t.out){CTL.order=null;return null;}tx=t.x;ty=t.y;
+    const W=o.b.weapon;wpn=W.type==="spinner"||W.type==="saw"?true:!!SIM.zoneTouch(o,t);}
+  else{tx=ord.x;ty=ord.y;if(Math.hypot(tx-o.x,ty-o.y)<o.rad*0.8){CTL.order=null;return null;}}
+  const err=SIM_wrap(Math.atan2(ty-o.y,tx-o.x)-o.h),a=Math.abs(err);
+  return{steer:Math.max(-1,Math.min(1,-2.2*err)),throttle:a<0.4?1:a<1.3?Math.cos(a):0,weapon:wpn};}
+const SIM_wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
+const CONTROLS={read:ctlRead,mount:ctlMount,unmount:ctlUnmount};
+/* ===================== app/fight.js: the Fight tab (sparring) =====================
+   Sparring: your fitted bot in the class you're building against any opponent in that class (a named one from
+   SIM.OPPONENTS with its own driver, or a test build), in any arena (the class's own first), one on one or a four-bot
+   rumble. You drive it yourself (app/controls.js) or hand it to SCRAP_SIM's AI in a style you pick and watch. No stakes,
+   no damage bill, nothing saved: this is the Fight tab before the career exists, and it stays.
+   Fight mode: the 3D view grows to fill the screen (#app.fighting hides the panel and the tab bar) and an overlay (#fov)
+   carries the clock, a strip per bot (damage silhouette, weapon speed, battery, heat), the controls, Pause and a 2D
+   toggle (app/debugview.js's top-down view, also the fallback where WebGL isn't there). At the bell a banner offers a
+   rematch or the results: who won and how, the judges' table, every bot's state, and the fight log in words.
+   Feedback: the sim's fx events go to SCRAP_VIS (sparks, shake, a part flying off when one is destroyed), SCRAP_SOUND
+   (clangs and motor whine, if Settings → Sound is on) and buzz() (scaled by the hit, only for hits on or by you).
    The frame loop steps the sim at its fixed 60 Hz with an accumulator clamped to 5 steps a frame, so a stall never
-   fast-forwards the round, and pauses when the page is hidden (visibilitychange) or the tab is left. Lite draws at 30 fps. */
-const FT={F:null,opp:"wedge",arena:"auto",style:"auto",speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0};
+   fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
+const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
+  you:false,on:false,view2d:false,partN:0,buzzT:0};
 const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
+const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
 /* the opponent picked: a named one in this class, else a test build */
-function ftOpp(cls){const op=SIM.OPPONENTS.find(o=>o.id===FT.opp&&o.cls===cls);
-  if(op)return{name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op};
-  const t=SIM.TEST_BUILDS.find(x=>x.id===FT.opp)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
-  return{name:t.name,cfg,driver:{style:"auto",skill:0.7}};}
+function ftOpp(cls,id){id=id||FT.opp;const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
+  if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op};
+  const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
+  return{id:t.id,name:t.name,cfg,driver:{style:"auto",skill:0.7}};}
+/* a rumble's other two bots: picked from the class's named opponents and the test builds by the seed */
+function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>o.id).concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy").map(t=>t.id)).filter(id=>id!==skip),out=[];
+  let k=seed>>>3;while(out.length<2&&pool.length){const id=pool.splice(k%pool.length,1)[0];out.push(ftOpp(cls,id));k=(k*2654435761>>>7)+1;}return out;}
 
 function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
-  const opp=ftOpp(cls);
+  const opp=ftOpp(cls),you=FT.style==="you";
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
-  FT.F=SIM.newFight({seed,fx:true,arena:ftArena(cls),bots:[
-    {cfg:bot.cfg,name:"You",driver:{style:FT.style,skill:0.7}},
-    {cfg:opp.cfg,name:opp.name,driver:opp.driver}]});
-  FT.sig=bnSig(bot.cfg);FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();
-  ftRender();ftLoop();}
+  const bots=[{cfg:bot.cfg,name:"You",driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
+  if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,driver:o.driver});
+  FT.F=SIM.newFight({seed,fx:true,arena:ftArena(cls),bots});FT.you=you;
+  FT.sig=bnSig(bot.cfg);FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;ftFrame.done=null;
+  ftEnter();ftLoop();}
 function ftLoop(){if(!FT.raf)FT.raf=requestAnimationFrame(ftFrame);}
-function ftPause(on){if(!FT.F||FT.F.over)return;FT.paused=on;if(!on){FT.last=performance.now();FT.acc=0;ftLoop();}ftControls();}
+function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on)SCRAP_SOUND.stop();else{FT.last=performance.now();FT.acc=0;ftLoop();}
+  const p=$("fPause");if(p)p.hidden=!on;const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);}
 function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
   if(curTab!=="fight"||document.hidden){if(!F.over&&!FT.paused)ftPause(true);return;}
-  if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;FT.acc+=Math.min(dt,0.25)*FT.speed;
-    let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,null);FT.acc-=1/60;k++;}
+  if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;FT.acc+=Math.min(dt,0.25)*(FT.you?1:FT.speed);
+    let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,FT.you&&FT.on?{0:CONTROLS.read(F,F.bots[0])}:null);FT.acc-=1/60;k++;}
     if(k===5)FT.acc=Math.min(FT.acc,1/60);   // clamped: a slow frame loses time instead of catching up
-    if(F.fxq&&F.fxq.length){for(const e of F.fxq)if(e.k!=="ram"||e.E>2*F.M.mass)FT.flashes.push(Object.assign({t0:now},e));F.fxq.length=0;}}
+    ftFeedback(now);}
   FT.flashes=FT.flashes.filter(f=>now-f.t0<500);
-  if(gfxTier()!=="lite"||now-FT.lastDraw>=31||F.over){DEBUGVIEW.draw($("ftCv"),F,FT.flashes,now);FT.lastDraw=now;}
-  if(now-FT.hudT>120||F.over){FT.hudT=now;ftHud();ftLog();}
-  if(F.over&&!ftFrame.done){ftFrame.done=F;ftControls();buzz([20,40,20]);}
+  if(FT.on&&FT.view2d&&(gfxTier()!=="lite"||now-FT.lastDraw>=31||F.over)){DEBUGVIEW.draw($("fCv"),F,FT.flashes,now);FT.lastDraw=now;}
+  if(now-FT.hudT>120||F.over){FT.hudT=now;ftOverlay();}
+  if(F.over&&ftFrame.done!==F){ftFrame.done=F;ftEnd();}
   if((!FT.paused&&!F.over)||FT.flashes.length)ftLoop();}
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&FT.F&&!FT.F.over&&!FT.paused)ftPause(true);});
 
-/* ---- readouts under the view ---- */
+/* ---- feedback: sparks and shake (SCRAP_VIS), clangs (SCRAP_SOUND), buzz ---- */
+function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST().sound!==false,me=F.bots[0];
+  if(q&&q.length){const ev=[];let bz=0;
+    for(const e of q){const En=(e.E||0)/mm;if(e.k==="ram"&&En<=2)continue;FT.flashes.push(Object.assign({t0:now},e));ev.push(e);
+      if(snd&&(e.k!=="land"||En>4))SCRAP_SOUND.hit(Math.sqrt(Math.min(1,En/140)),e.k==="hit"||e.k==="flip"?"hit":e.k);
+      const mine=e.v===0||F.bots.length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
+      if(mine&&(e.k==="hit"||e.k==="flip"||e.k==="haz"||En>20))bz=Math.max(bz,Math.round(12+40*Math.min(1,En/140)));}
+    if(bz&&now-FT.buzzT>140){FT.buzzT=now;buzz(bz);}
+    if(FT.on&&!FT.view2d)SCRAP_VIS.fx(ev);q.length=0;}
+  /* a destroyed part or a broken plate flies off */
+  const L=F.log,parts=[];for(let n=FT.partN;n<L.length;n++){const e=L[n];
+    if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"))parts.push({k:"part",v:e.v,key:e.key||"weapon"});
+    else if((e.k==="hit"||e.k==="grind"||e.k==="haz")&&e.pb)parts.push({k:"part",v:e.v,key:"armour_"+e.f});}
+  FT.partN=L.length;if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
+
+/* ---- fight mode: the overlay on the 3D view ---- */
+function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
+  const old=$("fov");if(old)old.remove();
+  const el=document.createElement("div");el.id="fov";el.className="fov";
+  el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
+      ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button></div>
+    <div class="fbots" id="fBots">${F.bots.map(o=>`<div class="fbot" data-i="${o.i}"><canvas class="fsil" width="44" height="44" aria-hidden="true"></canvas><div class="fbinfo"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">${esc(o.name)}</b>
+      <span class="fbar" title="weapon"><i data-b="w"></i></span><span class="fbar" title="battery"><i data-b="bat"></i></span><span class="fbar" title="heat"><i data-b="heat"></i></span><small data-b="st"></small></div></div>`).join("")}</div>
+    <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
+    <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">Stop the fight</button></div></div>
+    <div class="fend" id="fEnd" hidden role="alertdialog" aria-labelledby="fEndT"><b id="fEndT"></b><p id="fEndS"></p><div class="row"><button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button></div></div>`;
+  $("view").appendChild(el);el.addEventListener("click",ftOvClick);
+  SCRAP_VIS.setRun({reduce:reduced()});
+  if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
+  if(FT.you)CONTROLS.mount(el);
+  ftOverlay();}
+function ftExit(){FT.on=false;CONTROLS.unmount();SCRAP_SOUND.stop();$("app").classList.remove("fighting");const el=$("fov");if(el)el.remove();
+  if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
+  ftRender();const r=$("ftResCard");if(r)r.scrollIntoView({block:"start"});}
+function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
+  if(a==="pause")ftPause(!FT.paused);
+  else if(a==="resume")ftPause(false);
+  else if(a==="quit"){if(F&&!F.over){FT.paused=false;F.over=true;F.reason="stopped";}ftExit();}
+  else if(a==="again"){ftExit();ftStart();}
+  else if(a==="results")ftExit();
+  else if(a==="2d"){FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
+/* the strip per bot, the clock and the notes, a few times a second */
+function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;const snd=ST().sound!==false&&!FT.paused&&!F.over;
+  const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
+  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el)return;const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
+    const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
+    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
+    const set=(k,v,lo)=>{const x=el.querySelector(`[data-b="${k}"]`);if(x){x.style.width=Math.round(Math.max(0,Math.min(1,v))*100)+"%";x.classList.toggle("lo",!!lo);}};
+    set("w",ws,!o.fx.weaponOk);set("bat",bat,bat<0.2);set("heat",heat,heat>0.85);
+    const st=o.out?(o.out==="ko"?"counted out":"in the pit"):o.fx.dead?"dead":o.flat?"battery flat":o.immobileS>0?`immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"upside down":o.held!=null?"lifted":o.under?"under a wedge":"";
+    const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;el.classList.toggle("out",!!o.out);
+    ftSil(el.querySelector(".fsil"),o,states);
+    if(FT.on&&!FT.view2d)SCRAP_VIS.damage(i,states);
+    if(snd&&i<4)SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));});
+  const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
+    const s=FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}
+  if(!snd)SCRAP_SOUND.stop();}
+/* a bot's damage silhouette: the faces as its outline, the parts as dots where the layout put them, green / amber / cool red */
+const FT_SC={intact:"#4CC38A",damaged:"#E2A93B",destroyed:"#E5484D"};
+function ftSil(cv,o,states){if(!cv)return;const g=cv.getContext("2d"),W=44,b=o.b,s=36/Math.max(b.widthM,b.lengthM),hw=b.widthM/2*s,hl=b.lengthM/2*s,cx=22,cy=22;
+  g.clearRect(0,0,W,W);g.lineWidth=3;g.lineCap="round";
+  const face=(k,x0,y0,x1,y1)=>{g.strokeStyle=FT_SC[states["armour_"+k]||"intact"];g.globalAlpha=b.armourMapJ[k]&&b.armourMapJ[k].id!=="none"?1:0.35;g.beginPath();g.moveTo(cx+x0,cy+y0);g.lineTo(cx+x1,cy+y1);g.stroke();};
+  face("front",-hw,-hl,hw,-hl);face("back",-hw,hl,hw,hl);face("left",-hw,-hl,-hw,hl);face("right",hw,-hl,hw,hl);g.globalAlpha=1;
+  g.fillStyle=FT_SC[states.chassis||"intact"];g.globalAlpha=0.18;g.fillRect(cx-hw,cy-hl,2*hw,2*hl);g.globalAlpha=1;
+  for(const p of b.parts){if(!p.pos)continue;g.fillStyle=FT_SC[states[p.key]||"intact"];g.beginPath();g.arc(cx+p.pos[0]*s,cy-p.pos[1]*s,p.key==="weapon"?3:2.2,0,7);g.fill();}}
+function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();CONTROLS.unmount();buzz([20,40,20]);
+  const e=$("fEnd");if(!e||!FT.on)return;const r=ftResult(F);$("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;e.hidden=false;
+  const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector('[data-fv="again"]');if(btn)btn.focus({preventScroll:true});}
+function ftResult(F){if(F.reason==="stopped")return{t:"Fight stopped",s:"",cls:""};
+  const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
+  if(!win)return{t:"Draw",s:`At ${ftT(F.endT)}, too close for the judges to split`,cls:""};
+  return{t:win.i===0?"You win":`${win.name} wins`,s:`${F.reason==="ko"?"By knockout":F.reason==="pit"?"Into the pit":"On the judges' decision"} at ${ftT(F.endT)}`,cls:win.i===0?"ok":"broke"};}
+document.addEventListener("keydown",e=>{if(!FT.on||e.key!=="Escape"||sheetOn())return;const F=FT.F;if(F&&!F.over){ftPause(!FT.paused);e.preventDefault();}});
+
+/* ---- the results card under the setup: what happened, each bot's state, the judges ---- */
 function ftBar(v,cls){return`<span class="ftbar"><i class="${cls||""}" style="width:${Math.round(Math.max(0,Math.min(1,v))*100)}%"></i></span>`;}
 function ftHud(){const F=FT.F,el=$("ftHud");if(!F||!el)return;
-  el.innerHTML=F.bots.map(o=>{const w=o.b.weapon,h=o.b.heat,bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,lost=SIM.damageShare(o.b,o.st);
-    const heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
-    let wt="";if(!o.fx.weaponOk&&w.type!=="none")wt=`<span class="broke">weapon gone</span>`;
-    else if(w.type==="spinner"||w.type==="saw")wt=`disc ${ftBar(o.wp.om/(w.omega||1))} <span class="readout">${Math.round(o.wp.om*60/(2*Math.PI)).toLocaleString("en-GB")} rpm</span>`;
-    else if(w.type==="flipper")wt=`<span class="readout">${o.wp.shots}/${w.shots}</span> shots`;
-    else if(w.type==="none"||w.type==="wedge")wt=w.type==="wedge"?"wedge":"pusher";
-    else wt=w.type;
+  el.innerHTML=F.bots.map(o=>{const w=o.b.weapon,lost=SIM.damageShare(o.b,o.st),bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0;
     const st=o.out?`<span class="broke">${o.out==="ko"?"counted out":"in the pit"}</span>`:o.fx.dead?`<span class="broke">dead: ${esc(o.fx.dead)}</span>`:o.flat?`<span class="broke">battery flat</span>`:
-      o.immobileS>0?`<span class="worn">immobile ${Math.ceil(F.rules.koS-o.immobileS)} s</span>`:[o.inverted?"upside down":"",o.under?"under a wedge":"",o.held!=null?"lifted":"",o.fx.sides.left.out?"left side out":"",o.fx.sides.right.out?"right side out":""].filter(Boolean).map(s=>`<span class="worn">${s}</span>`).join(" · ");
+      [o.inverted?"upside down":"",!o.fx.weaponOk&&w.type!=="none"?"weapon gone":"",o.fx.sides.left.out?"left side out":"",o.fx.sides.right.out?"right side out":""].filter(Boolean).map(s=>`<span class="worn">${s}</span>`).join(" · ");
     return`<div class="ftbot"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">●</b> <b>${esc(o.name)}</b> <small>${esc(SIM.part("weapon",o.cfg.weapon).name)}</small>
-      <div class="ftrow"><span>${wt}</span><span>battery ${ftBar(bat,bat<0.2?"lo":"")}</span><span>heat ${ftBar(heat,heat>0.85?"lo":"")}</span><span>damage <span class="${lost>0.5?"broke":lost>0.15?"worn":"ok"}">${Math.round(lost*100)}%</span></span></div>${st?`<div class="ftrow">${st}</div>`:""}</div>`;}).join("");
-  const r=$("ftRes");if(r){if(F.over){const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
-    r.textContent=F.reason==="draw"?`Draw at ${ftT(F.endT)}`:`${win.i===0?"You win":win.name+" wins"}${F.reason==="ko"?" by knockout":F.reason==="pit"?": into the pit":" on the judges' decision"} at ${ftT(F.endT)}`;r.className="ftres "+(F.winner===0?"ok":F.winner==null?"":"broke");}
-    else r.textContent=FT.paused?"Paused":SIM.pitOpen(F)||!F.arena.pit?"":`The pit opens at ${ftT(F.arena.pit.openS)}`;}
+      <div class="ftrow"><span>battery ${ftBar(bat,bat<0.2?"lo":"")}</span><span>damage <span class="${lost>0.5?"broke":lost>0.15?"worn":"ok"}">${Math.round(lost*100)}%</span></span><span>hits landed <span class="readout">${o.stats.hits}</span></span></div>${st?`<div class="ftrow">${st}</div>`:""}</div>`;}).join("");
+  const r=$("ftRes");if(r){const x=ftResult(F);r.textContent=x.t+(x.s?": "+x.s.charAt(0).toLowerCase()+x.s.slice(1):"");r.className="ftres "+x.cls;}
   const j=$("ftJudge");if(j)j.innerHTML=ftJudges(F);}
 /* the judges' three scores, out of 100 between the teams, when the bell decided it */
 function ftJudges(F){if(!F.over||!F.judge)return"";const sc=F.judge.scores,teams=Object.keys(sc),nm=k=>{const o=F.bots.find(b=>String(b.team)===k);return o.i===0?"You":esc(o.name);};
@@ -3286,42 +3905,32 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
       return`${what}: ${J(e.E)}${e.x?" · "+ftParts(F,v,e.x):""}`;}
     case"end":return e.why==="judges"||e.why==="draw"?`Time: it goes to the judges${e.j&&e.j[0]?` · you ${Math.round(e.j[0].total)}, ${esc(F.bots[1].name)} ${Math.round((e.j[1]||{}).total||0)}`:""}`:null;}
   return null;}
-function ftLog(){const F=FT.F,el=$("ftLog");if(!F||!el)return;const L=F.log;if(FT.logN>L.length)FT.logN=0;
-  if(FT.logN===L.length)return;const atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-8;let html="";
-  /* a small hit merges into an entry up to 6 back and can grow after it was written: redraw those lines, then add the new ones */
-  const from=Math.max(0,FT.logN-6);while(el.lastElementChild&&+el.lastElementChild.dataset.n>=from)el.lastElementChild.remove();
-  for(let n=from;n<L.length;n++){const s=ftLine(F,L[n]);if(s)html+=`<li data-n="${n}"><span class="ftt">${L[n].t.toFixed(1)}</span>${s}</li>`;}
-  FT.logN=L.length;if(html)el.insertAdjacentHTML("beforeend",html);
-  while(el.children.length>400)el.firstElementChild.remove();
-  if(atEnd)el.scrollTop=el.scrollHeight;}
+function ftLog(){const F=FT.F,el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHTML="";let html="";
+  for(let n=0;n<L.length;n++){const s=ftLine(F,L[n]);if(s)html+=`<li data-n="${n}"><span class="ftt">${L[n].t.toFixed(1)}</span>${s}</li>`;}
+  el.innerHTML=html;FT.logN=L.length;}
 
 /* ---- the tab ---- */
-function ftControls(){const el=$("ftCtl");if(!el)return;const F=FT.F,live=F&&!F.over;
-  el.innerHTML=`<button type="button" class="btn pri" data-ft="go">${F?"New fight":"Fight"}</button>${live?`<button type="button" class="btn" data-ft="pause">${FT.paused?"Resume":"Pause"}</button>`:""}`;
-  const r=$("ftRes");if(r&&live)r.textContent=FT.paused?"Paused":"";}
 function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg){FT.F=null;el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`;return;}
   if(FT.F&&(FT.F.cls!==cls||FT.sig!==bnSig(bot.cfg)))FT.F=null;   // a refit ends the old fight
-  const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon);
-  el.innerHTML=chips+`<div class="card"><h3>Test fight<span class="soon">debug view</span></h3>
-    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against an opponent, both driven by the AI. Top-down for now; the 3D arena and your own driving arrive in the next update.</p>
+  const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon),you=FT.style==="you";
+  el.innerHTML=chips+`<div class="card"><h3>Sparring</h3>
+    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against anyone in the class, in any arena. No stakes and no repair bill.</p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
     ${ftPicker(cls)}
+    <div class="field"><span class="lbl">Format</span>${segHtml("ftMode","ftmode",[["duel","One on one"],["rumble","Rumble","four bots"]],FT.mode)}</div>
     <div class="field"><span class="lbl">Arena</span>${ftChips("ftarena","Arena",[["auto",`${esc(SIM.ARENAS[c.arenaId].name)} <small>(class)</small>`]].concat(SIM.ARENA_IDS.filter(id=>id!==c.arenaId).map(id=>[id,esc(SIM.ARENAS[id].name)])),FT.arena)}</div>
-    <div class="field"><span class="lbl">Your AI driver</span>${ftChips("ftstyle","Your AI driver",[["auto",`Auto <small>(${esc(SIM.AI_STYLES[ftAuto(bot.cfg,cls)].name.toLowerCase())})</small>`]].concat(SIM.AI_STYLE_IDS.map(id=>[id,esc(SIM.AI_STYLES[id].name)])),FT.style)}</div>
-    <div class="field"><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
-    <canvas id="ftCv" class="ftcv" role="img" aria-label="Top-down view of the fight"></canvas>
-    <p class="ftres" id="ftRes" role="status" aria-live="polite"></p>
-    <div id="ftJudge"></div>
-    <div class="row" id="ftCtl"></div>
-    <div id="ftHud"></div></div>
-    <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;
-  ftControls();
-  if(FT.F){FT.logN=0;ftHud();ftLog();DEBUGVIEW.draw($("ftCv"),FT.F,[],performance.now());ftFrame.done=FT.F.over?FT.F:null;}
-  else{const cv=$("ftCv");requestAnimationFrame(()=>{const g=cv.getContext("2d"),w=cv.clientWidth,d=Math.min(window.devicePixelRatio||1,2);cv.width=cv.height=Math.round(w*d);
-    g.fillStyle=DV_COL.floor;g.fillRect(0,0,cv.width,cv.width);g.fillStyle=DV_COL.dim;g.font=`${13*d}px "Space Grotesk",sans-serif`;g.textAlign="center";g.fillText("Pick an opponent and tap Fight",cv.width/2,cv.width/2);});}}
+    <div class="field"><span class="lbl">Driver</span>${ftChips("ftstyle","Driver",[["you","You drive"],["auto",`AI: auto <small>(${esc(SIM.AI_STYLES[ftAuto(bot.cfg,cls)].name.toLowerCase())})</small>`]].concat(SIM.AI_STYLE_IDS.map(id=>[id,"AI: "+esc(SIM.AI_STYLES[id].name.toLowerCase())])),FT.style)}
+      <p class="hint" id="ftDrvHint">${ftDrvHint()}</p></div>
+    <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
+    <div class="row"><button type="button" class="btn pri" data-ft="go">Fight</button></div></div>
+    ${FT.F?`<div class="card" id="ftResCard"><h3>Last fight</h3><p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
+    <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`:""}`;
+  if(FT.F){ftHud();ftLog();}}
+function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watch.";
+  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. Change it in Settings.";}
 /* chip rows (wrap on a phone): [[value, label html]] */
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
@@ -3332,21 +3941,21 @@ function ftOppLine(o){if(!o.op)return`A test build, driven ${esc(SIM.AI_STYLES[S
   const v=WORLD.venues[o.op.from];return`<b>${esc(o.op.name)}</b>${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
   if((x=t.closest("[data-ft]"))){const a=x.dataset.ft;
-    if(a==="go"){ftFrame.done=null;ftStart();}
-    else if(a==="pause")ftPause(!FT.paused);
+    if(a==="go")ftStart();
     else if(a==="build")showTab("build");
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
-  if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;save();ftRender();return;}
+  if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;save();ftRender();visBot();return;}
   if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;ftOn("ftopp",x);const l=$("ftOppLine");if(l)l.innerHTML=ftOppLine(ftOpp(bCls()));return;}
   if((x=t.closest("[data-ftarena]"))){FT.arena=x.dataset.ftarena;ftRender();return;}
-  if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);return;}
+  if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);const s=$("ftSpeedF");if(s)s.hidden=FT.style==="you";const h=$("ftDrvHint");if(h)h.textContent=ftDrvHint();return;}
+  if((x=t.closest("[data-ftmode]"))){FT.mode=x.dataset.ftmode;ftSeg("ftMode",x);return;}
   if((x=t.closest("[data-ftspeed]"))){FT.speed=+x.dataset.ftspeed;ftSeg("ftSpeed",x);return;}}
 function ftOn(attr,b){document.querySelectorAll(`[data-${attr}]`).forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});}
 function ftSeg(id,b){$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});}
 TAB_RENDER.fight=function(){
   if(!ftRender.bound){ftRender.bound=true;$("tab-fight").addEventListener("click",ftClick);
-    let rt=0;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(curTab==="fight"&&FT.F)DEBUGVIEW.draw($("ftCv"),FT.F,FT.flashes,performance.now());},150);});}
+    let rt=0;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(FT.on&&FT.view2d&&FT.F)DEBUGVIEW.draw($("fCv"),FT.F,FT.flashes,performance.now());},150);});}
   ftRender();};
 /* ===================== app/pit.js: the pit window =====================
    60 real seconds between rounds and between fights on an event day. The pit kit (PIT_KITS) decides which repairs are

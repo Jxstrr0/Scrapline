@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.5.0";
+const VERSION="0.1.6.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -40,7 +40,15 @@ const SEASON_EVENTS=[];     // club meets, tournaments, rumbles, tag team, champ
 const REPAIR_COST={},REPAIR_HOURS={};   // after-fight repair bills (PR 7)
 const PIT_KITS={};          // basic, full, pro (PR 6)
 const REPAIR_TIMES={};      // pit-window repair seconds (PR 6)
-const ASSISTS={};           // auto-straighten, turn damping, weapon auto-spin by driver skill (PR 5)
+/* driving assists by driver skill (app/controls.js): straighten holds the heading when you aren't steering (x the spin
+   rate), turnDamp softens and smooths the steering (more at speed), autoSpin spins a disc up only when an enemy is near.
+   Everyone drives as a rookie until PR 8's drivers; Settings → Driving assists picks "off". */
+const ASSISTS={
+  rookie:{straighten:0.6,turnDamp:0.45,autoSpin:true},
+  club:  {straighten:0.35,turnDamp:0.3,autoSpin:true},
+  pro:   {straighten:0.15,turnDamp:0.15,autoSpin:false},
+  off:   {straighten:0,turnDamp:0,autoSpin:false}
+};
 const RIVALS=[];            // named builders who remember fights (PR 7)
 const RND={};               // R&D projects (PR 8)
 const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
@@ -48,8 +56,8 @@ const SPONSORS=[];          // paint and a placing target (PR 8)
 const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=3;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle"};}
+const SAVE_V=4;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   career:null,                    // {year, week, act, money, loan, hours, driverXp, rep, events, results} from PR 7
   bots:{},                        // {<classId>: {cfg, damage, draft, bench}}: the fitted bot per class (cfg null until first fitted), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
@@ -65,7 +73,8 @@ const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 /* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
 const MIGRATE={
   1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;},   // 0.1.2.0: the Build tab remembers its class
-  2:o=>o   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
+  2:o=>o,   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
+  3:o=>{const s=o.settings;if(s&&typeof s==="object"){if(s.controls!=="tactical")s.controls="direct";s.leftHanded=!!s.leftHanded;if(s.assists!==false)s.assists=true;}return o;}   // 0.1.6.0: control scheme, handedness, assists
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
