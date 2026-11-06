@@ -117,6 +117,18 @@ h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
 .kv dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .readout{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac)}
 .ok{color:var(--good)} .worn{color:var(--warn)} .broke{color:var(--crit-t)}
+.sel{width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:var(--card2);color:var(--ink);font:500 15px var(--font)}
+#bxKv{grid-template-columns:max-content 1fr}
+#bxKv dt{white-space:nowrap}
+.sub4{margin:16px 0 6px;font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted)}
+.stress{list-style:none;margin:0;padding:0;font-size:14px}
+.stress li{display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--rule)}
+.stress li:first-child{border-top:0}
+.stress .sev{flex:0 0 3.6em;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding-top:2px}
+.stress .sev.info{color:var(--dim)}
+details.raw{margin-top:12px}
+details.raw summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:14px}
+details.raw pre{max-height:50vh;overflow:auto;margin:6px 0 0;padding:10px;border-radius:10px;background:var(--base);border:1px solid var(--rule);font-size:11px;line-height:1.35;white-space:pre}
 textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:13px/1.4 var(--mono);word-break:break-all}
 .buerr{min-height:1em;color:var(--crit-t)}
 
@@ -173,8 +185,15 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
       <div class="card"><h3>Weight budget<span class="soon">PR 2</span></h3><p>A bar that fills as you add parts. Going over is impossible; coming in more than 5% under is armour you didn't fit.</p></div>
       <div class="card"><h3>Parts<span class="soon">PR 2</span></h3><p>Class · Chassis · Armour · Drive &amp; wheels · Power · Weapon · Weapon material · Extras</p></div>
       <div class="card"><h3>Layout and side profile<span class="soon">PR 2</span></h3><p>Place drive pods, battery and weapon on the chassis grid. Watch the centre of mass move and the front edge height change.</p></div>
-      <div class="card"><h3>Stress report<span class="soon">PR 1</span></h3><p>Plain English about what will break, and why: shafts that shear, faces left bare, a battery that won't last 90 seconds.</p></div>
-      <pre class="card mono" id="simOut" hidden></pre>
+      <div class="card" id="bxCard"><h3>Build maths<span class="soon">raw</span></h3>
+        <p>The numbers behind every bot, worked out from its parts. Pick a class and a test build; PR 2 turns this into the builder.</p>
+        <div class="field"><span class="lbl" id="bxClsL">Class</span><div class="seg" id="bxCls" role="group" aria-labelledby="bxClsL"></div></div>
+        <div class="field"><label class="lbl" for="bxBuild">Test build</label><select class="sel" id="bxBuild"></select></div>
+        <dl class="kv" id="bxKv"></dl>
+        <h4 class="sub4">Stress report</h4>
+        <ul class="stress" id="bxStress"></ul>
+        <details class="raw" id="bxRaw"><summary>Raw evalBuild() result</summary><pre class="mono" id="simOut"></pre></details>
+      </div>
     </section>
 
     <!-- BENCH: prove the build before it fights -->
@@ -271,30 +290,519 @@ function rng(seed){let a=(seed>>>0)||0x9E3779B9;return function(){a=(a+0x6D2B79F
 const rRange=(r,lo,hi)=>lo+(hi-lo)*r();            // float in [lo, hi)
 const rInt=(r,lo,hi)=>lo+Math.floor((hi-lo+1)*r()); // integer in [lo, hi]
 const rPick=(r,arr)=>arr[Math.floor(arr.length*r())];
-/* ---- parts.js: CLASSES (weight classes and their budgets) and PARTS (every slot's options in grams, millimetres and
-   thalers), DEFAULT_CFG. Filled in by PR 1 (docs/SCRAPLINE-PLAN.md section 4a-4c). The five classes are named here now so every
-   PR uses the same ids: ant 150 g, beetle 1.5 kg, hobby 5.5 kg, feather 14 kg, heavy 110 kg. ---- */
+/* ---- parts.js: CLASSES (the five weight classes and how parts scale between them), PARTS (every slot's options), the
+   chassis-grid helpers (footprints, where a part may sit, the automatic layout), DEFAULT_CFG and TEST_BUILDS.
+   Plan sections 4a-4c. First-pass numbers are guesses, tuned in node (tools/sim-test.js, later tools/fight-test.js).
+
+   Units: every part is written at BEETLE scale (1.5 kg) in grams, millimetres, watts, joules and thalers. classMult(cls)
+   scales it to the class: masses by mass (limitG / 1500), lengths by len (chassis width / 180 mm; every chassis is 2:3), armour thickness by
+   thick (= mass / len^2, so armour weight grows with the budget, not with the cube of size), spinner rpm by 1 / len (the
+   same tip speed in every class), motor power and heat by power (mass^0.85 above a beetle: heavies spin up slower), edges by edge
+   (len^0.5: a heavyweight wedge is a few mm, not 4x a beetle's), cost by prizeScale and hours by hoursScale.
+   evalBuild (sim/build.js) is the one place these become kg, m, s, J and W.
+
+   A config (cfg) is plain JSON, the same shape for the player, designs and opponents:
+     {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, battery, electronics, weapon, weaponMaterial,
+      extras:[ids], layout:{<part key>:[x,y]}}
+   Layout keys: drive0..drive3, battery, electronics, weapon, and extras that take cells (selfright, minibot). x runs
+   left to right across the chassis, y from the front row (0) to the back. Missing or illegal places are filled by
+   autoLayout(), so a cfg without a layout is still a whole bot. ---- */
 const CLASSES={
-  ant:{id:"ant",name:"Antweight",limitG:150},
-  beetle:{id:"beetle",name:"Beetleweight",limitG:1500},
-  hobby:{id:"hobby",name:"Hobbyweight",limitG:5500},
-  feather:{id:"feather",name:"Featherweight",limitG:14000},
-  heavy:{id:"heavy",name:"Heavyweight",limitG:110000}
+  /* gridW x gridH chassis cells of cellMm; fp multiplies every part footprint (a heavyweight's grid is a beetle's at 2x).
+     arenaId names the class's usual arena (ARENAS, PR 4b); partsTier the shop tier it opens on (PR 7). */
+  ant:    {id:"ant",    name:"Antweight",    limitG:150,    arenaId:"tabletop",   partsTier:1,prizeScale:0.4,hoursScale:0.7,gridW:4,gridH:6, cellMm:25,fp:1},
+  beetle: {id:"beetle", name:"Beetleweight", limitG:1500,   arenaId:"clubbox",    partsTier:1,prizeScale:1,  hoursScale:1,  gridW:4,gridH:6, cellMm:45,fp:1},
+  hobby:  {id:"hobby",  name:"Hobbyweight",  limitG:5500,   arenaId:"clubbox",    partsTier:2,prizeScale:2.2,hoursScale:1.4,gridW:6,gridH:9, cellMm:50,fp:1},
+  feather:{id:"feather",name:"Featherweight",limitG:14000,  arenaId:"regional",   partsTier:3,prizeScale:4,  hoursScale:1.8,gridW:6,gridH:9, cellMm:75,fp:1},
+  heavy:  {id:"heavy",  name:"Heavyweight",  limitG:110000, arenaId:"eisenhalle", partsTier:4,prizeScale:20, hoursScale:3,  gridW:8,gridH:12,cellMm:90,fp:2}
 };
-const PARTS={};
-const DEFAULT_CFG={cls:"beetle"};
-/* ---- sim/build.js: evalBuild(cfg), the one point where grams and millimetres become kg, m, s, J and W. Mass, budget,
-   centre of mass, yaw inertia, the chassis polygon, drive speed and turn rate, the height profile (clearance, front edge,
-   invertible), weapon energy, armour per face, runtime, heat, cost and build hours. PR 1 (plan 4d). ---- */
-const K={};
-function evalBuild(cfg){cfg=Object.assign({},DEFAULT_CFG,cfg||{});const c=CLASSES[cfg.cls]||CLASSES.beetle;
-  return{cfg,cls:c.id,limitKg:c.limitG/1000,ready:false,note:"The build maths arrive in PR 1."};}
-/* ---- combos.js: COMBOS, the stress-report rules ("spinner shaft will shear above 60 J on this material", "rear armour
-   none: drive pods exposed" ...). The same rules write the post-mortem's redesign hints in PR 6. PR 1 (plan 4d). ---- */
-const COMBOS=[];
-/* ---- sim/bench.js: the six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop) and WEDGE_GAUGES,
-   the front-edge heights common in each class. PR 3 (plan section 6). ---- */
-const WEDGE_GAUGES={};
+const CLASS_IDS=["ant","beetle","hobby","feather","heavy"];
+const BASE={limitG:1500,widthMm:180,cells:24};   // the beetle every part is written for
+function classMult(id){const c=CLASSES[id]||CLASSES.beetle,mass=c.limitG/BASE.limitG,len=c.gridW*c.cellMm/BASE.widthMm;
+  return{mass,len,thick:mass/(len*len),power:mass<1?mass:Math.pow(mass,0.85),edge:Math.sqrt(len),cost:c.prizeScale,hours:c.hoursScale,fp:c.fp};}
+
+/* Every option: id, name, massG, cost (thalers), hours (workshop hours to fit), unlock ("start" | "tool:<id>" | "rnd:<id>",
+   enforced from PR 7), hp (J of damage it takes before it is destroyed), plus the slot's own stats.
+   fp:[w,h] is a footprint in chassis cells (beetle grid); null takes no cells. */
+const PARTS={
+  /* massPerCell x 24 cells is the bare box at beetle scale; flex weakens armour mounts (PR 4a); heightMm is the box's
+     height; shape "wedge" cuts the two front corner cells off the grid */
+  chassis:[
+    {id:"ply",    name:"Plywood box",    massPerCell:13,hp:120,flex:0.30,heightMm:50,shape:"box",  cost:30, hours:4,unlock:"start"},
+    {id:"hdpe",   name:"HDPE box",       massPerCell:14,hp:160,flex:0.40,heightMm:46,shape:"box",  cost:45, hours:4,unlock:"start"},
+    {id:"alu",    name:"Aluminium box",  massPerCell:11,hp:200,flex:0.15,heightMm:42,shape:"box",  cost:80, hours:6,unlock:"tool:bandsaw"},
+    {id:"steel",  name:"Steel box",      massPerCell:18,hp:300,flex:0.08,heightMm:40,shape:"box",  cost:70, hours:7,unlock:"tool:welder"},
+    {id:"ti",     name:"Titanium box",   massPerCell:11,hp:320,flex:0.10,heightMm:38,shape:"box",  cost:350,hours:9,unlock:"rnd:titanium"},
+    {id:"custom", name:"Custom shape",   massPerCell:10,hp:260,flex:0.12,heightMm:34,shape:"wedge",cost:300,hours:10,unlock:"rnd:custom"}
+  ],
+  /* per face. Mass is worked out from the face's area x thickMm x density (g/cm3), so it follows the chassis. absorbPerG and
+     hpPerG are J per gram of plate: absorb is eaten before any damage, hp is what the plate takes before it is gone.
+     deflect: 0..1 chance a glancing hit skids off. thickMm is at beetle scale (x thick in other classes). */
+  armour:[
+    {id:"none",  name:"None",              thickMm:0,  density:0,   absorbPerG:0,   hpPerG:0,  deflect:0,   cost:0, hours:0,  unlock:"start"},
+    {id:"hdpe6", name:"HDPE, thin",        thickMm:2.4,density:0.95,absorbPerG:0.60,hpPerG:2.0,deflect:0.05,cost:6, hours:0.5,unlock:"start"},
+    {id:"hdpe10",name:"HDPE, medium",      thickMm:4,  density:0.95,absorbPerG:0.60,hpPerG:2.0,deflect:0.05,cost:9, hours:0.5,unlock:"start"},
+    {id:"hdpe15",name:"HDPE, thick",       thickMm:6,  density:0.95,absorbPerG:0.60,hpPerG:2.0,deflect:0.05,cost:13,hours:0.6,unlock:"start"},
+    {id:"alu",   name:"Aluminium",         thickMm:2,  density:2.70,absorbPerG:0.40,hpPerG:2.5,deflect:0.10,cost:15,hours:1,  unlock:"tool:bandsaw"},
+    {id:"steel", name:"Hardened steel",    thickMm:0.8,density:7.85,absorbPerG:0.25,hpPerG:3.5,deflect:0.25,cost:18,hours:1.2,unlock:"tool:drillpress"},
+    {id:"ar500", name:"AR500",             thickMm:1.2,density:7.85,absorbPerG:0.30,hpPerG:4.0,deflect:0.35,cost:35,hours:1.5,unlock:"tool:welder"},
+    {id:"ti",    name:"Titanium",          thickMm:1.2,density:4.50,absorbPerG:0.50,hpPerG:5.0,deflect:0.30,cost:90,hours:2,  unlock:"rnd:titanium"}
+  ],
+  /* the whole drive: pods (motor + gearbox) x pods, each pod fp cells, sitting against the left or right edge.
+     speedMs no-load top speed and forceN stall push (both sides together) at beetle scale; powerW electrical draw flat out;
+     heatW heat flat out; motorFrac the share of massG that is motor (the part that soaks heat). hp is per pod. */
+  drive:[
+    {id:"single",   name:"One motor a side",     pods:2,fp:[1,2],massG:70, motorFrac:0.6,speedMs:2.6,forceN:12,powerW:120,heatW:45,hp:40,cost:60, hours:2,  unlock:"start"},
+    {id:"dual",     name:"Two motors a side",    pods:4,fp:[1,1],massG:130,motorFrac:0.6,speedMs:2.8,forceN:20,powerW:220,heatW:70,hp:30,cost:110,hours:3,  unlock:"start"},
+    {id:"brushless",name:"Brushless",            pods:2,fp:[1,2],massG:80, motorFrac:0.5,speedMs:4.0,forceN:16,powerW:300,heatW:60,hp:30,cost:220,hours:3,  unlock:"rnd:brushless",brushless:true},
+    {id:"gearbox",  name:"High-torque gearbox",  pods:2,fp:[1,2],massG:120,motorFrac:0.5,speedMs:2.0,forceN:30,powerW:200,heatW:55,hp:55,cost:160,hours:3.5,unlock:"tool:drillpress"}
+  ],
+  /* the set of wheels. grip is a friction coefficient; exposure 0..1 how far they stand proud of the sides (hit first);
+     radiusMm decides clearance and whether the bot drives upside down. tracks never stand proud on top. */
+  wheels:[
+    {id:"foam",  name:"Foam",           massG:20, grip:0.80,radiusMm:30,exposure:0.60,hp:25,cost:10,hours:0.5,unlock:"start"},
+    {id:"rubber",name:"Rubber",         massG:35, grip:1.00,radiusMm:28,exposure:0.50,hp:35,cost:20,hours:0.5,unlock:"start"},
+    {id:"pu",    name:"Polyurethane",   massG:40, grip:1.15,radiusMm:27,exposure:0.45,hp:45,cost:35,hours:0.8,unlock:"tool:printer"},
+    {id:"solid", name:"Solid hubs",     massG:60, grip:0.70,radiusMm:24,exposure:0.35,hp:80,cost:30,hours:0.8,unlock:"start"},
+    {id:"tracks",name:"Tracks",         massG:110,grip:1.30,radiusMm:16,exposure:0.25,hp:60,cost:90,hours:2,  unlock:"tool:mill",tracks:true}
+  ],
+  /* capacityWs stored energy (W s), dischargeW the most it can deliver at once */
+  battery:[
+    {id:"small",name:"Small LiPo",          fp:[1,1],massG:45, capacityWs:16000,dischargeW:400,hp:25,cost:25,hours:0.3,unlock:"start"},
+    {id:"med",  name:"Medium LiPo",         fp:[2,1],massG:70, capacityWs:28000,dischargeW:600,hp:30,cost:40,hours:0.3,unlock:"start"},
+    {id:"large",name:"Large LiPo",          fp:[2,1],massG:110,capacityWs:42000,dischargeW:700,hp:35,cost:65,hours:0.4,unlock:"start"},
+    {id:"hd",   name:"High-discharge LiPo", fp:[2,1],massG:85, capacityWs:26000,dischargeW:1100,hp:30,cost:80,hours:0.4,unlock:"rnd:cells"}
+  ],
+  /* maxPowerW the most the speed controllers pass; coolingW extra cooling; failsafe stops a dead receiver running away
+     and keeps a battery hit from ending the fight as often (PR 4a); idleW the receiver and logic */
+  electronics:[
+    {id:"basic",    name:"Basic ESC",            fp:[1,1],massG:15,maxPowerW:300,heatW:6, coolingW:0, idleW:1,hp:20,cost:20,hours:1,  unlock:"start"},
+    {id:"dual",     name:"Dual ESC",             fp:[1,1],massG:25,maxPowerW:550,heatW:8, coolingW:0, idleW:1,hp:25,cost:45,hours:1,  unlock:"start"},
+    {id:"brushless",name:"Brushless ESC",        fp:[1,1],massG:30,maxPowerW:900,heatW:10,coolingW:0, idleW:1,hp:22,cost:90,hours:1.5,unlock:"rnd:brushless",brushless:true},
+    {id:"failsafe", name:"Dual ESC + failsafe",  fp:[1,1],massG:30,maxPowerW:550,heatW:8, coolingW:0, idleW:1,hp:40,cost:70,hours:1.5,unlock:"start",failsafe:true},
+    {id:"cooling",  name:"Dual ESC + fans",      fp:[1,1],massG:45,maxPowerW:550,heatW:8, coolingW:25,idleW:2,hp:25,cost:60,hours:1.5,unlock:"tool:printer"}
+  ],
+  /* type: none | wedge | lifter | flipper | hammer | spinner | crusher | saw. mount "front" means the mount touches the
+     front row; "edge" any edge. massG is the structure (wedge plate, arm, forks, mount) and scales with the material;
+     motorMassG the motor or the pneumatics. edgeMm the leading edge height (null: the chassis front is the edge).
+     Spinners: discMass (g, x material), radius (mm), rpmMax, shapeK (I = shapeK m r^2: 0.5 a disc), bite (how much of the
+     disc catches), recoil (how hard it kicks the attacker back). Flipper: shots, forceN, strokeMm, rechargeS. Lifter:
+     liftN, liftMm. Hammer: swingS, energyJ. Crusher: forceN, crushJ. Saw: a small spinner that grinds (sawJps).
+     selfRights: the weapon can push the bot back over. */
+  weapon:[
+    {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
+    {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
+    {id:"lifter", name:"Lifter",              type:"lifter", fp:[2,2],mount:"front",massG:160,motorMassG:110,powerW:120,heatW:25,edgeMm:2,   hp:60,cost:90, hours:4,unlock:"start",reachMm:60,liftN:70,liftMm:80,selfRights:true},
+    {id:"flipper",name:"Flipper (pneumatic)", type:"flipper",fp:[2,3],mount:"front",massG:190,motorMassG:170,powerW:10, heatW:0, edgeMm:2,   hp:60,cost:180,hours:6,unlock:"tool:drillpress",reachMm:70,shots:12,forceN:450,strokeMm:40,rechargeS:1.0,selfRights:true},
+    {id:"hammer", name:"Hammer",              type:"hammer", fp:[2,2],mount:"front",massG:170,motorMassG:130,powerW:200,heatW:30,edgeMm:3,   hp:60,cost:120,hours:5,unlock:"start",swingS:0.7,energyJ:25,selfRights:true},
+    {id:"hsp",    name:"Horizontal spinner",  type:"spinner",fp:[2,2],mount:"edge", massG:40, motorMassG:90, powerW:300,heatW:40,edgeMm:null,hp:70,cost:150,hours:5,unlock:"start",discMass:300,radius:75,rpmMax:6000, shapeK:0.5, bite:0.75,recoil:1.0},
+    {id:"vsp",    name:"Vertical spinner",    type:"spinner",fp:[2,2],mount:"front",massG:60, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:70,cost:150,hours:5,unlock:"start",discMass:250,radius:50,rpmMax:9000, shapeK:0.5, bite:0.90,recoil:0.6},
+    {id:"drum",   name:"Drum",                type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:45,edgeMm:3,   hp:80,cost:140,hours:5,unlock:"start",discMass:280,radius:30,rpmMax:12000,shapeK:0.55,bite:1.00,recoil:0.4},
+    {id:"under",  name:"Undercutter",         type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:40,edgeMm:3,   hp:70,cost:140,hours:5,unlock:"start",discMass:250,radius:60,rpmMax:7000, shapeK:0.5, bite:0.80,recoil:0.9},
+    {id:"crusher",name:"Crusher",             type:"crusher",fp:[2,3],mount:"front",massG:150,motorMassG:120,powerW:220,heatW:35,edgeMm:3,   hp:90,cost:260,hours:8,unlock:"rnd:crusher",forceN:900,crushJ:30},
+    {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
+  ],
+  /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends
+     (the shaft shears at shearMult x hp of stored energy), bite multiplies the weapon's bite */
+  weaponMaterial:[
+    {id:"alu",  name:"Aluminium",  massMult:0.60,hp:90, shearMult:1.5,bite:0.70,cost:20, hours:0,  unlock:"start"},
+    {id:"steel",name:"Steel",      massMult:1.00,hp:160,shearMult:1.5,bite:0.90,cost:30, hours:0,  unlock:"start"},
+    {id:"s7",   name:"S7 tool steel",massMult:1.00,hp:260,shearMult:1.5,bite:1.00,cost:70,hours:1, unlock:"tool:mill"},
+    {id:"ti",   name:"Titanium",   massMult:0.62,hp:220,shearMult:1.5,bite:0.85,cost:120,hours:1.5,unlock:"rnd:titanium"}
+  ],
+  /* any number of these. effect fields are read by evalBuild: selfRight, edgeMm (added to the front edge), underAbsorbJ
+     (underside armour), frontAbsorbJ and frontDeflect (an anti-spinner bar), minibot */
+  extras:[
+    {id:"selfright",name:"Self-righter",     fp:[1,1],massG:60, hp:25,cost:50, hours:2,unlock:"start",selfRight:true},
+    {id:"skid",     name:"Skid plate",       fp:null, massG:50, hp:60,cost:20, hours:1,unlock:"start",edgeMm:-1,underAbsorbJ:15},
+    {id:"bar",      name:"Anti-spinner bar", fp:null, massG:70, hp:70,cost:30, hours:1.5,unlock:"tool:welder",frontAbsorbJ:15,frontDeflect:0.15},
+    {id:"minibot",  name:"Minibot",          fp:[1,2],massG:150,hp:20,cost:120,hours:4,unlock:"rnd:minibot",minibot:true}
+  ]
+};
+const PART_SLOTS=["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
+const FACES=["front","back","left","right","top"];
+function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
+
+/* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
+const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",
+  armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
+  drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
+
+/* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). Unknown ids stay as they are; evalBuild
+   reports them and uses the default part. */
+function normCfg(cfg){cfg=cfg||{};const d=DEFAULT_CFG,o={};
+  o.cls=CLASSES[cfg.cls]?cfg.cls:d.cls;
+  for(const s of PART_SLOTS)o[s]=typeof cfg[s]==="string"?cfg[s]:d[s];
+  o.armour={};const a=cfg.armour&&typeof cfg.armour==="object"?cfg.armour:{};
+  for(const f of FACES)o.armour[f]=typeof a[f]==="string"?a[f]:d.armour[f];
+  o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>typeof e==="string"&&l.indexOf(e)===i):[];
+  o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
+  for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
+  return o;}
+
+/* ---- the chassis grid ---- */
+/* cells that exist on this chassis: a box has them all; the custom shape cuts the front corners */
+function cellOn(cls,chassisId,x,y){const c=CLASSES[cls],ch=part("chassis",chassisId)||PARTS.chassis[0];
+  if(x<0||y<0||x>=c.gridW||y>=c.gridH)return false;
+  if(ch.shape==="wedge"&&y<c.fp&&(x<c.fp||x>=c.gridW-c.fp))return false;
+  return true;}
+/* the parts that take cells, in placing order: [{key, slot, id, w, h, mount}] at this class's grid size */
+function footprints(cfg){cfg=normCfg(cfg);const c=CLASSES[cfg.cls],m=c.fp,out=[];
+  const add=(key,slot,id,fp,mount)=>{if(fp)out.push({key,slot,id,w:fp[0]*m,h:fp[1]*m,mount});};
+  const w=part("weapon",cfg.weapon);if(w)add("weapon","weapon",w.id,w.fp,w.mount);
+  const d=part("drive",cfg.drive)||part("drive",DEFAULT_CFG.drive);
+  for(let i=0;i<d.pods;i++)add("drive"+i,"drive",d.id,d.fp,i%2?"right":"left");
+  const b=part("battery",cfg.battery);if(b)add("battery","battery",b.id,b.fp,"any");
+  const e=part("electronics",cfg.electronics);if(e)add("electronics","electronics",e.id,e.fp,"any");
+  for(const x of cfg.extras){const p=part("extras",x);if(p)add(x,"extras",x,p.fp,"any");}
+  return out;}
+/* may a part of this footprint sit with its top-left cell at (x,y)? taken: a Set of "x,y" cells already used */
+function placeOk(cfg,f,x,y,taken){const c=CLASSES[cfg.cls];
+  if(f.mount==="front"&&y!==0)return false;
+  if(f.mount==="edge"&&!(y===0||x===0||y+f.h===c.gridH||x+f.w===c.gridW))return false;
+  if(f.mount==="left"&&x!==0)return false;
+  if(f.mount==="right"&&x+f.w!==c.gridW)return false;
+  for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++){if(!cellOn(cfg.cls,cfg.chassis,x+i,y+j))return false;if(taken&&taken.has((x+i)+","+(y+j)))return false;}
+  return true;}
+/* where a part goes if the player hasn't put it anywhere: weapon front and centre, drive pods on the sides (two near the
+   middle, four front and back), battery in the middle, electronics behind it, extras at the back */
+function preferred(c,f,podIndex,pods){const W=c.gridW,H=c.gridH,cx=Math.round((W-f.w)/2);
+  if(f.slot==="weapon")return[cx,0];
+  if(f.slot==="drive"){const x=f.mount==="left"?0:W-f.w;
+    if(pods<=2)return[x,Math.round((H-f.h)/2)];
+    return[x,podIndex<2?Math.round(H*0.25-f.h/2):Math.round(H*0.75-f.h/2)];}
+  if(f.slot==="battery")return[cx,Math.round((H-f.h)/2)];
+  if(f.slot==="electronics")return[cx,Math.round((H-f.h)/2)+c.fp];
+  return[cx,H-f.h];}
+/* place every part: the cfg's own layout where it is legal, else the nearest free legal spot to the preferred one.
+   Returns {place:{key:[x,y]}, moved:[keys placed automatically], unplaced:[keys with no room]} */
+function autoLayout(cfg){cfg=normCfg(cfg);const c=CLASSES[cfg.cls],fps=footprints(cfg),taken=new Set(),place={},moved=[],unplaced=[];
+  const pods=fps.filter(f=>f.slot==="drive").length;
+  const mark=(f,x,y)=>{place[f.key]=[x,y];for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++)taken.add((x+i)+","+(y+j));};
+  /* the player's own places first, in order, so a later part can't push an earlier one out */
+  const rest=[];
+  for(const f of fps){const p=cfg.layout[f.key];if(p&&placeOk(cfg,f,p[0],p[1],taken))mark(f,p[0],p[1]);else rest.push(f);}
+  for(const f of rest){const pi=+f.key.replace(/\D/g,"")||0,pr=preferred(c,f,pi,pods);let best=null,bd=1e9;
+    for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++){if(!placeOk(cfg,f,x,y,taken))continue;
+      const d=(x-pr[0])*(x-pr[0])+(y-pr[1])*(y-pr[1])*1.01+(x+y)*1e-6;if(d<bd){bd=d;best=[x,y];}}
+    if(best){mark(f,best[0],best[1]);if(cfg.layout[f.key])moved.push(f.key);}else unplaced.push(f.key);}
+  return{place,moved,unplaced};}
+
+/* ---- TEST_BUILDS: one of each archetype, written for any class (layout left to autoLayout). tools/sim-test.js checks
+   them in every class (each within 5% of the limit, apart from "sloppy" and "glass"); tools/fight-test.js (PR 4a) fights
+   them. ---- */
+const TEST_BUILDS=[
+  {id:"wedge",  name:"Wedge",        cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe15",left:"ar500",right:"ar500",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"wedge",weaponMaterial:"steel",extras:["skid"]}},
+  {id:"lifter", name:"Lifter",       cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"lifter",weaponMaterial:"steel",extras:[]}},
+  {id:"flipper",name:"Flipper",      cfg:{chassis:"alu",armour:{front:"steel",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flipper",weaponMaterial:"steel",extras:[]}},
+  {id:"hsp",    name:"Horizontal spinner",cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe15",right:"hdpe15",top:"hdpe10"},drive:"single",wheels:"solid",battery:"hd",electronics:"dual",weapon:"hsp",weaponMaterial:"s7",extras:["selfright"]}},
+  {id:"vsp",    name:"Vertical spinner",cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[]}},
+  {id:"drum",   name:"Drum",         cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe15",right:"hdpe15",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drum",weaponMaterial:"steel",extras:[]}},
+  {id:"hammer", name:"Hammer",       cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"ar500",right:"ar500",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"hammer",weaponMaterial:"steel",extras:[]}},
+  {id:"under",  name:"Undercutter",  cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"med",electronics:"dual",weapon:"under",weaponMaterial:"steel",extras:[]}},
+  /* all weapon, no armour: it can't fill the budget without a bigger disc (disc profiles are R&D, PR 8), so it is
+     allowed to come in light like "sloppy" */
+  {id:"glass",  name:"Glass cannon", cfg:{chassis:"ply",armour:{front:"none",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"hdpe6"},drive:"dual",wheels:"foam",battery:"large",electronics:"dual",weapon:"hsp",weaponMaterial:"s7",extras:["selfright"]}},
+  {id:"brick",  name:"Brick",        cfg:{chassis:"steel",armour:{front:"ar500",back:"ar500",left:"ar500",right:"ar500",top:"steel"},drive:"gearbox",wheels:"solid",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",extras:["skid"]}},
+  {id:"invert", name:"Invertible box",cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drum",weaponMaterial:"steel",extras:[]}},
+  {id:"sloppy", name:"Sloppy budget",cfg:{chassis:"ply",armour:{front:"hdpe6",back:"none",left:"none",right:"none",top:"none"},drive:"single",wheels:"foam",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]}}
+];
+/* ---- sim/build.js: K (the build-maths constants) and evalBuild(cfg), the one point where grams and millimetres become
+   kg, m, s, J and W. Plan section 4d. It returns, for any cfg (parts.js says the shape):
+     valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
+     com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
+     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back)
+     height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
+     weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
+             canLiftKg, flipHeightM, shots, ...}
+     armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
+     cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
+     runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
+     cost (thalers), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
+   Coordinates: chassis centre is the origin, +x right, +y forward (the front face is +y). ---- */
+const K={
+  g:9.81,
+  crr:0.08,             // rolling and scrub resistance, x weight
+  turnScrub:0.5,        // a skid-steer turns at this share of the wheel-speed turn rate
+  usableBattery:0.8,    // share of a LiPo's capacity you can take in a fight
+  driveDuty:0.55,       // average share of full drive power in a fight
+  weaponDuty:0.35,      // average share of full weapon power (spin-ups and holding speed)
+  spinEff:0.35,         // share of weapon power that ends up in the disc while spinning up
+  recoilRef:150,        // J of stored energy per kg of bot that gives a recoil factor of 1 (x the weapon's recoil)
+  flipLever:25,         // a flipper needs this x the opponent's weight in ram force (lever and geometry)
+  flipEff:0.5,          // share of the ram's work that goes into the launch
+  liftLever:4,          // a lifter needs this x the opponent's weight in arm force
+  heatJPerKg:60000,     // J a kg of motor (and its gearbox and mount) soaks before it derates
+  passiveCoolW:15,      // W each motor group (drive, weapon) sheds with no fan, at beetle scale (x power)
+  proudMm:2,            // wheels must stand this far proud of both faces (x len) for the bot to drive upside down
+  lowClearMm:3,         // ground clearance (x edge) when the axles sit low
+  faceWeight:{front:1,back:0.6,left:0.8,right:0.8},   // how often each face is hit, for exposure
+  topWeight:0.15,       // exposure from above, through the top plate
+  protRefJ:40,          // armour "absorb + 0.3 hp" (beetle J) that halves a face's exposure
+  protHp:0.3,
+  runtimeMin:90         // a round is 90 s
+};
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const r3=v=>Math.round(v*1000)/1000;
+
+function evalBuild(cfgIn){
+  const errors=[],cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
+  const pick=(slot,id)=>{const p=part(slot,id);if(p)return p;errors.push("Unknown "+slot+" \""+id+"\"");return part(slot,DEFAULT_CFG[slot]);};
+  const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
+    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
+  const ex=[];for(const id of cfg.extras){const p=part("extras",id);if(p)ex.push(p);else errors.push("Unknown extra \""+id+"\"");}
+  const has=k=>ex.some(e=>e[k]);
+
+  /* ---- geometry (mm) ---- */
+  const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*M.len;
+  const cellsAll=c.gridW*c.gridH;let cellsOn=0;
+  for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y))cellsOn++;
+  const cellFrac=cellsOn/cellsAll;
+  const cx=x=>((x+0.5)-c.gridW/2)*cellMm/1000, cy=y=>(c.gridH/2-(y+0.5))*cellMm/1000;   // cell centre in m
+  const cut=ch.shape==="wedge"?c.fp*cellMm/1000:0;
+  const hw=W/2000,hl=L/2000;
+  const polygon=cut?[[-hw+cut,hl],[hw-cut,hl],[hw,hl-cut],[hw,-hl],[-hw,-hl],[-hw,hl-cut]]:[[-hw,hl],[hw,hl],[hw,-hl],[-hw,-hl]];
+
+  /* ---- mass items: {key, slot, id, g, x, y} (x, y in m), plus the moment-of-inertia extras ---- */
+  const items=[];const addM=(key,slot,id,g,x,y)=>{items.push({key,slot,id,g,x,y});};
+  addM("chassis","chassis",ch.id,ch.massPerCell*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
+
+  /* armour: plate area x thickness x density; the top covers the whole outline */
+  const faceArea={front:(W-2*cut*1000)*H,back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
+  const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
+  const armourMapJ={};
+  for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000;
+    let absorbJ=a.absorbPerG*g,hpJ=a.hpPerG*g,deflect=a.deflect;
+    if(f==="front")for(const e of ex){if(e.frontAbsorbJ)absorbJ+=e.frontAbsorbJ*M.mass;if(e.frontDeflect)deflect=Math.min(0.8,deflect+e.frontDeflect);}
+    armourMapJ[f]={id:a.id,name:a.name,thickMm:r3(t),massG:g,absorbJ,hpJ,deflect};
+    if(g>0)addM("armour_"+f,"armour",a.id,g,facePos[f][0],facePos[f][1]);}
+  for(const f of FACES){const A=armourMapJ[f],eff=A.absorbJ+K.protHp*A.hpJ;A.prot=eff/(eff+K.protRefJ*M.mass);}
+
+  /* ---- layout ---- */
+  const lay=autoLayout(cfg),fps=footprints(cfg);
+  for(const k of lay.unplaced)errors.push("No room on the chassis for the "+(k.indexOf("drive")===0?"drive pods":k));
+  const fpOf=k=>fps.find(f=>f.key===k);
+  const centreOf=k=>{const f=fpOf(k),p=lay.place[k];if(!f||!p)return null;return[(cx(p[0])+cx(p[0]+f.w-1))/2,(cy(p[1])+cy(p[1]+f.h-1))/2];};
+  const cellsOf=k=>{const f=fpOf(k),p=lay.place[k],o=[];if(!f||!p)return o;for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++)o.push([p[0]+i,p[1]+j]);return o;};
+
+  /* drive pods and wheels (the wheels sit at the pod's outer edge) */
+  const podKeys=fps.filter(f=>f.slot==="drive").map(f=>f.key);
+  const podG=dr.massG*M.mass/dr.pods,wheelG=wh.massG*M.mass/dr.pods;
+  let leftX=[],rightX=[];
+  for(const k of podKeys){const p=centreOf(k);if(!p)continue;addM(k,"drive",dr.id,podG,p[0],p[1]);
+    const side=p[0]<0?-1:1;addM("wheel"+k.slice(5),"wheels",wh.id,wheelG,side*hw,p[1]);(side<0?leftX:rightX).push(side*hw);}
+  if(podKeys.length&&(!leftX.length||!rightX.length))errors.push("The drive pods need to be on both sides");
+  const bp=centreOf("battery");if(bp)addM("battery","battery",bt.id,bt.massG*M.mass,bp[0],bp[1]);
+  const ep=centreOf("electronics");if(ep)addM("electronics","electronics",el.id,el.massG*M.mass,ep[0],ep[1]);
+
+  /* weapon: structure x material, the motor at the mount, the disc at the mount (a front spinner's disc sits on the
+     front edge); a wedge with no cells hangs off the front face */
+  const isSpin=wp.type==="spinner"||wp.type==="saw";
+  let wpos=centreOf("weapon")||[0,hl];
+  const frontMounted=wp.mount==="front";
+  const discPos=isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;
+  const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass:0;
+  if(structG)addM("weapon_struct","weapon",wp.id,structG,wpos[0],wp.fp?wpos[1]:hl);
+  if(motorG)addM("weapon_motor","weapon",wp.id,motorG,wpos[0],wpos[1]);
+  if(discG)addM("weapon_disc","weapon",wp.id,discG,discPos[0],discPos[1]);
+  for(const e of ex){const p=e.fp?centreOf(e.id):[0,e.id==="bar"?hl:0];if(p)addM(e.id,"extras",e.id,e.massG*M.mass,p[0],p[1]);}
+
+  /* ---- mass, budget, COM, inertia ---- */
+  let totalG=0,mx=0,my=0;for(const it of items){totalG+=it.g;mx+=it.g*it.x;my+=it.g*it.y;}
+  const massKg=totalG/1000,limitKg=c.limitG/1000;
+  const com={x:totalG?mx/totalG:0,y:totalG?my/totalG:0};
+  /* yaw inertia about the COM: points, plus the chassis and top plate as flat plates, plus the disc's own inertia */
+  let moi=0;for(const it of items){const dx=it.x-com.x,dy=it.y-com.y;moi+=it.g/1000*(dx*dx+dy*dy);}
+  const plate=g=>g/1000*((W/1000)*(W/1000)+(L/1000)*(L/1000))/12;
+  moi+=plate(items[0].g)+plate(armourMapJ.top.massG);
+  const radM=isSpin?wp.radius*M.len/1000:0;
+  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"?wp.shapeK:0.25);
+  if(totalG>c.limitG+1e-6)errors.push("Over the "+c.name+" limit");
+  const underBudgetPct=(1-totalG/c.limitG)*100;
+
+  /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
+  const brushMismatch=!!dr.brushless&&!el.brushless;
+  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1),weaponPowerW=wp.powerW*M.power;
+  const peakW=drivePowerW+weaponPowerW+el.idleW*M.power;
+  const capW=Math.min(bt.dischargeW*M.power,el.maxPowerW*M.power);
+  const powerScale=peakW>0?Math.min(1,capW/peakW):1;
+
+  /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
+  const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale),F0=dr.forceN*M.mass*powerScale;
+  const weightN=massKg*K.g,traction=wh.grip*weightN,pushN=Math.min(F0,traction);
+  const resist=K.crr*weightN;
+  const driveSpeed=F0>resist?v0*(1-resist/F0):0;
+  const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
+  const trackM=leftX.length&&rightX.length?(rightX.reduce((a,b)=>a+b,0)/rightX.length-leftX.reduce((a,b)=>a+b,0)/leftX.length):W/1000;
+  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub:0;
+  const turnAccel=moi>0?pushN*trackM/2/moi:0;
+  /* pull: with the COM off to one side, the light side's wheels slip first and the heavy side pushes it round */
+  const pull=clamp(-com.x/(trackM/2||1),-1,1);
+
+  /* ---- height profile ---- */
+  const rWheel=wh.radiusMm*M.len,proud=rWheel-H/2;
+  const centred=!wh.tracks&&proud>=K.proudMm*M.len;
+  const clearanceMm=centred?proud:K.lowClearMm*M.edge;
+  let frontEdgeMm=wp.edgeMm!=null?wp.edgeMm*M.edge:clearanceMm;
+  for(const e of ex)if(e.edgeMm)frontEdgeMm+=e.edgeMm*M.edge;
+  frontEdgeMm=Math.max(0.5*M.edge,frontEdgeMm);
+  const selfRight=has("selfRight")||!!wp.selfRights;
+  const invertible=centred||selfRight;
+  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud)};
+
+  /* ---- weapon ---- */
+  const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:wpos,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
+    hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
+  if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=wp.shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega;
+    const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
+    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,radiusM:radM,discKg:discG/1000,
+      recoilFactor:clamp(wp.recoil*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite,
+      shearJ:wm.hp*wm.shearMult*M.mass,bendJ:wm.hp*M.mass,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
+  if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
+    Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
+      flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
+  if(wp.type==="lifter"){const F=wp.liftN*M.mass*powerScale,liftM=wp.liftMm*M.len/1000;
+    Object.assign(weapon,{liftN:F,liftM,energyJ:F*liftM,canLiftKg:F/(K.g*K.liftLever),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
+  if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});
+  if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale,energyJ:wp.crushJ*M.mass*powerScale,reachM:0.5*L/1000,bite:wm.bite});
+  if(wp.type==="wedge")Object.assign(weapon,{reachM:wp.reachMm*M.len/1000,bite:wm.bite});
+
+  /* ---- exposure: per cell, from each face (closer and less armoured is worse) and from above ---- */
+  const cells=[];let topE=K.topWeight*(1-armourMapJ.top.prot);
+  for(let y=0;y<c.gridH;y++){const row=[];for(let x=0;x<c.gridW;x++){
+    if(!cellOn(cfg.cls,cfg.chassis,x,y)){row.push(null);continue;}
+    const d={front:y/c.fp,back:(c.gridH-1-y)/c.fp,left:x/c.fp,right:(c.gridW-1-x)/c.fp};let e=topE;
+    for(const f in K.faceWeight)e+=K.faceWeight[f]*(1-armourMapJ[f].prot)/((1+d[f])*(1+d[f]));
+    row.push(r3(e));}cells.push(row);}
+  const cellE=(x,y)=>(cells[y]&&cells[y][x])||0;
+
+  /* ---- the parts list (PR 4a damages these): each internal part's cells, hp and worst exposure ---- */
+  const parts=[];
+  const addPart=(key,slot,id,hp,g)=>{const cl=cellsOf(key);let e=0;for(const q of cl)e=Math.max(e,cellE(q[0],q[1]));
+    parts.push({key,slot,id,cells:cl,massKg:r3(g/1000),hpJ:hp,exposure:r3(e),pos:centreOf(key)});};
+  for(const k of podKeys)addPart(k,"drive",dr.id,dr.hp*M.mass,podG);
+  for(const k of podKeys){const p=centreOf(k);if(!p)continue;const side=p[0]<0?"left":"right";
+    parts.push({key:"wheel"+k.slice(5),slot:"wheels",id:wh.id,cells:cellsOf(k),massKg:r3(wheelG/1000),hpJ:wh.hp*M.mass,
+      exposure:r3(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5),pos:[p[0]<0?-hw:hw,p[1]]});}
+  addPart("battery","battery",bt.id,bt.hp*M.mass,bt.massG*M.mass);
+  addPart("electronics","electronics",el.id,el.hp*M.mass,el.massG*M.mass);
+  if(wp.type!=="none"){if(wp.fp)addPart("weapon","weapon",wp.id,weapon.hpJ,structG+motorG+discG);
+    else parts.push({key:"weapon",slot:"weapon",id:wp.id,cells:[],massKg:r3(structG/1000),hpJ:weapon.hpJ,exposure:r3(K.faceWeight.front),pos:[0,hl]});}
+  for(const e of ex){if(e.fp)addPart(e.id,"extras",e.id,e.hp*M.mass,e.massG*M.mass);
+    else parts.push({key:e.id,slot:"extras",id:e.id,cells:[],massKg:r3(e.massG*M.mass/1000),hpJ:e.hp*M.mass,exposure:0,pos:[0,e.id==="bar"?hl:0]});}
+  let es=0,eg=0;for(const p of parts)if(p.cells.length){es+=p.exposure*p.massKg;eg+=p.massKg;}
+  const exposureScore=eg?es/eg:0;
+  let weakestFace="front",wv=1e9;for(const f of ["front","back","left","right"]){const A=armourMapJ[f],v=(A.absorbJ+A.hpJ)/K.faceWeight[f];if(v<wv){wv=v;weakestFace=f;}}
+
+  /* ---- runtime and heat ---- */
+  const avgDrawW=(drivePowerW*K.driveDuty+weaponPowerW*K.weaponDuty)*powerScale+el.idleW*M.power;
+  const runtimeS=avgDrawW>0?bt.capacityWs*M.mass*K.usableBattery/avgDrawW:Infinity;
+  const coolTotal=el.coolingW*M.power;
+  const group=(heatW,motorKg,duty,share)=>{const rateW=heatW*M.power,coolW=K.passiveCoolW*M.power+coolTotal*share,budgetJ=K.heatJPerKg*motorKg;
+    const full=rateW>coolW?budgetJ/(rateW-coolW):null,fight=rateW*duty>coolW?budgetJ/(rateW*duty-coolW):null;
+    return{rateW,coolW,budgetJ,secsToDerate:full,fightDerateS:fight};};
+  const weaponMotorKg=motorG/1000;
+  const heatD=group(dr.heatW+el.heatW,dr.massG*dr.motorFrac*M.mass/1000,K.driveDuty,weaponMotorKg&&wp.heatW?0.5:1);
+  const heatW_=wp.heatW&&weaponMotorKg?group(wp.heatW,weaponMotorKg,K.weaponDuty,0.5):null;
+  const minN=(a,b)=>a==null?b:b==null?a:Math.min(a,b);
+  const heat={rateW:heatD.rateW+(heatW_?heatW_.rateW:0),coolingW:heatD.coolW+(heatW_?heatW_.coolW:0),drive:heatD,weapon:heatW_,
+    secsToDerate:minN(heatD.secsToDerate,heatW_&&heatW_.secsToDerate),fightDerateS:minN(heatD.fightDerateS,heatW_&&heatW_.fightDerateS),
+    hotPart:heatW_&&heatW_.fightDerateS!=null&&(heatD.fightDerateS==null||heatW_.fightDerateS<heatD.fightDerateS)?"weapon":"drive"};
+
+  /* ---- cost and hours ---- */
+  let cost=0,hours=0;const ch_=(p,n)=>{cost+=p.cost*(n||1);hours+=p.hours*(n||1);};
+  ch_(ch);ch_(dr);ch_(wh);ch_(bt);ch_(el);ch_(wp);if(wp.type!=="none")ch_(wm);for(const e of ex)ch_(e);
+  for(const f of FACES)ch_(pick("armour",cfg.armour[f]));
+  cost=Math.round(cost*M.cost);hours=Math.round(hours*M.hours*10)/10;
+
+  const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
+    totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
+    com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,
+    height,weapon,armourMapJ,weakestFace,exposureScore,cells,parts,
+    runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
+    items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
+  b.stress=stressReport(b);
+  b.verdict=!b.valid?(totalG>c.limitG?"over":"invalid"):b.stress.some(s=>s.sev==="bad"||s.sev==="warn")?"flaws":"valid";
+  return b;}
+/* ---- combos.js: COMBOS, the stress-report rules, and stressReport(b), which runs them over an evalBuild() result.
+   These don't change the physics; they say in plain words what the physics is about to do to you ("spinner shaft will
+   shear above 240 J on this material", "rear armour none: drive pods exposed"). The same rules write the post-mortem's
+   redesign hints in PR 6. Plan section 4d.
+   Each rule: {id, sev, test(b) -> falsy or a value handed to text, text(b, v)}. sev is "bad" (will lose you fights),
+   "warn" (a weakness), "info" (worth knowing) or "good"; it may be a function of (b, v). stressReport sorts bad first. ---- */
+const SEV_ORDER={bad:0,warn:1,info:2,good:3};
+const FACE_NAME={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
+const PART_NAME={drive:"drive pods",battery:"battery",electronics:"speed controllers",weapon:"weapon",extras:"extras",wheels:"wheels"};
+const n0=v=>String(Math.round(v)),n1=v=>(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,"");
+const gOrKg=g=>g>=1000?n1(g/1000)+" kg":n0(g)+" g";
+/* parts whose cells touch a face's edge row or column */
+function partsOnFace(b,f){const c=CLASSES[b.cls],out=new Set();
+  for(const p of b.parts){if(p.slot==="wheels")continue;for(const q of p.cells){
+    if((f==="front"&&q[1]<c.fp)||(f==="back"&&q[1]>=c.gridH-c.fp)||(f==="left"&&q[0]<c.fp)||(f==="right"&&q[0]>=c.gridW-c.fp)){out.add(p.slot);break;}}}
+  if((f==="left"||f==="right")&&b.parts.some(p=>p.slot==="wheels"))out.add("wheels");
+  return[...out];}
+const COMBOS=[
+  {id:"over",sev:"bad",test:b=>b.totalG>b.limitG&&b.totalG-b.limitG,
+    text:(b,v)=>"Over the "+b.className+" limit by "+gOrKg(v)+". It can't be fitted: take something off."},
+  {id:"error",sev:"bad",test:b=>b.errors.filter(e=>e.indexOf("Over the")!==0).join(". "),text:(b,v)=>v+"."},
+  {id:"under",sev:"warn",test:b=>b.underBudgetPct>5&&b.limitG-b.totalG,
+    text:(b,v)=>gOrKg(v)+" unused ("+n0(b.underBudgetPct)+"% under the limit): that's armour you didn't fit."},
+  {id:"shear",sev:"bad",test:b=>b.weapon.storedJ>b.weapon.shearJ&&b.weapon.shearJ,
+    text:(b,v)=>"Spinner shaft will shear above "+n0(v)+" J on "+b.weapon.material.toLowerCase()+", and this disc stores "+n0(b.weapon.storedJ)+" J. Use a tougher material or a smaller disc."},
+  {id:"bend",sev:"warn",test:b=>b.weapon.storedJ>b.weapon.bendJ&&b.weapon.storedJ<=b.weapon.shearJ&&b.weapon.bendJ,
+    text:(b,v)=>"A full-speed hit bends a "+b.weapon.material.toLowerCase()+" disc above "+n0(v)+" J (it stores "+n0(b.weapon.storedJ)+" J): expect it to go out of true."},
+  {id:"bare",sev:(b,v)=>v.parts.length?"bad":"warn",
+    test:b=>{for(const f of ["front","back","left","right"])if(b.armourMapJ[f].id==="none"&&!(f==="front"&&["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0))return{f,parts:partsOnFace(b,f)};return null;},
+    text:(b,v)=>FACE_NAME[v.f]+" armour none"+(v.parts.length?": "+v.parts.map(s=>PART_NAME[s]).join(" and ")+" exposed.":". Nothing sits right behind it yet, but the chassis takes every hit there.")},
+  {id:"spinup",sev:(b,v)=>v>7?"bad":"warn",test:b=>b.weapon.spinUpS>4&&b.weapon.spinUpS,
+    text:(b,v)=>"Spin-up "+n1(v)+" s: you lose the first exchange."},
+  {id:"flip",sev:"bad",test:b=>b.weapon.type==="flipper"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
+    text:(b,v)=>"Flipper can't lift a bot over "+n1(v)+" kg in this class (the limit is "+n1(b.limitKg)+" kg)."},
+  {id:"lift",sev:"warn",test:b=>b.weapon.type==="lifter"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
+    text:(b,v)=>"Lifter only raises "+n1(v)+" kg: a bot at the "+n1(b.limitKg)+" kg limit stays on the floor."},
+  {id:"runtime",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.runtimeS<K.runtimeMin*1.33&&b.runtimeS,
+    text:(b,v)=>"Battery runtime "+n0(v)+" s"+(v<K.runtimeMin?": it goes flat before the 90 s bell.":": no margin for a three-round final.")},
+  {id:"heat",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.heat.fightDerateS!=null&&b.heat.fightDerateS<K.runtimeMin*1.33&&b.heat.fightDerateS,
+    text:(b,v)=>(b.heat.hotPart==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
+  {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
+    text:(b,v)=>"The "+(part("battery",b.cfg.battery).dischargeW<=part("electronics",b.cfg.electronics).maxPowerW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
+  {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
+  {id:"com",sev:"warn",test:b=>Math.abs(b.com.x)>b.widthM*0.02&&b.com.x,
+    text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
+  {id:"nose",sev:"info",test:b=>Math.abs(b.com.y)>b.lengthM*0.15&&b.com.y,
+    text:(b,v)=>(v>0?"Nose":"Tail")+"-heavy: the COM sits "+n0(Math.abs(v)*1000)+" mm "+(v>0?"forward":"back")+". "+(v>0?"Good for wedging, worse for turning.":"The front goes light when you push.")},
+  {id:"edgeHigh",sev:"warn",test:b=>{const g=WEDGE_GAUGES[b.cls]||[],u=g.filter(x=>x<b.height.frontEdgeMm).length;return u>g.length/2&&u;},
+    text:(b,v)=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: most wedges in this class get under you."},
+  {id:"edgeLow",sev:"good",test:b=>{const g=WEDGE_GAUGES[b.cls]||[];return g.length&&b.height.frontEdgeMm<=g[0];},
+    text:b=>"Front edge "+n1(b.height.frontEdgeMm)+" mm: almost nothing in this class gets under you."},
+  {id:"invert",sev:"bad",test:b=>!b.height.invertible,text:()=>"Not invertible and no self-righter: one flip ends the fight."},
+  {id:"inverted",sev:"good",test:b=>b.height.drivesInverted,text:b=>"Wheels stand "+n1(b.height.proudMm)+" mm proud both sides: it drives either way up."},
+  {id:"righter",sev:"info",test:b=>!b.height.drivesInverted&&b.height.selfRight,
+    text:b=>"Doesn't drive upside down; "+(b.cfg.extras.indexOf("selfright")>=0?"the self-righter":"the "+b.weapon.type)+" has to put it back."},
+  {id:"recoil",sev:"warn",test:b=>b.weapon.recoilFactor>0.8&&b.weapon.recoilFactor,
+    text:(b,v)=>"Recoil "+n1(v)+": every big hit throws you back almost as far as them. Keep your back off the walls."},
+  {id:"slow",sev:"warn",test:b=>b.driveSpeed<1.4*Math.sqrt(classMult(b.cls).len)&&b.driveSpeed,
+    text:(b,v)=>"Top speed "+n1(v)+" m/s: anything faster picks the fight."},
+  {id:"pusher",sev:"info",test:b=>b.weapon.type==="none",text:()=>"No weapon: you win on pushing, hazards and the judges."},
+  {id:"covered",sev:"good",test:b=>b.exposureScore<0.6&&["front","back","left","right"].every(f=>b.armourMapJ[f].id!=="none")&&b.exposureScore,
+    text:()=>"Every face armoured and the insides tucked away."}
+];
+function stressReport(b){const out=[];
+  for(const r of COMBOS){let v;try{v=r.test(b);}catch(e){v=null;}if(!v&&v!==0||v===false)continue;if(v===0)continue;
+    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}
+  return out.sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);}
+/* ---- sim/bench.js: the six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop), PR 3 (plan
+   section 6), and WEDGE_GAUGES: the leading-edge heights (mm) of the wedges, lifters and forks common in each class, low
+   to high. The stress report (sim/combos.js) already reads them: a front edge above most of them means most wedges in the
+   class get under you. ---- */
+const WEDGE_GAUGES={
+  ant:    [0.5,1,1.5,2,3],
+  beetle: [1,1.5,2,3,4,6],
+  hobby:  [1,2,3,4,6,8],
+  feather:[1.5,2,3,5,7,10],
+  heavy:  [2,3,4,6,9,12]
+};
 /* ---- fight.js: runFight({bots, arena, seed, rules}), the N-body fight at a fixed 60 Hz step. 2D rigid bodies with a
    cheap height axis (z, vz, inverted), WEDGE_RULES, drive, weapon state, collisions and hits, round ends, the fight log
    with the player's recorded inputs. Every bot reads {throttle, steer, weapon, selfRight} each step. PR 4a (plan 7a). ---- */
@@ -314,7 +822,7 @@ const JUDGE_WEIGHTS={damage:.5,aggression:.25,control:.25};
    driver skill, a style and a one-line personality. About 15 in PR 4b, growing as content. Then the SCRAP_SIM export
    object. ---- */
 const OPPONENTS=[];
-return{rng,rRange,rInt,rPick,CLASSES,PARTS,DEFAULT_CFG,K,evalBuild,COMBOS,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DEFAULT_CFG,TEST_BUILDS,normCfg,cellOn,footprints,placeOk,autoLayout,K,evalBuild,COMBOS,stressReport,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
@@ -520,7 +1028,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.0.1";
+const VERSION="0.1.1.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -1000,13 +1508,60 @@ function start(){
   __ldDone();}
 __ldGo(start);
 /* ===================== app/build.js: the Build tab =====================
-   The weight bar (always visible), section rows (Class, Chassis, Armour, Drive & Wheels, Power, Weapon, Weapon material,
-   Extras) with PEW-style delta lines, the layout editor on the chassis grid, the side profile strip, the docked summary
-   capsule, the stress report, and named designs. Arrives in PR 2 (docs/SCRAPLINE-PLAN.md section 5). PR 1 shows the raw
-   evalBuild() result here as text; until then ?sim=1 shows the stub's. */
+   PR 2 brings the builder here: the weight bar (always visible), section rows (Class, Chassis, Armour, Drive & Wheels,
+   Power, Weapon, Weapon material, Extras) with PEW-style delta lines, the layout editor, the side profile strip, the docked
+   summary capsule, the stress report, and named designs (docs/SCRAPLINE-PLAN.md section 5).
+   Now (PR 1): the build maths shown raw. Pick a class and one of the sim's TEST_BUILDS (or DEFAULT_CFG) and read what
+   evalBuild() makes of it: the key numbers, the stress report, and the whole result object. Nothing here is saved.
+   ?sim=1 opens the raw result straight away. */
+const BX={cls:"beetle",build:"default"};
+const BX_SEV={bad:["broke","Bad"],warn:["worn","Weak"],info:["info","Note"],good:["ok","Good"]};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtG=g=>g>=10000?(g/1000).toLocaleString("en-GB",{maximumFractionDigits:1})+" kg":Math.round(g).toLocaleString("en-GB")+" g";
+const fmtS=s=>s==null||!isFinite(s)?"never":Math.round(s)+" s";
+const FACE_LBL={front:"front",back:"rear",left:"left side",right:"right side",top:"top"};
+
+function bxBuilds(){return[{id:"default",name:"Starter (DEFAULT_CFG)",cfg:SIM.DEFAULT_CFG}].concat(SIM.TEST_BUILDS);}
+function bxCfg(){const t=bxBuilds().find(t=>t.id===BX.build)||bxBuilds()[0];return Object.assign({},t.cfg,{cls:BX.cls});}
+
+function bxRender(){
+  const b=SIM.evalBuild(bxCfg()),w=b.weapon,h=b.height;
+  $("bxCls").querySelectorAll("button").forEach(x=>{const on=x.dataset.cls===BX.cls;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});
+  const pct=100*b.totalG/b.limitG;
+  let wpn="none";
+  if(w.type==="spinner"||w.type==="saw")wpn=`<span class="readout">${Math.round(w.storedJ).toLocaleString("en-GB")} J</span> · ${Math.round(w.rpm).toLocaleString("en-GB")} rpm · spin-up <span class="readout">${w.spinUpS.toFixed(1)} s</span>`;
+  else if(w.type==="flipper")wpn=`<span class="readout">${Math.round(w.launchJ)} J</span> · ${w.shots} shots · lifts ${w.canLiftKg.toFixed(1)} kg`;
+  else if(w.type==="lifter")wpn=`lifts ${w.canLiftKg.toFixed(1)} kg`;
+  else if(w.type==="hammer"||w.type==="crusher")wpn=`<span class="readout">${Math.round(w.energyJ)} J</span>`;
+  else if(w.type==="wedge")wpn="wedge";
+  const rows=[
+    ["Weight",`${fmtG(b.totalG)} of ${fmtG(b.limitG)} <span class="${pct>100?"broke":pct<95?"worn":"ok"}">(${pct.toFixed(1)}%)</span>`],
+    ["Top speed",`${b.driveSpeed.toFixed(1)} m/s`],
+    ["Turn rate",`${Math.round(b.turnRate*180/Math.PI)}°/s`],
+    ["Push",`${b.pushN.toFixed(b.pushN<100?1:0)} N`],
+    ["Weapon",wpn],
+    ["Front edge",`${h.frontEdgeMm.toFixed(1)} mm`],
+    ["Clearance",`${h.clearanceMm.toFixed(1)} mm`],
+    ["Upside down",h.drivesInverted?"drives":h.selfRight?"self-rights":'<span class="broke">stuck</span>'],
+    ["Runtime",`<span class="readout">${fmtS(b.runtimeS)}</span>`],
+    ["Overheats",`<span class="readout">${fmtS(b.heat.fightDerateS)}</span>`],
+    ["Weakest face",FACE_LBL[b.weakestFace]],
+    ["Centre of mass",`${Math.round(b.com.x*1000)} mm, ${Math.round(b.com.y*1000)} mm`],
+    ["Cost",fmt$(b.cost)],
+    ["Workshop hours",`${b.buildHours} h`]];
+  $("bxKv").innerHTML=rows.map(r=>`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join("");
+  $("bxStress").innerHTML=b.stress.length?b.stress.map(s=>{const v=BX_SEV[s.sev]||BX_SEV.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(s.text)}</span></li>`;}).join(""):"<li>Nothing to report.</li>";
+  if($("bxRaw").open)$("simOut").textContent=JSON.stringify(b,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
+
 TAB_RENDER.build=function(){
-  if(!/[?&]sim=1(&|$)/.test(location.search))return;
-  const o=$("simOut");o.hidden=false;o.textContent=JSON.stringify(SIM.evalBuild(SIM.DEFAULT_CFG),null,2);};
+  if(!$("bxCls").firstChild){
+    $("bxCls").innerHTML=SIM.CLASS_IDS.map(id=>{const c=SIM.CLASSES[id];return`<button type="button" data-cls="${id}">${c.name.replace("weight","")}<small>${fmtG(c.limitG)}</small></button>`;}).join("");
+    $("bxBuild").innerHTML=bxBuilds().map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
+    $("bxCls").addEventListener("click",e=>{const x=e.target.closest("button");if(!x)return;BX.cls=x.dataset.cls;bxRender();});
+    $("bxBuild").addEventListener("change",e=>{BX.build=e.target.value;bxRender();});
+    $("bxRaw").addEventListener("toggle",bxRender);
+    if(/[?&]sim=1(&|$)/.test(location.search))$("bxRaw").open=true;}
+  $("bxBuild").value=BX.build;bxRender();};
 /* ===================== app/bench.js: the Bench tab =====================
    The six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop), each with a small canvas readout;
    the full suite costs workshop hours, drive and weapon tests are free. Results feed the stress report. Arrives in PR 3

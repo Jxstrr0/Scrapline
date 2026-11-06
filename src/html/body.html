@@ -20,8 +20,15 @@
       <div class="card"><h3>Weight budget<span class="soon">PR 2</span></h3><p>A bar that fills as you add parts. Going over is impossible; coming in more than 5% under is armour you didn't fit.</p></div>
       <div class="card"><h3>Parts<span class="soon">PR 2</span></h3><p>Class · Chassis · Armour · Drive &amp; wheels · Power · Weapon · Weapon material · Extras</p></div>
       <div class="card"><h3>Layout and side profile<span class="soon">PR 2</span></h3><p>Place drive pods, battery and weapon on the chassis grid. Watch the centre of mass move and the front edge height change.</p></div>
-      <div class="card"><h3>Stress report<span class="soon">PR 1</span></h3><p>Plain English about what will break, and why: shafts that shear, faces left bare, a battery that won't last 90 seconds.</p></div>
-      <pre class="card mono" id="simOut" hidden></pre>
+      <div class="card" id="bxCard"><h3>Build maths<span class="soon">raw</span></h3>
+        <p>The numbers behind every bot, worked out from its parts. Pick a class and a test build; PR 2 turns this into the builder.</p>
+        <div class="field"><span class="lbl" id="bxClsL">Class</span><div class="seg" id="bxCls" role="group" aria-labelledby="bxClsL"></div></div>
+        <div class="field"><label class="lbl" for="bxBuild">Test build</label><select class="sel" id="bxBuild"></select></div>
+        <dl class="kv" id="bxKv"></dl>
+        <h4 class="sub4">Stress report</h4>
+        <ul class="stress" id="bxStress"></ul>
+        <details class="raw" id="bxRaw"><summary>Raw evalBuild() result</summary><pre class="mono" id="simOut"></pre></details>
+      </div>
     </section>
 
     <!-- BENCH: prove the build before it fights -->
