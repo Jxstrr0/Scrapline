@@ -1,20 +1,26 @@
 /* ===================== app/fight.js: the Fight tab =====================
-   PR 4a: an AI-against-AI fight of the bot fitted in the Build tab's class, against any test build (SIM.TEST_BUILDS),
-   played in the top-down debug view (app/debugview.js) with the fight log in words underneath. Both bots are driven by
-   SCRAP_SIM's AI (rush or keep-away; "auto" picks keep-away for spinners); no stakes, nothing saved. PR 5 replaces this
-   with sparring in the 3D arena (any opponent, any arena, your own driving), the HUD, and the pit window in PR 6.
+   An AI-against-AI fight of the bot fitted in the Build tab's class against a named opponent in that class
+   (SIM.OPPONENTS, with its own driver) or any test build (SIM.TEST_BUILDS), in any arena (the class's own by default),
+   played in the top-down debug view (app/debugview.js) with the fight log in words underneath. Your bot is driven by
+   SCRAP_SIM's AI in the style you pick ("auto" picks one for the build and the arena); a time-up fight shows the judges'
+   three scores. No stakes, nothing saved. PR 5 brings the 3D arena and your own driving, PR 6 the pit window.
    The frame loop steps the sim at its fixed 60 Hz with an accumulator clamped to 5 steps a frame, so a stall never
    fast-forwards the round, and pauses when the page is hidden (visibilitychange) or the tab is left. Lite draws at 30 fps. */
-const FT={F:null,opp:"wedge",style:"auto",speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0};
-const FT_STYLES=[["auto","Auto"],["rush","Rush"],["keepaway","Keep-away"]];
-const ftAuto=cfg=>{const w=SIM.part("weapon",SIM.normCfg(cfg).weapon);return w&&(w.type==="spinner"||w.type==="saw")?"keepaway":"rush";};
+const FT={F:null,opp:"wedge",arena:"auto",style:"auto",speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0};
+const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
+const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
+/* the opponent picked: a named one in this class, else a test build */
+function ftOpp(cls){const op=SIM.OPPONENTS.find(o=>o.id===FT.opp&&o.cls===cls);
+  if(op)return{name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op};
+  const t=SIM.TEST_BUILDS.find(x=>x.id===FT.opp)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
+  return{name:t.name,cfg,driver:{style:"auto",skill:0.7}};}
 
 function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
-  const opp=SIM.TEST_BUILDS.find(t=>t.id===FT.opp)||SIM.TEST_BUILDS[0],oc=Object.assign({},opp.cfg,{cls});
+  const opp=ftOpp(cls);
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
-  FT.F=SIM.newFight({seed,fx:true,bots:[
-    {cfg:bot.cfg,name:"You",driver:{style:FT.style==="auto"?ftAuto(bot.cfg):FT.style,skill:0.7}},
-    {cfg:oc,name:opp.name,driver:{style:ftAuto(oc),skill:0.7}}]});
+  FT.F=SIM.newFight({seed,fx:true,arena:ftArena(cls),bots:[
+    {cfg:bot.cfg,name:"You",driver:{style:FT.style,skill:0.7}},
+    {cfg:opp.cfg,name:opp.name,driver:opp.driver}]});
   FT.sig=bnSig(bot.cfg);FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();
   ftRender();ftLoop();}
 function ftLoop(){if(!FT.raf)FT.raf=requestAnimationFrame(ftFrame);}
@@ -47,8 +53,14 @@ function ftHud(){const F=FT.F,el=$("ftHud");if(!F||!el)return;
     return`<div class="ftbot"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">●</b> <b>${esc(o.name)}</b> <small>${esc(SIM.part("weapon",o.cfg.weapon).name)}</small>
       <div class="ftrow"><span>${wt}</span><span>battery ${ftBar(bat,bat<0.2?"lo":"")}</span><span>heat ${ftBar(heat,heat>0.85?"lo":"")}</span><span>damage <span class="${lost>0.5?"broke":lost>0.15?"worn":"ok"}">${Math.round(lost*100)}%</span></span></div>${st?`<div class="ftrow">${st}</div>`:""}</div>`;}).join("");
   const r=$("ftRes");if(r){if(F.over){const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
-    r.textContent=F.reason==="draw"?`Draw at ${ftT(F.endT)}`:`${win.i===0?"You win":win.name+" wins"}${F.reason==="ko"?" by knockout":F.reason==="pit"?": into the pit":" on damage"} at ${ftT(F.endT)}`;r.className="ftres "+(F.winner===0?"ok":F.winner==null?"":"broke");}
-    else r.textContent=FT.paused?"Paused":"";}}
+    r.textContent=F.reason==="draw"?`Draw at ${ftT(F.endT)}`:`${win.i===0?"You win":win.name+" wins"}${F.reason==="ko"?" by knockout":F.reason==="pit"?": into the pit":" on the judges' decision"} at ${ftT(F.endT)}`;r.className="ftres "+(F.winner===0?"ok":F.winner==null?"":"broke");}
+    else r.textContent=FT.paused?"Paused":SIM.pitOpen(F)||!F.arena.pit?"":`The pit opens at ${ftT(F.arena.pit.openS)}`;}
+  const j=$("ftJudge");if(j)j.innerHTML=ftJudges(F);}
+/* the judges' three scores, out of 100 between the teams, when the bell decided it */
+function ftJudges(F){if(!F.over||!F.judge)return"";const sc=F.judge.scores,teams=Object.keys(sc),nm=k=>{const o=F.bots.find(b=>String(b.team)===k);return o.i===0?"You":esc(o.name);};
+  const W=SIM.JUDGE_WEIGHTS,row=(lbl,key,max)=>`<tr><th scope="row">${lbl}${max?` <small>/${max}</small>`:""}</th>${teams.map(k=>`<td class="readout">${sc[k][key].toFixed(key==="total"?1:0)}</td>`).join("")}</tr>`;
+  return`<table class="ftjudge"><caption>The judges</caption><thead><tr><th></th>${teams.map(k=>`<th scope="col">${nm(k)}</th>`).join("")}</tr></thead><tbody>
+    ${row("Damage","damage",W.damage*100)}${row("Aggression","aggression",W.aggression*100)}${row("Control","control",W.control*100)}${row("Total","total",0)}</tbody></table>`;}
 const FT_HOLD=SIM.FIGHT.holdMaxS;
 const ftT=t=>{t=Math.round(t);return`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;};
 
@@ -89,7 +101,10 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
       return null;}
     case"ko":return`${ftCap(N(v))} ${V(v,"is","are")} <span class="broke">counted out</span>`;
     case"pit":return`${ftCap(N(v))} ${V(v,"goes","go")} into the pit`;
-    case"end":return null;}
+    case"pitopen":return"The pit opens";
+    case"haz":{const what=e.what==="pusher"?`The wall pusher shoves ${N(v)}`:`The floor spinner throws ${N(v)}`;
+      return`${what}: ${J(e.E)}${e.x?" · "+ftParts(F,v,e.x):""}`;}
+    case"end":return e.why==="judges"||e.why==="draw"?`Time: it goes to the judges${e.j&&e.j[0]?` · you ${Math.round(e.j[0].total)}, ${esc(F.bots[1].name)} ${Math.round((e.j[1]||{}).total||0)}`:""}`:null;}
   return null;}
 function ftLog(){const F=FT.F,el=$("ftLog");if(!F||!el)return;const L=F.log;if(FT.logN>L.length)FT.logN=0;
   if(FT.logN===L.length)return;const atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-8;let html="";
@@ -111,13 +126,15 @@ function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls
   if(FT.F&&(FT.F.cls!==cls||FT.sig!==bnSig(bot.cfg)))FT.F=null;   // a refit ends the old fight
   const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon);
   el.innerHTML=chips+`<div class="card"><h3>Test fight<span class="soon">debug view</span></h3>
-    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against a test build, both driven by the AI. Top-down for now; the 3D arena and your own driving arrive in the next update.</p>
+    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against an opponent, both driven by the AI. Top-down for now; the 3D arena and your own driving arrive in the next update.</p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
-    <div class="field"><span class="lbl">Opponent</span><div class="ftopp" role="group" aria-label="Opponent">${SIM.TEST_BUILDS.map(t=>`<button type="button" data-ftopp="${t.id}" class="${t.id===FT.opp?"on":""}" aria-pressed="${t.id===FT.opp}">${esc(t.name)}</button>`).join("")}</div></div>
-    <div class="field"><span class="lbl">Your AI driver</span>${segHtml("ftStyle","ftstyle",FT_STYLES.map(s=>[s[0],s[1],s[0]==="auto"?(ftAuto(bot.cfg)==="keepaway"?"keep-away":"rush"):""]),FT.style)}</div>
+    ${ftPicker(cls)}
+    <div class="field"><span class="lbl">Arena</span>${ftChips("ftarena","Arena",[["auto",`${esc(SIM.ARENAS[c.arenaId].name)} <small>(class)</small>`]].concat(SIM.ARENA_IDS.filter(id=>id!==c.arenaId).map(id=>[id,esc(SIM.ARENAS[id].name)])),FT.arena)}</div>
+    <div class="field"><span class="lbl">Your AI driver</span>${ftChips("ftstyle","Your AI driver",[["auto",`Auto <small>(${esc(SIM.AI_STYLES[ftAuto(bot.cfg,cls)].name.toLowerCase())})</small>`]].concat(SIM.AI_STYLE_IDS.map(id=>[id,esc(SIM.AI_STYLES[id].name)])),FT.style)}</div>
     <div class="field"><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
     <canvas id="ftCv" class="ftcv" role="img" aria-label="Top-down view of the fight"></canvas>
     <p class="ftres" id="ftRes" role="status" aria-live="polite"></p>
+    <div id="ftJudge"></div>
     <div class="row" id="ftCtl"></div>
     <div id="ftHud"></div></div>
     <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;
@@ -125,6 +142,14 @@ function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls
   if(FT.F){FT.logN=0;ftHud();ftLog();DEBUGVIEW.draw($("ftCv"),FT.F,[],performance.now());ftFrame.done=FT.F.over?FT.F:null;}
   else{const cv=$("ftCv");requestAnimationFrame(()=>{const g=cv.getContext("2d"),w=cv.clientWidth,d=Math.min(window.devicePixelRatio||1,2);cv.width=cv.height=Math.round(w*d);
     g.fillStyle=DV_COL.floor;g.fillRect(0,0,cv.width,cv.width);g.fillStyle=DV_COL.dim;g.font=`${13*d}px "Space Grotesk",sans-serif`;g.textAlign="center";g.fillText("Pick an opponent and tap Fight",cv.width/2,cv.width/2);});}}
+/* chip rows (wrap on a phone): [[value, label html]] */
+function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
+function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
+  return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),FT.opp):""}
+    ${ftChips("ftopp","Test builds",SIM.TEST_BUILDS.map(t=>[t.id,esc(t.name)]),FT.opp)}
+    <p class="hint" id="ftOppLine">${ftOppLine(cur)}</p></div>`;}
+function ftOppLine(o){if(!o.op)return`A test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
+  const v=WORLD.venues[o.op.from];return`<b>${esc(o.op.name)}</b>${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
   if((x=t.closest("[data-ft]"))){const a=x.dataset.ft;
     if(a==="go"){ftFrame.done=null;ftStart();}
@@ -133,9 +158,11 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
   if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;save();ftRender();return;}
-  if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;document.querySelectorAll("[data-ftopp]").forEach(b=>{const on=b===x;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on);});return;}
-  if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftSeg("ftStyle",x);return;}
+  if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;ftOn("ftopp",x);const l=$("ftOppLine");if(l)l.innerHTML=ftOppLine(ftOpp(bCls()));return;}
+  if((x=t.closest("[data-ftarena]"))){FT.arena=x.dataset.ftarena;ftRender();return;}
+  if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);return;}
   if((x=t.closest("[data-ftspeed]"))){FT.speed=+x.dataset.ftspeed;ftSeg("ftSpeed",x);return;}}
+function ftOn(attr,b){document.querySelectorAll(`[data-${attr}]`).forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});}
 function ftSeg(id,b){$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});}
 TAB_RENDER.fight=function(){
   if(!ftRender.bound){ftRender.bound=true;$("tab-fight").addEventListener("click",ftClick);
