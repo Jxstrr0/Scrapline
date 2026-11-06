@@ -268,7 +268,8 @@ function bClick(e){const t=e.target;let x;
     else if(a==="layout-reset"){B.sel=null;bSet(c=>{c.layout={};},"Parts back in their usual places");}
     else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);bNormed.add(b.draft);B.sel=null;save();bRender();toast("Back to the fitted bot");}
     else if(a==="fit")bFitOpen();
-    else if(a==="disc-name"){const nm=($("discName").value||"").trim();if(draft().disc)bSet(c=>{c.disc=Object.assign({},c.disc,{name:nm});},`Disc named ${SIM.normDisc(Object.assign({},draft().disc,{name:nm})).name}`);}
+    else if(a==="disc-name"){const nm=($("discName").value||"").trim();if(draft().disc&&bSet(c=>{c.disc=Object.assign({},c.disc,{name:nm});},`Disc named ${SIM.normDisc(Object.assign({},draft().disc,{name:nm})).name}`)){
+      const bb=bBot();if(bb.cfg&&bb.cfg.disc&&SIM.sameParts(bb.cfg,bb.draft)){bb.cfg.disc=clone(bb.draft.disc);save();}}}   // a new name is free: the fitted disc takes it
     else if(a==="design-save"){const L=bDesigns();if(L.length>=D_MAX){toast(`${D_MAX} designs per class. Delete one first.`);return;}
       const nm=($("dName").value||"").trim().slice(0,32)||`Design ${L.length+1}`;L.push({name:nm,cfg:clone(draft())});save();bRender();toast(`Saved ${nm}`);}
     return;}}

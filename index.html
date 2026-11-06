@@ -707,7 +707,8 @@ function normDisc(d){if(!d||typeof d!=="object")return null;const t=+d.teeth,r=d
   if(!DISC_PROFILES.teeth[t]||!DISC_PROFILES.rim[r])return null;
   const name=String(d.name==null?"":d.name).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,DISC_PROFILES.nameMax)||"Own disc";
   return{name,teeth:t,rim:r};}
-const sameDisc=(a,b)=>JSON.stringify(a||null)===JSON.stringify(b||null);
+/* the same disc to cut: teeth and rim (the name is paint, not metal) */
+const sameDisc=(a,b)=>!a===!b&&(!a||(a.teeth===b.teeth&&a.rim===b.rim));
 
 /* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
 function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;
@@ -1504,7 +1505,7 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
   if(res.plate==null)res.plate=0;
-  const taken=(res.plate||0)+res.parts.reduce((a,p)=>a+p.dmg,0)+(res.through||0);o.stats.taken+=taken;if(att>=0&&F.bots[att])F.bots[att].stats.dealt+=taken;
+  const taken=(res.plate||0)+res.parts.reduce((a,p)=>a+p.dmg,0)+(res.through||0);o.stats.taken+=taken;if(att>=0&&F.bots[att]&&!o.mini)F.bots[att].stats.dealt+=taken;   // what's done to a minibot doesn't impress the judges
   /* the rolled parts of a failure */
   if(hadBat>0&&st.parts.battery<hadBat){if(st.parts.battery<=0){if(o.b.cfg.electronics==="failsafe"&&F.rng()<DAMAGE.cellSave){o.flags.cell=true;logIt(F,{k:"fail",v:o.i,what:"cell"});}}
     else if(!o.flags.smoke&&F.rng()<DAMAGE.smokeP)o.flags.smoke=true;}
@@ -1700,11 +1701,11 @@ function hazHit(F,h,i,o){const sq=Math.sqrt(F.M.len),E=h.J*F.M.mass,by=hazBy(F,o
     o.w=Math.max(-FIGHT.maxSpin,Math.min(FIGHT.maxSpin,o.w+(F.rng()<0.5?-1:1)*h.spinRad));}
   o.vx+=nx*h.kickMs*sq;o.vy+=ny*h.kickMs*sq;
   if(h.vzMs>0){const vz=h.vzMs*sq,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*o.M.len)launch(F,o,vz,F.rng()<invertChance(F,hM),null,by?by.i:null);}
-  if(by)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
+  if(by&&!o.mini&&!by.mini)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
 /* the judges' bookkeeping, each step (JUDGE_WEIGHTS, sim/arenas.js) */
 function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
-  for(const o of F.bots){if(o.out)continue;let t=null,bd=1e9;
-    for(const q of F.bots)if(q.team!==o.team&&!q.out){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
+  for(const o of F.bots){if(o.out||o.mini)continue;let t=null,bd=1e9;   // minibots neither score nor are scored against
+    for(const q of F.bots)if(q.team!==o.team&&!q.out&&!q.mini){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
     if(!t)continue;const J=o.jd,vs=Math.max(o.b.driveSpeed||0,0.1),touching=o.touch[t.i]!=null&&F.t-o.touch[t.i]<0.1,
       vt=bd>1e-6?((t.x-o.x)*o.vx+(t.y-o.y)*o.vy)/bd:0,mob=mobile(o)&&!o.air;
     if(touching)J.contact+=dt;else if(mob&&vt>G.closeV*vs)J.close+=dt;else if(mob&&vt<-G.closeV*vs)J.retreat+=dt;
@@ -1717,7 +1718,7 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     else if(o.under){const u=pinBy;if(u&&Math.hypot(u.vx,u.vy)>G.driveV*Math.max(u.b.driveSpeed||0,0.1))by=u;}
     else if(o.inverted&&!o.b.height.drivesInverted)by=o.invBy!=null?F.bots[o.invBy]:t;
     else by=pinBy;
-    if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;
+    if(by&&by.team!==o.team&&!by.out&&!by.mini)by.jd.ctrl+=dt;
     /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
       o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
@@ -2987,7 +2988,7 @@ const RULES_BY_SEASON=[
 /* the kit line (Legacy act, Kelbo PR 8): publish one design as a kit. At the end of each season it fights the class's
    test builds in the sim (seeds fights each, at skill); income = base x the class's prizeScale x its win rate x (1 + rep /
    repRef). You can change the kit once a season. */
-const KIT_LINE={act:3,base:400,repRef:200,seeds:2,skill:0.6};
+const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
 const SAVE_V=6;
@@ -3718,7 +3719,8 @@ function bClick(e){const t=e.target;let x;
     else if(a==="layout-reset"){B.sel=null;bSet(c=>{c.layout={};},"Parts back in their usual places");}
     else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);bNormed.add(b.draft);B.sel=null;save();bRender();toast("Back to the fitted bot");}
     else if(a==="fit")bFitOpen();
-    else if(a==="disc-name"){const nm=($("discName").value||"").trim();if(draft().disc)bSet(c=>{c.disc=Object.assign({},c.disc,{name:nm});},`Disc named ${SIM.normDisc(Object.assign({},draft().disc,{name:nm})).name}`);}
+    else if(a==="disc-name"){const nm=($("discName").value||"").trim();if(draft().disc&&bSet(c=>{c.disc=Object.assign({},c.disc,{name:nm});},`Disc named ${SIM.normDisc(Object.assign({},draft().disc,{name:nm})).name}`)){
+      const bb=bBot();if(bb.cfg&&bb.cfg.disc&&SIM.sameParts(bb.cfg,bb.draft)){bb.cfg.disc=clone(bb.draft.disc);save();}}}   // a new name is free: the fitted disc takes it
     else if(a==="design-save"){const L=bDesigns();if(L.length>=D_MAX){toast(`${D_MAX} designs per class. Delete one first.`);return;}
       const nm=($("dName").value||"").trim().slice(0,32)||`Design ${L.length+1}`;L.push({name:nm,cfg:clone(draft())});save();bRender();toast(`Saved ${nm}`);}
     return;}}
@@ -3778,7 +3780,7 @@ function bnSig(cfg){const k=JSON.stringify(SIM.normCfg(cfg));let s=bnSigMemo.get
   if(s==null){const n=SIM.normCfg(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
   return s;}
 let bnCache={sig:"",b:null,res:{}};
-function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:SIM.evalBuild(cfg),res:{}};return bnCache;}
+function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:bEv(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
 /* the tests that have run on this bot as it is fitted now ([] if none, or if it has changed since) */
 function bnDone(bot){const r=bot&&bot.bench;return bot&&bot.cfg&&r&&typeof r==="object"&&Array.isArray(r.done)&&r.sig===bnSig(bot.cfg)?r.done.filter(id=>SIM.BENCH_TESTS.some(t=>t.id===id)):[];}
@@ -4221,7 +4223,7 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
   if(q&&q.length){const ev=[];let bz=0;
     for(const e of q){const En=(e.E||0)/mm;if(e.k==="ram"&&En<=2)continue;FT.flashes.push(Object.assign({t0:now},e));ev.push(e);
       if(snd&&(e.k!=="land"||En>4))SCRAP_SOUND.hit(Math.sqrt(Math.min(1,En/140)),e.k==="hit"||e.k==="flip"?"hit":e.k);
-      const mine=e.v===0||F.bots.length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
+      const mine=e.v===0||F.bots.filter(o=>!o.mini).length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
       if(mine&&(e.k==="hit"||e.k==="flip"||e.k==="haz"||En>20))bz=Math.max(bz,Math.round(12+40*Math.min(1,En/140)));}
     if(bz&&now-FT.buzzT>140){FT.buzzT=now;buzz(bz);}
     if(FT.on&&!FT.view2d)SCRAP_VIS.fx(ev);q.length=0;}
@@ -4276,7 +4278,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
   const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
-  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el)return;const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
+  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arenaconst w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
     const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
     const set=(k,v,lo)=>{const x=el.querySelector(`[data-b="${k}"]`);if(x){x.style.width=Math.round(Math.max(0,Math.min(1,v))*100)+"%";x.classList.toggle("lo",!!lo);}};
@@ -4947,7 +4949,7 @@ function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],p
   if(prize>0)crEarn(prize,`${e.name}: ${crPlaceTxt(day.kind,place)}`);c.rep+=rep;
   const b=bBot(day.cls),me=day.field[0];if(bnSig(b.cfg)===bnSig(me.cfg)){b.damage=clone(me.dmg);b.flags=crFlags(me.flags);}
   c.events[day.key]={place,prize,rep};
-  c.results.unshift({y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
+  c.seq=(c.seq||0)+1;c.results.unshift({seq:c.seq,y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
   const offer=tmAfterEvent(day,place);
   c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null};save();hud();}
 
@@ -5170,12 +5172,12 @@ function tmRndUnlocks(id){if(id==="disc")return"The Build tab's weapon row gets 
 /* ---- the team ---- */
 function tmHireWhy(p){const c=tmC();if(S.staff.some(s=>s.id===p.id))return"hired";if(c.act<p.act)return`talks to you in the ${TIME.acts[p.act].name} act`;return null;}
 const tmWeek=p=>Math.round(p.salary/TIME.weeks);
-function tmHire(id){const p=tmPerson(id),c=tmC();if(!p||tmHireWhy(p))return;const cur=tmHas(p.role);
+function tmHire(id){const p=tmPerson(id),c=tmC();if(!p||tmHireWhy(p))return;if(c.money<tmWeek(p)){toast(`Not enough for ${p.name}'s first week (${fmt$(tmWeek(p))})`);return;}const cur=tmHas(p.role);
   if(cur)S.staff=S.staff.filter(s=>s.id!==cur.id);
-  S.staff.push({id,y:c.year,w:c.week});save();toast(`${p.name} hired · ${fmt$(tmWeek(p))} a week`);}
+  S.staff.push({id,y:c.year,w:c.week});crPay(tmWeek(p),`Wages: ${p.name} (first week)`);save();hud();toast(`${p.name} hired · ${fmt$(tmWeek(p))} a week, the first now`);}
 function tmFire(id){const p=tmPerson(id);S.staff=S.staff.filter(s=>s.id!==id);save();if(p)toast(`${p.name} has gone`);}
-/* Close week: the week's wages */
-function tmWages(){if(!crOn())return;for(const s of S.staff){const p=tmPerson(s.id);if(p)crPay(tmWeek(p),`Wages: ${p.name}`);}}
+/* Close week: the week's wages (not for someone hired this week: they were paid on hiring) */
+function tmWages(){if(!crOn())return;const c=S.career;for(const s of S.staff){const p=tmPerson(s.id);if(p&&!(s.y===c.year&&s.w===c.week))crPay(tmWeek(p),`Wages: ${p.name}`);}}
 const tmEngCut=()=>{const e=tmHas("engineer");return e?e.cut:0;};
 /* a part that is custom work: the fabricator fits it */
 function tmFab(slot,id){const p=SIM.part(slot,id);if(!p||!p.unlock)return false;const k=p.unlock.split(":");return k[0]==="rnd"&&!!(RND[k[1]]&&RND[k[1]].fab);}
@@ -5207,10 +5209,10 @@ function crMetaOrder(pool,season){const fav=crMeta(season).favour;return pool.ma
 const tmSp=id=>SPONSORS.find(s=>s.id===id)||null;
 function tmTargetTxt(t){return t.top?`${t.top} podium${t.top>1?"s":""} (top two) this season`:t.win?`${t.win} win${t.win>1?"s":""} this season`:t.champ?`top ${t.champ} at the championship`:t.rep?`${t.rep} rep this season`:"";}
 /* how a signed sponsor's target stands: {have, need, met, txt}. Only results since signing count. */
-function tmProgress(s){const sp=tmSp(s.id),c=S.career,t=sp.target,since=r=>r.y===c.year&&(s.y<c.year||r.w>=s.w);const R=c.results.filter(since);
+function tmProgress(s){const sp=tmSp(s.id),c=S.career,t=sp.target,since=r=>r.y===c.year&&(s.seq!=null?(r.seq||0)>s.seq:(s.y<c.year||r.w>s.w));const R=c.results.filter(since);
   if(t.top){const n=R.filter(r=>r.place&&r.place<=2).length;return{have:n,need:t.top,met:n>=t.top,txt:`${n} of ${t.top}`};}
   if(t.win){const n=R.filter(r=>r.place===1).length;return{have:n,need:t.win,met:n>=t.win,txt:`${n} of ${t.win}`};}
-  if(t.champ){const a=Math.min(c.act,2),ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];const p=r&&r.place;return{have:p||0,need:t.champ,met:!!p&&p<=t.champ,txt:p?`placed ${p}`:"not fought yet"};}
+  if(t.champ){const a=Math.min(c.act,2),ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&R.find(x=>x.ev===ch.id);const p=r&&r.place;return{have:p||0,need:t.champ,met:!!p&&p<=t.champ,txt:p?`placed ${p}`:"not fought yet"};}
   if(t.rep){const base=s.y===c.year&&s.rep!=null?s.rep:(c.repY0!=null?c.repY0:0),n=c.rep-base;return{have:n,need:t.rep,met:n>=t.rep,txt:`${Math.max(0,n)} of ${t.rep}`};}
   return{have:0,need:0,met:true,txt:""};}
 /* after an event day: a podium may bring an offer from a sponsor whose rep bar you've passed and who isn't yours */
@@ -5221,13 +5223,15 @@ function tmAfterEvent(day,place){const c=tmC();if(!place||place>2)return null;
   c.offers.push({id:sp.id,y:c.year});return sp;}
 /* the pay for signing now: the season's money, less the weeks gone (at least a quarter) */
 function tmSignPay(sp){const c=S.career;return Math.round(sp.pay*Math.max(0.25,(TIME.weeks-c.week+1)/TIME.weeks));}
-function tmSign(id){const sp=tmSp(id),c=tmC();if(!sp)return;const clash=S.sponsors.find(s=>tmSp(s.id).slot===sp.slot);
+/* a sponsor you dropped or swapped out won't offer again this season */
+function tmGone(id){const c=S.career;(c.declined||(c.declined=[])).push({id,y:c.year});if(c.declined.length>12)c.declined.shift();}
+function tmSign(id){const sp=tmSp(id),c=tmC();if(!sp)return;const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
   if(S.sponsors.length>=SPONSOR_MAX&&!clash){toast("Two sponsors already");return;}
-  if(clash){S.sponsors=S.sponsors.filter(s=>s!==clash);crLedger(0,`${tmSp(clash.id).name} dropped for ${sp.name}`);}
-  c.offers=c.offers.filter(o=>o.id!==id);S.sponsors.push({id,y:c.year,w:c.week,rep:c.rep});crEarn(tmSignPay(sp),`Sponsor: ${sp.name}`);
+  if(clash){S.sponsors=S.sponsors.filter(s=>s!==clash);tmGone(clash.id);crLedger(0,`${tmSp(clash.id).name} dropped for ${sp.name}`);}
+  c.offers=c.offers.filter(o=>o.id!==id);S.sponsors.push({id,y:c.year,w:c.week,rep:c.rep,seq:c.seq||0});crEarn(tmSignPay(sp),`Sponsor: ${sp.name}`);
   save();hud();tmPaint();toast(`${sp.name} signed`);buzz([10,30,10]);}
-function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);(c.declined||(c.declined=[])).push({id,y:c.year});if(c.declined.length>12)c.declined.shift();save();}
-function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);save();tmPaint();}
+function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);tmGone(id);save();}
+function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);if(crOn())tmGone(id);save();tmPaint();}
 /* the sponsors' colours for your bot (vis/bot.js): {side, top} */
 function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp)o[sp.slot]=sp.colour;}return o;}
 function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());}
@@ -5287,7 +5291,7 @@ function tmSponsorCard(){const c=tmC();const mine=S.sponsors.map(s=>({s,sp:tmSp(
   if(!mine.length&&!offers.length)return`<div class="card"><h3>Sponsors</h3><p>No sponsors yet. A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.</p></div>`;
   return`<div class="card"><h3>Sponsors</h3>${mine.length?`<ul class="tmsp">${mine.map(({s,sp})=>{const p=tmProgress(s);
       return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
-    ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>tmSp(s.id).slot===sp.slot);
+    ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
       return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b><br><small>${esc(sp.line)}</small><br><small>${fmt$(tmSignPay(sp))} now, ${fmt$(sp.pay)} a season after · ${sp.slot==="side"?"side panels":"top plate"} · target: ${esc(tmTargetTxt(sp.target))}${clash?` · <span class="worn">replaces ${esc(tmSp(clash.id).name)}</span>`:""}</small></span>
         <span class="tmbtns"><button type="button" class="btn sm" data-tm="sign" data-id="${sp.id}">Sign</button><button type="button" class="btn sm ghost" data-tm="decline" data-id="${sp.id}">No</button></span></li>`;}).join("")}</ul><p class="hint">Offers lapse at the end of the season.</p>`:""}
     <p class="hint">Hit the target and they renew at the end of the season; miss it and they go.</p></div>`;}

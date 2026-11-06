@@ -205,7 +205,7 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
    the fight and isn't judged; a fight with one replays from its log */
 {
   const cls = "beetle", mb = Object.assign(cfgOf(T("vsp"), cls), { armour: { front: "steel", back: "hdpe6", left: "hdpe6", right: "hdpe6", top: "hdpe6" }, extras: ["minibot"] });
-  let bad = 0, n = 0;
+  let bad = 0, n = 0, hitMini = 0;
   for (let s = 1; s <= 6; s++) {
     const opts = { seed: s, arena: SIM.CLASSES[cls].arenaId, bots: [{ cfg: mb, driver: { style: "auto", skill: 0.7 } }, { cfg: cfgOf(T("wedge"), cls), driver: { style: "auto", skill: 0.7 } }] };
     const F = SIM.newFight(opts);
@@ -214,10 +214,14 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
     if (F.bots[0].out && !F.bots[2].out) fail("a minibot should stop when its parent is out");
     if (F.winner === 0 && F.bots[0].out) fail("a minibot alone shouldn't win the fight");
     if (F.judge && Object.keys(F.judge.scores).some((t) => t !== "0" && t !== "1")) fail("only teams with a main bot are judged");
+    const m = F.bots[2], taken = m.stats.taken, dealtOpp = F.bots[1].stats.dealt, takenMe = F.bots[0].stats.taken;
+    if (taken > 0) hitMini++;
+    if (m.jd.contact || m.jd.close || m.jd.ctrl) fail("a minibot shouldn't build up judges' time");
+    if (Math.abs(dealtOpp - takenMe) > 1e-6) fail(`damage dealt to a minibot counted for the judges (${dealtOpp.toFixed(1)} dealt, ${takenMe.toFixed(1)} taken by its parent)`);
     const r = SIM.runFight(opts), rr = SIM.replayFight(r.log); n++; if (!rr || rr.winner !== r.winner || rr.timeS !== r.timeS) bad++;
   }
   if (bad) fail(`${bad}/${n} minibot fights didn't replay`);
-  console.log(`PR 8 checks: minibots drop off, stop with their parent, aren't judged; ${n - bad}/${n} replays match`);
+  console.log(`PR 8 checks: minibots drop off, stop with their parent, aren't judged (hit in ${hitMini} of ${n}, none of it scored); ${n - bad}/${n} replays match`);
 }
 /* the worst stick there is (flat out, flipping every tick, 4 bots): the log still fits, giving up the replay if it must */
 {

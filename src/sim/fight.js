@@ -245,7 +245,7 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
   if(res.plate==null)res.plate=0;
-  const taken=(res.plate||0)+res.parts.reduce((a,p)=>a+p.dmg,0)+(res.through||0);o.stats.taken+=taken;if(att>=0&&F.bots[att])F.bots[att].stats.dealt+=taken;
+  const taken=(res.plate||0)+res.parts.reduce((a,p)=>a+p.dmg,0)+(res.through||0);o.stats.taken+=taken;if(att>=0&&F.bots[att]&&!o.mini)F.bots[att].stats.dealt+=taken;   // what's done to a minibot doesn't impress the judges
   /* the rolled parts of a failure */
   if(hadBat>0&&st.parts.battery<hadBat){if(st.parts.battery<=0){if(o.b.cfg.electronics==="failsafe"&&F.rng()<DAMAGE.cellSave){o.flags.cell=true;logIt(F,{k:"fail",v:o.i,what:"cell"});}}
     else if(!o.flags.smoke&&F.rng()<DAMAGE.smokeP)o.flags.smoke=true;}
@@ -441,11 +441,11 @@ function hazHit(F,h,i,o){const sq=Math.sqrt(F.M.len),E=h.J*F.M.mass,by=hazBy(F,o
     o.w=Math.max(-FIGHT.maxSpin,Math.min(FIGHT.maxSpin,o.w+(F.rng()<0.5?-1:1)*h.spinRad));}
   o.vx+=nx*h.kickMs*sq;o.vy+=ny*h.kickMs*sq;
   if(h.vzMs>0){const vz=h.vzMs*sq,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*o.M.len)launch(F,o,vz,F.rng()<invertChance(F,hM),null,by?by.i:null);}
-  if(by)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
+  if(by&&!o.mini&&!by.mini)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
 /* the judges' bookkeeping, each step (JUDGE_WEIGHTS, sim/arenas.js) */
 function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
-  for(const o of F.bots){if(o.out)continue;let t=null,bd=1e9;
-    for(const q of F.bots)if(q.team!==o.team&&!q.out){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
+  for(const o of F.bots){if(o.out||o.mini)continue;let t=null,bd=1e9;   // minibots neither score nor are scored against
+    for(const q of F.bots)if(q.team!==o.team&&!q.out&&!q.mini){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
     if(!t)continue;const J=o.jd,vs=Math.max(o.b.driveSpeed||0,0.1),touching=o.touch[t.i]!=null&&F.t-o.touch[t.i]<0.1,
       vt=bd>1e-6?((t.x-o.x)*o.vx+(t.y-o.y)*o.vy)/bd:0,mob=mobile(o)&&!o.air;
     if(touching)J.contact+=dt;else if(mob&&vt>G.closeV*vs)J.close+=dt;else if(mob&&vt<-G.closeV*vs)J.retreat+=dt;
@@ -458,7 +458,7 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     else if(o.under){const u=pinBy;if(u&&Math.hypot(u.vx,u.vy)>G.driveV*Math.max(u.b.driveSpeed||0,0.1))by=u;}
     else if(o.inverted&&!o.b.height.drivesInverted)by=o.invBy!=null?F.bots[o.invBy]:t;
     else by=pinBy;
-    if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;
+    if(by&&by.team!==o.team&&!by.out&&!by.mini)by.jd.ctrl+=dt;
     /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
       o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}

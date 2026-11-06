@@ -45,12 +45,12 @@ function tmRndUnlocks(id){if(id==="disc")return"The Build tab's weapon row gets 
 /* ---- the team ---- */
 function tmHireWhy(p){const c=tmC();if(S.staff.some(s=>s.id===p.id))return"hired";if(c.act<p.act)return`talks to you in the ${TIME.acts[p.act].name} act`;return null;}
 const tmWeek=p=>Math.round(p.salary/TIME.weeks);
-function tmHire(id){const p=tmPerson(id),c=tmC();if(!p||tmHireWhy(p))return;const cur=tmHas(p.role);
+function tmHire(id){const p=tmPerson(id),c=tmC();if(!p||tmHireWhy(p))return;if(c.money<tmWeek(p)){toast(`Not enough for ${p.name}'s first week (${fmt$(tmWeek(p))})`);return;}const cur=tmHas(p.role);
   if(cur)S.staff=S.staff.filter(s=>s.id!==cur.id);
-  S.staff.push({id,y:c.year,w:c.week});save();toast(`${p.name} hired · ${fmt$(tmWeek(p))} a week`);}
+  S.staff.push({id,y:c.year,w:c.week});crPay(tmWeek(p),`Wages: ${p.name} (first week)`);save();hud();toast(`${p.name} hired · ${fmt$(tmWeek(p))} a week, the first now`);}
 function tmFire(id){const p=tmPerson(id);S.staff=S.staff.filter(s=>s.id!==id);save();if(p)toast(`${p.name} has gone`);}
-/* Close week: the week's wages */
-function tmWages(){if(!crOn())return;for(const s of S.staff){const p=tmPerson(s.id);if(p)crPay(tmWeek(p),`Wages: ${p.name}`);}}
+/* Close week: the week's wages (not for someone hired this week: they were paid on hiring) */
+function tmWages(){if(!crOn())return;const c=S.career;for(const s of S.staff){const p=tmPerson(s.id);if(p&&!(s.y===c.year&&s.w===c.week))crPay(tmWeek(p),`Wages: ${p.name}`);}}
 const tmEngCut=()=>{const e=tmHas("engineer");return e?e.cut:0;};
 /* a part that is custom work: the fabricator fits it */
 function tmFab(slot,id){const p=SIM.part(slot,id);if(!p||!p.unlock)return false;const k=p.unlock.split(":");return k[0]==="rnd"&&!!(RND[k[1]]&&RND[k[1]].fab);}
@@ -82,10 +82,10 @@ function crMetaOrder(pool,season){const fav=crMeta(season).favour;return pool.ma
 const tmSp=id=>SPONSORS.find(s=>s.id===id)||null;
 function tmTargetTxt(t){return t.top?`${t.top} podium${t.top>1?"s":""} (top two) this season`:t.win?`${t.win} win${t.win>1?"s":""} this season`:t.champ?`top ${t.champ} at the championship`:t.rep?`${t.rep} rep this season`:"";}
 /* how a signed sponsor's target stands: {have, need, met, txt}. Only results since signing count. */
-function tmProgress(s){const sp=tmSp(s.id),c=S.career,t=sp.target,since=r=>r.y===c.year&&(s.y<c.year||r.w>=s.w);const R=c.results.filter(since);
+function tmProgress(s){const sp=tmSp(s.id),c=S.career,t=sp.target,since=r=>r.y===c.year&&(s.seq!=null?(r.seq||0)>s.seq:(s.y<c.year||r.w>s.w));const R=c.results.filter(since);
   if(t.top){const n=R.filter(r=>r.place&&r.place<=2).length;return{have:n,need:t.top,met:n>=t.top,txt:`${n} of ${t.top}`};}
   if(t.win){const n=R.filter(r=>r.place===1).length;return{have:n,need:t.win,met:n>=t.win,txt:`${n} of ${t.win}`};}
-  if(t.champ){const a=Math.min(c.act,2),ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];const p=r&&r.place;return{have:p||0,need:t.champ,met:!!p&&p<=t.champ,txt:p?`placed ${p}`:"not fought yet"};}
+  if(t.champ){const a=Math.min(c.act,2),ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&R.find(x=>x.ev===ch.id);const p=r&&r.place;return{have:p||0,need:t.champ,met:!!p&&p<=t.champ,txt:p?`placed ${p}`:"not fought yet"};}
   if(t.rep){const base=s.y===c.year&&s.rep!=null?s.rep:(c.repY0!=null?c.repY0:0),n=c.rep-base;return{have:n,need:t.rep,met:n>=t.rep,txt:`${Math.max(0,n)} of ${t.rep}`};}
   return{have:0,need:0,met:true,txt:""};}
 /* after an event day: a podium may bring an offer from a sponsor whose rep bar you've passed and who isn't yours */
@@ -96,13 +96,15 @@ function tmAfterEvent(day,place){const c=tmC();if(!place||place>2)return null;
   c.offers.push({id:sp.id,y:c.year});return sp;}
 /* the pay for signing now: the season's money, less the weeks gone (at least a quarter) */
 function tmSignPay(sp){const c=S.career;return Math.round(sp.pay*Math.max(0.25,(TIME.weeks-c.week+1)/TIME.weeks));}
-function tmSign(id){const sp=tmSp(id),c=tmC();if(!sp)return;const clash=S.sponsors.find(s=>tmSp(s.id).slot===sp.slot);
+/* a sponsor you dropped or swapped out won't offer again this season */
+function tmGone(id){const c=S.career;(c.declined||(c.declined=[])).push({id,y:c.year});if(c.declined.length>12)c.declined.shift();}
+function tmSign(id){const sp=tmSp(id),c=tmC();if(!sp)return;const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
   if(S.sponsors.length>=SPONSOR_MAX&&!clash){toast("Two sponsors already");return;}
-  if(clash){S.sponsors=S.sponsors.filter(s=>s!==clash);crLedger(0,`${tmSp(clash.id).name} dropped for ${sp.name}`);}
-  c.offers=c.offers.filter(o=>o.id!==id);S.sponsors.push({id,y:c.year,w:c.week,rep:c.rep});crEarn(tmSignPay(sp),`Sponsor: ${sp.name}`);
+  if(clash){S.sponsors=S.sponsors.filter(s=>s!==clash);tmGone(clash.id);crLedger(0,`${tmSp(clash.id).name} dropped for ${sp.name}`);}
+  c.offers=c.offers.filter(o=>o.id!==id);S.sponsors.push({id,y:c.year,w:c.week,rep:c.rep,seq:c.seq||0});crEarn(tmSignPay(sp),`Sponsor: ${sp.name}`);
   save();hud();tmPaint();toast(`${sp.name} signed`);buzz([10,30,10]);}
-function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);(c.declined||(c.declined=[])).push({id,y:c.year});if(c.declined.length>12)c.declined.shift();save();}
-function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);save();tmPaint();}
+function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);tmGone(id);save();}
+function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);if(crOn())tmGone(id);save();tmPaint();}
 /* the sponsors' colours for your bot (vis/bot.js): {side, top} */
 function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp)o[sp.slot]=sp.colour;}return o;}
 function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());}
@@ -162,7 +164,7 @@ function tmSponsorCard(){const c=tmC();const mine=S.sponsors.map(s=>({s,sp:tmSp(
   if(!mine.length&&!offers.length)return`<div class="card"><h3>Sponsors</h3><p>No sponsors yet. A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.</p></div>`;
   return`<div class="card"><h3>Sponsors</h3>${mine.length?`<ul class="tmsp">${mine.map(({s,sp})=>{const p=tmProgress(s);
       return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
-    ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>tmSp(s.id).slot===sp.slot);
+    ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
       return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b><br><small>${esc(sp.line)}</small><br><small>${fmt$(tmSignPay(sp))} now, ${fmt$(sp.pay)} a season after · ${sp.slot==="side"?"side panels":"top plate"} · target: ${esc(tmTargetTxt(sp.target))}${clash?` · <span class="worn">replaces ${esc(tmSp(clash.id).name)}</span>`:""}</small></span>
         <span class="tmbtns"><button type="button" class="btn sm" data-tm="sign" data-id="${sp.id}">Sign</button><button type="button" class="btn sm ghost" data-tm="decline" data-id="${sp.id}">No</button></span></li>`;}).join("")}</ul><p class="hint">Offers lapse at the end of the season.</p>`:""}
     <p class="hint">Hit the target and they renew at the end of the season; miss it and they go.</p></div>`;}
