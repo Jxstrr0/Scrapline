@@ -133,5 +133,5 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
       <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
   <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
-  <div class="card"><h3>${F.bots.length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
+  <div class="card"><h3>${F.bots.filter(o=>!o.mini).length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0&&!o.mini).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
 function rpDraw(F){const cv=$("rpSil");if(cv&&F){const me=F.bots[0],s=SIM.partStates(me.b,me.st);if(me.flags.bent&&s.weapon==="intact")s.weapon="damaged";ftSil(cv,me,s,112);}}

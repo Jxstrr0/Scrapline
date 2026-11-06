@@ -26,7 +26,7 @@ function bnSig(cfg){const k=JSON.stringify(SIM.normCfg(cfg));let s=bnSigMemo.get
   if(s==null){const n=SIM.normCfg(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
   return s;}
 let bnCache={sig:"",b:null,res:{}};
-function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:SIM.evalBuild(cfg),res:{}};return bnCache;}
+function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:bEv(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
 /* the tests that have run on this bot as it is fitted now ([] if none, or if it has changed since) */
 function bnDone(bot){const r=bot&&bot.bench;return bot&&bot.cfg&&r&&typeof r==="object"&&Array.isArray(r.done)&&r.sig===bnSig(bot.cfg)?r.done.filter(id=>SIM.BENCH_TESTS.some(t=>t.id===id)):[];}

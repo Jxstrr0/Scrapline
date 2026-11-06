@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.8.0)
+## Current status (0.1.9.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -146,8 +146,14 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **Shop tab:** workshop, tools, pit kit prices, the books, the three save slots.
   - **Sparring stays free practice** (Kelbo).
   - **Saves:** `SAVE_V` 5 (`career`, `bots[cls].flags`, `unlocks.tools`, `rivals`).
-- Next: PR 8, R&D, team, sponsors, meta.
-- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; a save slot saves and loads; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
+- PR 8 done (0.1.9.0): R&D, team, sponsors, meta, rules, kit line.
+  - **`app/team.js`:** `RND` (nine projects: hours and thalers, some need a tool; a project's hours come from the week's). `STAFF` (engineer, fabricator, driver, pit crew; two each, weekly wages). `SPONSORS` (offers after a podium, a paint slot, a season target). `META_WAVES` (the field's favoured weapons by season). `RULES_BY_SEASON` (energy cap, a hazard, a limit, a count; announced a season ahead). `KIT_LINE` (Legacy act). All the tables are in `state.js`.
+  - **Sim:** `flipper2` (the pneumatics part), `DISC_PROFILES` and `cfg.disc`, `MINIBOT` (a pusher on your team, appended after the main bots; `mainBots(F)` for the win check and the judges), `evalBuild(cfg, {limitG})`, `newFight` rules `capJ`.
+  - **Vis:** sponsor paint (`SCRAP_VIS.setPaint`, side panels and a top patch).
+  - **Kelbo's picks:** a hired driver drives quick sims; the minibot is a real little bot; the disc is teeth and rim plus a name; the kit line opens in Legacy, paid by win rate.
+  - **Saves:** `SAVE_V` 6 (`career.rnd`, `offers`, `kit`, `repY0`; `staff` and `sponsors` arrays).
+- Next: PR 9, tutorial, bot card share, settings, polish.
+- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; an R&D project finishes and its part fits; a hire's wages come out at Close week; a sponsor signs and its colour shows on the bot; a save slot saves and loads; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
 

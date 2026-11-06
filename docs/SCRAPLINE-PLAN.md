@@ -65,6 +65,11 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Event fights | **You drive it, or Quick sim** (Kelbo, PR 7): before each fight; a quick sim has the AI drive your bot at your driver skill and your crew does the pit work, for less driver xp |
 | Sparring in the career | **Stays free practice** (Kelbo, PR 7): fresh bots, no money, hours, damage or xp |
 | Garage calendar | **About ten event days a season** (Kelbo, PR 7): six club meets (four-bot round robins), two one-day tournaments (eight-bot brackets), a rumble night and the club championship |
+| Hired driver | **Drives your quick sims** (Kelbo, PR 8) at their fixed skill; "Drive it" is still you |
+| Minibots | **A real little bot** (Kelbo, PR 8): an AI wedge one class down on your team that starts behind you, pushes and distracts; it doesn't count for knockouts, the judges or placings, and goes out with its parent |
+| Disc profile | **Teeth and rim** (Kelbo, PR 8): one to three teeth (bite against recoil) and a light, medium or heavy rim (stored energy against spin-up), plus a name; one profile per spinner |
+| Kit line | **Legacy act, win rate** (Kelbo, PR 8): publish one design; each season it fights the class's test builds in the sim, income = base x prize scale x win rate x rep |
+| Team, sponsors, rules (defaults, PR 8) | Salaries are paid weekly at Close week. A sponsor pays at signing (less the weeks gone, at least a quarter) and again at the season end if the target was hit, else drops you; two at most, one per paint slot. Rule changes add up season on season and are announced a season ahead. Custom work (the custom chassis, your own disc) needs a fabricator to fit. An engineer works out the impact and drop lines of the stress report on paper, without the bench |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -430,6 +435,6 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
 - [x] PR 6: Pit window and pit kits, post-mortem with repair bill, copy build, replay
 - [x] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
-- [ ] PR 8: R&D, team, sponsors, meta waves, rule changes, kit line
+- [x] PR 8: R&D, team, sponsors, meta waves, rule changes, kit line
 - [ ] PR 9: Tutorial, bot card share, settings, polish
 - [ ] PR 10: Blender props and CC0/CC-BY assets on Full/Ultra

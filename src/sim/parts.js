@@ -102,6 +102,7 @@ const PARTS={
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
     {id:"lifter", name:"Lifter",              type:"lifter", fp:[2,2],mount:"front",massG:160,motorMassG:110,powerW:120,heatW:25,edgeMm:2,   hp:60,cost:90, hours:4,unlock:"start",reachMm:60,liftN:70,liftMm:80,selfRights:true},
     {id:"flipper",name:"Flipper (pneumatic)", type:"flipper",fp:[2,3],mount:"front",massG:190,motorMassG:170,powerW:10, heatW:0, edgeMm:2,   hp:60,cost:180,hours:6,unlock:"tool:drillpress",reachMm:70,shots:12,forceN:450,strokeMm:40,rechargeS:1.0,selfRights:true},
+    {id:"flipper2",name:"High-pressure flipper",type:"flipper",fp:[2,3],mount:"front",massG:215,motorMassG:195,powerW:10,heatW:0,edgeMm:2,  hp:65,cost:320,hours:7,unlock:"rnd:pneumatics",reachMm:70,shots:20,forceN:560,strokeMm:42,rechargeS:0.7,selfRights:true},
     {id:"hammer", name:"Hammer",              type:"hammer", fp:[2,2],mount:"front",massG:170,motorMassG:130,powerW:200,heatW:30,edgeMm:3,   hp:60,cost:120,hours:5,unlock:"start",swingS:0.7,energyJ:25,selfRights:true},
     {id:"hsp",    name:"Horizontal spinner",  type:"spinner",fp:[2,2],mount:"edge", massG:40, motorMassG:90, powerW:300,heatW:40,edgeMm:null,hp:70,cost:150,hours:5,unlock:"start",discMass:300,radius:75,rpmMax:5600, shapeK:0.5, bite:0.62,recoil:1.0},
     {id:"vsp",    name:"Vertical spinner",    type:"spinner",fp:[2,2],mount:"front",massG:60, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:70,cost:150,hours:5,unlock:"start",discMass:250,radius:50,rpmMax:9000, shapeK:0.5, bite:0.90,recoil:0.6},
@@ -127,6 +128,19 @@ const PARTS={
     {id:"minibot",  name:"Minibot",          fp:[1,2],massG:150,hp:20,cost:120,hours:4,unlock:"rnd:minibot",minibot:true}
   ]
 };
+/* your own disc profile (R&D "disc", PR 8): a spinner's cfg may carry disc {name, teeth 1-3, rim light|mid|heavy}. Fewer
+   teeth bite deeper (bite x); a heavier rim puts more of the disc's mass at the edge (disc mass x mass, I x shapeK), so it
+   stores more energy and spins up slower. Two teeth and a medium rim are the stock disc (every factor 1). Spinners only
+   (not the saw). */
+const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite:0.88,recoil:0.85}},
+  rim:{light:{mass:0.85,shapeK:0.9,name:"light rim"},mid:{mass:1,shapeK:1,name:"medium rim"},heavy:{mass:1.2,shapeK:1.12,name:"heavy rim"}},nameMax:24};
+/* a minibot (extras "minibot", R&D, PR 8) is a real little bot: at the bell it drops off its parent as a small AI-driven
+   wedge on the same team. It shoves and distracts but doesn't count for knockouts or the judges, and stops when its
+   parent is out. It is built as cfg in the class below (cls: the class it's built in, by its parent's class; an
+   antweight has nothing smaller). driver: its AI. */
+const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
+  cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
+  driver:{style:"rush"}};
 const PART_SLOTS=["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
@@ -147,7 +161,15 @@ function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,
   o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>part("extras",e)&&l.indexOf(e)===i):[];
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
+  const dp=normDisc(cfg.disc);if(dp&&part("weapon",o.weapon).type==="spinner")o.disc=dp;   // spinners only
   return o;}
+/* a disc profile, cleaned: {name, teeth, rim}, or null for the stock disc (or anything that isn't one) */
+function normDisc(d){if(!d||typeof d!=="object")return null;const t=+d.teeth,r=d.rim;
+  if(!DISC_PROFILES.teeth[t]||!DISC_PROFILES.rim[r])return null;
+  const name=String(d.name==null?"":d.name).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,DISC_PROFILES.nameMax)||"Own disc";
+  return{name,teeth:t,rim:r};}
+/* the same disc to cut: teeth and rim (the name is paint, not metal) */
+const sameDisc=(a,b)=>!a===!b&&(!a||(a.teeth===b.teeth&&a.rim===b.rim));
 
 /* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
 function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;

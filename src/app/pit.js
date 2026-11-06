@@ -8,7 +8,7 @@
                                      counts still unused.
      pitApply(b, dmg, flags, key, kind)   does it: a swap clears the key's damage (a disc unbends it), a bodge leaves half
                                      its hp
-     pitAuto(b, dmg, flags, left)    the other corner's crew: the most useful repairs that fit in PIT_S, in order. Returns
+     pitAuto(b, dmg, flags, left, mine)    the other corner's crew (mine: yours, in a quick sim, with the pit crew's cut): the most useful repairs that fit in PIT_S, in order. Returns
                                      [{key, kind}]. Deterministic, no clock.
      PIT.open({host, b, dmg, flags, kit, left, title, onDone})   the pit panel in the fight overlay. dmg, flags and left
                                      are changed in place; onDone({done:[{key, kind}], lost}) once you're ready or the
@@ -32,7 +32,7 @@ function pitItems(b,dmg,flags,left,tLeft){const out=[];flags=flags||{};   // tLe
     const bent=key==="weapon"&&flags.bent;if(frac>=0.999&&!bent)continue;
     const state=frac<=1e-9?"destroyed":"damaged",opts=[];
     if(key!=="chassis"){const sw=pitSwap(b,key,flags,frac);
-      const opt=k=>{const n=left[k]||0,late=tLeft!=null&&REPAIR_TIMES[k]>tLeft;return{kind:k,ok:n>0&&!late,why:!(k in left)?"not in this kit":n<=0?"none left":late?"no time":""};};
+      const opt=k=>{const n=left[k]||0,late=tLeft!=null&&tmPitS(k)>tLeft;return{kind:k,ok:n>0&&!late,why:!(k in left)?"not in this kit":n<=0?"none left":late?"no time":""};};
       if(sw)opts.push(opt(sw));
       if(frac<0.5&&!bent)opts.push(opt("bodge"));}
     out.push({key,name:pitName(b,key),state,frac,bent,opts});}
@@ -44,14 +44,15 @@ function pitApply(b,dmg,flags,key,kind){const hp=pitHp(b,key);
   if(key==="battery"){flags.cell=false;if(kind==="battery")flags.smoke=false;}   // a live battery needs no failsafe cell; a new one doesn't smoke
   if(key==="electronics")flags.esc=null;}
 /* how much a repair matters to the next round: losing a side or the battery ends fights, the weapon wins them */
-function pitValue(b,it,kind){const k=it.key,p=b.parts.find(q=>q.key===k),gain=(kind==="bodge"?0.5:1)-it.frac;
+function pitValue(b,it,kind,T){const k=it.key,p=b.parts.find(q=>q.key===k),gain=(kind==="bodge"?0.5:1)-it.frac;
   const w=k==="battery"||k==="electronics"?5:p&&(p.slot==="wheels"||p.slot==="drive")?4:k==="weapon"?3:k.indexOf("armour_")===0?2:1;
-  return w*Math.max(gain,it.bent?0.5:0)/REPAIR_TIMES[kind];}
-function pitAuto(b,dmg,flags,left){let t=PIT_S;const done=[];
+  return w*Math.max(gain,it.bent?0.5:0)/T(kind);}
+/* mine: your crew (a quick sim), whose pit crew hire is faster (app/team.js tmPitS); the other crews work at REPAIR_TIMES */
+function pitAuto(b,dmg,flags,left,mine){let t=PIT_S;const done=[],T=k=>mine?tmPitS(k):REPAIR_TIMES[k];
   for(let guard=0;guard<20;guard++){let best=null;
-    for(const it of pitItems(b,dmg,flags,left))for(const o of it.opts)if(o.ok&&REPAIR_TIMES[o.kind]<=t){const v=pitValue(b,it,o.kind);if(!best||v>best.v)best={v,key:it.key,kind:o.kind};}
+    for(const it of pitItems(b,dmg,flags,left))for(const o of it.opts)if(o.ok&&T(o.kind)<=t){const v=pitValue(b,it,o.kind,T);if(!best||v>best.v)best={v,key:it.key,kind:o.kind};}
     if(!best||best.v<=0)break;
-    pitApply(b,dmg,flags,best.key,best.kind);left[best.kind]--;t-=REPAIR_TIMES[best.kind];done.push({key:best.key,kind:best.kind});}
+    pitApply(b,dmg,flags,best.key,best.kind);left[best.kind]--;t-=T(best.kind);done.push({key:best.key,kind:best.kind});}
   return done;}
 
 const PIT={on:false,kit:null};
@@ -81,7 +82,7 @@ function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
 function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
   const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${o.left[k]||0}`).join(" · ");
   L.innerHTML=items.length?items.map(it=>`<li><span class="nm">${esc(ftCap(it.name))} <small class="${it.state==="destroyed"?"broke":"worn"}">${it.bent?"bent":it.state==="destroyed"?"destroyed":Math.round(it.frac*100)+"%"}</small></span>
-      <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${REPAIR_TIMES[p.kind]} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
+      <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${tmPitS(p.kind)} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
   ftSil($("fPitSil"),{b:o.b},pitStates(o),88);
   const rb=$("fPitReady");if(rb){rb.textContent=busy?"Ready (stop the repair)":"Ready";if(lost)rb.focus({preventScroll:true});}}   // the list was rebuilt: keep the focus in the panel
@@ -89,5 +90,5 @@ function pitStates(o){const st=SIM.damageState(o.b,o.dmg),s=SIM.partStates(o.b,s
 function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x||!PIT.on)return;
   if(x.dataset.pit==="ready"){const j=PIT.job;if(j)PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
     PIT.job=null;pitEnd(null);return;}
-  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0)||REPAIR_TIMES[kind]>PIT.t)return;
-  o.left[kind]--;PIT.job={key,kind,name:pitName(o.b,key),left:REPAIR_TIMES[kind],total:REPAIR_TIMES[kind]};buzz(8);pitRender();pitTick();}
+  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0)||tmPitS(kind)>PIT.t)return;
+  o.left[kind]--;PIT.job={key,kind,name:pitName(o.b,key),left:tmPitS(kind),total:tmPitS(kind)};buzz(8);pitRender();pitTick();}

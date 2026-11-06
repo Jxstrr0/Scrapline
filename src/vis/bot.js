@@ -8,18 +8,21 @@
    The mesh is in metres with its origin at the centre of mass (where the sim puts the bot), front along -z; the app's view
    scales it. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
    by build hash (a few at a time) and their geometry and materials are disposed when they drop out of the cache. A team
-   colour paints the side panels: clay for you, lilac, green and blue for the others. ---- */
+   colour paints the side panels: clay for you, lilac, green and blue for the others. Your bot (the workshop's, and bot 0
+   in a fight) also wears your sponsors' colours (SCRAP_VIS.setPaint, PR 8): a panel on each side, a patch on the top. ---- */
 const BOT_TEAM=[0xd97757,0xb48ce8,0x4cc38a,0x7fb3e6];
 const BOT_CACHE=new Map();   // hash -> group; kept to BOT_CACHE_MAX, oldest first out
 const BOT_CACHE_MAX=6;
-function botHash(b,team){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier;}
+function botHash(b,team,paint){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+"|"+(paint?(paint.side||"")+(paint.top||""):"");}
+/* a sponsor colour ("#rrggbb") as a material, shared and never disposed with a bot (core.js makeMats clears them) */
+function spMat(hex){let m=V.spMats[hex];if(!m)m=V.spMats[hex]=V.spMatte(parseInt(String(hex).slice(1),16)||0x888888,.45);return m;}
 function disposeTree(g){g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});}
 /* a clone leaving the scene: its geometry belongs to the cached source, only its own (damage-tinted) materials go */
 function disposeClone(g){if(g.parent)g.parent.remove(g);g.traverse(o=>{if(o.material&&o.userData.own)o.material.dispose();});}
 /* a mesh from the cache, or a new one. The workshop and the arena each get their own clone (same geometry, shared materials) */
-function botMesh(b,team){const k=botHash(b,team);let g=BOT_CACHE.get(k);
+function botMesh(b,team,paint){const k=botHash(b,team,paint);let g=BOT_CACHE.get(k);
   if(g){BOT_CACHE.delete(k);BOT_CACHE.set(k,g);}   // most recently used last
-  else{g=buildBot(b,team);BOT_CACHE.set(k,g);
+  else{g=buildBot(b,team,paint);BOT_CACHE.set(k,g);
     while(BOT_CACHE.size>BOT_CACHE_MAX){const [k0,g0]=BOT_CACHE.entries().next().value;BOT_CACHE.delete(k0);disposeTree(g0);}}   // a clone still on screen re-uploads it
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
@@ -34,7 +37,7 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.plate:M.steel;}
 
-function buildBot(b,team){
+function buildBot(b,team,sp){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?20:40,cfg=b.cfg,cx=b.com.x,cy=b.com.y;
   const L=b.lengthM,Wd=b.widthM,hw=Wd/2,hl=L/2,len=L/0.27;   // len: rough class scale from the length, for small fixed sizes
   const clr=Math.max(0.001,b.height.clearanceMm/1000),H=Math.max(clr+0.01,b.height.heightMm/1000),bodyH=H-clr;
@@ -54,6 +57,10 @@ function buildBot(b,team){
   if(th("top"))add(new THREE.BoxGeometry(Wd*0.98,th("top"),L*0.98),armourMat(A.top.id),-cx,H+th("top")/2,cy,"armour_top");
   /* team paint: a stripe down the top, so you can tell the bots apart from above */
   const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);paint.position.set(-cx,H+th("top")+0.0008*len,cy+L*0.05);g.add(paint);
+  /* sponsors: a panel on each side, a patch at the back of the top plate */
+  if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bodyH*0.5,L*0.5),spMat(sp.side));
+    m.position.set(s*hw-cx+s*0.0009*len,clr+bodyH*0.5,cy);g.add(m);}
+  if(sp&&sp.top){const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.6,0.0015*len,L*0.18),spMat(sp.top));m.position.set(-cx,H+th("top")+0.0009*len,cy+L*0.36);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
   const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
