@@ -41,9 +41,9 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/parts.js` | `CLASSES`, `classMult`, `PARTS` (every option at beetle scale), the chassis grid (`cellOn`, `footprints`, `placeOk`, `autoLayout`), `normCfg`, `DEFAULT_CFG`, `TEST_BUILDS` |
 | `sim/build.js` | `K`, `evalBuild(cfg)`: grams and mm in, SI out (its header lists every field); `fitBill` (what fitting a draft costs) and `sameParts` |
 | `sim/combos.js` | `COMBOS` stress-report rules and `stressReport(b)` |
-| `sim/bench.js` | `WEDGE_GAUGES` (the stress report reads them); the six bench tests (PR 3) |
-| `sim/fight.js` | `runFight`, `STEP_HZ`, `WEDGE_RULES` (PR 4a) |
-| `sim/damage.js` | hits, part failures, `PART_STATES` (PR 4a) |
+| `sim/bench.js` | `WEDGE_GAUGES`, `BENCH`, `BENCH_TESTS`, `runBench` and the six bench tests (drive, weapon, impact, wedge gauge, endurance, drop), `benchPartName` |
+| `sim/fight.js` | `STEP_HZ`, `WEDGE_RULES` (`tolMm` from PR 3); `runFight` (PR 4a) |
+| `sim/damage.js` | `DAMAGE`, `damageState`, `hitOrder`, `hitFace` (PR 3, the bench uses them); part failures and their effects, `PART_STATES` (PR 4a) |
 | `sim/ai.js` | AI drivers, `AI_STYLES` (PR 4a / 4b) |
 | `sim/arenas.js` | `ARENAS`, hazards, `JUDGE_WEIGHTS` (PR 4b) |
 | `sim/opponents.js` | `OPPONENTS` (PR 4b); **the SCRAP_SIM export object**, `module.exports`, `</script>` |
@@ -63,7 +63,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/pwa.js` | service worker registration, the "New version ready" bar, `PWA.canInstall` / `install` / `iosTip` |
 | `app/boot.js` | `TABS`, `TAB_RENDER`, `showTab`, the Settings sheet, intro, `start()` (scheduled with `__ldGo`) |
 | `app/build.js` | the Build tab: weight bar and summary, section rows with deltas, armour sketch, layout editor, side profile, stress report, designs, the draft and Fit (pay on fit, `SIM.fitBill`); `?sim=1` adds the raw result |
-| `app/bench.js` | the Bench tab (PR 3) |
+| `app/bench.js` | the Bench tab: the fitted bot's six tests with canvas readouts, which have run (`bots[cls].bench`), `benchMeasured` for the Build tab's stress report |
 | `app/debugview.js` | the 2D top-down fight view (PR 4a) |
 | `app/controls.js` | direct and tactical driving, keyboard, gamepad, assists (PR 5) |
 | `app/fight.js` | the Fight tab: sparring, the fixed-step loop, HUD (PR 4a / 5) |

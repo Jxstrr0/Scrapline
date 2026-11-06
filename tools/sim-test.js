@@ -126,5 +126,37 @@ for (const cls of SIM.CLASS_IDS) {
   if (!SIM.sameParts(pusher, Object.assign({}, pusher, { weaponMaterial: "ti" }))) fail("with no weapon, the material shouldn't count as a change");
 }
 
+/* ---- 6. the bench (PR 3): every test on every build in every class, repeatable and finite; the measured numbers agree
+   with the predictions where they should, and the impact, gauge and drop tests say what they should ---- */
+{
+  const finite = (o, path) => { if (typeof o === "number") { if (!isFinite(o)) return path; return null; }
+    if (o && typeof o === "object") for (const k in o) { const r = finite(o[k], path + "." + k); if (r) return r; } return null; };
+  for (const cls of SIM.CLASS_IDS) for (const t of SIM.TEST_BUILDS) {
+    const b = SIM.evalBuild(Object.assign({}, t.cfg, { cls })), r = SIM.runBench(b), lbl = `${cls}/${t.id}`;
+    if (JSON.stringify(r) !== JSON.stringify(SIM.runBench(SIM.evalBuild(Object.assign({}, t.cfg, { cls }))))) fail(`${lbl}: bench not repeatable`);
+    const bad = finite(r, "bench"); if (bad) fail(`${lbl}: ${bad} is not finite`);
+    if (!(r.drive.topSpeed > 0) || r.drive.topSpeed > r.drive.predicted + 1e-6 || r.drive.timeS == null) fail(`${lbl}: drive test ${r.drive.topSpeed} vs ${r.drive.predicted}`);
+    if (r.weapon.kind === "spin" && !(r.weapon.spinUpS >= r.weapon.predicted * 0.99 && r.weapon.spinUpS < 10)) fail(`${lbl}: spin-up ${r.weapon.spinUpS} vs predicted ${r.weapon.predicted}`);
+    if (r.weapon.kind === "flip") { const h = r.weapon.rows.map((q) => q.heightM); if (!r.weapon.rows[2].lifts || h[0] < h[1] || h[1] < h[2]) fail(`${lbl}: flipper test masses ${h}`); }
+    for (const f of ["front", "back", "left", "right"]) if (r.impact.faces[f].failJ == null) fail(`${lbl}: nothing broke behind the ${f} face`);
+    if (!r.impact.weakest) fail(`${lbl}: no weakest face`);
+    if (r.weapon.kind === "spin" && r.endurance.derateS == null && r.endurance.runtimeS != null && Math.abs(r.endurance.runtimeS / b.runtimeS - 1) > 0.1) fail(`${lbl}: endurance ${r.endurance.runtimeS} s vs predicted ${b.runtimeS} s`);
+    const m = SIM.stressReport(b, r); if (!m.some((l) => l.measured) || !m.some((l) => l.id === "impact")) fail(`${lbl}: the stress report should use the bench`);
+  }
+  const B = (cfg) => SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, cfg));
+  if (SIM.runBench(SIM.evalBuild(SIM.TEST_BUILDS.find((t) => t.id === "wedge").cfg), "gauge").under !== 0) fail("nothing should get under the wedge");
+  const bare = SIM.runBench(B({ armour: Object.assign({}, SIM.DEFAULT_CFG.armour, { back: "none" }) }), "impact").faces.back;
+  const steel = SIM.runBench(B({ armour: Object.assign({}, SIM.DEFAULT_CFG.armour, { back: "steel" }) }), "impact").faces.back;
+  if (!(bare.failJ < steel.failJ) || bare.plateJ !== 0) fail(`a bare rear should break sooner than a steel one (${bare.failJ} vs ${steel.failJ})`);
+  const d = B({}), e = d.armourMapJ.front.absorbJ, h1 = SIM.hitFace(d, "front", e * 0.9);
+  if (h1.plate || h1.parts.length) fail("a hit the front plate absorbs should do no damage");
+  const st = SIM.damageState(d), big = e + d.armourMapJ.front.hpJ * 0.6; SIM.hitFace(d, "front", big, st); const h2 = SIM.hitFace(d, "front", big, st);
+  if (!h2.plateBroken || !h2.parts.length) fail("two big hits should break the front plate and reach the parts behind it");
+  if (SIM.runBench(SIM.evalBuild(SIM.TEST_BUILDS.find((t) => t.id === "invert").cfg), "drop").inverted.outcome !== "drives") fail("the invertible box should drive away upside down");
+  if (SIM.runBench(SIM.evalBuild(SIM.TEST_BUILDS.find((t) => t.id === "hsp").cfg), "drop").inverted.outcome !== "rights") fail("the self-righter should put the hsp back");
+  if (SIM.runBench(B({ wheels: "tracks" }), "drop").inverted.outcome !== "stuck") fail("tracks, a vertical spinner and no self-righter should be stuck upside down");
+  if (SIM.BENCH_TESTS.length !== 6 || SIM.BENCH_TESTS.filter((t) => t.hours === 0).map((t) => t.id).join() !== "drive,weapon") fail("six tests, the drive and weapon tests free");
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");
