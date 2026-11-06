@@ -177,11 +177,11 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 
 ## 0.1.7.0: the pit window, the post-mortem, replays (PR 6)
 
-- **Best of three** (Fight tab → Format): the first to two rounds, at most three. Damage carries from round to round, and so does a bent disc (`newFight` takes `flags: {bent}`).
-- **The pit window** (`app/pit.js`): 60 real seconds between rounds. You pick repairs from a list of what's broken; one runs at a time, and the clock keeps running while you choose. It pauses if the page is hidden or the tab is left. A repair still running at the bell is lost, and so is its spare.
+- **Best of three** (Fight tab → Format): the first to two rounds, at most three. Damage carries from round to round, and so do the failures (`newFight` takes `flags: {bent, smoke, cell, esc}`): a bent disc, a smoking battery, a failsafe cell keeping a dead battery alive, a dead speed-controller side. Stopping counts as "Bout stopped", whatever the score.
+- **The pit window** (`app/pit.js`): 60 real seconds between rounds. You pick repairs from a list of what's broken; one runs at a time, and the clock keeps running while you choose. It pauses if the page is hidden or the tab is left. A repair still running at the bell is lost, and so is its spare; Ready during a repair stops it and puts the spare back. A repair longer than the time left is greyed ("no time"). Starting a repair keeps the focus in the panel, and "done" and "ten seconds left" are read out.
   - `PIT_KITS`: basic (2 wheel swaps, 2 bodges), full (4 wheels, 3 bodges, 2 belts, 2 armour panels, 1 battery), pro (adds 2 drive pods and a spare weapon, 4 bodges, 4 panels, 2 batteries). The counts are for the whole bout. Kits are free when sparring; their price times the class's `prizeScale` applies from the career on.
   - `REPAIR_TIMES`: wheel 15 s, belt 20, battery 25, armour panel 30, drive pod 35, spare weapon 30, bodge 10.
-  - A swap puts the part back to new. A belt fixes a damaged weapon; a bent or wrecked one needs the spare (pro only). A bodge patches anything but the chassis to half strength, and only helps below half. The chassis can't be fixed in the pit.
+  - A swap puts the part back to new. A belt fixes a damaged weapon; a bent or wrecked one needs the spare (pro only). A bodge patches anything but the chassis or a bent disc to half strength, and only helps below half; a bodged speed controller brings its side back. A new battery stops smoking. The chassis can't be fixed in the pit, and a bent disc only with the pro kit's spare.
   - The other corner's crew (`pitAuto`) picks the repairs worth most per second until its 60 s are used: the battery and speed controllers first, then the drive, the weapon, the armour.
 - **The post-mortem** (`app/report.js`), under the results:
   - a timeline of the round's hits, yours above the line and theirs below, bar height by energy, red where a part broke;
@@ -207,9 +207,9 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - The HUD shows the weapon's speed as a bar, not rpm.
 - The 3D view doesn't interpolate between sim steps; Lite draws at 30 fps, so this hasn't mattered.
 - The HUD's damage % still includes carried-in damage (the judges don't).
-- A bent disc carries into the next round; a smoking battery and a dead speed-controller side don't (their damage in J does, and the side comes back if the controller's hp is above `DAMAGE.escSideAt`).
 - Airborne bots skip collisions, so a tipped bot can land overlapping the other for a step or two before they push apart.
 - Replays moved between phones: the sim uses `Math.sin`, `cos`, `atan2` and `hypot`, which browsers don't promise to round identically, so a replay could drift on another engine. Replays are only kept for the session on the same phone for now (nothing is saved), so it hasn't mattered; decide before a replay is ever shared or saved.
 - Spinner disc against spinner disc (weapon clashes) isn't modelled yet: a hit is a hit on the face it lands on.
 - Rounds in a best of three start with a full battery: only its damage carries.
+- Each round's repair bill is everything still broken after that round, so the rounds' bills overlap: PR 7 should charge the bout's last one.
 - The repair bill and the pit work only on your bot; the post-mortem covers bot 0 only (in a rumble too).

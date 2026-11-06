@@ -105,7 +105,7 @@ function rpBillHtml(o){const bill=rpBill(o);
   if(!bill.lines.length)return`<p class="ok">Nothing to pay: it came out without a scratch.</p>`;
   return`<table class="rpbill"><tbody>${bill.lines.map(l=>`<tr><th scope="row">${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></th><td class="readout">${fmt$(l.cost)}</td><td class="readout">${l.hours} h</td></tr>`).join("")}</tbody>
     <tfoot><tr><th scope="row">Total</th><td class="readout">${fmt$(bill.cost)}</td><td class="readout">${bill.hours} h</td></tr></tfoot></table>
-    <p class="hint">Sparring is free: from the career on (PR 7) this comes out of your thalers and your workshop week.</p>`;}
+    <p class="hint">Everything still broken after this round. Sparring is free: from the career on (PR 7) the bill comes out of your thalers and your workshop week.</p>`;}
 
 /* ---- the opponent's build, revealed ---- */
 function rpReveal(F,i){const o=F.bots[i],b=o.b,cfg=o.cfg,P=(s,id)=>{const p=SIM.part(s,id);return p?esc(p.name):"none";},w=b.weapon;
@@ -128,7 +128,7 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
   return`<div class="card" id="rpCard"><h3>Post-mortem</h3>${rpTimeline(F)}
     <div class="rpmap"><canvas id="rpSil" width="112" height="112" aria-hidden="true"></canvas><div><h4>What went wrong</h4>
       ${c.length?`<ul class="rpcause">${c.map(x=>`<li>${x.html}</li>`).join("")}</ul>`:`<p class="ok">Nothing broke.</p>`}
-      <p class="rpkey"><span class="ok">●</span> intact <span class="worn">●</span> damaged <span class="broke">●</span> destroyed</p></div></div>
+      <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p></div></div>
     <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
       <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>

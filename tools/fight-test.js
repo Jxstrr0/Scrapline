@@ -228,6 +228,14 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
   if (!r.log.bots[0].flags || !r.log.bots[0].flags.bent) fail("the log doesn't keep the carried-in bent disc");
   if (!q || q.winner !== r.winner || q.timeS !== r.timeS || JSON.stringify(q.bots[0].damage) !== JSON.stringify(r.bots[0].damage)) fail("a round with a carried-in bent disc doesn't replay the same");
 }
+/* a battery the failsafe kept going in round 1 keeps going in round 2 (the cell carries), and a dead controller side stays dead */
+{
+  const b = SIM.evalBuild(cfgOf(T("vsp"), cls)), bat = b.parts.find((p) => p.key === "battery").hpJ;
+  const mk = (flags) => SIM.newFight({ seed: 12, bots: [{ cfg: b.cfg, damage: { battery: bat }, flags, driver: { style: "rush", skill: 0.6 } }, { cfg: cfgOf(T("hsp"), cls), driver: { style: "rush", skill: 0.6 } }] }).bots[0];
+  if (mk(null).fx.dead !== "battery") fail("a destroyed battery with no failsafe cell should start dead");
+  const o = mk({ cell: true, esc: "left" });
+  if (o.fx.dead || !o.flags.cell || o.flags.esc !== "left" || !o.fx.sides.left.out) fail("carried-in failsafe cell or dead controller side lost at the start of a round");
+}
 /* a 4-bot rumble: runs, ends, within its step budget */
 {
   const f0 = nowUs(); const r = SIM.runFight({ seed: 7, bots: ["vsp", "hsp", "wedge", "flipper"].map((id) => ({ cfg: cfgOf(T(id), cls), name: id, driver: { style: "rush", skill: 0.7 } })) });

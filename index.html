@@ -336,6 +336,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 /* the pit window (app/pit.js) over the arena, and the replay bar */
 .fpit{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;overscroll-behavior:contain;padding:14px;border-radius:14px;background:#1F1E1Bf5;border:1px solid var(--clay);pointer-events:auto}
 .fov.pitting .fclock,.fov.pitting .fnote,.fov.pitting [data-fv=pause]{visibility:hidden}   /* the pit has its own clock */
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}   /* read out, not shown */
 .fpithd{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fpithd b{font-size:18px}
 .fpitclock{font-family:var(--mono);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--lilac)}
@@ -1195,8 +1196,8 @@ function runBench(x,id){const b=asBuild(x);if(id)return BENCH_RUN[id]?BENCH_RUN[
      newFight({bots, arena, seed, rules, fx})   bots: [{cfg, team, name, driver, damage}]. driver {style, skill} is an AI
                                             (sim/ai.js); driver null is the player, who hands in inputs each step.
                                             damage: J already taken per key (S.bots[cls].damage), or nothing for fresh.
-                                            flags: {bent:true} carries a bent disc in (a best-of-three round after
-                                            a pit window that didn't fix it).
+                                            flags: {bent, smoke, cell, esc} carries failures in (a best-of-three
+                                            round after a pit window that didn't fix them).
                                             fx: keep F.fxq, where hits and landings happened, for a view to flash.
      stepFight(F, inputs)                   one step. inputs: {botIndex: {throttle, steer, weapon, selfRight}} for the
                                             player bots (throttle and steer -1..1, weapon and selfRight 0 or 1)
@@ -1350,7 +1351,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
   const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
-    zone:weaponZone(b),st:damageState(b,spec.damage),flags:{esc:null,smoke:false,cell:false,bent:!!(spec.flags&&spec.flags.bent)},fx:null,
+    zone:weaponZone(b),st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,
@@ -1366,7 +1367,7 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
     spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
       bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,
-        driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:s.flags&&s.flags.bent?{bent:true}:null}))}};   // copies: the log is the fight as it started
+        driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:carryFlags(s.flags)}))}};   // copies: the log is the fight as it started
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
   const n=F.bots.length,R=F.arena.half*0.6;
@@ -1388,6 +1389,10 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
 const r2=v=>Math.round(v*100)/100;
 /* where things happened, for a view to flash (newFight({fx:true}) only; the view drains it; never in the log) */
 function fxPush(F,e){if(!F.fxq)return;F.fxq.push(e);if(F.fxq.length>64)F.fxq.shift();}
+/* failure flags carried in from an earlier round (a best of three): a bent disc, a smoking battery, a failsafe cell
+   keeping a dead battery going, a dead speed-controller side. Only the ones set, or null */
+function carryFlags(f){if(!f||typeof f!=="object")return null;const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;
+  if(f.esc==="left"||f.esc==="right")o.esc=f.esc;return Object.keys(o).length?o:null;}
 function logIt(F,e){e.t=r2(F.t);F.log.push(e);return e;}
 /* a hit: merged into the last entry when it is small and the same pair, face and kind within half a second */
 /* a hit (or a landing): a small one that destroys nothing is merged into a matching entry from the last half second
@@ -2709,7 +2714,8 @@ const PIT_KITS={
   pro:  {name:"Pro kit",  price:420,allow:{wheel:4,bodge:4,belt:2,armour:4,battery:2,pod:2,disc:1},line:"Adds drive pods and a spare weapon disc."}
 };
 /* pit-window repairs: seconds and what each does. A swap puts the part back to new; a bodge patches any damaged or
-   destroyed part (not the chassis) to half strength. belt: a damaged weapon (not bent); disc: a bent or wrecked weapon. */
+   destroyed part (not the chassis or a bent disc) to half strength. belt: a damaged weapon (not bent); disc: a bent or
+   wrecked weapon (pro kit only). A swapped battery stops smoking; a bodged speed controller brings its side back. */
 const REPAIR_TIMES={wheel:15,belt:20,pod:35,battery:25,armour:30,bodge:10,disc:30};
 const PIT_S=60;
 /* driving assists by driver skill (app/controls.js): straighten holds the heading when you aren't steering (x the spin
@@ -3854,9 +3860,9 @@ function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last
   ftEnter();ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;
-  if(F.reason==="stopped"){B.over=true;return;}
+  if(F.reason==="stopped"){B.over=true;B.stopped=true;return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
-  F.bots.forEach((o,i)=>{B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent};});
+  F.bots.forEach((o,i)=>{B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});
   if(B.wins[0]>=2||B.wins[1]>=2||B.n>=3)B.over=true;}
 function ftBoutWinner(B){return B.wins[0]>B.wins[1]?0:B.wins[1]>B.wins[0]?1:null;}
 /* the pit between rounds: you fix yours (PIT.open), their crew fixes theirs (pitAuto), then the next round */
@@ -3865,7 +3871,7 @@ function ftPit(){const B=FT.bout,F=FT.F;if(!B||B.over)return;const e=$("fEnd");i
   PIT.open({host:$("fov"),b:F.bots[0].b,dmg:B.dmg[0],flags:B.flags[0],kit:B.kit,left:B.left[0],title:`Pit window · round ${B.n+1} next`,
     onDone:r=>{B.pits.push({mine:r.done,lost:r.lost,theirs});ftNextRound();}});}
 function ftNextRound(){const B=FT.bout;const seed=(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
-  const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:B.flags[i].bent?{bent:true}:null}));
+  const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:Object.assign({},B.flags[i])}));
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(FT.F.cls),bots}));
   const t=B.pits[B.pits.length-1].theirs;toast(`${FT.F.bots[1].name}'s crew: ${t.length?t.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing to fix"}`);}
 /* the round shown on the results card */
@@ -3874,7 +3880,9 @@ const ftShown=()=>FT.rounds[FT.rv]?FT.rounds[FT.rv].F:null;
 const ftReplayOk=F=>{const R=FT.rounds.find(x=>x.F===F);if(!R)return false;if(!R.log)R.log=SIM.fightResult(F).log;return!R.log.noReplay;};
 function ftRpFight(log,n){const play={};for(const k in log.inputs||{})play[k]=SIM.unpackInputs(log.inputs[k]);
   const F=SIM.newFight({seed:log.seed,arena:log.arena,rules:log.rules,bots:log.bots,play,fx:true});F.fxq=null;
-  while(F.n<n&&!F.over)SIM.stepFight(F,null);F.fxq=[];return F;}
+  while(F.n<n&&!F.over)SIM.stepFight(F,null);F.fxq=[];
+  if(F.n>=log.steps&&!F.over){F.over=true;F.endT=F.t;F.reason="stopped";}   // a jump to the end of a stopped round ends there
+  return F;}
 function ftReplay(i){const R=FT.rounds[i];if(!R||!ftReplayOk(R.F))return;
   FT.rp={i,log:R.log,steps:R.log.steps,speed:1};FT.you=false;ftGo(ftRpFight(R.log,0));}
 function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(0,Math.min(rp.steps,n|0)));
@@ -3884,7 +3892,7 @@ function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.ma
   ftOverlay();ftLoop();}
 function ftLoop(){if(!FT.raf)FT.raf=requestAnimationFrame(ftFrame);}
 function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on)SCRAP_SOUND.stop();else{FT.last=performance.now();FT.acc=0;ftLoop();}
-  const p=$("fPause");if(p){p.hidden=!on||!!FT.rp;if(on){const r=p.querySelector("[data-fv=resume]");if(r)r.focus({preventScroll:true});}}const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);}
+  const p=$("fPause");if(p){p.hidden=!on||!!FT.rp;if(on){const r=p.querySelector("[data-fv=resume]");if(r)r.focus({preventScroll:true});}}const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);if(FT.on)ftOverlay();}
 function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
   if(curTab!=="fight"||document.hidden){if(!F.over&&!FT.paused)ftPause(true);return;}
   if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;FT.acc+=Math.min(dt,0.25)*(FT.rp?FT.rp.speed:FT.you?1:FT.speed);
@@ -3931,7 +3939,8 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
       <input type="range" id="fRpPos" min="0" max="${FT.rp.steps}" step="15" value="0" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(FT.F.rules.roundS)}</span>
       <button type="button" class="fbtn" data-fv="rpspeed" aria-label="Replay speed">1×</button></div>`:""}`;
   $("view").appendChild(el);el.addEventListener("click",ftOvClick);
-  const pos=$("fRpPos");if(pos){pos.addEventListener("input",()=>{FT.rp.drag=true;$("fRpT").textContent=ftT(Math.max(0,FT.F.rules.roundS-pos.value/SIM.STEP_HZ));});
+  const pos=$("fRpPos");if(pos){pos.addEventListener("pointerup",()=>{if(FT.rp)FT.rp.drag=false;});pos.addEventListener("blur",()=>{if(FT.rp)FT.rp.drag=false;});
+    pos.addEventListener("input",()=>{FT.rp.drag=true;$("fRpT").textContent=ftT(Math.max(0,FT.F.rules.roundS-pos.value/SIM.STEP_HZ));});
     pos.addEventListener("change",()=>{FT.rp.drag=false;ftSeek(+pos.value);});}
   SCRAP_VIS.setRun({reduce:reduced()});
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
@@ -3946,7 +3955,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="quit"){if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}ftExit();}
   else if(a==="again"){ftExit();ftStart();}
   else if(a==="pit")ftPit();
-  else if(a==="endbout"){if(FT.bout)FT.bout.over=true;ftExit();}
+  else if(a==="endbout"){if(FT.bout&&!FT.bout.over){FT.bout.over=true;FT.bout.stopped=true;}ftExit();}
   else if(a==="rpagain")ftSeek(0);
   else if(a==="rpplay"){if(F.over){ftSeek(0);return;}ftPause(!FT.paused);b.textContent=FT.paused?"Play":"Pause";b.setAttribute("aria-pressed",FT.paused);}
   else if(a==="rpspeed"){const sp=[1,2,0.5],k=(sp.indexOf(FT.rp.speed)+1)%sp.length;FT.rp.speed=sp[k];b.textContent=(sp[k]===0.5?"½":sp[k])+"×";}
@@ -4085,7 +4094,7 @@ function ftKitLine(){const k=PIT_KITS[FT.kit],c=SIM.CLASSES[bCls()];return`${esc
 /* the bout's score, the pit work between rounds, and a chip per round to look at */
 function ftBoutHtml(){const B=FT.bout,n=FT.rounds.length;let h="";
   if(B&&n){const w=ftBoutWinner(B),opp=FT.rounds[0].F.bots[1].name;
-    h+=`<p class="ftres ${B.over?w===0?"ok":w==null?"":"broke":""}">${B.over?(w==null?"Bout drawn":w===0?"You win the bout":esc(opp)+" wins the bout"):"Bout stopped"} <span class="readout">${B.wins[0]}–${B.wins[1]}</span></p>`;
+    h+=`<p class="ftres ${B.over&&!B.stopped?w===0?"ok":w==null?"":"broke":""}">${B.stopped||!B.over?"Bout stopped":w==null?"Bout drawn":w===0?"You win the bout":esc(opp)+" wins the bout"} <span class="readout">${B.wins[0]}–${B.wins[1]}</span></p>`;
     if(B.pits.length)h+=`<ul class="ftpits">${B.pits.map((p,i)=>`<li>Pit ${i+1}: you ${p.mine.length?p.mine.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"fixed nothing"}${p.lost?` <span class="worn">(the ${PIT_NAMES[p.lost.kind].toLowerCase()} wasn't finished)</span>`:""} · their crew ${p.theirs.length?p.theirs.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing"}</li>`).join("")}</ul>`;}
   if(n>1)h+=`<div class="seg ftrounds" role="group" aria-label="Round">${FT.rounds.map((r,i)=>`<button type="button" data-ftrv="${i}" class="${i===FT.rv?"on":""}" aria-pressed="${i===FT.rv}">Round ${i+1}</button>`).join("")}</div>`;
   return h;}
@@ -4126,7 +4135,7 @@ TAB_RENDER.fight=function(){
    (PIT_KITS, state.js) says which repairs are allowed and how many for the whole event; REPAIR_TIMES says how long each
    takes. One repair at a time, and the clock keeps running while you decide. It pauses while the page is hidden or the
    Fight tab is left. When the clock runs out a repair still going is lost.
-     pitItems(b, dmg, flags, left)   what's broken and the repairs on offer: [{key, name, state, frac, opts:[{kind, ok,
+     pitItems(b, dmg, flags, left, tLeft)   what's broken and the repairs on offer: [{key, name, state, frac, opts:[{kind, ok,
                                      why}]}]. dmg is {key: J taken} (damageTaken's shape), flags {bent}, left the kit's
                                      counts still unused.
      pitApply(b, dmg, flags, key, kind)   does it: a swap clears the key's damage (a disc unbends it), a bodge leaves half
@@ -4149,20 +4158,23 @@ function pitSwap(b,key,flags,frac){if(key.indexOf("armour_")===0)return"armour";
   return null;}
 function pitName(b,key){if(key.indexOf("armour_")===0)return(FT_FACE[key.slice(7)]||key.slice(7))+" armour";
   if(key==="chassis")return"chassis";return SIM.benchPartName(b,key);}
-function pitItems(b,dmg,flags,left){const out=[];flags=flags||{};
+function pitItems(b,dmg,flags,left,tLeft){const out=[];flags=flags||{};   // tLeft: seconds left on the clock (a repair that can't finish is offered greyed)
   const keys=Object.keys(dmg).filter(k=>dmg[k]>0);if(flags.bent&&keys.indexOf("weapon")<0)keys.push("weapon");
   for(const key of keys){const hp=pitHp(b,key);if(!(hp>0))continue;const frac=Math.max(0,1-(dmg[key]||0)/hp);
     const bent=key==="weapon"&&flags.bent;if(frac>=0.999&&!bent)continue;
     const state=frac<=1e-9?"destroyed":"damaged",opts=[];
     if(key!=="chassis"){const sw=pitSwap(b,key,flags,frac);
-      if(sw)opts.push({kind:sw,ok:(left[sw]||0)>0,why:(left[sw]||0)>0?"":sw in left?"none left":"not in this kit"});
-      if(frac<0.5&&!bent)opts.push({kind:"bodge",ok:(left.bodge||0)>0,why:(left.bodge||0)>0?"":"none left"});}
+      const opt=k=>{const n=left[k]||0,late=tLeft!=null&&REPAIR_TIMES[k]>tLeft;return{kind:k,ok:n>0&&!late,why:!(k in left)?"not in this kit":n<=0?"none left":late?"no time":""};};
+      if(sw)opts.push(opt(sw));
+      if(frac<0.5&&!bent)opts.push(opt("bodge"));}
     out.push({key,name:pitName(b,key),state,frac,bent,opts});}
   /* the worst first: destroyed, then by hp left */
   return out.sort((a,b)=>a.frac-b.frac||(a.key<b.key?-1:1));}
 function pitApply(b,dmg,flags,key,kind){const hp=pitHp(b,key);
-  if(kind==="bodge")dmg[key]=Math.round(hp*0.5*100)/100;
-  else{delete dmg[key];if(kind==="disc")flags.bent=false;}}
+  if(kind==="bodge")dmg[key]=Math.round(hp*0.5*100)/100;else delete dmg[key];
+  if(kind==="disc")flags.bent=false;
+  if(key==="battery"){flags.cell=false;if(kind==="battery")flags.smoke=false;}   // a live battery needs no failsafe cell; a new one doesn't smoke
+  if(key==="electronics")flags.esc=null;}
 /* how much a repair matters to the next round: losing a side or the battery ends fights, the weapon wins them */
 function pitValue(b,it,kind){const k=it.key,p=b.parts.find(q=>q.key===k),gain=(kind==="bodge"?0.5:1)-it.frac;
   const w=k==="battery"||k==="electronics"?5:p&&(p.slot==="wheels"||p.slot==="drive")?4:k==="weapon"?3:k.indexOf("armour_")===0?2:1;
@@ -4181,29 +4193,35 @@ PIT.open=function(o){PIT.close();Object.assign(PIT,{on:true,o,kit:o.kit,t:PIT_S,
     <p class="fpitkit"><b>${esc(PIT_KITS[o.kit].name)}</b> · <span id="fPitLeft"></span></p>
     <div class="fpitjob" id="fPitJob" hidden><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div>
     <div class="fpitbody"><canvas class="fpitsil" id="fPitSil" width="88" height="88" aria-hidden="true"></canvas><ul class="fpitlist" id="fPitList"></ul></div>
-    <div class="row"><button type="button" class="btn pri" data-pit="ready">Ready</button></div>`;
+    <p class="vh" id="fPitSay" role="status" aria-live="polite"></p>
+    <div class="row"><button type="button" class="btn pri" data-pit="ready" id="fPitReady">Ready</button></div>`;
   o.host.appendChild(el);o.host.classList.add("pitting");el.addEventListener("click",pitClick);PIT.el=el;pitRender();
   const f=el.querySelector("[data-pit=ready]");if(f)f.focus({preventScroll:true});
   PIT.raf=requestAnimationFrame(pitFrame);};
 PIT.close=function(){if(PIT.raf)cancelAnimationFrame(PIT.raf);PIT.raf=0;if(PIT.el){if(PIT.el.parentNode)PIT.el.parentNode.classList.remove("pitting");PIT.el.remove();}PIT.el=null;PIT.on=false;};
 function pitEnd(lost){const o=PIT.o,done=PIT.done;PIT.close();if(o&&o.onDone)o.onDone({done,lost:lost||null});}
 function pitFrame(now){PIT.raf=0;if(!PIT.on)return;const dt=Math.min(0.25,Math.max(0,(now-PIT.last)/1000));PIT.last=now;
-  if(!document.hidden&&curTab==="fight"){PIT.t-=dt;
-    const j=PIT.job;if(j){j.left-=dt;if(j.left<=0&&PIT.t>=0){const o=PIT.o;pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);pitRender();}}
+  if(!document.hidden&&curTab==="fight"){const t0=PIT.t;PIT.t-=dt;
+    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);
+        pitRender();pitSay(`${PIT_NAMES[j.kind]} done: ${j.name}`);}}   // done in time (even in the frame the clock runs out)
+    if(Math.ceil(t0)>10&&Math.ceil(PIT.t)<=10)pitSay("Ten seconds left");
     if(PIT.t<=0){pitEnd(PIT.job?PIT.job:null);return;}}
   pitTick();PIT.raf=requestAnimationFrame(pitFrame);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
   const j=PIT.job,box=$("fPitJob");if(box){box.hidden=!j;if(j){$("fPitJobT").textContent=`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`;$("fPitJobBar").style.width=Math.round((1-j.left/j.total)*100)+"%";}}}
-function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left),busy=!!PIT.job;
+function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
+function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
   const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${o.left[k]||0}`).join(" · ");
   L.innerHTML=items.length?items.map(it=>`<li><span class="nm">${esc(ftCap(it.name))} <small class="${it.state==="destroyed"?"broke":"worn"}">${it.bent?"bent":it.state==="destroyed"?"destroyed":Math.round(it.frac*100)+"%"}</small></span>
       <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${REPAIR_TIMES[p.kind]} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
-  ftSil($("fPitSil"),{b:o.b},pitStates(o),88);}
+  ftSil($("fPitSil"),{b:o.b},pitStates(o),88);
+  const rb=$("fPitReady");if(rb){rb.textContent=busy?"Ready (stop the repair)":"Ready";if(lost)rb.focus({preventScroll:true});}}   // the list was rebuilt: keep the focus in the panel
 function pitStates(o){const st=SIM.damageState(o.b,o.dmg),s=SIM.partStates(o.b,st);if(o.flags.bent&&s.weapon==="intact")s.weapon="damaged";return s;}
 function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x||!PIT.on)return;
-  if(x.dataset.pit==="ready"){pitEnd(PIT.job);return;}
-  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0))return;
+  if(x.dataset.pit==="ready"){const j=PIT.job;if(j)PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
+    PIT.job=null;pitEnd(null);return;}
+  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0)||REPAIR_TIMES[kind]>PIT.t)return;
   o.left[kind]--;PIT.job={key,kind,name:pitName(o.b,key),left:REPAIR_TIMES[kind],total:REPAIR_TIMES[kind]};buzz(8);pitRender();pitTick();}
 /* ===================== app/report.js: the post-mortem =====================
    Built from a finished fight (F, the sim's fight object) for your bot (bot 0), under the Fight tab's result card:
@@ -4312,7 +4330,7 @@ function rpBillHtml(o){const bill=rpBill(o);
   if(!bill.lines.length)return`<p class="ok">Nothing to pay: it came out without a scratch.</p>`;
   return`<table class="rpbill"><tbody>${bill.lines.map(l=>`<tr><th scope="row">${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></th><td class="readout">${fmt$(l.cost)}</td><td class="readout">${l.hours} h</td></tr>`).join("")}</tbody>
     <tfoot><tr><th scope="row">Total</th><td class="readout">${fmt$(bill.cost)}</td><td class="readout">${bill.hours} h</td></tr></tfoot></table>
-    <p class="hint">Sparring is free: from the career on (PR 7) this comes out of your thalers and your workshop week.</p>`;}
+    <p class="hint">Everything still broken after this round. Sparring is free: from the career on (PR 7) the bill comes out of your thalers and your workshop week.</p>`;}
 
 /* ---- the opponent's build, revealed ---- */
 function rpReveal(F,i){const o=F.bots[i],b=o.b,cfg=o.cfg,P=(s,id)=>{const p=SIM.part(s,id);return p?esc(p.name):"none";},w=b.weapon;
@@ -4335,7 +4353,7 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
   return`<div class="card" id="rpCard"><h3>Post-mortem</h3>${rpTimeline(F)}
     <div class="rpmap"><canvas id="rpSil" width="112" height="112" aria-hidden="true"></canvas><div><h4>What went wrong</h4>
       ${c.length?`<ul class="rpcause">${c.map(x=>`<li>${x.html}</li>`).join("")}</ul>`:`<p class="ok">Nothing broke.</p>`}
-      <p class="rpkey"><span class="ok">●</span> intact <span class="worn">●</span> damaged <span class="broke">●</span> destroyed</p></div></div>
+      <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p></div></div>
     <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
       <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
