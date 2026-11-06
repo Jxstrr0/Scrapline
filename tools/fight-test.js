@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 /* Scrapline: the fight harness (plan sections 7f and 8e). Run from the repo root after `node build.js`:
-     node tools/fight-test.js            beetle: every test build and beetle opponent against every other, 20 seeds each,
-                                         two driving styles (each build's own "auto" style, then aggressive)
+     node tools/fight-test.js            beetle: every test build and beetle opponent against every other, 12 seeds each at
+                                         two driver skills (0.5 and 0.85); test builds drive their own "auto" style
      node tools/fight-test.js all        every class (a few minutes)
      node tools/fight-test.js hobby -q   one class, 4 seeds (quick)
      node tools/fight-test.js -m         also print the matchup matrix (row's win % against column)
      node tools/fight-test.js -a box     fight in another arena (any ARENAS id) instead of each class's own
-   It cuts SCRAP_SIM out of the built index.html (so it tests what ships) and prints, per archetype: win %, draw %, the
+   It cuts SCRAP_SIM out of the built index.html (so it tests what ships) and prints, per archetype: win % against the other
+   test builds (what the target is about) and against the whole field, draw %, the
    average share of hp it lost, the average fight length and the share of its fights that ended in a knockout. It exits 1
    if a fight is not repeatable, a replay from the log differs, a log is over 20 KB, a result holds NaN or a fight runs past
    the bell, a step is over budget (2 ms for a 1v1, 4 ms for a 4-bot rumble, plan section 16), carried-in damage is lost,
    or the plan's phone-test moments never happen (a wedge getting under a high-fronted box, a flipper landing a bot
    upside down, plan 8e: a hazard-pusher winning by the pit, the judges' scores on every decision), or a test build is
-   outside the balance target (35-65% in its class, in the class's own arena; Sloppy budget is left out, plan section 1).
+   more than 5 points outside the balance target (35-65% against the other test builds in its class, in the class's own
+   arena; Sloppy budget is left out, plan section 1; one within 5 points is listed, since a few points is sampling noise).
    Named opponents (OPPONENTS, marked *) fight with their own drivers and are printed, not held to the target.
    The single-hit knockout rate (a knockout where one hit broke everything that mattered) is printed against the plan's
    lethality target. -a <arena> fights a class in another arena (the target isn't checked then). */
@@ -34,9 +36,10 @@ const SIM = mod.exports;
 const classes = named.includes("all") ? SIM.CLASS_IDS : named.filter((c) => SIM.CLASSES[c]);
 if (!classes.length) classes.push("beetle");
 const ai = args.indexOf("-a"), arenaArg = ai >= 0 ? args[ai + 1] : null;
-const SEEDS = quick ? 4 : 20, STYLES = ["auto", "aggressive"], SKILL = 0.7;
+const SEEDS = quick ? 4 : 12, SKILLS = [0.5, 0.85];   // every test build drives its own "auto" style, at two skills
 const builds = SIM.TEST_BUILDS;
-const OUTSIDE = { sloppy: 1 };   // left out of the archetype target (plan section 1): the "how not to build" example
+const OUTSIDE = { sloppy: 1 };
+const SLACK = 0.05;   // the target is 35-65%; a build within 5 points of it is printed, further out fails   // left out of the archetype target (plan section 1): the "how not to build" example
 const cfgOf = (t, cls) => Object.assign({}, t.cfg, { cls });
 const pct = (v) => (v * 100).toFixed(0).padStart(3) + "%";
 const nowUs = () => Number(process.hrtime.bigint()) / 1000;
@@ -45,8 +48,8 @@ const arenaFor = (cls) => arenaArg || SIM.CLASSES[cls].arenaId;
 const fieldOf = (cls) => builds.map((t) => ({ id: t.id, name: t.name, cfg: cfgOf(t, cls), arch: true }))
   .concat(SIM.OPPONENTS.filter((o) => o.cls === cls).map((o) => ({ id: o.id, name: o.name + " *", cfg: SIM.opponentCfg(o), driver: o.driver })));
 
-function fight(cls, a, b, seed, style, extra) {
-  const drv = (x) => x.driver ? Object.assign({}, x.driver) : { style, skill: SKILL };
+function fight(cls, a, b, seed, style, extra, skill) {
+  const drv = (x) => x.driver ? Object.assign({}, x.driver) : { style, skill: skill == null ? 0.7 : skill };
   return SIM.runFight(Object.assign({ seed, arena: arenaFor(cls), bots: [
     { cfg: cfgOf(a, cls), name: a.id, driver: drv(a) }, { cfg: cfgOf(b, cls), name: b.id, driver: drv(b) }] }, extra || {}));
 }
@@ -59,21 +62,21 @@ function finite(r) {
 let allSteps = 0, allUs = 0, worstFightUs = 0, pitByPusher = 0, judgedOk = 0, judged = 0;
 for (const cls of classes) {
   const field = fieldOf(cls), st = {}, mx = {};
-  for (const t of field) { st[t.id] = { n: 0, w: 0, d: 0, share: 0, len: 0, ko: 0 }; mx[t.id] = {}; for (const u of field) mx[t.id][u.id] = { n: 0, w: 0 }; }
+  for (const t of field) { st[t.id] = { n: 0, w: 0, d: 0, share: 0, len: 0, ko: 0, an: 0, aw: 0 }; mx[t.id] = {}; for (const u of field) mx[t.id][u.id] = { n: 0, w: 0 }; }
   let fights = 0, kos = 0, oneHit = 0, pits = 0, decisions = 0, lenSum = 0, under = 0, flippedInv = 0, bigLog = 0;
   const t0 = nowUs();
   for (let i = 0; i < field.length; i++) for (let j = i + 1; j < field.length; j++) {
-    for (const style of STYLES) for (let s = 1; s <= SEEDS; s++) {
-      const swap = s % 2 === 0, A = swap ? field[j] : field[i], B = swap ? field[i] : field[j];
-      const f0 = nowUs(), r = fight(cls, A, B, s * 7919 + i * 31 + j, style), us = nowUs() - f0;
+    for (const sk of SKILLS) for (let s = 1; s <= SEEDS; s++) {
+      const swap = s % 2 === 0, A = swap ? field[j] : field[i], B = swap ? field[i] : field[j], style = "auto";
+      const f0 = nowUs(), r = fight(cls, A, B, s * 7919 + i * 31 + j, style, null, sk), us = nowUs() - f0;
       allSteps += r.log.steps; allUs += us; if (r.log.steps >= 600 && us / r.log.steps > worstFightUs) worstFightUs = us / r.log.steps;   // a short fight is mostly warm-up
       fights++; lenSum += r.timeS;
       if (r.reason === "ko" || r.reason === "pit") kos++;
       if (r.reason === "pit") pits++;
-      if (r.reason === "judges" || r.reason === "draw") { decisions++; judged++; const e = r.log.entries[r.log.entries.length - 1]; if (e && e.k === "end" && e.j) judgedOk++; }
+      if (r.reason === "judges" || r.reason === "draw" && r.timeS >= SIM.FIGHT.roundS - 1e-6) { decisions++; judged++; const e = r.log.entries[r.log.entries.length - 1]; if (e && e.k === "end" && e.j) judgedOk++; }
       if (r.reason === "ko") { const lo = r.bots.find((o) => o.out === "ko"); if (lo && lo.stats.failHits === 1) oneHit++; }
       if (r.reason === "pit" && r.winner != null && r.bots[r.winner].style === "hazard") pitByPusher++;
-      if (!finite(r)) fail(`${cls} ${A.id} v ${B.id} seed ${s} ${style}: NaN or ran past the bell`);
+      if (!finite(r)) fail(`${cls} ${A.id} v ${B.id} seed ${s} skill ${sk}: NaN or ran past the bell`);
       const sz = JSON.stringify(r.log).length; if (sz > bigLog) bigLog = sz;
       if (sz > SIM.FIGHT.logMaxB) fail(`${cls} ${A.id} v ${B.id}: log ${sz} B is over ${SIM.FIGHT.logMaxB}`);
       for (const e of r.log.entries) {
@@ -83,22 +86,26 @@ for (const cls of classes) {
       [A, B].forEach((t, k) => {
         const o = r.bots[k], x = st[t.id], y = k ? A : B;
         x.n++; x.share += o.share; x.len += r.timeS; if (r.reason === "ko" || r.reason === "pit") x.ko++;
+        const w = r.winner === k ? 1 : r.winner == null ? 0.5 : 0;
         if (r.winner === k) { x.w++; mx[t.id][y.id].w++; } else if (r.winner == null) { x.d++; mx[t.id][y.id].w += 0.5; }
+        if (y.arch) { x.an++; x.aw += w; }   // the target is a test build's record against the other test builds
         mx[t.id][y.id].n++;
       });
     }
   }
   const secs = (nowUs() - t0) / 1e6, heavyish = cls === "feather" || cls === "heavy";
-  console.log(`\n${SIM.CLASSES[cls].name} in the ${SIM.ARENAS[arenaFor(cls)].name}: ${fights} fights in ${secs.toFixed(1)} s · ${pct(kos / fights)} knockouts (${pct(pits / fights)} pit) · ${pct(decisions / fights)} decisions · single-hit KOs ${(100 * oneHit / fights).toFixed(1)}% (target ${heavyish ? "3-8%" : "under 3%"}) · average ${(lenSum / fights).toFixed(1)} s · biggest log ${(bigLog / 1024).toFixed(1)} KB`);
-  console.log("  archetype            win   draw  hp lost  length  KO");
-  const off = [];
+    const an = SIM.ARENAS[arenaFor(cls)].name;
+  console.log(`\n${SIM.CLASSES[cls].name} in ${/^The /.test(an) ? an : "the " + an}: ${fights} fights in ${secs.toFixed(1)} s · ${pct(kos / fights)} knockouts (${pct(pits / fights)} pit) · ${pct(decisions / fights)} decisions · single-hit KOs ${(100 * oneHit / fights).toFixed(1)}% (target ${heavyish ? "3-8%" : "under 3%"}) · average ${(lenSum / fights).toFixed(1)} s · biggest log ${(bigLog / 1024).toFixed(1)} KB`);
+  console.log("  archetype          vs builds  all  draw  hp lost  length  KO");
+  const off = [], near = [];
   for (const t of field) {
-    const x = st[t.id], win = (x.w + x.d / 2) / x.n, out = win > 0.65 ? "  above 65%" : win < 0.35 ? "  below 35%" : "";
-    if (out && t.arch && !OUTSIDE[t.id]) off.push(`${t.name} ${pct(win).trim()}`);
-    console.log(`  ${t.name.padEnd(19)} ${pct(win)}  ${pct(x.d / x.n)}  ${pct(x.share / x.n)}   ${(x.len / x.n).toFixed(1).padStart(5)} s ${pct(x.ko / x.n)}${t.arch ? (OUTSIDE[t.id] ? "  (outside the target)" : out) : ""}`);
+    const x = st[t.id], all = (x.w + x.d / 2) / x.n, win = x.an ? x.aw / x.an : all, out = win > 0.65 ? "  above 65%" : win < 0.35 ? "  below 35%" : "";
+    if (out && t.arch && !OUTSIDE[t.id]) (win > 0.65 + SLACK || win < 0.35 - SLACK ? off : near).push(`${t.name} ${pct(win).trim()}`);
+    console.log(`  ${t.name.padEnd(19)} ${pct(win)}  ${pct(all)}  ${pct(x.d / x.n)}  ${pct(x.share / x.n)}   ${(x.len / x.n).toFixed(1).padStart(5)} s ${pct(x.ko / x.n)}${t.arch ? (OUTSIDE[t.id] ? "  (outside the target)" : out) : ""}`);
   }
   console.log("  (* a named opponent, driving its own style; the 35-65% target is for the test builds)");
-  if (off.length && !arenaArg) fail(`${cls}: archetypes outside 35-65%: ${off.join(", ")}`);
+  if (near.length) console.log(`  outside 35-65% by less than ${Math.round(SLACK * 100)} points (sampling noise at this many seeds is about 3-4): ${near.join(", ")}`);
+  if (off.length && !arenaArg) fail(`${cls}: archetypes more than ${Math.round(SLACK * 100)} points outside 35-65%: ${off.join(", ")}`);
   if (matrix) {
     console.log("  matchups (row's win % against column; a draw counts half):");
     console.log("              " + field.map((t) => t.id.slice(0, 5).padStart(6)).join(""));

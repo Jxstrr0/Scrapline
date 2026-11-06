@@ -18,14 +18,15 @@
    what each did, then weighted, so the scores add up to 100:
      damage      hp each team took off the other in this fight (carried-in damage doesn't count)
      aggression  seconds closing on an enemy or in contact, less seconds retreating
-     control     seconds the enemy spent lifted, under a wedge, pinned against a wall or upside down, plus a few for each
-                 time it was shoved into a hazard ---- */
+     control     seconds the enemy spent lifted, under a wedge that is driving it about, pinned against a wall or upside
+                 down and stuck, plus a few for each time it was shoved into a hazard
+   A pin (under a wedge or against a wall) lasts at most FIGHT.holdMaxS in one spell: then the pinner backs off. ---- */
 const ARENAS={
   box:{id:"box",name:"Test box",sizeM:2.4,wallE:0.35,pit:null,hazards:[]},
   /* the antweights' table at club meets: small, an open pit on one side */
   tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.72,-0.2,1.0,0.2],openS:0},hazards:[]},
   /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it */
-  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.86,-0.26,1.2,0.26],openS:0},
+  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.86,-0.26,1.2,0.26],openS:20},
     hazards:[{type:"pusher",rect:[-1.2,-0.3,-0.98,0.3],n:[1,0],kickMs:2.2,J:6,vzMs:0,activeS:0.35,periodS:4,startS:0}]},
   /* the regional arenas (Stahlbrück, Eisenau, Grauwald): the pit opens a third of the way in; two pushers and a floor spinner */
   regional:{id:"regional",name:"Regional arena",sizeM:2.6,wallE:0.35,pit:{rect:[0.7,0.7,1.3,1.3],openS:30},
