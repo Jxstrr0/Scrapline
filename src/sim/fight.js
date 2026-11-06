@@ -27,7 +27,7 @@ const STEP_HZ=60;
 const WEDGE_RULES={
   tolMm:0.3,
   underGrip:0.2,    // the lifted bot keeps this share of its grip
-  underGripClass:{feather:0.3},   // ... more in these classes (PR 4b review: the feather wedge sat just over the balance target)
+  underGripClass:{feather:0.4,heavy:0.45},   // ... more in these classes (the feather and heavy wedges sat over the balance target: PR 4b, 0.1.12.0)
   underBite:0.5,    // and its own weapon lands this share of its energy ...
   underBiteBy:{vsp:0.9,drum:0.75},   // ... except a vertical disc, which still bites the wedge it's sitting on
   discGuard:{vsp:0.5,drum:0.6},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
