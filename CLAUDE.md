@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.5.0)
+## Current status (0.1.6.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -126,8 +126,15 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **`tools/fight-test.js`:** 12 seeds at skills 0.5 and 0.85. The target is each test build's record against the other test builds; a build more than 5 points outside 35-65% fails (plan section 1).
   - **Tuned:** the Brick test build has PU wheels and an anti-spinner bar; horizontal, drum and undercutter discs were slowed. The numbers are in `docs/DESIGN.md`.
   - **Saves:** nothing new (no `SAVE_V` change).
-- Next: PR 5, the arena view, controls, hit feedback and sparring.
-- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
+- PR 5 done (0.1.6.0): the arena, driving, hit feedback, sparring.
+  - **`vis/bot.js`:** the parametric bot from the build (chassis, armour per face, wheels, weapon by type, team stripe), damage greying, the cache by build hash with disposal. The workshop shows the draft on Build, the fitted bot elsewhere (`visBot()` in `app/build.js`).
+  - **`vis/arena.js`, `vis/fx.js`:** the arena from `F.arena`, the follow camera, sparks, flying parts, smoke, shake. `SCRAP_VIS.setView`, `setFight`, `fx`, `damage`, `pick`.
+  - **`app/controls.js`:** direct and tactical, keyboard, gamepad, `ASSISTS` (rookie for now).
+  - **`sound/synth.js`:** `SCRAP_SOUND`.
+  - **The Fight tab:** sparring, one on one or a rumble, you or the AI driving, fight mode full screen with the HUD, the results card.
+  - **Saves:** `SAVE_V` 4 (`settings.controls`, `leftHanded`, `assists`).
+- Next: PR 6, the pit window, post-mortem and replay.
+- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
 

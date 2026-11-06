@@ -55,6 +55,9 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Pin limit | A pin (under a wedge, or against a wall) is broken after the same **10 s**: the pinner backs off for 1.2 s (`FIGHT.releaseS`; PR 4b default, after real league rules) |
 | Balance slack | `tools/fight-test.js` fails a test build more than **5 points** outside 35–65% and lists one inside that, since 12 seeds carry 3–4 points of noise (PR 4b default; tighten it with more seeds if wanted) |
 | Lethality | Single-hit knockouts come from a **shock** rule: a hit at 60%+ of the disc's full energy has a small chance per class (failsafe electronics halve it) to shake the electronics loose. Heavyweight hits count 1.2x (`FIGHT.shock`, `FIGHT.lethal`; PR 4b default) |
+| Fight screen | **The arena fills the screen while a fight is on** (PR 5 default): the panel and tab bar hide, an overlay carries the clock, a strip per bot and the controls; Pause offers Stop, and the bell offers Rematch or Results |
+| Spinner button | A spinner's weapon button **switches the disc on and off; it is on at the bell**. With assists on (the rookie's) it only spins up when an enemy is near (PR 5 default) |
+| Rumble line-up | Sparring's rumble is you, the opponent you picked and **two more from the class's named opponents and test builds, picked by the seed** (PR 5 default) |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -417,7 +420,7 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 3: Bench tests including wedge gauge and drop test
 - [x] PR 4a: N-body headless sim, height axis, wedge rules, damage, input recording, two AIs, debug view, first harness
 - [x] PR 4b: AI styles, arenas with hazard numbers, judges, 15 opponents, balance targets
-- [ ] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
+- [x] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
 - [ ] PR 6: Pit window and pit kits, post-mortem with repair bill, copy build, replay
 - [ ] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
 - [ ] PR 8: R&D, team, sponsors, meta waves, rule changes, kit line
