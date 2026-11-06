@@ -283,6 +283,35 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .ftpits{margin:0 0 8px;padding-left:18px;font-size:13px;color:var(--muted)}
 .ftrounds{margin:0 0 10px}
 
+/* ---- the career (app/career.js) and the Shop (app/shop.js) ---- */
+.crdl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:4px 0 10px}
+.crdl div{min-width:0}.crdl dt{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.crdl dd{margin:0;font-size:16px;color:var(--ink)}.crdl dd small{display:block;font-size:12px;color:var(--muted)}
+.crdl dd.readout{color:var(--lilac);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.card h3 small{font-weight:500;font-size:13px;color:var(--muted);margin-left:4px}
+.card h4{font-size:14px;margin:10px 0 4px}.card h4 small{margin-left:6px;color:var(--lilac);font-family:var(--mono);font-weight:500}
+.crnext{margin-top:10px;padding-top:10px;border-top:1px solid var(--rule)}
+.crtalk{font-style:italic;color:var(--ink)!important}.crtalk small{font-style:normal;color:var(--muted);margin-left:4px}
+.crfights,.crres,.crriv,.crcal,.crrep,.shlist{list-style:none;margin:0 0 8px;padding:0;font-size:14px}
+.crfights li,.crres li{padding:4px 0;color:var(--muted)}
+.crfights li>span:first-child{display:inline-block;min-width:52px;font-weight:600}
+.crriv li{padding:8px 0;border-top:1px solid var(--rule);color:var(--muted)}.crriv li:first-child{border-top:0}
+.crriv b{color:var(--ink)}.crriv .readout,.crres .readout,.crcal .readout{color:var(--lilac);font-family:var(--mono)}
+.crcal li{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--rule)}.crcal li:first-child{border-top:0}
+.crcal li.now .nm{font-weight:700}.crcal .wk{flex:0 0 48px;font-size:13px}
+.crcal .nm,.shlist .nm{flex:1;min-width:0;color:var(--ink)}.crcal .nm small,.shlist .nm small{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:2px}
+.crrep li,.shlist li{display:flex;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--rule)}.crrep li:first-child,.shlist li:first-child{border-top:0}
+.crrep li>span:first-child{flex:1;min-width:0}.crrep .readout{color:var(--lilac);font-family:var(--mono);font-size:13px;white-space:nowrap}
+.shlist li.on .nm b{color:var(--clay-t)}
+.tag.lock,.opt .tag.lock{color:var(--warn);text-transform:none;letter-spacing:0;font-weight:500}
+.shlist .tag{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t);white-space:nowrap}
+.crtab,.shkits,.shbooks{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 8px}
+.crtab th,.crtab td,.shkits th,.shkits td,.shbooks td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:right}
+.crtab th[scope=row],.crtab thead th:first-child,.shkits th[scope=row],.shbooks td:nth-child(2){text-align:left;font-weight:500}
+.shkits th small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.crtab td.readout,.shkits td.readout,.shbooks td.readout{color:var(--lilac);font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.shbooks td.readout.ok{color:var(--good)}.shbooks td:first-child{width:56px;text-align:left;color:var(--dim)}
+
 /* ---- 4. accessibility preferences ---- */
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
 html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
