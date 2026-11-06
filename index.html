@@ -154,7 +154,7 @@ details.raw{margin-top:12px}
 .opt .d i{font-style:normal;margin-right:10px} .opt .d .up{color:var(--good)} .opt .d .dn{color:var(--crit-t)}
 .opt .tag{margin-left:6px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t)}
 .opt.on{border-color:var(--clay);box-shadow:inset 0 0 0 1px var(--clay)}
-.opt.over{opacity:.55}
+.opt.over{border-style:dashed;background:transparent}
 .seg.faces button small{font-size:10px}
 .armap{display:block;width:120px;height:150px;margin:10px auto 0}
 .armap .fc{cursor:pointer}
@@ -487,17 +487,25 @@ const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
   drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
 
-/* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). Unknown ids stay as they are; evalBuild
-   reports them and uses the default part. */
-function normCfg(cfg){cfg=cfg||{};const d=DEFAULT_CFG,o={};
+/* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
+   part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them
+   and evalBuild reports them. */
+function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,o={};
   o.cls=CLASSES[cfg.cls]?cfg.cls:d.cls;
-  for(const s of PART_SLOTS)o[s]=typeof cfg[s]==="string"?cfg[s]:d[s];
+  for(const s of PART_SLOTS)o[s]=part(s,cfg[s])?cfg[s]:d[s];
   o.armour={};const a=cfg.armour&&typeof cfg.armour==="object"?cfg.armour:{};
-  for(const f of FACES)o.armour[f]=typeof a[f]==="string"?a[f]:d.armour[f];
-  o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>typeof e==="string"&&l.indexOf(e)===i):[];
+  for(const f of FACES)o.armour[f]=part("armour",a[f])?a[f]:d.armour[f];
+  o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>part("extras",e)&&l.indexOf(e)===i):[];
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
   return o;}
+
+/* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
+function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;
+  for(const s of PART_SLOTS)if(cfg[s]!=null&&!part(s,cfg[s]))out.push(s+" \""+cfg[s]+"\"");
+  if(cfg.armour&&typeof cfg.armour==="object")for(const f of FACES)if(cfg.armour[f]!=null&&!part("armour",cfg.armour[f]))out.push(f+" armour \""+cfg.armour[f]+"\"");
+  if(Array.isArray(cfg.extras))for(const e of cfg.extras)if(!part("extras",e))out.push("extra \""+e+"\"");
+  return out;}
 
 /* ---- the chassis grid ---- */
 /* cells that exist on this chassis: a box has them all; the custom shape cuts the front corners */
@@ -605,11 +613,11 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const r3=v=>Math.round(v*1000)/1000;
 
 function evalBuild(cfgIn){
-  const errors=[],cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
-  const pick=(slot,id)=>{const p=part(slot,id);if(p)return p;errors.push("Unknown "+slot+" \""+id+"\"");return part(slot,DEFAULT_CFG[slot]);};
+  const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
+  const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
-  const ex=[];for(const id of cfg.extras){const p=part("extras",id);if(p)ex.push(p);else errors.push("Unknown extra \""+id+"\"");}
+  const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
   /* ---- geometry (mm) ---- */
@@ -627,7 +635,8 @@ function evalBuild(cfgIn){
   addM("chassis","chassis",ch.id,ch.massPerCell*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
 
   /* armour: plate area x thickness x density; the top covers the whole outline */
-  const faceArea={front:(W-2*cut*1000)*H,back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
+  const faceArea={front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
+    back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
   for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000;
@@ -774,7 +783,7 @@ function evalBuild(cfgIn){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
     height,weapon,armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
@@ -785,19 +794,25 @@ function evalBuild(cfgIn){
 /* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
    part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
    material, so it pays for the material too. fitted null (or another class) means the whole bot.
-   Returns {lines:[{slot, face, id, name, cost, hours}], cost, hours}. evalBuild's cost is fitBill(null, cfg).cost. ---- */
+   Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
+   replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
+   fitBill(null, cfg).cost. ---- */
 function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.cls?normCfg(fitted):null,M=classMult(b.cls),lines=[];
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if(!a||a[s]!==b[s])add(s,b[s]);
+  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon))add("weaponMaterial",b.weaponMaterial);
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
-  return{lines,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
+  const removed=[],off=(slot,id,face)=>{const p=part(slot,id);if(p)removed.push({slot,face:face||null,id,name:p.name});};
+  if(a){if(a.weapon!=="none"&&b.weapon==="none")off("weapon",a.weapon);
+    for(const f of FACES)if(a.armour[f]!=="none"&&b.armour[f]==="none")off("armour",a.armour[f],f);
+    for(const e of a.extras)if(b.extras.indexOf(e)<0)off("extras",e);}
+  return{lines,removed,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
 /* the same cfg? (layout aside: moving parts round the chassis is free) */
 function sameParts(a,b){if(!a||!b)return false;a=normCfg(a);b=normCfg(b);if(a.cls!==b.cls)return false;
-  for(const s of PART_SLOTS)if(a[s]!==b[s])return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
+  for(const s of PART_SLOTS)if(a[s]!==b[s]&&!(s==="weaponMaterial"&&a.weapon==="none"&&b.weapon==="none"))return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
   return a.extras.slice().sort().join()===b.extras.slice().sort().join();}
 /* ---- combos.js: COMBOS, the stress-report rules, and stressReport(b), which runs them over an evalBuild() result.
    These don't change the physics; they say in plain words what the physics is about to do to you ("spinner shaft will
@@ -840,7 +855,7 @@ const COMBOS=[
   {id:"heat",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.heat.fightDerateS!=null&&b.heat.fightDerateS<K.runtimeMin*1.33&&b.heat.fightDerateS,
     text:(b,v)=>(b.heat.hotPart==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
   {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
-    text:(b,v)=>"The "+(part("battery",b.cfg.battery).dischargeW<=part("electronics",b.cfg.electronics).maxPowerW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
+    text:(b,v)=>"The "+(b.limits.batteryW<=b.limits.escW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
   {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
   {id:"com",sev:"warn",test:b=>Math.abs(b.com.x)>b.widthM*0.02&&b.com.x,
     text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
@@ -863,8 +878,8 @@ const COMBOS=[
     text:()=>"Every face armoured and the insides tucked away."}
 ];
 function stressReport(b){const out=[];
-  for(const r of COMBOS){let v;try{v=r.test(b);}catch(e){v=null;}if(!v&&v!==0||v===false)continue;if(v===0)continue;
-    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}
+  for(const r of COMBOS){try{const v=r.test(b);if(!v)continue;   // a rule that throws is skipped, never fatal
+    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}catch(e){}}
   return out.sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);}
 /* ---- sim/bench.js: the six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop), PR 3 (plan
    section 6), and WEDGE_GAUGES: the leading-edge heights (mm) of the wedges, lifters and forks common in each class, low
@@ -896,7 +911,7 @@ const JUDGE_WEIGHTS={damage:.5,aggression:.25,control:.25};
    driver skill, a style and a one-line personality. About 15 in PR 4b, growing as content. Then the SCRAP_SIM export
    object. ---- */
 const OPPONENTS=[];
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DEFAULT_CFG,TEST_BUILDS,normCfg,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,COMBOS,stressReport,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DEFAULT_CFG,TEST_BUILDS,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,COMBOS,stressReport,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
@@ -1102,7 +1117,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.2.0";
+const VERSION="0.1.2.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -1606,9 +1621,14 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 
 /* ---- the bot and its draft for the class on the Build tab ---- */
 function bCls(){const c=ST().buildCls;return SIM.CLASSES[c]?c:"beetle";}
+/* a save from an older or damaged game may hold a draft or bot with missing fields or unknown ids: each one goes through
+   normCfg once (unknown parts become the defaults) before anything reads it */
+const bNormed=new WeakSet();
 function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
   if(!b||typeof b!=="object")b=S.bots[cls]={cfg:null,damage:{},draft:null};
-  if(!b.draft||typeof b.draft!=="object")b.draft=SIM.normCfg(Object.assign({},b.cfg||SIM.DEFAULT_CFG,{cls}));
+  if(!b.damage||typeof b.damage!=="object")b.damage={};
+  if(b.cfg&&!bNormed.has(b.cfg)){b.cfg=typeof b.cfg==="object"?SIM.normCfg(Object.assign({},b.cfg,{cls})):null;if(b.cfg)bNormed.add(b.cfg);}
+  if(!b.draft||!bNormed.has(b.draft)){b.draft=SIM.normCfg(Object.assign({},b.draft&&typeof b.draft==="object"?b.draft:b.cfg||SIM.DEFAULT_CFG,{cls}));bNormed.add(b.draft);}
   return b;}
 const draft=()=>bBot().draft;
 /* evalBuild results for this draft, kept until it changes */
@@ -1619,7 +1639,7 @@ const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 /* change the draft. Refused (with the grams) if it would go over the limit and adds weight. */
 function bSet(mut,why){const before=bEval(),c=bTry(mut),r=SIM.evalBuild(c);
   if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
-  bBot().draft=SIM.normCfg(c);bLayoutSync();save();bRender();if(why)toast(why);return true;}
+  bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
 /* moving parts is free: if the draft and the fitted bot have the same parts, the fitted bot takes the new layout */
 function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft))b.cfg.layout=clone(b.draft.layout);}
 const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
@@ -1716,7 +1736,8 @@ function bPlace(key,cx,cy){const cfg=draft(),c=SIM.CLASSES[cfg.cls],f=SIM.footpr
   if(f.mount==="left")x=0;if(f.mount==="right")x=c.gridW-f.w;if(f.mount==="front")y=0;
   x=Math.max(0,Math.min(c.gridW-f.w,x));y=Math.max(0,Math.min(c.gridH-f.h,y));
   const taken=new Set();for(const g of SIM.footprints(cfg)){if(g.key===key)continue;const p=r.layout.place[g.key];if(!p)continue;for(let i=0;i<g.w;i++)for(let j=0;j<g.h;j++)taken.add((p[0]+i)+","+(p[1]+j));}
-  if(!SIM.placeOk(cfg,f,x,y,taken)){toast(f.mount==="front"?"The weapon has to sit on the front row":f.mount==="edge"?"A horizontal spinner has to sit on an edge":"Something's already there");buzz(20);return;}
+  if(!SIM.placeOk(cfg,f,x,y,taken)){const shape=SIM.placeOk(cfg,f,x,y,null);
+    toast(shape?"Something's already there":f.mount==="edge"&&!(y===0||x===0||y+f.h===c.gridH||x+f.w===c.gridW)?"A horizontal spinner has to sit on an edge":"It doesn't fit there");buzz(20);return;}
   const place=Object.assign({},r.layout.place,{[key]:[x,y]});B.sel=null;
   bSet(d=>{d.layout=place;});buzz(8);}
 function bCellAt(ev){const g=$("lGrid");if(!g)return null;const rc=g.getBoundingClientRect(),c=SIM.CLASSES[bCls()];
@@ -1754,7 +1775,8 @@ function bDesignsBody(){const L=bDesigns(),cls=bCls();
     <p>Load puts a design in the draft; nothing is bought until you fit it.</p>`;}
 
 /* ---- the pinned bar, the Fit bar, the rows ---- */
-function bRender(){const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
+function bRender(){if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
+  const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
@@ -1765,51 +1787,64 @@ function bRender(){const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limi
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
 function bFitBar(r){const b=bBot(),fb=$("fitBar");
   if(b.cfg&&SIM.sameParts(b.cfg,b.draft)){fb.hidden=true;return;}
-  const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid;
+  const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid,n=bill.lines.length,off=bill.removed.length;
+  const what=[n?`${n} new part${n===1?"":"s"}`:"",off?`${off} taken off`:""].filter(Boolean).join(", ")||"Parts changed";
   fb.hidden=false;
-  fb.innerHTML=`<span class="ft"><b>${b.cfg?`${bill.lines.length} part${bill.lines.length===1?"":"s"} changed`:"Nothing fitted yet"}</b>${ok?`${fmt$(bill.cost)} · ${bill.hours} h in the workshop`:r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok?"":" disabled"}>Fit</button>`;}
+  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${ok?`${fmt$(bill.cost)} · ${bill.hours} h in the workshop`:r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok?"":" disabled"}>Fit</button>`;}
 
 /* ---- fit: show the bill, then charge it (once the career exists) ---- */
 function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const bill=SIM.fitBill(b.cfg,b.draft),c=S.career,free=!c;
   const face=l=>l.face?` (${FACE_LBL[l.face].toLowerCase()})`:"";
-  openSheet("Fit these parts",`<ul class="bill">${bill.lines.map(l=>`<li><span>${esc(l.name)}${face(l)}</span><span>${fmt$(l.cost)}</span></li>`).join("")}
+  openSheet("Fit these parts",`<ul class="bill">${bill.lines.map(l=>`<li><span>${esc(l.name)}${face(l)}</span><span>${fmt$(l.cost)}</span></li>`).join("")}${bill.removed.map(l=>`<li><span>${esc(l.name)}${face(l)} taken off</span><span>—</span></li>`).join("")}
     <li class="tot"><span>Total · ${bill.hours} h</span><span>${fmt$(bill.cost)}</span></li></ul>
     <p class="hint">${free?"No charge yet: money starts with the career.":`Paid in full; parts taken off are gone. You have ${fmt$(c.money||0)}.`}</p>
     <div class="row"><button type="button" class="btn pri" data-act="fit-ok">${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=S.career;
   if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}c.money-=bill.cost;}
-  b.cfg=clone(b.draft);b.damage={};save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);}
+  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);}
+
+/* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
+   are part keys (sim/build.js parts: drive0, wheel1, battery, weapon, selfright ...) or armour_<face> for a plate. */
+function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))delete d[x];};
+  for(const l of bill.lines.concat(bill.removed)){const s=l.slot;
+    if(s==="armour")hit(x=>x==="armour_"+l.face);
+    else if(s==="drive")hit(x=>/^drive\d$/.test(x));
+    else if(s==="wheels")hit(x=>/^wheel\d$/.test(x));
+    else if(s==="weapon"||s==="weaponMaterial")hit(x=>x==="weapon");
+    else if(s==="extras")hit(x=>x===l.id);
+    else hit(x=>x===s);}}
 
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
   if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec;B.open[id]=!B.open[id];bRender();return;}
-  if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;save();bRender();return;}
+  if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
     bSet(c=>{if(s==="armour")c.armour[B.face]=id;else c[s]=id;});return;}
   if((x=t.closest(".opt[data-extra]"))){const id=x.dataset.extra;bSet(c=>{c.extras=c.extras.indexOf(id)>=0?c.extras.filter(e=>e!==id):c.extras.concat([id]);});return;}
-  if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src)return;
+  if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src||!src.cfg||typeof src.cfg!=="object")return;
     const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=SIM.evalBuild(cfg);
-    bBot().draft=SIM.normCfg(cfg);bLayoutSync();save();bRender();
+    B.sel=null;bBot().draft=SIM.normCfg(cfg);bNormed.add(bBot().draft);bLayoutSync();save();bRender();
     const bill=SIM.fitBill(bBot().cfg,bBot().draft);toast(r.totalG>r.limitG?`${src.name} is over the limit in this class`:`${src.name} loaded into the draft${bill.lines.length?" · fitting it costs "+fmt$(bill.cost):""}`);return;}
   if((x=t.closest("[data-del]"))){const k=x.dataset.del;if(B.delKey!==k){B.delKey=k;bRender();clearTimeout(bClick.t);bClick.t=setTimeout(()=>{B.delKey=null;if(curTab==="build")bRender();},3000);return;}
     const L=bDesigns(),d=L.splice(+k.slice(1),1)[0];B.delKey=null;save();bRender();toast(`Deleted ${d?d.name:"the design"}`);return;}
   if((x=t.closest("[data-act]"))){const a=x.dataset.act;
     if(a==="armour-all"){const id=draft().armour[B.face];bSet(c=>{for(const f of ["front","back","left","right"])c.armour[f]=id;},`${bName("armour",id)} on all four sides`);}
     else if(a==="layout-reset"){B.sel=null;bSet(c=>{c.layout={};},"Parts back in their usual places");}
-    else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);B.sel=null;save();bRender();toast("Back to the fitted bot");}
+    else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);bNormed.add(b.draft);B.sel=null;save();bRender();toast("Back to the fitted bot");}
     else if(a==="fit")bFitOpen();
     else if(a==="design-save"){const L=bDesigns();if(L.length>=D_MAX){toast(`${D_MAX} designs per class. Delete one first.`);return;}
       const nm=($("dName").value||"").trim().slice(0,32)||`Design ${L.length+1}`;L.push({name:nm,cfg:clone(draft())});save();bRender();toast(`Saved ${nm}`);}
     return;}}
 /* layout: tap or drag a part, tap a cell */
-function bDown(e){const p=e.target.closest(".lpart");if(!p)return;B.drag={key:p.dataset.part,x:e.clientX,y:e.clientY,moved:false,id:e.pointerId};}
+function bDown(e){const p=e.target.closest(".lpart");if(!p)return;B.drag={key:p.dataset.part,x:e.clientX,y:e.clientY,moved:false,id:e.pointerId};
+  try{$("tab-build").setPointerCapture(e.pointerId);}catch(err){}}   // the release still reaches us if it lands outside the tab
 function bMove(e){const d=B.drag;if(!d||e.pointerId!==d.id)return;if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>8)d.moved=true;}
-function bUp(e){const g=e.target.closest&&e.target.closest("#lGrid"),d=B.drag;B.drag=null;
+function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.target,g=tg.closest&&tg.closest("#lGrid"),d=B.drag;B.drag=null;   // with the pointer captured, e.target is the tab
   if(d&&d.moved){const c=bCellAt(e);if(c)bPlace(d.key,c[0],c[1]);return;}
   if(!g)return;
-  const p=e.target.closest(".lpart");
-  if(p&&(!B.sel||B.sel===p.dataset.part)){B.sel=B.sel===p.dataset.part?null:p.dataset.part;bRender();return;}
+  const p=tg.closest(".lpart");
+  if(p){B.sel=B.sel===p.dataset.part?null:p.dataset.part;bRender();return;}   // tapping a part picks it (or another one)
   if(B.sel){const c=bCellAt(e);if(c)bPlace(B.sel,c[0],c[1]);}}
 
 TAB_RENDER.build=function(){
