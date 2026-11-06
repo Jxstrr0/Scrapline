@@ -3,7 +3,7 @@
      node tools/fight-test.js            beetle: every test build and beetle opponent against every other, 12 seeds each at
                                          two driver skills (0.5 and 0.85); test builds drive their own "auto" style
      node tools/fight-test.js all        every class (a few minutes)
-     node tools/fight-test.js hobby -q   one class, 4 seeds (quick)
+     node tools/fight-test.js hobby -q   one class, 4 seeds (quick: the balance target is printed, not enforced)
      node tools/fight-test.js -m         also print the matchup matrix (row's win % against column)
      node tools/fight-test.js -a box     fight in another arena (any ARENAS id) instead of each class's own
    It cuts SCRAP_SIM out of the built index.html (so it tests what ships) and prints, per archetype: win % against the other
@@ -53,6 +53,13 @@ function fight(cls, a, b, seed, style, extra, skill) {
   return SIM.runFight(Object.assign({ seed, arena: arenaFor(cls), bots: [
     { cfg: cfgOf(a, cls), name: a.id, driver: drv(a) }, { cfg: cfgOf(b, cls), name: b.id, driver: drv(b) }] }, extra || {}));
 }
+/* the judges' scores: finite, each column adds up to its weight and the totals to 100 */
+function judgeOk(r) {
+  const sc = r.judge && r.judge.scores; if (!sc) return false; const ks = Object.keys(sc), W = SIM.JUDGE_WEIGHTS, near = (a, b) => Math.abs(a - b) < 1e-6;
+  for (const k of ks) for (const t of ["damage", "aggression", "control", "total"]) if (!isFinite(sc[k][t])) return false;
+  for (const t of ["damage", "aggression", "control"]) if (!near(ks.reduce((a, k) => a + sc[k][t], 0), 100 * W[t])) return false;
+  return near(ks.reduce((a, k) => a + sc[k].total, 0), 100);
+}
 function finite(r) {
   if (!(r.timeS <= SIM.FIGHT.roundS + 1e-6) || !r.over) return false;
   for (const o of r.bots) { if (!isFinite(o.share)) return false; for (const k in o.damage) if (!isFinite(o.damage[k])) return false; for (const k in o.stats) if (!isFinite(o.stats[k])) return false; }
@@ -73,7 +80,7 @@ for (const cls of classes) {
       fights++; lenSum += r.timeS;
       if (r.reason === "ko" || r.reason === "pit") kos++;
       if (r.reason === "pit") pits++;
-      if (r.reason === "judges" || r.reason === "draw" && r.timeS >= SIM.FIGHT.roundS - 1e-6) { decisions++; judged++; const e = r.log.entries[r.log.entries.length - 1]; if (e && e.k === "end" && e.j) judgedOk++; }
+      if (r.reason === "judges" || r.reason === "draw" && r.timeS >= SIM.FIGHT.roundS - 1e-6) { decisions++; judged++; const e = r.log.entries[r.log.entries.length - 1]; if (e && e.k === "end" && e.j && judgeOk(r)) judgedOk++; }
       if (r.reason === "ko") { const lo = r.bots.find((o) => o.out === "ko"); if (lo && lo.stats.failHits === 1) oneHit++; }
       if (r.reason === "pit" && r.winner != null && r.bots[r.winner].style === "hazard") pitByPusher++;
       if (!finite(r)) fail(`${cls} ${A.id} v ${B.id} seed ${s} skill ${sk}: NaN or ran past the bell`);
@@ -105,7 +112,7 @@ for (const cls of classes) {
   }
   console.log("  (* a named opponent, driving its own style; the 35-65% target is for the test builds)");
   if (near.length) console.log(`  outside 35-65% by less than ${Math.round(SLACK * 100)} points (sampling noise at this many seeds is about 3-4): ${near.join(", ")}`);
-  if (off.length && !arenaArg) fail(`${cls}: archetypes more than ${Math.round(SLACK * 100)} points outside 35-65%: ${off.join(", ")}`);
+  if (off.length && !arenaArg && !quick) fail(`${cls}: archetypes more than ${Math.round(SLACK * 100)} points outside 35-65%: ${off.join(", ")}`);
   if (matrix) {
     console.log("  matchups (row's win % against column; a draw counts half):");
     console.log("              " + field.map((t) => t.id.slice(0, 5).padStart(6)).join(""));
@@ -156,6 +163,42 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
   }
   if (!lifts) fail("the lifter never lifted the wedge or the brick");
   if (longest > SIM.FIGHT.holdMaxS + 0.05) fail(`a lifter held a bot for ${longest.toFixed(1)} s, past the ${SIM.FIGHT.holdMaxS} s limit`);
+}
+/* PR 4b review: the pin limit breaks a pin made with the front or the rear; player fights replay in every arena;
+   no start sits on a floor spinner; a front-to-front tie never puts a bot under a disc at speed */
+{
+  for (const rev of [false, true]) {
+    const F = SIM.newFight({ seed: 1, arena: "box", bots: [{ cfg: cfgOf(T("brick"), cls), driver: null }, { cfg: cfgOf(T("wedge"), cls), driver: null }] }), [A, B] = F.bots, H = F.arena.half;
+    B.x = H - 0.12 * B.M.len; B.y = 0; B.h = 0; A.x = B.x - 0.3 * A.M.len; A.y = 0; A.h = rev ? Math.PI : 0;
+    /* every release has to break contact before its back-off ends (a bot that then drives itself back onto the wedge is its own business) */
+    let rel = null, broke = 0, rels = 0;
+    for (let n = 0; n < 60 * 40 && !F.over; n++) { const L = F.log.length; SIM.stepFight(F, { 0: { throttle: rev ? -1 : 1 }, 1: {} });
+      for (let k = L; k < F.log.length; k++) if (F.log[k].k === "release" && F.log[k].a === 0) { if (rel != null) break; rel = F.t; rels++; }
+      if (rel != null && !(A.touch[1] != null && F.t - A.touch[1] < 0.05)) { broke++; rel = null; }
+      else if (rel != null && F.t - rel > SIM.FIGHT.releaseS + 0.3) { fail(`${cls}: a ${rev ? "rear" : "front"} pin didn't break when the pinner backed off at ${rel.toFixed(1)} s`); rel = null; } }
+    if (!rels) fail(`${cls}: a ${rev ? "rear" : "front"} pin against the wall never hit the pin limit`);
+  }
+  let bad = 0, n = 0;
+  for (const arena of SIM.ARENA_IDS) for (let s = 1; s <= 3; s++) {
+    const ids = SIM.TEST_BUILDS.map((t) => t.id), a = ids[s % ids.length], b = ids[(s * 5 + 3) % ids.length];
+    const r = SIM.runFight({ seed: s * 1013 + 7, arena, bots: [{ cfg: cfgOf(T(a), cls), driver: null }, { cfg: cfgOf(T(b), cls), driver: { style: "auto", skill: 0.7 } }],
+      inputs: (F) => ({ 0: { throttle: Math.sin(F.n / 37 + s), steer: Math.cos(F.n / 53), weapon: (F.n >> 6) & 1, selfRight: (F.n % 200) < 10 ? 1 : 0 } }) });
+    const rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log))), strip = (x) => JSON.stringify(Object.assign({}, x, { log: Object.assign({}, x.log, { inputs: null }) }));
+    n++; if (!rp || strip(rp) !== strip(r)) { bad++; fail(`a player fight in ${arena} (seed ${s}) replayed differently`); }
+  }
+  let onSpin = 0;
+  for (const arena of SIM.ARENA_IDS) for (let s = 1; s <= 16; s++) for (const nb of [2, 3, 4]) {
+    const F = SIM.newFight({ seed: s, arena, bots: Array.from({ length: nb }, () => ({ cfg: cfgOf(T("wedge"), cls), driver: { style: "rush", skill: 0.5 } })) });
+    for (const h of F.arena.haz) if (h.type === "spinner") for (const o of F.bots) if (Math.hypot(o.x - h.at[0], o.y - h.at[1]) < h.rM + o.rad) onSpin++;
+  }
+  if (onSpin) fail(`${onSpin} starts sit on a floor spinner`);
+  for (const [x, y] of [["hammer", "drum"], ["drum", "hammer"]]) {
+    const F = SIM.newFight({ seed: 2, arena: "box", bots: [{ cfg: cfgOf(T(x), cls), driver: null }, { cfg: cfgOf(T(y), cls), driver: null }] }), [A, B] = F.bots;
+    A.x = -0.2 * A.M.len; A.y = 0; A.h = 0; B.x = 0.2 * B.M.len; B.y = 0; B.h = Math.PI; const D = x === "drum" ? A : B;
+    for (let k = 0; k < 60 && !F.over; k++) { D.wp.om = D.b.weapon.omega; D.fx.weaponOk = false; SIM.stepFight(F, { 0: { throttle: 0.6 }, 1: { throttle: 0.6 } }); }
+    if (F.log.some((e) => e.k === "under" && F.bots[e.v] === D)) fail(`a ${x === "drum" ? y : x} got under a drum spinning at full speed`);
+  }
+  console.log(`review checks: pins break front and rear, ${n - bad}/${n} arena replays match, starts clear of floor spinners, tie-break respects the disc guard`);
 }
 /* the worst stick there is (flat out, flipping every tick, 4 bots): the log still fits, giving up the replay if it must */
 {

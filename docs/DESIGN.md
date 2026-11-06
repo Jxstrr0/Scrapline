@@ -106,22 +106,23 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - **Regional arena** (featherweights): two pushers, a floor spinner, and a pit in a corner that opens at 0:30.
   - **The Eisenhalle** (heavyweights, the Scrapline Open): pushers on two walls, two floor spinners, and a pit that opens at 0:45.
   
-  A **pusher** shoves anything in its strike zone across the floor and dents the face that meets it. A **floor spinner** hits from below, throws the bot up and sideways and spins it. Both re-arm after a few seconds. The layout turns by a quarter turn picked from the seed (same seed, same layout), and the start spots keep clear of the pit.
-- **The judges** (`JUDGE_WEIGHTS`): at the bell, damage counts 50, aggression 25 and control 25, and the three scores always add up to 100.
-  - Damage is the hp each side took off the other in this fight; carried-in damage doesn't count.
+  A **pusher** shoves anything in its strike zone across the floor and dents the face that meets it. A **floor spinner** hits from below, throws the bot up and sideways and spins it. Both re-arm after a few seconds. The layout turns by a quarter turn picked from the seed (same seed, same layout), and the start spots are turned to keep as far as they can from the pit and the floor spinners.
+- **The judges** (`JUDGE_WEIGHTS`): at the bell, damage counts 50, aggression 25 and control 25, and the scores always add up to 100 (rounded to tenths so each row and the totals add up exactly).
+  - Damage is the hp each side took off the other in this fight; carried-in damage and knocks between teammates don't count.
   - Aggression is time spent closing or in contact, less time running away.
   - Control is time the other bot spent lifted, pinned on a wall, stuck upside down, or under a wedge that is driving it about (sat still underneath isn't control). Each shove into a hazard adds a few seconds.
   
   The Fight tab shows the three scores in a table.
 - **New rules:**
-  - **Pin limit:** a pin (under a wedge, or against a wall) is broken after 10 s, like a lift: the pinner backs off for 1.2 s.
+  - **Pin limit:** a pin (under a wedge, or against a wall) is broken after 10 s, like a lift: the pinner backs straight away from the pinned bot for 1.2 s (forwards if it was pinning with its rear).
   - **Discs against wedges:**
-    - A vertical disc or drum spinning above half speed meets a wedge first, so nothing gets under its front.
+    - A vertical disc or drum spinning above half speed meets a wedge first, so nothing gets under its front (not even on a tie between two equal front edges).
     - A vertical that hits a sloped front (wedge, flipper, lifter) catches the lip: 1.8x the energy (drum 1.3x), no glance.
     - A sloped front adds to the chance a horizontal disc or undercutter glances off.
   - **Gyro:** a vertical disc at full speed fights turning (heavyweights' discs more so).
   - **Self-flip:** a big hit can throw a vertical spinner onto its back.
   - **Shock:** a hit with 60% or more of the disc's full energy has a small chance (per class, halved by failsafe electronics) to shake the electronics loose, whatever the armour. This is where the heavier classes' single-hit knockouts come from.
+  - **Featherweights** keep a little more grip when caught on a wedge (30% against 20%).
   - **Heavyweight hits** count 1.2x, because their discs spin up slower and land fewer full hits.
 - **Eight AI styles** (`AI_STYLES`): rush and keep-away from PR 4a, plus:
   - **aggressive:** rushes and fires early;
@@ -157,8 +158,8 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - The control scheme and handedness settings arrive with the arena in PR 5.
 - Balance sits at the edges in places (0.1.5.0 numbers):
   - Lifter 65-67% in ant, beetle and hobby; Undercutter 69% in ant.
-  - Drum 67%, Invertible box 68% and Hammer 32% in beetle; Wedge 70% in feather and heavy.
-  - The harness fails a test build more than 5 points outside 35-65%; inside that, it just lists it (sampling noise is about 3-4 points at 12 seeds).
+  - Drum 68%, Invertible box 68% and Hammer 32% in beetle; Drum 67% in feather; Wedge 70% in heavy.
+  - The harness fails a test build more than 5 points outside 35-65% (not on a `-q` quick pass, where 4 seeds are mostly noise); inside that, it just lists it (sampling noise is about 3-4 points at 12 seeds).
   - The pit decides most small-class fights (79% of ant fights, 64% of beetle).
   - Named crushers are strong: Schraubstock 67%, Zange 86% (crushers aren't among the test builds). The career (PR 7) sets who meets whom.
 - The pin limit takes over the player's drive for 1.2 s, and nothing on screen says so yet (PR 5's controls).

@@ -25,6 +25,7 @@ const STEP_HZ=60;
 const WEDGE_RULES={
   tolMm:0.3,
   underGrip:0.2,    // the lifted bot keeps this share of its grip
+  underGripClass:{feather:0.3},   // ... more in these classes (PR 4b review: the feather wedge sat just over the balance target)
   underBite:0.5,    // and its own weapon lands this share of its energy ...
   underBiteBy:{vsp:0.9,drum:0.75},   // ... except a vertical disc, which still bites the wedge it's sitting on
   discGuard:{vsp:0.5,drum:0.6},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
@@ -158,7 +159,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,
-    input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},wallT:null,pin:null,release:-1,airBy:null,invBy:null,
+    input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},wallT:null,pin:null,release:-1,releaseFrom:-1,airBy:null,invBy:null,
     stats:{dealt:0,taken:0,hits:0,landed:0,failHits:0},jd:{close:0,contact:0,retreat:0,ctrl:0}};
   o.rad=Math.max(...o.poly.map(p=>Math.hypot(p[0],p[1])));
   o.fx=damageEffects(b,o.st,o.flags);
@@ -174,9 +175,12 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
   const n=F.bots.length,R=F.arena.half*0.6;
-  /* the ring is turned so the pit is as far as it can be from the nearest start: in a 1v1, both bots equally far */
-  let off=-Math.PI/2;if(F.arena.pit){const r=F.arena.pit.rect,cx=(r[0]+r[2])/2,cy=(r[1]+r[3])/2;let best=-1;
-    for(let k=0;k<8;k++){const a0=-Math.PI/2+k*Math.PI/4/n;let m=1e9;for(let i=0;i<n;i++){const a=a0+2*Math.PI*i/n;m=Math.min(m,Math.hypot(R*Math.cos(a)-cx,R*Math.sin(a)-cy));}
+  /* the ring is turned so the pit and the floor spinners are as far as they can be from the nearest start (distance to
+     the pit's centre, or to a spinner's rim); in a 1v1, both bots equally far */
+  const keep=[];if(F.arena.pit){const r=F.arena.pit.rect;keep.push([(r[0]+r[2])/2,(r[1]+r[3])/2,0]);}
+  for(const h of F.arena.haz)if(h.type==="spinner")keep.push([h.at[0],h.at[1],h.rM]);
+  let off=-Math.PI/2;if(keep.length){let best=-1e9;
+    for(let k=0;k<8;k++){const a0=-Math.PI/2+k*Math.PI/4/n;let m=1e9;for(let i=0;i<n;i++){const a=a0+2*Math.PI*i/n;for(const q of keep)m=Math.min(m,Math.hypot(R*Math.cos(a)-q[0],R*Math.sin(a)-q[1])-q[2]);}
       if(m>best+1e-9){best=m;off=a0;}}}
   F.bots.forEach((o,i)=>{const a=off+2*Math.PI*i/n+rRange(F.rng,-0.04,0.04);o.x=R*Math.cos(a);o.y=R*Math.sin(a);
     if(F.arena.pit){const r=F.arena.pit.rect,e=o.rad*1.2;for(let k=0;k<20&&o.x>r[0]-e&&o.x<r[2]+e&&o.y>r[1]-e&&o.y<r[3]+e;k++){o.x*=0.9;o.y*=0.9;}}   // never start over the pit
@@ -323,11 +327,15 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     if(!o.flags.bent&&E>w.bendJ*(0.85+0.3*F.rng())){o.flags.bent=true;o.fx=damageEffects(o.b,o.st,o.flags);logIt(F,{k:"self",v:o.i,what:"bent",E:r2(E)});}
     if(full&&E>w.shearJ*(0.8+0.4*F.rng())&&o.st.parts.weapon>0){const before=o.fx;o.st.parts.weapon=0;o.fx=damageEffects(o.b,o.st,o.flags);logIt(F,{k:"self",v:o.i,what:"shear",E:r2(E)});fxDiff(F,o,before);}}}
 
-function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F.t?{throttle:-FIGHT.releaseThr,steer:0}:o.input;let draw=0;
+/* backing off after the pin limit: drive straight away from the bot it pinned, forwards or backwards, whichever face
+   is nearer to away (a pin made with the rear drives off forwards; side-on it slides off along its heading) */
+function releaseInput(F,o){const v=F.bots[o.releaseFrom];if(!v)return{throttle:-FIGHT.releaseThr,steer:0,weapon:0,selfRight:0};
+  const c=Math.cos(o.h)*(o.x-v.x)+Math.sin(o.h)*(o.y-v.y);return{throttle:(c<0?-1:1)*FIGHT.releaseThr,steer:0,weapon:0,selfRight:0};}
+function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F.t?releaseInput(F,o):o.input;let draw=0;
   const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
   if(o.air){o.cmd=[0,0];return 0;}
   const go=mobile(o)&&!o.righting,p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
-  const gripMul=o.held!=null?FIGHT.liftGrip:o.under?WEDGE_RULES.underGrip:1;
+  const gripMul=o.held!=null?FIGHT.liftGrip:o.under?(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
   let cL=go?clamp1(u.throttle+u.steer):0,cR=go?clamp1(u.throttle-u.steer):0;
   o.cmd=[cL,cR];let FL=0,FR=0;
@@ -369,16 +377,18 @@ function collide(F,A,B){if(A.air||B.air||A.out==="pit"||B.out==="pit")return;
     const tx=-n.ny,ty=n.nx,vt=vr[0]*tx+vr[1]*ty,ta=ra[0]*ty-ra[1]*tx,tb=rb[0]*ty-rb[1]*tx,kt=ima+imb+ta*ta/A.I+tb*tb/B.I;
     let jt=-vt/kt;const lim=FIGHT.contactMu*jn;jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(A,-tx*jt,-ty*jt,px,py);impulseAt(B,tx*jt,ty*jt,px,py);
     const mu=1/(ima+imb),Elost=0.5*mu*vn*vn*(1-FIGHT.restitution*FIGHT.restitution)*FIGHT.ramShare;
-    if(Elost>FIGHT.ramMinJ*F.M.mass){damageBot(F,A,fa,Elost,"ram",B.i);damageBot(F,B,fb,Elost,"ram",A.i);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
+    if(Elost>FIGHT.ramMinJ*F.M.mass){const foe=A.team!==B.team;   // a knock from a teammate still hurts but earns nothing with the judges
+      damageBot(F,A,fa,Elost,"ram",foe?B.i:-1);damageBot(F,B,fb,Elost,"ram",foe?A.i:-1);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
 function edgeOf(o,face){return face==="front"?o.b.height.frontEdgeMm:o.b.height.clearanceMm;}
 function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_RULES.holdS;
   const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
-  const under=(X,Y,fy)=>{if(X.inverted&&!X.b.height.drivesInverted)return false;if(guard(Y,fy))return false;return edgeOf(X,"front")<edgeOf(Y,fy)-tol;};
+  const can=(X,Y,fy)=>!(X.inverted&&!X.b.height.drivesInverted)&&!guard(Y,fy);
+  const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<edgeOf(Y,fy)-tol;
   let win=null;
   if(fa==="front"&&under(A,B,fb))win=[A,B];else if(fb==="front"&&under(B,A,fa))win=[B,A];
   else if(fa==="front"&&fb==="front"&&Math.abs(edgeOf(A,"front")-edgeOf(B,"front"))<=tol){
     const sc=o=>(o.cfg.extras.indexOf("skid")>=0?2:0)+(["wedge","lifter","flipper"].indexOf(o.b.weapon.type)>=0?part("weaponMaterial",o.cfg.weaponMaterial).hp/1000:part("chassis",o.cfg.chassis).hp/1000);
-    const a=sc(A),b=sc(B);if(Math.abs(a-b)>1e-9)win=a>b?[A,B]:[B,A];}
+    const a=sc(A),b=sc(B);if(Math.abs(a-b)>1e-9)win=a>b?[A,B]:[B,A];if(win&&!can(win[0],win[1],"front"))win=null;}
   if(!win||win[0].team===win[1].team)return;const[X,Y]=win;
   const seen=Y.underLog||(Y.underLog={});if(!(seen[X.i]>F.t-1.5))logIt(F,{k:"under",a:X.i,v:Y.i});seen[X.i]=F.t;   // one line per spell under
   Y.under={by:X.i,until:F.t+hold};if(X.under&&X.under.by===Y.i)X.under=null;}
@@ -404,7 +414,7 @@ function stepHazards(F){const H=F.arena.haz;
 function hazBy(F,o){let best=null,bt=-1;for(const k in o.touch){const t=F.bots[k];if(t&&t.team!==o.team&&!t.out&&F.t-o.touch[k]<1&&o.touch[k]>bt){bt=o.touch[k];best=t;}}return best;}
 function hazHit(F,h,i,o){const sq=Math.sqrt(F.M.len),E=h.J*F.M.mass,by=hazBy(F,o),tag={h:i,what:h.type};let nx,ny;
   if(h.type==="pusher"){nx=h.n[0];ny=h.n[1];damageBot(F,o,faceAt(o,o.x-nx*o.rad,o.y-ny*o.rad),E,"haz",-1,{tag});}
-  else{const a=F.rng()*2*Math.PI;nx=Math.cos(a);ny=Math.sin(a);damageBot(F,o,"under",E,"haz",-1,{below:1,tag});
+  else{const a=F.rng()*2*Math.PI;nx=Math.cos(a);ny=Math.sin(a);damageBot(F,o,"under",E,"haz",-1,{below:1,inverted:o.inverted,tag});
     o.w=Math.max(-FIGHT.maxSpin,Math.min(FIGHT.maxSpin,o.w+(F.rng()<0.5?-1:1)*h.spinRad));}
   o.vx+=nx*h.kickMs*sq;o.vy+=ny*h.kickMs*sq;
   if(h.vzMs>0){const vz=h.vzMs*sq,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*o.M.len)launch(F,o,vz,F.rng()<invertChance(F,hM),null,by?by.i:null);}
@@ -428,7 +438,7 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;
     /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
-      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
+      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
 function outBot(F,o,why){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;}
@@ -474,14 +484,18 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
    what each did plus FIGHT.judge.ref (evenly when nobody did any), x 100 x its weight, so the scores add up to 100. A
    draw only when the totals are within half a point. */
 function hpTotal(b){return Object.values(b.armourMapJ).reduce((a,f)=>a+(f.hpJ||0),0)+b.parts.reduce((a,p)=>a+(p.hpJ||0),0)+chassisHp(b);}
+/* v rounded to whole tenths that add up to exactly want tenths (largest remainder; ties to the earlier team) */
+function tenths(v,want){const f=v.map(x=>Math.floor(x*10+1e-9)),left=want-f.reduce((a,x)=>a+x,0);
+  const ord=v.map((x,i)=>i).sort((a,b)=>(v[b]*10-f[b])-(v[a]*10-f[a])||a-b);for(let k=0;k<left&&k<ord.length;k++)f[ord[k]]++;return f;}
 function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},hp=F.bots.reduce((a,o)=>a+hpTotal(o.b),0)/F.bots.length,T=Math.max(F.t,1);
   for(const o of F.bots){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
     s.damage+=o.stats.dealt/hp;s.aggression+=Math.max(0,o.jd.close+o.jd.contact-o.jd.retreat)/T;s.control+=o.jd.ctrl/T;}
   const ks=Object.keys(raw).filter(k=>F.bots.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
   for(const k of ks){sc[k]={damage:0,aggression:0,control:0,total:0};tot[k]=0;}
   for(const term of ["damage","aggression","control"]){const sum=ks.reduce((a,k)=>a+raw[k][term]+R[term],0);
-    for(const k of ks){const v=100*W[term]*(raw[k][term]+R[term])/sum;sc[k][term]=Math.round(v*10)/10;tot[k]+=v;}}
-  for(const k of ks)sc[k].total=Math.round(tot[k]*10)/10;
+    const v=ks.map(k=>100*W[term]*(raw[k][term]+R[term])/sum),t=tenths(v,Math.round(1000*W[term]));
+    ks.forEach((k,i)=>{sc[k][term]=t[i]/10;tot[k]+=v[i];});}
+  for(const k of ks)sc[k].total=Math.round((sc[k].damage+sc[k].aggression+sc[k].control)*10)/10;   // the rows the table shows, so it adds up
   const order=ks.slice().sort((a,b)=>tot[b]-tot[a]);F.judge={scores:sc,raw};
   if(order.length>1&&tot[order[0]]-tot[order[1]]<0.5){F.winner=null;F.reason="draw";}
   else{F.winner=F.bots.find(o=>String(o.team)===order[0]).team;F.reason="judges";}}

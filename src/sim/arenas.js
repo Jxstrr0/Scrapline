@@ -11,7 +11,8 @@
               the landing model), throws the bot kickMs sideways and vzMs up, and spins it by spinRad (rad/s).
    startS: a hazard stays still before this. Layout: the arena is turned by a multiple of 90 degrees picked from the
    seed (the same seed, the same layout), so a hazard isn't always on the same side of the start. Bots start on a ring at
-   0.6 x half the side, so pits and floor spinners keep clear of it (nearer than 0.4 x half, or further than 0.75 x half).
+   0.6 x half the side, turned so the pit and the floor spinners are as far from the starts as they can be (sim/fight.js
+   newFight).
    Each class has its usual arena (CLASSES[cls].arenaId), which is where tools/fight-test.js balances it (Kelbo, PR 4b);
    the plain test box has walls only.
    JUDGE_WEIGHTS: a time-up decision (sim/fight.js judgeFight). Each term is shared between the teams in proportion to
