@@ -119,7 +119,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.i
 $("cardOpen").addEventListener("click",bcOpen);
 
 /* ---- the tutorial ---- */
-const TUT={bak:null,ft:null,i:-1,timer:0,shown:-1,scrolled:-1};
+const TUT={bak:null,ft:null,cls:null,i:-1,timer:0,shown:-1,scrolled:-1};
 const tutWedge=()=>Object.assign({},SIM.TEST_BUILDS.find(t=>t.id==="wedge").cfg,{cls:"beetle"});
 const tutIsWedge=cfg=>!!cfg&&cfg.cls==="beetle"&&SIM.sameParts(SIM.normCfg(cfg),SIM.normCfg(tutWedge()));
 const TUT_OPP="feierabend";
@@ -134,16 +134,16 @@ const TUT_STEPS=[
   {tab:"fight",pre:tutFightPrep,sel:'[data-ft="go"]',t:"Spar a club bot",x:()=>`${SIM.OPPONENTS.find(o=>o.id===TUT_OPP).name} is a careful club bot. Tap Fight and drive: ${ST().controls==="tactical"?"tap the floor to go there, tap them to attack":"the stick steers"}. The wedge has no weapon, so shove them into the wall and keep your front on them. Ninety seconds.`,done:()=>FT.rounds.length>0&&!FT.on},
   {tab:"fight",sel:"#rpCard",t:"Read the post-mortem",x:()=>"Every fight ends with this: the hits on a timeline, the damage map, the chain of causes, and one change to try. In a career, the repair bill under it is real money.",n:"Next"},
   {t:"That's the loop",x:()=>"Build it, prove it on the bench, fight, read why, build better. The loaner goes back now and your workshop is as you left it. The Career tab starts the real thing; Settings has this tutorial again.",n:"Back to my workshop",last:true}];
-function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";}
+function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
 function tutStart(){if(TUT_ON||FT.on)return;closeSheet();
-  TUT.bak=snapshot();TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
+  TUT.bak=snapshot();TUT.cls=ST().buildCls;TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
   S.career=null;S.bots={};S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
   B.open={designs:true};B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;if(typeof crReset==="function")crReset();
   hud();tmPaint();tutCoach();tutGo(0);
   TUT.timer=setInterval(tutTick,300);}
 /* end it: the snapshot comes back, with this phone's settings as they are now */
 function tutStop(){if(!TUT_ON)return;clearInterval(TUT.timer);TUT.timer=0;const keep=ST();
-  S=TUT.bak;S.settings=keep;ST().tutDone=true;TUT.bak=null;TUT_ON=false;TUT.i=-1;
+  S=TUT.bak;S.settings=keep;ST().tutDone=true;if(TUT.cls)ST().buildCls=TUT.cls;TUT.bak=null;TUT_ON=false;TUT.i=-1;
   Object.assign(FT,TUT.ft||{});FT.F=null;FT.rounds=[];FT.bout=null;B.open={stress:true};B.sel=null;B.delKey=null;if(typeof crReset==="function")crReset();
   const el=$("coach");if(el)el.hidden=true;document.documentElement.classList.remove("tut");
   if(sheetOn())closeSheet();save();applyAll();showTab("build");}

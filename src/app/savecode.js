@@ -71,7 +71,10 @@ function buSum(body){let h=2166136261;for(let i=0;i<body.length;i++){h^=body.cha
 /* ---- making a code ---- */
 function buStored(k){try{const j=localStorage.getItem(k);if(!j)return null;const o=JSON.parse(j);return o&&typeof o==="object"&&!Array.isArray(o)?o:null;}catch(e){return null;}}
 function buMake(){const slots=[];for(let i=1;i<=SLOTS;i++)slots.push(buStored(slotKey(i)));
-  return{v:BU_V,at:Date.now(),ver:VERSION,save:snapshot(),slots};}
+  return{v:BU_V,at:Date.now(),ver:VERSION,save:buGame(),slots};}
+/* the game to back up: during the tutorial S is the loaner, so it is the real game put aside (TUT.bak, app/help.js)
+   with this phone's settings */
+function buGame(){if(typeof TUT_ON!=="undefined"&&TUT_ON&&TUT.bak){const o=JSON.parse(JSON.stringify(TUT.bak));o.settings=clone(ST());if(TUT.cls)o.settings.buildCls=TUT.cls;return o;}return snapshot();}
 function buCode(d){const body=buZip(new TextEncoder().encode(JSON.stringify(d||buMake())));return BU_PREFIX+body+buSum(body);}
 
 /* ---- checking a save before anything is written ---- */
@@ -81,10 +84,12 @@ function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
   for(const k of ["designs","unlocks","rivals"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
+  /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */
   if("career" in o&&o.career!=null){const c=o.career;if(!buObj(c))return false;
-    for(const k of ["events","results"])if(k in c&&!Array.isArray(c[k]))return false;
-    for(const k of ["rep"])if(k in c&&!buObj(c[k]))return false;
-    for(const k of ["money","year","week","hours","loan","driverXp"])if(k in c&&!buNum(c[k]))return false;}
+    if(o.v>=5){
+      for(const k of ["results","ledger","seasons","offers","trophies"])if(k in c&&!Array.isArray(c[k]))return false;
+      for(const k of ["events","loan"])if(k in c&&!buObj(c[k]))return false;
+      for(const k of ["money","year","week","season","act","hours","driverXp","rep"])if(k in c&&!buNum(c[k]))return false;}}
   return buTry(o);}
 /* load a copy the way the game would (hydrate), then put the running game back exactly as it was */
 function buTry(o){const keep=S;let ok=false;
@@ -192,7 +197,7 @@ function buStoreLine(){if(typeof document==="undefined")return;const els=documen
   let st=null;try{st=navigator.storage;}catch(e){}
   if(!st||!st.persisted){put(last);return;}
   st.persisted().then(p=>put((p?"Storage: kept on this device. ":"Storage: the browser may clear saves if the phone runs low. Keep a backup file. ")+last),()=>put(last));}
-function buMarkBackup(){if(!S)return;S.lastBackup=Date.now();try{save();}catch(e){}buPersist();buStoreLine();buRemindHide();}
+function buMarkBackup(){if(!S)return;S.lastBackup=Date.now();if(TUT_ON&&TUT.bak)TUT.bak.lastBackup=S.lastBackup;try{save();}catch(e){}buPersist();buStoreLine();buRemindHide();}
 function buFileName(d){d=d||new Date();const p=n=>String(n).padStart(2,"0");return`scrapline-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.txt`;}   // local date
 async function buFileSave(){let code="";try{code=buCode();}catch(e){}
   if(!code){toast("Couldn't make a backup on this device");return;}
@@ -219,7 +224,7 @@ async function buFileRead(inp){const f=inp.files&&inp.files[0];inp.value="";if(!
   buRestore(text||"\u0000",$("codeErr"));}
 /* the reminder: real progress and no backup in BU_REMIND_DAYS days. Once per session, never over a fight, a sheet or
    the intro; it tries again later if busy. */
-function buRemindDue(){return buProgress()&&(!buNum(S.lastBackup)||!S.lastBackup||Date.now()-S.lastBackup>=BU_REMIND_DAYS*864e5);}
+function buRemindDue(){return !TUT_ON&&buProgress()&&(!buNum(S.lastBackup)||!S.lastBackup||Date.now()-S.lastBackup>=BU_REMIND_DAYS*864e5);}
 function buBusy(){return buFighting()||sheetOn()||!$("intro").hidden||!!document.querySelector("#pwaBar.on");}
 function buRemind(tries){if(buReminded||!buRemindDue())return;
   if(buBusy()){if((tries|0)<20)setTimeout(()=>buRemind((tries|0)+1),30000);return;}

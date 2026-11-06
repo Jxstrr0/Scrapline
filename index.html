@@ -226,7 +226,7 @@ html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: 
 @media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
 /* a phone on its side (PR 9): the 3D view on the left, the tab and the tab bar on the right, so neither is a sliver */
 @media (max-height:560px) and (orientation:landscape){#app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-  #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:44%}#tabs button{font-size:11px}}
+  #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:calc(env(safe-area-inset-left,0px) + (100% - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))*.44);right:env(safe-area-inset-right,0px)}#tabs button{font-size:11px}}
 
 /* ---- the Bench tab (app/bench.js) ---- */
 .bncls{margin:0 0 12px}
@@ -3226,7 +3226,10 @@ function buSum(body){let h=2166136261;for(let i=0;i<body.length;i++){h^=body.cha
 /* ---- making a code ---- */
 function buStored(k){try{const j=localStorage.getItem(k);if(!j)return null;const o=JSON.parse(j);return o&&typeof o==="object"&&!Array.isArray(o)?o:null;}catch(e){return null;}}
 function buMake(){const slots=[];for(let i=1;i<=SLOTS;i++)slots.push(buStored(slotKey(i)));
-  return{v:BU_V,at:Date.now(),ver:VERSION,save:snapshot(),slots};}
+  return{v:BU_V,at:Date.now(),ver:VERSION,save:buGame(),slots};}
+/* the game to back up: during the tutorial S is the loaner, so it is the real game put aside (TUT.bak, app/help.js)
+   with this phone's settings */
+function buGame(){if(typeof TUT_ON!=="undefined"&&TUT_ON&&TUT.bak){const o=JSON.parse(JSON.stringify(TUT.bak));o.settings=clone(ST());if(TUT.cls)o.settings.buildCls=TUT.cls;return o;}return snapshot();}
 function buCode(d){const body=buZip(new TextEncoder().encode(JSON.stringify(d||buMake())));return BU_PREFIX+body+buSum(body);}
 
 /* ---- checking a save before anything is written ---- */
@@ -3236,10 +3239,12 @@ function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
   for(const k of ["designs","unlocks","rivals"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
+  /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */
   if("career" in o&&o.career!=null){const c=o.career;if(!buObj(c))return false;
-    for(const k of ["events","results"])if(k in c&&!Array.isArray(c[k]))return false;
-    for(const k of ["rep"])if(k in c&&!buObj(c[k]))return false;
-    for(const k of ["money","year","week","hours","loan","driverXp"])if(k in c&&!buNum(c[k]))return false;}
+    if(o.v>=5){
+      for(const k of ["results","ledger","seasons","offers","trophies"])if(k in c&&!Array.isArray(c[k]))return false;
+      for(const k of ["events","loan"])if(k in c&&!buObj(c[k]))return false;
+      for(const k of ["money","year","week","season","act","hours","driverXp","rep"])if(k in c&&!buNum(c[k]))return false;}}
   return buTry(o);}
 /* load a copy the way the game would (hydrate), then put the running game back exactly as it was */
 function buTry(o){const keep=S;let ok=false;
@@ -3347,7 +3352,7 @@ function buStoreLine(){if(typeof document==="undefined")return;const els=documen
   let st=null;try{st=navigator.storage;}catch(e){}
   if(!st||!st.persisted){put(last);return;}
   st.persisted().then(p=>put((p?"Storage: kept on this device. ":"Storage: the browser may clear saves if the phone runs low. Keep a backup file. ")+last),()=>put(last));}
-function buMarkBackup(){if(!S)return;S.lastBackup=Date.now();try{save();}catch(e){}buPersist();buStoreLine();buRemindHide();}
+function buMarkBackup(){if(!S)return;S.lastBackup=Date.now();if(TUT_ON&&TUT.bak)TUT.bak.lastBackup=S.lastBackup;try{save();}catch(e){}buPersist();buStoreLine();buRemindHide();}
 function buFileName(d){d=d||new Date();const p=n=>String(n).padStart(2,"0");return`scrapline-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.txt`;}   // local date
 async function buFileSave(){let code="";try{code=buCode();}catch(e){}
   if(!code){toast("Couldn't make a backup on this device");return;}
@@ -3374,7 +3379,7 @@ async function buFileRead(inp){const f=inp.files&&inp.files[0];inp.value="";if(!
   buRestore(text||"\u0000",$("codeErr"));}
 /* the reminder: real progress and no backup in BU_REMIND_DAYS days. Once per session, never over a fight, a sheet or
    the intro; it tries again later if busy. */
-function buRemindDue(){return buProgress()&&(!buNum(S.lastBackup)||!S.lastBackup||Date.now()-S.lastBackup>=BU_REMIND_DAYS*864e5);}
+function buRemindDue(){return !TUT_ON&&buProgress()&&(!buNum(S.lastBackup)||!S.lastBackup||Date.now()-S.lastBackup>=BU_REMIND_DAYS*864e5);}
 function buBusy(){return buFighting()||sheetOn()||!$("intro").hidden||!!document.querySelector("#pwaBar.on");}
 function buRemind(tries){if(buReminded||!buRemindDue())return;
   if(buBusy()){if((tries|0)<20)setTimeout(()=>buRemind((tries|0)+1),30000);return;}
@@ -5506,7 +5511,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.i
 $("cardOpen").addEventListener("click",bcOpen);
 
 /* ---- the tutorial ---- */
-const TUT={bak:null,ft:null,i:-1,timer:0,shown:-1,scrolled:-1};
+const TUT={bak:null,ft:null,cls:null,i:-1,timer:0,shown:-1,scrolled:-1};
 const tutWedge=()=>Object.assign({},SIM.TEST_BUILDS.find(t=>t.id==="wedge").cfg,{cls:"beetle"});
 const tutIsWedge=cfg=>!!cfg&&cfg.cls==="beetle"&&SIM.sameParts(SIM.normCfg(cfg),SIM.normCfg(tutWedge()));
 const TUT_OPP="feierabend";
@@ -5521,16 +5526,16 @@ const TUT_STEPS=[
   {tab:"fight",pre:tutFightPrep,sel:'[data-ft="go"]',t:"Spar a club bot",x:()=>`${SIM.OPPONENTS.find(o=>o.id===TUT_OPP).name} is a careful club bot. Tap Fight and drive: ${ST().controls==="tactical"?"tap the floor to go there, tap them to attack":"the stick steers"}. The wedge has no weapon, so shove them into the wall and keep your front on them. Ninety seconds.`,done:()=>FT.rounds.length>0&&!FT.on},
   {tab:"fight",sel:"#rpCard",t:"Read the post-mortem",x:()=>"Every fight ends with this: the hits on a timeline, the damage map, the chain of causes, and one change to try. In a career, the repair bill under it is real money.",n:"Next"},
   {t:"That's the loop",x:()=>"Build it, prove it on the bench, fight, read why, build better. The loaner goes back now and your workshop is as you left it. The Career tab starts the real thing; Settings has this tutorial again.",n:"Back to my workshop",last:true}];
-function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";}
+function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
 function tutStart(){if(TUT_ON||FT.on)return;closeSheet();
-  TUT.bak=snapshot();TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
+  TUT.bak=snapshot();TUT.cls=ST().buildCls;TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
   S.career=null;S.bots={};S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
   B.open={designs:true};B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;if(typeof crReset==="function")crReset();
   hud();tmPaint();tutCoach();tutGo(0);
   TUT.timer=setInterval(tutTick,300);}
 /* end it: the snapshot comes back, with this phone's settings as they are now */
 function tutStop(){if(!TUT_ON)return;clearInterval(TUT.timer);TUT.timer=0;const keep=ST();
-  S=TUT.bak;S.settings=keep;ST().tutDone=true;TUT.bak=null;TUT_ON=false;TUT.i=-1;
+  S=TUT.bak;S.settings=keep;ST().tutDone=true;if(TUT.cls)ST().buildCls=TUT.cls;TUT.bak=null;TUT_ON=false;TUT.i=-1;
   Object.assign(FT,TUT.ft||{});FT.F=null;FT.rounds=[];FT.bout=null;B.open={stress:true};B.sel=null;B.delKey=null;if(typeof crReset==="function")crReset();
   const el=$("coach");if(el)el.hidden=true;document.documentElement.classList.remove("tut");
   if(sheetOn())closeSheet();save();applyAll();showTab("build");}
