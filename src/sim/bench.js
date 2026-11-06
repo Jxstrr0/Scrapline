@@ -133,10 +133,8 @@ function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len
   const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
     return side(-1)&&side(1)&&alive(st,"battery")&&alive(st,"electronics");};
   const skid=b.cfg.extras.indexOf("skid")>=0?part("extras","skid").underAbsorbJ*M.mass:0;
-  /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods, shared by mass */
-  const up=damageState(b),upParts=[];let rest=Math.max(0,E-skid);const ins=b.parts.filter(p=>p.hpJ>0&&(p.slot==="wheels"||p.slot==="drive")),tot=ins.reduce((a,p)=>a+p.massKg,0)||1;
-  for(const p of ins){const d=Math.min(rest*p.massKg/tot,up.parts[p.key]);if(d<=0)continue;up.parts[p.key]-=d;
-    upParts.push({key:p.key,name:benchPartName(b,p.key),dmg:d,frac:d/p.hpJ,destroyed:up.parts[p.key]<=1e-9});}
+  /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods (landHit, sim/damage.js) */
+  const up=damageState(b),upParts=landHit(b,up,E,false).parts.map(p=>({key:p.key,name:benchPartName(b,p.key),dmg:p.dmg,frac:p.dmg/b.parts.find(q=>q.key===p.key).hpJ,destroyed:p.destroyed}));
   const inv=damageState(b),hit=hitFace(b,"top",E,inv);
   const righter=b.cfg.extras.indexOf("selfright")>=0?alive(inv,"selfright"):b.height.selfRight&&alive(inv,"weapon");
   const invDrive=canDrive(inv);
