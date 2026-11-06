@@ -15,7 +15,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   FT.F=SIM.newFight({seed,fx:true,bots:[
     {cfg:bot.cfg,name:"You",driver:{style:FT.style==="auto"?ftAuto(bot.cfg):FT.style,skill:0.7}},
     {cfg:oc,name:opp.name,driver:{style:ftAuto(oc),skill:0.7}}]});
-  FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();
+  FT.sig=bnSig(bot.cfg);FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();
   ftRender();ftLoop();}
 function ftLoop(){if(!FT.raf)FT.raf=requestAnimationFrame(ftFrame);}
 function ftPause(on){if(!FT.F||FT.F.over)return;FT.paused=on;if(!on){FT.last=performance.now();FT.acc=0;ftLoop();}ftControls();}
@@ -49,13 +49,14 @@ function ftHud(){const F=FT.F,el=$("ftHud");if(!F||!el)return;
   const r=$("ftRes");if(r){if(F.over){const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
     r.textContent=F.reason==="draw"?`Draw at ${ftT(F.endT)}`:`${win.i===0?"You win":win.name+" wins"}${F.reason==="ko"?" by knockout":F.reason==="pit"?": into the pit":" on damage"} at ${ftT(F.endT)}`;r.className="ftres "+(F.winner===0?"ok":F.winner==null?"":"broke");}
     else r.textContent=FT.paused?"Paused":"";}}
+const FT_HOLD=SIM.FIGHT.holdMaxS;
 const ftT=t=>{t=Math.round(t);return`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;};
 
 /* ---- the log in words ---- */
-function ftName(F,i,poss){if(i==null||i<0)return poss?"the":"the arena";const o=F.bots[i];return o.i===0?(poss?"your":"you"):(poss?o.name+"'s":o.name);}
+function ftName(F,i,poss){if(i==null||i<0)return poss?"the":"the arena";const o=F.bots[i];return o.i===0?(poss?"your":"you"):esc(poss?o.name+"'s":o.name);}
 const ftCap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 const FT_FACE={front:"front",back:"rear",left:"left side",right:"right side",top:"top"};
-function ftParts(F,v,x){return(x||[]).map(p=>`${SIM.benchPartName(F.bots[v].b,p[0])} ${p[2]?'<span class="broke">destroyed</span>':`−${Math.round(p[1])} J`}`).join(", ");}
+function ftParts(F,v,x){return(x||[]).map(p=>`${esc(SIM.benchPartName(F.bots[v].b,p[0]))} ${p[2]?'<span class="broke">destroyed</span>':`−${Math.round(p[1])} J`}`).join(", ");}
 function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class="readout">${Math.round(x)} J</span>`,
     V=(i,three,two)=>i===0?two:three;   // "you hit", "Wedge hits"
   switch(e.k){
@@ -65,6 +66,7 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
     case"under":return`${ftCap(N(a))} ${V(a,"gets","get")} under ${N(v)}`;
     case"flip":return v<0?`${ftCap(N(a))} ${V(a,"fires and misses","fire and miss")}`:e.heavy?`${ftCap(N(a))} can't lift ${N(v)}: too heavy`:`${ftCap(N(a))} ${V(a,"flips","flip")} ${N(v)} ${Math.round(e.h*100)} cm up`;
     case"lift":return`${ftCap(N(a))} ${V(a,"lifts","lift")} ${N(v)}`;
+    case"drop":return`${ftCap(N(a))} ${V(a,"lets","let")} ${N(v)} down (${FT_HOLD} s hold limit)`;
     case"tip":return`${ftCap(N(a))} ${V(a,"tips","tip")} ${N(v)} ${e.inv?"over":"off the lifter"}`;
     case"inv":return e.inv?`${ftCap(N(v))} ${V(v,"lands","land")} upside down`:`${ftCap(N(v))} ${V(v,"lands","land")} back on ${v===0?"your":"its"} wheels`;
     case"land":{const x=e.x||[],tot=x.reduce((q,p)=>q+p[1],0),dead=x.filter(p=>p[2]);if(!dead.length&&tot<2*F.M.mass)return null;
@@ -91,8 +93,8 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
   return null;}
 function ftLog(){const F=FT.F,el=$("ftLog");if(!F||!el)return;const L=F.log;if(FT.logN>L.length)FT.logN=0;
   if(FT.logN===L.length)return;const atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-8;let html="";
-  /* a merged small hit can grow after it was written: redraw the last line, then add the new ones */
-  const from=Math.max(0,FT.logN-1);if(FT.logN>0&&el.lastElementChild&&el.lastElementChild.dataset.n==String(from))el.lastElementChild.remove();
+  /* a small hit merges into an entry up to 6 back and can grow after it was written: redraw those lines, then add the new ones */
+  const from=Math.max(0,FT.logN-6);while(el.lastElementChild&&+el.lastElementChild.dataset.n>=from)el.lastElementChild.remove();
   for(let n=from;n<L.length;n++){const s=ftLine(F,L[n]);if(s)html+=`<li data-n="${n}"><span class="ftt">${L[n].t.toFixed(1)}</span>${s}</li>`;}
   FT.logN=L.length;if(html)el.insertAdjacentHTML("beforeend",html);
   while(el.children.length>400)el.firstElementChild.remove();
@@ -106,7 +108,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg){FT.F=null;el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`;return;}
-  if(FT.F&&FT.F.cls!==cls)FT.F=null;
+  if(FT.F&&(FT.F.cls!==cls||FT.sig!==bnSig(bot.cfg)))FT.F=null;   // a refit ends the old fight
   const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon);
   el.innerHTML=chips+`<div class="card"><h3>Test fight<span class="soon">debug view</span></h3>
     <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against a test build, both driven by the AI. Top-down for now; the 3D arena and your own driving arrive in the next update.</p>

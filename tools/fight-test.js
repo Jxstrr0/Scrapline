@@ -110,6 +110,33 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
   if (!r.log.inputs[0]) fail("the player's inputs are missing from the log");
   console.log(`\nplayer fight: ${r.log.steps} steps, log ${(sz / 1024).toFixed(1)} KB (inputs ${(r.log.inputs[0].d.length / 1024).toFixed(1)} KB)${strip(rp) === strip(r) ? ", replay matches" : ""}`);
 }
+/* a replay's log replays too */
+{
+  const r = SIM.runFight({ seed: 11, bots: [{ cfg: cfgOf(T("wedge"), cls), driver: null }, { cfg: cfgOf(T("hsp"), cls), driver: { style: "rush", skill: 0.7 } }],
+    inputs: (F) => ({ 0: { throttle: Math.sin(F.n / 40), steer: Math.cos(F.n / 55), weapon: 0 } }) });
+  const r1 = SIM.replayFight(r.log), r2 = r1 && SIM.replayFight(JSON.parse(JSON.stringify(r1.log)));
+  if (!r2 || JSON.stringify(r2.bots) !== JSON.stringify(r.bots) || r2.winner !== r.winner) fail("replaying a replay's log came out differently");
+}
+/* a lifter lets go whichever bot it holds (bot 0 included), within the hold limit */
+{
+  let longest = 0, lifts = 0;
+  for (let s = 1; s <= 6; s++) for (const order of [["wedge", "lifter"], ["lifter", "wedge"], ["brick", "lifter"]]) {
+    const F = SIM.newFight({ seed: s, bots: order.map((id) => ({ cfg: cfgOf(T(id), cls), name: id, driver: { style: "rush", skill: 0.7 } })) }), held = [0, 0];
+    while (!F.over) { SIM.stepFight(F); F.bots.forEach((o, k) => { if (o.held != null) { if (!held[k]) lifts++; held[k] += F.dt; longest = Math.max(longest, held[k]); } else held[k] = 0; }); }
+  }
+  if (!lifts) fail("the lifter never lifted the wedge or the brick");
+  if (longest > SIM.FIGHT.holdMaxS + 0.05) fail(`a lifter held a bot for ${longest.toFixed(1)} s, past the ${SIM.FIGHT.holdMaxS} s limit`);
+}
+/* the worst stick there is (flat out, flipping every tick, 4 bots): the log still fits, giving up the replay if it must */
+{
+  const flick = (F) => { const o = {}; for (let i = 0; i < 4; i++) o[i] = { throttle: (F.n >> 1) & 1 ? 1 : -1, steer: (F.n >> 2) & 1 ? 1 : -1, weapon: (F.n >> 1) & 1, selfRight: (F.n >> 3) & 1 }; return o; };
+  const r = SIM.runFight({ seed: 5, bots: ["vsp", "hsp", "wedge", "flipper"].map((id) => ({ cfg: cfgOf(T(id), cls), name: id, driver: null })), inputs: flick });
+  const sz = JSON.stringify(r.log).length;
+  if (sz > SIM.FIGHT.logMaxB) fail(`worst-case stick: log ${sz} B is over the cap`);
+  if (!r.log.noReplay) { const rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log))); if (!rp || JSON.stringify(rp.bots) !== JSON.stringify(r.bots)) fail("worst-case stick: the replay differs"); }
+  else if (SIM.replayFight(r.log) !== null) fail("a log without its inputs should refuse to replay");
+  console.log(`worst-case stick: log ${(sz / 1024).toFixed(1)} KB${r.log.noReplay ? " (replay given up)" : ", replay matches"}`);
+}
 /* damage carried in from an earlier fight is there at the start */
 {
   const b = SIM.evalBuild(cfgOf(T("vsp"), cls)), dmg = { armour_front: 5, drive0: 1e9, battery: 3 };

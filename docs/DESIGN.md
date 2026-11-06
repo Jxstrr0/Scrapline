@@ -68,7 +68,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Weapons,** each with a working zone in front of the bot (a circle round a horizontal disc):
   - **Spinners** spin up on the bench's motor curve and slow with the weapon off. A hit needs a quarter of top speed and lands stored energy x bite (a little random each time). A hit on a plate that deflects, unless the target is lifted, glances off for 30%. The disc loses that share of its energy. The target takes 65% as damage and 35% as a throw (verticals and drums throw upward), and the attacker is kicked back by the weapon's recoil.
   - **Self-damage:** a hit over the material's bend rating bends the disc (half energy from then on, and it spins up slower); a huge hit at full speed can shear the shaft.
-  - **Flippers** fire a shot (12, with a second to recharge) and launch anything they can lift, as high as their energy allows. **Lifters** hold a bot up (no grip) and tip it over after 0.8 s. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
+  - **Flippers** fire a shot (12, with a second to recharge) and launch anything they can lift, as high as their energy allows. **Lifters** hold a bot up (a tenth of its grip) and tip it over after 0.8 s if the arm is long enough; any hold lets go after 10 s (the league's hold limit), and the lifter needs 2 s before it can grab again. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
 - **Damage:** every hit goes through the bench's damage model (absorb, plate, then the most exposed part behind the face). The fight adds the effects:
   - a dead side;
   - a damaged battery that may smoke (power drops to 60%);
@@ -80,7 +80,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   
   Knocks against bots and walls do a little damage too. Motors heat up and back off to half power, and the battery runs down.
 - **Ends:** a knockout (immobile for 10 s: dead, both sides out, a flat battery, or stuck upside down; being thrown about doesn't stop the count), the pit (once PR 4b's arenas have one), or the bell. For now the bell goes to whoever lost the smaller share of their hp; PR 4b brings the judges.
-- **The log** holds every hit, failure, flip, landing and knockout with its time, plus the seed, builds, arena and rules, and the player's inputs. The inputs are read at 30 Hz, each stick axis in 63 steps, small changes packed into a byte. So a busy round's log is about 12 KB, under the 20 KB cap. `SIM.replayFight(log)` plays the same fight again from it.
+- **The log** holds every hit, failure, flip, landing and knockout with its time, plus the seed, builds, arena and rules, and the player's inputs. The inputs are read at 30 Hz, each stick axis in 63 steps, small changes packed into a byte. So a busy round's log is about 12 KB, under the 20 KB cap. `SIM.replayFight(log)` plays the same fight again from it, and a replay's own log replays too. If a stick shaken flat out every tick ever makes the inputs too big to fit, the log keeps the story and gives up the replay (`noReplay`). Each bot's result also carries its fight flags (a bent disc, a smoking battery, a dead speed-controller side, a saved cell); a bent disc reads as a damaged weapon.
 - **Two AI drivers,** each with a skill (how late it reacts, how far its aim wanders): **rush** drives at the nearest enemy with the weapon on; **keep-away** circles at a distance until its disc is up to speed (or the enemy looks away), then closes. Both back off when stuck, self-right when they need to, and fire flippers and hammers when the enemy is in reach.
 - **The Fight tab** plays the fitted bot against any test build in a top-down view, both AI-driven, at 1x, 2x or 4x:
   - the view shows outlines, heading lines, weapon zones (a spinner's glows as it spins up), hit flashes, shadows in the air, and UNDER / INV / LIFTED / OUT markers;
@@ -102,4 +102,8 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - Save slots exist in the save format but have no UI until PR 7.
 - The control scheme and handedness settings arrive with the arena in PR 5.
 - Balance is first-pass (PR 4b tunes it): spinners win most beetle matchups; hammers barely dent a thick HDPE top (its absorb eats a 25 J blow whole); flippers and wedges have nothing to finish with until PR 4b's pits and judges; the "Sloppy budget" build loses nearly everything, as it should.
+- Carried-in damage counts in the time-up decision and in the HUD's damage %; PR 4b's judges should score only what was dealt in this fight.
+- Fight flags (bent disc, smoke, speed-controller side) are in the result but not carried into the next fight yet; the pit (PR 6) decides what a repair clears.
+- Airborne bots skip collisions, so a tipped bot can land overlapping the other for a step or two before they push apart.
+- Replays moved between phones: the sim uses `Math.sin`, `cos`, `atan2` and `hypot`, which browsers don't promise to round identically, so a replay could drift on another engine. Decide before PR 6 stores replays (keep the result, not just the inputs, or use our own trig).
 - Spinner disc against spinner disc (weapon clashes) isn't modelled yet: a hit is a hit on the face it lands on.

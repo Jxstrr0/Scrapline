@@ -100,7 +100,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
     - `WEDGE_RULES` on any front contact.
     - Weapon zones and hits: spinners, flippers, lifters, hammers, crushers, saws. Bent discs and sheared shafts.
     - Collisions and walls, heat and battery.
-    - Knockout after 10 s immobile; a pit when an arena has one.
+    - Knockout after 10 s immobile; a pit when an arena has one. A lift lets go after 10 s (`FIGHT.holdMaxS`).
     - Time-up goes to the smaller damage share until PR 4b's judges.
     - Tuning in `FIGHT`.
   - **The log:** hits, failures, flips, landings, plus the player's inputs (30 Hz, 63 levels per axis, packed into base64url), capped at 20 KB. `replayFight(log)` reproduces it.
