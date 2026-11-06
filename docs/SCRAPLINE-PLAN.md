@@ -70,6 +70,10 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Disc profile | **Teeth and rim** (Kelbo, PR 8): one to three teeth (bite against recoil) and a light, medium or heavy rim (stored energy against spin-up), plus a name; one profile per spinner |
 | Kit line | **Legacy act, win rate** (Kelbo, PR 8): publish one design; each season it fights the class's test builds in the sim, income = base x prize scale x win rate x rep |
 | Team, sponsors, rules (defaults, PR 8) | Salaries are paid weekly at Close week. A sponsor pays at signing (less the weeks gone, at least a quarter) and again at the season end if the target was hit, else drops you; two at most, one per paint slot. Rule changes add up season on season and are announced a season ahead. Custom work (the custom chassis, your own disc) needs a fabricator to fit. An engineer works out the impact and drop lines of the stress report on paper, without the bench |
+| Tutorial | **Coached, on a loaner** (Kelbo, PR 9): PEW's First Fire pattern. A spotlight card points at the real controls and waits for you to use them: fit the starter wedge, run the impact test, spar one club bot, read the post-mortem. It runs on a borrowed beetle, so your bots, money and designs are as they were afterwards. Offered after the intro, can be skipped, and can be replayed from Settings |
+| Bot card | **3D shot plus stats** (Kelbo, PR 9): a render of the fitted bot from the workshop camera, with its name, class, weight against the limit, weapon, top speed, weapon energy and record. A phone without 3D gets the top-down sketch instead. Shared through PEW's `phoSave` |
+| Trophies | **Event wins and titles** (Kelbo, PR 9): a card for every event you win, and a gold one for an act championship or a move up an act. They are kept in the save and shown on a shelf on the Career tab, and each one can be shared |
+| Reduced effects | **A separate Effects setting** (Kelbo, PR 9): Effects Full or Reduced covers sparks, smoke, flying parts and the hit flash. Motion stays camera shake and UI movement |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -436,5 +440,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 6: Pit window and pit kits, post-mortem with repair bill, copy build, replay
 - [x] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
 - [x] PR 8: R&D, team, sponsors, meta waves, rule changes, kit line
-- [ ] PR 9: Tutorial, bot card share, settings, polish
+- [x] PR 9: Tutorial, bot card share, settings, polish
 - [ ] PR 10: Blender props and CC0/CC-BY assets on Full/Ultra

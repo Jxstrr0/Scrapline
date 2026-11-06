@@ -32,11 +32,11 @@ function load() {
   const ctx = {
     localStorage: fakeStorage(), TextEncoder, TextDecoder, Uint8Array,
     SLOTS: 3, slotKey: i => "scr-slot" + i, VERSION: "test", WORLD: { startYear: 2026 },
-    S: null, live: null,
+    S: null, live: null, TUT_ON: false, TUT: { bak: null },
     snapshot() { return JSON.parse(JSON.stringify(ctx.live)); },
-    /* like the real hydrate: false without a numeric v (no newer than 1), a settings object and a bots object */
+    /* like the real hydrate: false without a numeric v (no newer than SAVE_V, 7), a settings object and a bots object */
     hydrate(o) { const obj = x => !!x && typeof x === "object" && !Array.isArray(x);
-      if (!obj(o) || typeof o.v !== "number" || o.v > 1 || !obj(o.settings) || !obj(o.bots)) return false; ctx.S = Object.assign({}, o); return true; },
+      if (!obj(o) || typeof o.v !== "number" || o.v > 7 || !obj(o.settings) || !obj(o.bots)) return false; ctx.S = Object.assign({}, o); return true; },
     fmt$: n => String(Math.round(n))
   };
   vm.createContext(ctx);
@@ -56,6 +56,14 @@ function game(over) {
     staff: [], sponsors: [{ id: "haldis-tool", paint: "#2f6fb0", target: 3 }], rivals: { "jonas-r": { met: 4, won: 2 } },
     lastFight: null, lastBackup: 0
   }, over || {});
+}
+/* the same game as it is now saved (SAVE_V 7): the career in crFresh()'s shape (app/career.js) */
+function game7(over) {
+  const g = game({ v: 7 });
+  g.career = Object.assign({ seed: 12345, year: 2027, week: 14, season: 1, act: 0, money: 3200, loan: { taken: true, owed: 900 }, hours: 30, driverXp: 120,
+    rep: 18, stage: "corner", events: { "s1-club-1": { place: 2 } }, entered: null, day: null, results: [{ wk: 3, place: 1 }], ledger: [], broke: 1,
+    over: false, done: false, seasons: [], rnd: { cur: null, put: {} }, offers: [], kit: null, repY0: 0, trophies: [] }, (over && over.career) || {});
+  return Object.assign(g, over ? Object.assign({}, over, { career: g.career }) : {});
 }
 const seed = st => {
   st.clear();
@@ -164,10 +172,12 @@ check("a well-formed code with a broken save inside is refused and nothing is wr
     { v: 1, save: game({ v: "1" }), slots: [] },                                  // v not a number
     { v: 1, save: game(), slots: [null, null, null, null] },                      // too many slots
     { v: 1, save: game(), slots: [{ v: 1, settings: {}, bots: "plain" }] },      // slot bots not an object
-    { v: 1, save: game({ career: { money: "lots" } }), slots: [] },               // money not a number
-    { v: 1, save: game({ career: { year: "2028" } }), slots: [] },                // year not a number
-    { v: 1, save: game({ career: { events: { 0: 1 } } }), slots: [] },            // events not a list
-    { v: 1, save: game({ career: { rep: 5 } }), slots: [] },                      // rep not an object
+    { v: 1, save: game7({ career: { money: "lots" } }), slots: [] },              // money not a number
+    { v: 1, save: game7({ career: { year: "2028" } }), slots: [] },               // year not a number
+    { v: 1, save: game7({ career: { events: [1] } }), slots: [] },                // events not an object
+    { v: 1, save: game7({ career: { rep: { club: 5 } } }), slots: [] },           // rep not a number
+    { v: 1, save: game7({ career: { loan: 0 } }), slots: [] },                    // loan not an object
+    { v: 1, save: game7({ career: { results: {} } }), slots: [] },                // results not a list
     { v: 1, save: game({ career: "started" }), slots: [] },                       // career not an object
     { v: 1, save: game({ staff: { a: 1 } }), slots: [] },                         // staff not a list
     { v: 1, save: game({ designs: [1] }), slots: [] },                            // designs not an object
@@ -177,6 +187,7 @@ check("a well-formed code with a broken save inside is refused and nothing is wr
   ];
   for (const d of bad) assert.strictEqual(msg(a, pack(a, d)), "bad", JSON.stringify(d).slice(0, 80));
   assert.strictEqual(msg(a, pack(a, { v: 1, save: game(), slots: [] })), "ok", "and the same thing done right passes");
+  assert.strictEqual(msg(a, pack(a, { v: 1, save: game7(), slots: [game7(), null, null] })), "ok", "a save with a career in today's shape passes");
   assert.deepStrictEqual(a.localStorage.dump(), before);
 });
 check("a write that fails half way (storage full) puts every key back the way it was", () => {
