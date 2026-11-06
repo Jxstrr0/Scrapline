@@ -152,8 +152,6 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - `PARTS`: horizontal disc 5,600 rpm and bite 0.62; drum 11,000 rpm; undercutter 5,500 rpm and bite 0.62.
   - The Brick test build has grippy PU wheels and an anti-spinner bar.
 
-## Known loose ends
-
 ## 0.1.6.0: the arena, your own driving, hit feedback, sparring (PR 5)
 
 - **The bot in 3D** (`vis/bot.js`) is made from the build, on every tier:
@@ -177,6 +175,27 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Sparring:** any opponent in the class, any arena, one on one or a four-bot rumble, driven by you or by the AI in any style (the speed choice is for AI fights). No stakes and no repair bill. The results card has the outcome, the judges, every bot's state and the log.
 - **Saves:** `SAVE_V` 4 adds `settings.controls`, `leftHanded` and `assists`.
 
+## 0.1.7.0: the pit window, the post-mortem, replays (PR 6)
+
+- **Best of three** (Fight tab → Format): the first to two rounds, at most three. Damage carries from round to round, and so does a bent disc (`newFight` takes `flags: {bent}`).
+- **The pit window** (`app/pit.js`): 60 real seconds between rounds. You pick repairs from a list of what's broken; one runs at a time, and the clock keeps running while you choose. It pauses if the page is hidden or the tab is left. A repair still running at the bell is lost, and so is its spare.
+  - `PIT_KITS`: basic (2 wheel swaps, 2 bodges), full (4 wheels, 3 bodges, 2 belts, 2 armour panels, 1 battery), pro (adds 2 drive pods and a spare weapon, 4 bodges, 4 panels, 2 batteries). The counts are for the whole bout. Kits are free when sparring; their price times the class's `prizeScale` applies from the career on.
+  - `REPAIR_TIMES`: wheel 15 s, belt 20, battery 25, armour panel 30, drive pod 35, spare weapon 30, bodge 10.
+  - A swap puts the part back to new. A belt fixes a damaged weapon; a bent or wrecked one needs the spare (pro only). A bodge patches anything but the chassis to half strength, and only helps below half. The chassis can't be fixed in the pit.
+  - The other corner's crew (`pitAuto`) picks the repairs worth most per second until its 60 s are used: the battery and speed controllers first, then the drive, the weapon, the armour.
+- **The post-mortem** (`app/report.js`), under the results:
+  - a timeline of the round's hits, yours above the line and theirs below, bar height by energy, red where a part broke;
+  - a damage map of your bot;
+  - what went wrong, in order: every plate and part you lost with its cause ("left front wheel lost at 0:42: undercutter hit on your left side, 85 J; the left side plate had given at 0:30"; a hit after they got under you adds both front edges), plus the failures that aren't parts and how it ended;
+  - a redesign hint: the biggest reason (the pit, ending upside down, a sheared shaft, being wedged when it cost you, a bent disc, a flat battery, heat, or the face that took the most), told by the stress report's own `COMBOS` line when one fits, else in plain words, with Open Build.
+- **The repair bill:** a destroyed part is re-bought at its price, and a damaged one costs 10% to 60% of it by hp lost (`REPAIR_COST`). A broken chassis costs 80% to rebuild. A plate, a wheel or a drive pod is priced as its share of the set. Hours come from `REPAIR_HOURS`, halved for a damaged part. It's shown only; the career charges it from PR 7.
+- **Their build is revealed** after the fight: weapon and material (and the J it stores), armour per face, chassis, drive and speed, power, extras, weight, front edge. **Copy to designs** saves it as "<name> (copy)"; you still pay to fit it.
+- **Replay** re-runs the sim from the log (seed, builds, carried damage, your recorded inputs) in the same arena view, 2D included, on every tier. It plays at ½×, 1× or 2×, and a scrub bar jumps anywhere. A jump re-runs the sim from the start to that moment (a round is under 6,000 steps, a few milliseconds), so no keyframes are needed and Lite scrubs too. The scene is kept across a jump (`SCRAP_VIS.setFight(F, true)`). A round's replay ends exactly where the round did, Stop included.
+- **The plan's check:** a replay run to the end matches the round it came from (winner, reason, step count, each bot's damage). `tools/fight-test.js` checks that a carried bent disc stays bent and replays the same.
+- **Saves:** nothing new (no `SAVE_V` change). Copy to designs uses `designs`, which already exists.
+
+## Known loose ends
+
 - Save slots exist in the save format but have no UI until PR 7.
 - Balance sits at the edges in places (0.1.5.0 numbers):
   - Lifter 65-67% in ant, beetle and hobby; Undercutter 69% in ant.
@@ -188,7 +207,9 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - The HUD shows the weapon's speed as a bar, not rpm.
 - The 3D view doesn't interpolate between sim steps; Lite draws at 30 fps, so this hasn't mattered.
 - The HUD's damage % still includes carried-in damage (the judges don't).
-- Fight flags (bent disc, smoke, speed-controller side) are in the result but not carried into the next fight yet; the pit (PR 6) decides what a repair clears.
+- A bent disc carries into the next round; a smoking battery and a dead speed-controller side don't (their damage in J does, and the side comes back if the controller's hp is above `DAMAGE.escSideAt`).
 - Airborne bots skip collisions, so a tipped bot can land overlapping the other for a step or two before they push apart.
-- Replays moved between phones: the sim uses `Math.sin`, `cos`, `atan2` and `hypot`, which browsers don't promise to round identically, so a replay could drift on another engine. Decide before PR 6 stores replays (keep the result, not just the inputs, or use our own trig).
+- Replays moved between phones: the sim uses `Math.sin`, `cos`, `atan2` and `hypot`, which browsers don't promise to round identically, so a replay could drift on another engine. Replays are only kept for the session on the same phone for now (nothing is saved), so it hasn't mattered; decide before a replay is ever shared or saved.
 - Spinner disc against spinner disc (weapon clashes) isn't modelled yet: a hit is a hit on the face it lands on.
+- Rounds in a best of three start with a full battery: only its damage carries.
+- The repair bill and the pit work only on your bot; the post-mortem covers bot 0 only (in a rumble too).
