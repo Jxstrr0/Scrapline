@@ -37,7 +37,10 @@ function rebuild(){
   if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
   if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(()=>{if(V.tier!=="ultra"||!THREE.EffectComposer||!THREE.RenderPass||!THREE.UnrealBloomPass)return;
-    V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
+    /* the composer's own target asks for a stencil buffer only to get a 24-bit depth buffer: three's default here is 16-bit,
+       which let thin layers (the bot's team stripe, the arena kit's hazard stripes) flicker through on Ultra */
+    const sz=V.r.getDrawingBufferSize(new THREE.Vector2());
+    V.comp=new THREE.EffectComposer(V.r,new THREE.WebGLRenderTarget(sz.x||1,sz.y||1,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat,stencilBuffer:true}));V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
     V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
   resize(true);
 }

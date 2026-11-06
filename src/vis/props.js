@@ -7,8 +7,12 @@
                 GLTFLoader comes with the SCR_LIBS addons (window.__scrPost). Each file loads once and is kept (its meshes
                 carry userData.keep, so the workshop and arena teardown skip them); a tier change or a new room just drops
                 the clones. Anything that lands after its room was replaced is dropped.
-   Kelbo's Blender models (the stage interiors, the arena shell and hazards, the trailer, trophies) drop in the same way: pack
-   the export with tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
+     arena kit  models/arena-kit.glb, original work built in Blender from tools/blender-arena-kit.py: kerbs with a steel face,
+                screen uprights, corner posts with beacons, striped wall rams, toothed floor spinners, a striped pit edge and
+                well, and stands with a crowd. arenaKit swaps it in for the coded pieces vis/arena.js listed in AR.kit, merging
+                the many kerb and stand clones into one mesh per material so it costs a few draw calls.
+   More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
+   tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
 /* material name -> [texture, repeat u, repeat v, normal strength] */
 const PROP_TEX_USE={floor:["floor",14,14,.8],bench:["ply",2,1.25,.5],plate:["plate",2.4,1.8,.6],arenaFloor:["plate",5,5,.6]};
@@ -16,7 +20,8 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   oil:"models/oil-tin.glb",lube:"models/lube-spray.glb",chest:"models/tool-chest.glb",weld:"models/welding-cart.glb",
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
-  meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb"};
+  meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
+  kit:"models/arena-kit.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
    [key, x, y, z, turn] in scene units; y 0 is the bench top, -1.4 the floor. The camera starts at -x +z, so the room reads
@@ -77,6 +82,71 @@ function propPlace(G,spots,ok){if(!spots||!spots.length)return;
 function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.stage||"corner",gen=++PROPS.gen;   // a newer dressing of the room drops this one's late arrivals
   propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&PROPS.gen===gen&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
 function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.half*AR.U;
+  arenaKit(G);
   propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:AR.U})),()=>AR.g===G&&V.tier!=="lite");}
 /* a new workshop stage: drop this room's props and dress it for the new one */
 function propShopSwap(){const G=V.shop;if(!G)return;for(const o of G.children.filter(c=>c.name.indexOf("prop:")===0))G.remove(o);propShop();}
+/* ---- the arena kit ---- */
+/* arenas that get stands round three sides (the camera's side stays open); the test box and the tabletop don't */
+const KIT_STANDS={clubbox:1,regional:1,eisenhalle:1};
+function arenaKit(G){const go=()=>propModel("kit",src=>{if(AR.g===G&&V.tier!=="lite"&&AR.kit)kitBuild(G,src);});
+  if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(()=>{if(THREE.GLTFLoader&&AR.g===G)go();});return;}go();}
+/* every mesh in objs, baked into G's space and merged per material: positions and normals turned to plain floats (the
+   packed files store them quantized, which can't be merged as they are) */
+function kitBake(G,objs,shadow){const by=new Map(),v=new THREE.Vector3();
+  const rd=(A,i,c)=>{const arr=A.isInterleavedBufferAttribute?A.data.array:A.array,x=c===0?A.getX(i):c===1?A.getY(i):A.getZ(i);
+    if(!A.normalized)return x;const k=arr instanceof Int16Array?32767:arr instanceof Int8Array?127:arr instanceof Uint16Array?65535:arr instanceof Uint8Array?255:1;return Math.max(-1,x/k);};
+  for(const o of objs){o.updateMatrixWorld(true);o.traverse(m=>{if(!m.isMesh)return;
+    const mw=m.matrixWorld,nm=new THREE.Matrix3().getNormalMatrix(mw),g=m.geometry,P=g.attributes.position,N=g.attributes.normal,n=P.count;
+    let e=by.get(m.material);if(!e)by.set(m.material,e={p:[],n:[],i:[],at:0});
+    for(let i=0;i<n;i++){v.set(rd(P,i,0),rd(P,i,1),rd(P,i,2)).applyMatrix4(mw);e.p.push(v.x,v.y,v.z);
+      if(N){v.set(rd(N,i,0),rd(N,i,1),rd(N,i,2)).applyMatrix3(nm).normalize();e.n.push(v.x,v.y,v.z);}else e.n.push(0,1,0);}
+    if(g.index)for(let i=0;i<g.index.count;i++)e.i.push(g.index.getX(i)+e.at);else for(let i=0;i<n;i++)e.i.push(i+e.at);
+    e.at+=n;});}
+  for(const [mat,e] of by){const gg=new THREE.BufferGeometry();gg.setAttribute("position",new THREE.Float32BufferAttribute(e.p,3));
+    gg.setAttribute("normal",new THREE.Float32BufferAttribute(e.n,3));gg.setIndex(e.i);gg.computeBoundingSphere();
+    const mesh=new THREE.Mesh(gg,mat);mesh.castShadow=shadow;mesh.receiveShadow=true;mesh.name="kit:baked";G.add(mesh);}}
+/* a piece of the kit by name; own(mesh) gives that one mesh a material of its own (lamps and glows change colour) */
+function kitPiece(src,name){const s=src.getObjectByName(name);return s?s.clone():null;}
+function kitOwn(o,name){const m=o.getObjectByName(name);if(!m)return null;let mesh=m;if(!mesh.isMesh)m.traverse(c=>{if(c.isMesh)mesh=c;});
+  if(!mesh.isMesh)return null;const mat=mesh.material.clone();mesh.material=mat;AR.kitMats.push(mat);return mat;}
+function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))return;
+  /* walls: kerb units along each wall, screen uprights on the three far ones; the coded kerbs hide */
+  const walls=[],kh=0.35;
+  for(const W of K.walls){const n=Math.max(1,Math.round(W.len/1.1)),seg=W.len/n;W.k.visible=false;
+    /* turn each unit so its steel face (+z) looks into the arena */
+    const ry=W.along==="x"?(W.z<0?0:Math.PI):(W.x<0?Math.PI/2:-Math.PI/2),ax=W.along==="x"?[1,0]:[0,1];
+    for(let i=0;i<n;i++){const off=-W.len/2+seg*(i+.5);
+      for(const nm of W.near?["kerb"]:["kerb","frame"]){const o=kitPiece(src,nm);o.position.set(W.x+ax[0]*off,0,W.z+ax[1]*off);o.rotation.y=ry;o.scale.set(seg,1,1);walls.push(o);}}}
+  kitBake(G,walls,true);
+  /* corner posts with their beacons */
+  const lamps=[];for(const P of K.posts){P.p.visible=P.lamp.visible=false;const o=kitPiece(src,"post");o.position.set(P.p.position.x,0,P.p.position.z);
+    const lm=kitOwn(o,"post_lamp");o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});G.add(o);if(lm)lamps.push({material:lm});}
+  if(lamps.length)AR.lamps=lamps;
+  /* hazards: the coded slab or disc stays as the moving thing the tick animates, drawn by the kit piece inside it */
+  for(const z of AR.haz){const isP=z.h.type==="pusher",o=kitPiece(src,isP?"pusher":"spinner");if(!o)continue;
+    z.m.material.visible=false;if(z.bar)z.bar.visible=false;
+    if(isP){const [nx,nz]=z.n,alongX=Math.abs(nx)>=Math.abs(nz);o.rotation.y=Math.atan2(-nz,nx);
+      o.scale.set(alongX?z.w:z.d,z.ht,(alongX?z.d:z.w)/3);o.position.y=-z.ht/2;z.glow=kitOwn(o,"pusher_glow");}
+    else{o.scale.set(z.R,1,z.R);o.position.y=-0.016;z.glow=kitOwn(o,"spinner_glow");}
+    o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});z.m.add(o);}
+  /* the pit: a real hole in the floor with a well under it, so a bot that drops in is seen to fall; a striped edge round it */
+  if(K.pit){const p=K.pit,x0=p.cx-p.w/2,x1=p.cx+p.w/2,z0=p.cz-p.d/2,z1=p.cz+p.d/2;
+    /* a square plane (half size h) with the pit cut out, UVs 0..1 like the PlaneGeometry it replaces so the texture repeat holds */
+    const holed=h=>{const sh=new THREE.Shape([new THREE.Vector2(-h,-h),new THREE.Vector2(h,-h),new THREE.Vector2(h,h),new THREE.Vector2(-h,h)]);
+      sh.holes.push(new THREE.Path([new THREE.Vector2(x0,-z1),new THREE.Vector2(x0,-z0),new THREE.Vector2(x1,-z0),new THREE.Vector2(x1,-z1)]));
+      const fg=new THREE.ShapeGeometry(sh),uv=fg.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(uv.getX(i)+h)/(2*h),(uv.getY(i)+h)/(2*h));return fg;};
+    for(const [m,h] of [[K.floor,H],[K.out,30]]){m.geometry.dispose();m.geometry=holed(h);}   // the arena floor and the room floor under it
+    p.hole.visible=false;p.rim.visible=false;
+    K.grid.geometry.dispose();K.grid.geometry=arenaGrid(H,[x0,z0,x1,z1]);
+    const well=kitPiece(src,"pitwell");if(well){well.position.set(p.cx,0,p.cz);well.scale.set(p.w,4,p.d);G.add(well);}
+    const edges=[];for(const [x,z,len,ry] of [[p.cx,z0-.05,p.w+.2,0],[p.cx,z1+.05,p.w+.2,0],[x0-.05,p.cz,p.d,Math.PI/2],[x1+.05,p.cz,p.d,Math.PI/2]]){
+      const o=kitPiece(src,"pitedge");o.position.set(x,0,z);o.rotation.y=ry;o.scale.set(len,1,1);edges.push(o);}
+    kitBake(G,edges,false);}
+  /* stands round the back and the sides, behind the props; the flat crowd moves back and up, to read as the upper seats */
+  if(KIT_STANDS[AR.F.arena.id]){const st=[],off=H+2.05;
+    for(const [ax,az,ry] of [[0,-1,0],[-1,0,Math.PI/2],[1,0,-Math.PI/2]]){const n=Math.ceil((2*H+1)/4);
+      for(let i=0;i<n;i++){const a=(i-(n-1)/2)*4,o=kitPiece(src,"stands");if(!o)break;
+        o.position.set(ax?ax*off:a,0,az?az*off:a);o.rotation.y=ry;st.push(o);}}
+    kitBake(G,st,false);
+    for(const c of K.crowd){c.position.y=2.9;c.position.x*=(H+5)/(H+3);c.position.z*=(H+5)/(H+3);}}}
