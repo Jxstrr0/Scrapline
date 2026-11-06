@@ -1,7 +1,7 @@
-<!doctype html><html lang="en"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel=manifest href=manifest.webmanifest><meta name=theme-color content="#141413"><meta name=description content="Servo: design a fighting robot under a weight limit, prove it on the bench, fight it, patch it in the pit, read the post-mortem and build better. From a plywood box in the Haldis to the Scrapline Open."><link rel=apple-touch-icon href=icons/apple-touch-icon.png><meta name=apple-mobile-web-app-capable content=yes><meta name=mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-title content="Servo"><meta name=apple-mobile-web-app-status-bar-style content=black><link rel=preconnect href=https://cdnjs.cloudflare.com><link rel=preload as=script crossorigin=anonymous href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><style>:root{color-scheme:dark;box-sizing:border-box}body{margin:0;padding:0;font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#141413;color:#F2EFE8}[hidden]:not([hidden=until-found i]){display:none!important}#boot{position:fixed;inset:0;z-index:99999;background:#141413;color:#F2EFE8;display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Space Grotesk",-apple-system,BlinkMacSystemFont,sans-serif;transition:opacity .35s ease}#boot.done{opacity:0;pointer-events:none}#boot .ldx{width:min(320px,100%)}#boot h1{margin:0 0 6px;font-size:36px;font-weight:700;letter-spacing:.01em;line-height:1}#boot .ldsub{margin:0 0 22px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#D97757}#boot .ldbar{height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}#boot .ldbar i{display:block;height:100%;background:#D97757;transform-origin:0 50%;transform:scaleX(.04);transition:transform .9s cubic-bezier(.2,.7,.2,1)}#boot.err .ldbar i{background:#E5484D}#boot .ldmsg{margin:12px 0 0;font-size:12px;letter-spacing:.04em;color:#ABA79E}#boot .ldrl{margin-top:14px;min-height:44px;padding:0 18px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit;font-weight:600}#boot .ldrl[hidden]{display:none}@media (prefers-reduced-motion:reduce){#boot,#boot .ldbar i{transition:none}}</style>
-<title>Servo</title>
+<!doctype html><html lang="en"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel=manifest href=manifest.webmanifest><meta name=theme-color content="#141413"><meta name=description content="Scrapline: design a fighting robot under a weight limit, prove it on the bench, fight it, patch it in the pit, read the post-mortem and build better. From a plywood box in the Haldis to the Scrapline Open."><link rel=apple-touch-icon href=icons/apple-touch-icon.png><meta name=apple-mobile-web-app-capable content=yes><meta name=mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-title content="Scrapline"><meta name=apple-mobile-web-app-status-bar-style content=black><link rel=preconnect href=https://cdnjs.cloudflare.com><link rel=preload as=script crossorigin=anonymous href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><style>:root{color-scheme:dark;box-sizing:border-box}body{margin:0;padding:0;font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#141413;color:#F2EFE8}[hidden]:not([hidden=until-found i]){display:none!important}#boot{position:fixed;inset:0;z-index:99999;background:#141413;color:#F2EFE8;display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Space Grotesk",-apple-system,BlinkMacSystemFont,sans-serif;transition:opacity .35s ease}#boot.done{opacity:0;pointer-events:none}#boot .ldx{width:min(320px,100%)}#boot h1{margin:0 0 6px;font-size:36px;font-weight:700;letter-spacing:.01em;line-height:1}#boot .ldsub{margin:0 0 22px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#D97757}#boot .ldbar{height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}#boot .ldbar i{display:block;height:100%;background:#D97757;transform-origin:0 50%;transform:scaleX(.04);transition:transform .9s cubic-bezier(.2,.7,.2,1)}#boot.err .ldbar i{background:#E5484D}#boot .ldmsg{margin:12px 0 0;font-size:12px;letter-spacing:.04em;color:#ABA79E}#boot .ldrl{margin-top:14px;min-height:44px;padding:0 18px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit;font-weight:600}#boot .ldrl[hidden]{display:none}@media (prefers-reduced-motion:reduce){#boot,#boot .ldbar i{transition:none}}</style>
+<title>Scrapline</title>
 </head><body>
-<div id="boot" role="status" aria-live="polite"><div class="ldx"><h1>Servo</h1><p class="ldsub">Combat robot builder</p><div class="ldbar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="4"><i></i></div><p class="ldmsg">Loading…</p><button type="button" class="ldrl" hidden>Reload</button></div></div>
+<div id="boot" role="status" aria-live="polite"><div class="ldx"><h1>Scrapline</h1><p class="ldsub">Combat robot builder</p><div class="ldbar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="4"><i></i></div><p class="ldmsg">Loading…</p><button type="button" class="ldrl" hidden>Reload</button></div></div>
 <script>/* loading bar (same pattern as PEW): __ld(fraction, message, creepSeconds) between the big script blocks, __ldGo(fn) paints then runs fn, __ldDone() at the end of start() */
 (function(){var b=document.getElementById("boot"),bar=b.querySelector(".ldbar"),f=bar.querySelector("i"),m=b.querySelector(".ldmsg"),rl=b.querySelector(".ldrl"),fin=0,bad=0;
 window.__ld=function(p,s,secs){if(fin)return;f.style.transitionDuration=secs?secs+"s":"";f.style.transform="scaleX("+p+")";bar.setAttribute("aria-valuenow",Math.round(p*100));if(s&&!bad)m.textContent=s;};
@@ -17,150 +17,147 @@ setTimeout(function(){if(!fin&&!bad)m.textContent="Still loading… slow connect
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
 <style>
-/* ===================== Servo: base page CSS =====================
-   Theme tokens (the Longlight palette: near-black base with clay accents by default, an ivory workshop under
-   :root[data-theme=light]), the phone-first layout (3D view on top, scrolling tab panel under it, tab bar at the bottom),
-   shared controls (buttons, segmented pickers, cards, rows), the bottom sheet, toast, intro screen and the
-   "New version ready" bar. Fonts: Space Grotesk for everything, JetBrains Mono (--mono, tabular) for readouts.
-   Colour roles (plan section 2): clay is the accent (buttons, weight bar, active tab); lilac is for readouts (weapon J, rpm,
-   timers); damage uses green / amber / a cool red and never clay, so a hurt bot never looks like the accent.
-   Every text colour here is at least 4.5:1 on every surface it sits on, in both themes (crit text is lighter than the
-   crit fill in the dark theme for that reason). The 3D view stays dark in both themes: it is the workshop under cold light.
-   Reduced motion and reduced transparency are honoured at the bottom of this file. */
+/* ===================== Scrapline: page CSS =====================
+   1. Tokens: the Longlight palette (plan section 2). Dark is the default; :root[data-theme=light] is the ivory theme.
+      Roles: --clay is the accent (primary buttons, the weight bar, the active tab); --clay-t is clay for small text
+      (dark clay #A8482A in the light theme); --lilac is for readouts (weapon J, rpm, timers); --good / --warn / --crit are
+      the damage states (green, amber, a cool red) and never clay, so a hurt bot never looks like the accent. Every text
+      colour is at least 4.5:1 on every surface it sits on in both themes: dark-theme crit text is --crit-t (#F06A6E)
+      because the #E5484D fill is only about 4.3:1 on a card.
+   2. Layout, phone first: the 3D view on top (#view), the scrolling tab panel (#panel), the tab bar pinned at the bottom.
+      The 3D view and the intro keep the dark colours in both themes: the workshop is lit, not painted.
+   3. Shared pieces: cards, buttons, segmented pickers, fields, key-value lists, readouts, the bottom sheet, toast, intro,
+      the update bar (#pwaBar, app/pwa.js) and the backup reminder (#bkBar, app/savecode.js).
+   4. prefers-reduced-motion (and html.reduce from Settings) and prefers-reduced-transparency, at the bottom.
+   Fonts: Space Grotesk for the UI, JetBrains Mono (--mono, tabular figures) for readouts. */
+
+/* ---- 1. tokens ---- */
 :root{
-  --base:#141413; --surface:#1C1B19; --card:#1F1E1B; --card2:#2A2925; --rule:#34322D; --edge:rgba(255,255,255,.06);
+  --base:#141413; --surface:#1C1B19; --card:#1F1E1B; --card2:#2A2925; --rule:#34322D;
   --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189;
-  --clay:#D97757; --clay-t:#D97757; --clay-ink:#141413; --lilac:#B48CE8;
+  --clay:#D97757; --clay-t:#D97757; --on-clay:#141413; --lilac:#B48CE8;
   --good:#4CC38A; --warn:#E2A93B; --crit:#E5484D; --crit-t:#F06A6E;
+  --view-bg:radial-gradient(120% 90% at 50% 30%,#262522 0%,#0E0E0D 70%);
+  --tabbar:#100F0E; --scrim:rgba(6,6,5,.6); --lift:0 10px 30px rgba(0,0,0,.45);
   --font:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-  --tabh:64px; --tabbg:#100F0E; --scrim:rgba(6,6,5,.6); --shadow:0 10px 30px rgba(0,0,0,.45);
+  --tabh:64px; --r:14px;
   color-scheme:dark;
 }
 :root[data-theme=light]{
-  --base:#FAF9F5; --surface:#F1EEE7; --card:#FFFFFF; --card2:#F1EEE7; --rule:#E2DED5; --edge:rgba(20,20,19,.08);
+  --base:#FAF9F5; --surface:#F1EEE7; --card:#FFFFFF; --card2:#F1EEE7; --rule:#E2DED5;
   --ink:#1C1B19; --muted:#5F5C56; --dim:#66635C;
   --clay-t:#A8482A; --lilac:#6A33AD;
   --good:#1A6E44; --warn:#8A5A00; --crit:#C42B31; --crit-t:#C42B31;
-  --tabbg:#FFFFFF; --scrim:rgba(20,20,19,.35); --shadow:0 10px 30px rgba(40,34,20,.16);
+  --tabbar:#FFFFFF; --scrim:rgba(20,20,19,.35); --lift:0 10px 30px rgba(40,34,20,.16);
   color-scheme:light;
 }
-/* the 3D view and the intro keep the dark workshop colours in both themes */
-:root[data-theme=light] #view,:root[data-theme=light] #intro{--ink:#F2EFE8;--muted:#ABA79E;--dim:#959189;--clay-t:#D97757;--lilac:#B48CE8;--rule:#34322D;--card:#1F1E1B;--card2:#2A2925}
-:root[data-theme=light] #toast{background:#1C1B19;color:#F2EFE8}
+:root[data-theme=light] #view,:root[data-theme=light] #intro{
+  --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189; --clay-t:#D97757; --lilac:#B48CE8; --rule:#34322D; --card:#1F1E1B; --card2:#2A2925;
+}
 
+/* ---- 2. layout ---- */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{margin:0;background:var(--base);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
-button:focus-visible,[tabindex]:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--clay);outline-offset:2px}
-h1,h2,h3{margin:0;font-weight:700;text-wrap:balance;letter-spacing:.005em}
-.mono,.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.readout{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac)}
+body{margin:0;background:var(--base);color:var(--ink);font:16px/1.45 var(--font);overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--clay);outline-offset:2px}
+h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
-/* ---- layout: view on top, panel under it, tab bar at the bottom ---- */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:560px;margin:0 auto;background:var(--base);padding-top:env(safe-area-inset-top,0px)}
-#view{position:relative;flex:0 0 38%;min-height:200px;background:radial-gradient(120% 90% at 50% 30%,#262522 0%,#0E0E0D 70%);overflow:hidden}
+#app{position:fixed;inset:0;max-width:560px;margin:0 auto;display:flex;flex-direction:column;background:var(--base);padding-top:env(safe-area-inset-top,0px)}
+#view{position:relative;flex:0 0 38%;min-height:200px;overflow:hidden;background:var(--view-bg)}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-#hud{position:absolute;left:0;right:0;top:0;display:flex;align-items:flex-start;gap:10px;padding:10px 12px;pointer-events:none;background:linear-gradient(180deg,rgba(10,10,9,.7),rgba(10,10,9,0))}
+#hud{position:absolute;inset:0 0 auto 0;display:flex;align-items:flex-start;gap:10px;padding:10px 12px;pointer-events:none;background:linear-gradient(#0A0A09b3,#0A0A0900)}
 #hud>*{pointer-events:auto}
-#hud .brand{flex:1;min-width:0;font-weight:700;font-size:17px;letter-spacing:.01em;color:var(--ink)}
-#hud .brand small{display:block;font-weight:500;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
-#hud .money{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;line-height:1.25;color:var(--ink)}
+#hud .brand{flex:1;min-width:0;font-size:17px;font-weight:700;color:var(--ink)}
+#hud .brand small{display:block;font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
+#hud .money{text-align:right;font:14px/1.25 var(--mono);color:var(--ink)}
 #hud .money span{display:block;font-size:11px;color:var(--muted)}
-.hudbtn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:rgba(20,20,19,.6);border:1px solid rgba(255,255,255,.08);color:var(--ink)}
+.hudbtn{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#141413a0;border:1px solid #ffffff14;color:var(--ink)}
 .hudbtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-#tag{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--muted);font-family:var(--mono);pointer-events:none}
+#tag{position:absolute;left:12px;bottom:10px;font:12px var(--mono);color:var(--muted);pointer-events:none}
 #fpsHud{position:absolute;right:10px;bottom:10px;font:11px var(--mono);color:var(--dim);pointer-events:none}
 
-#panel{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px calc(var(--tabh) + 24px + env(safe-area-inset-bottom,0px))}
+#panel{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 14px calc(var(--tabh) + 24px + env(safe-area-inset-bottom,0px))}
 .tabpage{display:none}
 .tabpage.on{display:block}
 .tabpage>h2{font-size:22px;margin:2px 0 4px}
-.lede{margin:0 0 14px;color:var(--muted);font-size:15px}
+.lede{margin:0 0 14px;font-size:15px;color:var(--muted)}
 
-/* ---- tab bar ---- */
-#tabs{position:absolute;left:0;right:0;bottom:0;display:flex;height:calc(var(--tabh) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--tabbg);border-top:1px solid var(--rule);z-index:20}
-#tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:500;color:var(--dim);min-height:44px;position:relative}
+#tabs{position:absolute;left:0;right:0;bottom:0;z-index:20;display:flex;height:calc(var(--tabh) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--tabbar);border-top:1px solid var(--rule)}
+#tabs button{position:relative;flex:1;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:500;color:var(--dim)}
 #tabs button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 #tabs button.on{color:var(--clay-t)}
 #tabs button.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:2px;border-radius:0 0 2px 2px;background:var(--clay)}
 
-/* ---- shared controls ---- */
-.card{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:14px;margin:0 0 12px}
+/* ---- 3. shared pieces ---- */
+.card{margin:0 0 12px;padding:14px;border-radius:var(--r);background:var(--card);border:1px solid var(--rule)}
 .card h3{font-size:16px;margin:0 0 6px}
-.card p{margin:0 0 8px;color:var(--muted);font-size:15px}
+.card p{margin:0 0 8px;font-size:15px;color:var(--muted)}
 .card p:last-child{margin-bottom:0}
-.soon{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t);border:1px solid currentColor;vertical-align:2px}
-.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:15px}
-.kv dt{color:var(--muted)}
-.kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:10px;font-weight:600;font-size:15px;background:var(--card2);border:1px solid var(--rule);color:var(--ink)}
-.btn.pri{background:var(--clay);border-color:var(--clay);color:var(--clay-ink)}
+.soon{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;border:1px solid currentColor;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t);vertical-align:2px}
+.btn{min-height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;font-size:15px;font-weight:600;background:var(--card2);border:1px solid var(--rule);color:var(--ink)}
+.btn.pri{background:var(--clay);border-color:var(--clay);color:var(--on-clay)}
 .btn.ghost{background:transparent}
-.btn.sm{min-height:44px;padding:0 12px;font-size:14px}
+.btn.sm{padding:0 12px;font-size:14px}
 .btn:disabled{opacity:.5;cursor:default}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .row>.btn{flex:1}
 .row+.row{margin-top:10px}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;border-radius:12px;background:var(--card2);border:1px solid var(--rule)}
-.seg button{min-height:44px;border-radius:9px;font-size:14px;font-weight:500;color:var(--muted);line-height:1.15;padding:4px 6px}
+.seg button{min-height:44px;padding:4px 6px;border-radius:9px;font-size:14px;font-weight:500;line-height:1.15;color:var(--muted)}
 .seg button small{display:block;font-size:11px;font-weight:400;color:var(--dim)}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay)}
 .field{margin:0 0 14px}
-.field>label,.field>.lbl{display:block;font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted);margin:0 0 6px}
-.hint{font-size:13px;color:var(--dim);margin:6px 0 0}
+.field>.lbl{display:block;margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted)}
+.hint{margin:6px 0 0;font-size:13px;color:var(--dim)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:15px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.readout{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac)}
+.ok{color:var(--good)} .worn{color:var(--warn)} .broke{color:var(--crit-t)}
 textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:13px/1.4 var(--mono);word-break:break-all}
-.buerr{color:var(--crit-t);min-height:1em}
-/* damage states (green / amber / cool red), for the HUD silhouette, the post-mortem and the bench readouts */
-.ok{color:var(--good)}.worn{color:var(--warn)}.broke{color:var(--crit-t)}
+.buerr{min-height:1em;color:var(--crit-t)}
 
-/* ---- the palette strip on the Build tab until PR 2 replaces it (shows both themes' colour roles at a glance) ---- */
-.swatches{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0}
-.swatches span{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
-.swatches i{width:16px;height:16px;border-radius:4px;border:1px solid var(--rule);display:inline-block}
-
-/* ---- bottom sheet, scrim, toast ---- */
-#scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+#scrim{position:fixed;inset:0;z-index:40;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .2s}
 #scrim.on{opacity:1;pointer-events:auto}
-#sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;max-height:86%;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--rule);border-bottom:0;border-radius:18px 18px 0 0;box-shadow:var(--shadow);transform:translateY(105%);transition:transform .25s cubic-bezier(.2,.7,.2,1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:560px;max-height:86%;margin:0 auto;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--card);border:1px solid var(--rule);border-bottom:0;border-radius:18px 18px 0 0;box-shadow:var(--lift);transform:translateY(105%);transition:transform .25s cubic-bezier(.2,.7,.2,1)}
 #sheet.on{transform:none}
 #sheet header{display:flex;align-items:center;gap:10px;padding:10px 10px 6px 16px;border-bottom:1px solid var(--rule)}
 #sheet header h2{flex:1;font-size:18px}
-#sheet .body{overflow-y:auto;padding:14px 16px 18px;overscroll-behavior:contain}
-#toast{position:fixed;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,10px);max-width:calc(100% - 32px);width:max-content;padding:10px 14px;border-radius:10px;background:#F2EFE8;color:#141413;font-size:14px;font-weight:600;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:70}
+#sheet .body{overflow-y:auto;overscroll-behavior:contain;padding:14px 16px 18px}
+#toast{position:fixed;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:70;width:max-content;max-width:calc(100% - 32px);padding:10px 14px;border-radius:10px;background:#F2EFE8;color:#141413;font-size:14px;font-weight:600;box-shadow:var(--lift);opacity:0;pointer-events:none;transform:translate(-50%,10px);transition:opacity .2s,transform .2s}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+:root[data-theme=light] #toast{background:#1C1B19;color:#F2EFE8}
 
-/* ---- intro ---- */
 #intro{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(120% 80% at 50% 20%,#262522 0%,#0E0E0D 75%);color:var(--ink)}
 #intro .box{width:min(420px,100%)}
-#intro h1{font-size:40px;line-height:1;margin:0 0 6px}
+#intro h1{margin:0 0 6px;font-size:40px;line-height:1}
 #intro .sub{margin:0 0 18px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
-#intro p{color:var(--muted);margin:0 0 20px}
+#intro p{margin:0 0 20px;color:var(--muted)}
 #intro .btn{width:100%}
 #intro .credit{margin-top:22px;font-size:12px;color:var(--dim)}
 
-/* ---- "New version ready" bar (app/pwa.js) and the backup reminder bar (#buBar, app/savecode.js) ---- */
-#pwaBar,#buBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(16px);z-index:60;display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100% - 24px);padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
-#pwaBar.on,#buBar.on{opacity:1;transform:translateX(-50%);pointer-events:auto}
-#pwaBar .btn,#buBar .btn{flex:0 0 auto}
-#pwaBar .pwalater,#buBar .pwalater{min-height:44px;min-width:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
+#pwaBar,#bkBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:60;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--lift);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transform:translate(-50%,16px);transition:opacity .25s,transform .25s}
+#pwaBar.on,#bkBar.on{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+#pwaBar .btn,#bkBar .btn{flex:0 0 auto}
+.pwalater{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
 
-/* ---- wider screens: centre the column, give the view a bit more room ---- */
-@media (min-width:700px){#app{border-left:1px solid var(--rule);border-right:1px solid var(--rule)}#view{flex-basis:42%}}
+@media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
 @media (max-height:560px) and (orientation:landscape){#view{flex-basis:46%;min-height:160px}}
 
-/* ---- accessibility preferences ---- */
+/* ---- 4. accessibility preferences ---- */
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
 html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
-@media (prefers-reduced-transparency:reduce){#hud{background:rgba(10,10,9,.92)}.hudbtn{background:#1F1E1B}#scrim{background:rgba(6,6,5,.85)}}
+@media (prefers-reduced-transparency:reduce){#hud{background:#0A0A09eb}.hudbtn{background:#1F1E1B}#scrim{background:rgba(6,6,5,.85)}}
 </style>
 
 <div id="app">
   <div id="view">
     <canvas id="gl" aria-label="Your robot on the workbench" role="img"></canvas>
     <div id="hud">
-      <div class="brand">Servo<small id="weekLbl">The Haldis · Velmark</small></div>
+      <div class="brand">Scrapline<small id="weekLbl">The Haldis · Velmark</small></div>
       <div class="money"><b id="cashLbl"></b><span id="repLbl"></span></div>
       <button class="hudbtn" id="setOpen" aria-label="Settings" title="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
@@ -203,9 +200,9 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
       <p class="lede">Tools, the workshop, pit kits and the books.</p>
       <div class="card"><h3>Tools and workshop<span class="soon">PR 7</span></h3><p>From hand tools in a rented corner of a Haldis machine shop to a CNC, a press brake and a team HQ with a trailer.</p></div>
       <div class="card" id="savesCard"><h3>Saves</h3><p>A backup code holds your whole game. Keep it somewhere safe, or paste it into Restore on another phone.</p>
-        <div class="row"><button class="btn" id="exportSave">Back up</button><button class="btn" id="importSave">Restore</button></div>
+        <div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
         <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div>
-        <p class="hint" data-bu-store hidden></p></div>
+        <p class="hint" data-bk-store hidden></p></div>
     </section>
 
     <!-- CAREER: the season calendar, the circuit, rivals -->
@@ -231,7 +228,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 
   <div id="intro" hidden>
     <div class="box">
-      <h1>Servo</h1>
+      <h1>Scrapline</h1>
       <p class="sub">Combat robot builder · The Haldis, Velmark</p>
       <p>Design a fighting robot under a weight limit, prove it on the bench and drive it in the arena. Patch it in the pit, read the post-mortem, and build better. From a plywood box in a rented corner of a machine shop to the Scrapline Open.</p>
       <button class="btn pri" id="introGo">Open the workshop</button>
@@ -242,22 +239,22 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script>/* three.js post-processing addons (bloom on sparks) for the Ultra tier. A phone on Lite never loads them: they are written in here only
-   when the saved tier is Ultra, else SERVO_VIS.setQuality("ultra") loads them on demand through window.__srvPost. build.js reads SRV_LIBS
+   when the saved tier is Ultra, else SCRAP_VIS.setQuality("ultra") loads them on demand through window.__scrPost. build.js reads SCR_LIBS
    so the service worker precaches every URL (same pattern as PEW's PEW_LIBS). Order matters (Composer before the passes). */
-(function(){window.SRV_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
+(function(){window.SCR_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
 var ready=function(){return !!(window.THREE&&THREE.EffectComposer&&THREE.RenderPass&&THREE.UnrealBloomPass);},p=null;
-window.__srvPost=function(cb){if(ready()){cb&&cb(true);return;}
- if(!p)p=new Promise(function(res){var i=0;(function next(){if(i>=SRV_LIBS.length){res(ready());return;}var s=document.createElement("script");s.src=SRV_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=function(){p=null;res(false);};document.head.appendChild(s);})();});
+window.__scrPost=function(cb){if(ready()){cb&&cb(true);return;}
+ if(!p)p=new Promise(function(res){var i=0;(function next(){if(i>=SCR_LIBS.length){res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=function(){p=null;res(false);};document.head.appendChild(s);})();});
  p.then(function(ok){cb&&cb(ok);});};
-var sv=null;try{sv=JSON.parse(localStorage.getItem("srv-save")||"null");}catch(e){}
-if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SRV_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
+var sv=null;try{sv=JSON.parse(localStorage.getItem("scr-save")||"null");}catch(e){}
+if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SCR_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
 })();</script>
 <script>__ld(.3,"3D library loaded")</script>
 <script>
-/* ===================== Servo: robot sim core (SERVO_SIM) =====================
+/* ===================== Scrapline: robot sim core (SCRAP_SIM) =====================
    Parts maths, bench tests, the fight simulation and the AI drivers. Never touches the DOM or three.js, and runs in plain
-   node: cut this <script> block out of the built index.html (search for "Servo: robot sim core") and require it; it ends
-   with module.exports = SERVO_SIM. One IIFE spread over sim/rng.js, parts.js, build.js, combos.js, bench.js, fight.js,
+   node: cut this <script> block out of the built index.html (search for "Scrapline: robot sim core") and require it; it ends
+   with module.exports = SCRAP_SIM. One IIFE spread over sim/rng.js, parts.js, build.js, combos.js, bench.js, fight.js,
    damage.js, ai.js, arenas.js and opponents.js (in that order); the export object is at the end of opponents.js.
 
    Determinism is a hard rule: everything random comes from one seeded generator passed in as an argument. Math.random,
@@ -267,7 +264,7 @@ if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SRV_LIBS.map(functi
 
    This file: the seeded generator. rng(seed) returns a function giving floats in [0, 1) (mulberry32: 32-bit state, fast,
    and the same sequence in every browser and in node). Helpers take that function as their first argument. */
-const SERVO_SIM=(function(){
+const SCRAP_SIM=(function(){
 "use strict";
 function rng(seed){let a=(seed>>>0)||0x9E3779B9;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;
   t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
@@ -275,7 +272,7 @@ const rRange=(r,lo,hi)=>lo+(hi-lo)*r();            // float in [lo, hi)
 const rInt=(r,lo,hi)=>lo+Math.floor((hi-lo+1)*r()); // integer in [lo, hi]
 const rPick=(r,arr)=>arr[Math.floor(arr.length*r())];
 /* ---- parts.js: CLASSES (weight classes and their budgets) and PARTS (every slot's options in grams, millimetres and
-   thalers), DEFAULT_CFG. Filled in by PR 1 (docs/SERVO-PLAN.md section 4a-4c). The five classes are named here now so every
+   thalers), DEFAULT_CFG. Filled in by PR 1 (docs/SCRAPLINE-PLAN.md section 4a-4c). The five classes are named here now so every
    PR uses the same ids: ant 150 g, beetle 1.5 kg, hobby 5.5 kg, feather 14 kg, heavy 110 kg. ---- */
 const CLASSES={
   ant:{id:"ant",name:"Antweight",limitG:150},
@@ -314,31 +311,31 @@ const AI_STYLES={};
 const ARENAS={};
 const JUDGE_WEIGHTS={damage:.5,aggression:.25,control:.25};
 /* ---- opponents.js: OPPONENTS, named bots across the classes, each with a build in the player's config format, a
-   driver skill, a style and a one-line personality. About 15 in PR 4b, growing as content. Then the SERVO_SIM export
+   driver skill, a style and a one-line personality. About 15 in PR 4b, growing as content. Then the SCRAP_SIM export
    object. ---- */
 const OPPONENTS=[];
 return{rng,rRange,rInt,rPick,CLASSES,PARTS,DEFAULT_CFG,K,evalBuild,COMBOS,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
 })();
-if(typeof module!=="undefined"&&module.exports)module.exports=SERVO_SIM;
+if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
 <script>__ld(.5,"Parts maths loaded")</script>
 <script>
-/* ===================== Servo: sound (SERVO_SOUND) =====================
+/* ===================== Scrapline: sound (SCRAP_SOUND) =====================
    Web Audio, all synthesized: clangs scaled by hit energy, motor and weapon whine following rpm, the pit clock. CC0
-   samples layer on top on Full / Ultra in PR 10. Arrives with the arena in PR 5 (docs/SERVO-PLAN.md section 9). */
-const SERVO_SOUND={ready:false,hit(){},whine(){},stop(){}};
+   samples layer on top on Full / Ultra in PR 10. Arrives with the arena in PR 5 (docs/SCRAPLINE-PLAN.md section 9). */
+const SCRAP_SOUND={ready:false,hit(){},whine(){},stop(){}};
 </script>
 <script>
-/* ===================== Servo: 3D (SERVO_VIS) =====================
+/* ===================== Scrapline: 3D (SCRAP_VIS) =====================
    three.js r128. One IIFE spread over vis/core.js, bot.js, arena.js, fx.js, workshop.js and api.js; the public object is
-   in api.js. The vis never reads game state and never runs the fight: SERVO_SIM simulates, the app passes the result in.
-   The app calls SERVO_VIS.setBot(cfg), .setRun({spin}), .setView(name), .setQuality(tier) and reads .fps().
+   in api.js. The vis never reads game state and never runs the fight: SCRAP_SIM simulates, the app passes the result in.
+   The app calls SCRAP_VIS.setBot(cfg), .setRun({spin}), .setView(name), .setQuality(tier) and reads .fps().
    This file: module state, the renderer, the three graphics tiers and the materials.
      lite   pixel ratio 1, Lambert / Phong materials, no shadows, no post. The phone default; it must always look finished.
      full   device pixel ratio up to 2, PBR steel and aluminium with a generated workshop reflection, soft shadows.
-     ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__srvPost).
+     ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__scrPost).
    Colours are written as sRGB hex and converted with .convertSRGBToLinear() (the renderer outputs sRGB). */
-const SERVO_VIS=(function(){
+const SCRAP_VIS=(function(){
 "use strict";
 const V={r:null,scene:null,cam:null,canvas:null,tier:"lite",w:0,h:0,mats:null,env:null,comp:null,bloom:null,
   bot:null,shop:null,lights:null,run:{spin:1},t0:performance.now(),last:0,ang:0,
@@ -420,7 +417,7 @@ function buildPlaceholderBot(){
   g.userData={disc};
   return g;
 }
-/* ---- vis/arena.js: the arena scene. Floor, walls (see-through on the camera side), hazards from SERVO_SIM's ARENAS
+/* ---- vis/arena.js: the arena scene. Floor, walls (see-through on the camera side), hazards from SCRAP_SIM's ARENAS
    table, a cheap crowd texture and hazard lights. Lite: flat materials, no shadows. Arrives in PR 5 (plan section 9). ---- */
 function buildArena(){return null;}
 /* ---- vis/fx.js: hit feedback. Sparks (capped particles), a part mesh flying off, dent decals, smoke on battery damage,
@@ -453,7 +450,7 @@ function rebuild(){
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
   V.comp=null;V.bloom=null;
-  if(V.tier==="ultra"&&window.__srvPost)window.__srvPost(ok=>{if(!ok||V.tier!=="ultra")return;
+  if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(ok=>{if(!ok||V.tier!=="ultra")return;
     V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
     V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
   resize(true);
@@ -497,7 +494,7 @@ function frame(now){
   V.frames++;
   if(now-V.fpsAt>=1000){V.fpsObj={fps:Math.round(V.frames*1000/(now-V.fpsAt)),at:now};V.frames=0;V.fpsAt=now;}
 }
-/* ---- vis/api.js: the SERVO_VIS public object. The app calls these; the vis never reads game state. ---- */
+/* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
   init(canvas){if(started)return;started=true;initRenderer(canvas);rebuild();bindOrbit(canvas);requestAnimationFrame(frame);},
@@ -510,24 +507,24 @@ return{
   _state:V
 };
 })();
-window.SERVO_VIS=SERVO_VIS;
+window.SCRAP_VIS=SCRAP_VIS;
 </script>
 <script>__ld(.75,"Workshop lights on")</script>
 <script>
-/* ===================== Servo: app state =====================
+/* ===================== Scrapline: app state =====================
    The app script is one top-level script spread over app/state.js … app/help.js (in manifest order); start() runs once the
    whole block has loaded (app/boot.js schedules it through __ldGo).
    This file: VERSION, WORLD (every place name in Velmark), the career tables (filled in by later PRs, named here so every
    PR uses the same names), the S state object and its save shape, save / load / migrate / save slots, theme, graphics tier,
    and the small UI helpers every tab uses ($, fmt$, toast, the sheet).
-   localStorage keys (every access wrapped in try/catch): "srv-save" (the current game, settings included) and
-   "srv-slot1" .. "srv-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
-   check-savecode.js; stop and ask before adding one. New fields inside srv-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.0.0";
-const SIM=SERVO_SIM;
+   localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
+   "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
+   check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
+const VERSION="0.1.0.1";
+const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
-/* ---- the world (plan section 1): Velmark, the invented alpine country from Escapement ---- */
+/* ---- the world (plan section 1): Velmark, an invented alpine country ---- */
 const WORLD={
   country:"Velmark",
   region:"the Haldis",              // the northern watchmaking valley where the player starts
@@ -562,7 +559,7 @@ const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
 const SPONSORS=[];          // paint and a placing target (PR 8)
 const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
 
-/* ---- state: the srv-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
+/* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
 const SAVE_V=1;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build"};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -580,7 +577,7 @@ const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 /* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
 const MIGRATE={};
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
-function save(){try{localStorage.setItem("srv-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
+function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
 function snapshot(){return JSON.parse(JSON.stringify(S));}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
@@ -591,8 +588,8 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   for(const k of ["designs","rivals"])if(!buObjS(n[k]))n[k]={};
   for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
   S=n;return true;}
-function loadSaved(){try{const j=localStorage.getItem("srv-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
-const SLOTS=3,slotKey=i=>"srv-slot"+i;
+function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
+const SLOTS=3,slotKey=i=>"scr-slot"+i;
 /* a restored game: take it, store it, redraw everything */
 function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}save();applyAll();showTab(ST().tab||"build");toast(msg);}
 /* loading a save slot keeps this phone's settings (plan section 15) */
@@ -608,13 +605,13 @@ function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matc
 function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
-function applyGfx(){const q=gfxTier();if(window.SERVO_VIS)SERVO_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
+function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
 function applyAll(){applyTheme();applyReduce();applyGfx();hud();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 
 /* ---- formatting ---- */
-const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler (100 pfennig), copied from Escapement
+const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler, 100 pfennig: Th 4,850
 const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
@@ -633,7 +630,7 @@ function closeSheet(){$("sheet").classList.remove("on");$("scrim").classList.rem
 const sheetOn=()=>$("sheet").classList.contains("on");
 /* ===================== app/perf.js: graphics tiers and auto-adjust =====================
    Three tiers, lite / full / ultra (settings.gfx; null means the default: Lite on a phone, Full elsewhere).
-   Auto-adjust (settings.gfxAuto, on unless false), same rules as PEW: once the scene has settled, watch the frame rate SERVO_VIS
+   Auto-adjust (settings.gfxAuto, on unless false), same rules as PEW: once the scene has settled, watch the frame rate SCRAP_VIS
    measures. If it stays under ~27 fps for ~8 s, step ONE tier down (ultra > full > lite) and say so in a toast. It never steps
    up, and a manual tier pick after an auto-drop is respected for the rest of the session.
    Skipped while the page is hidden, for the first ~6 s, for 3 s after a tier or tab change, and whenever the view isn't
@@ -643,14 +640,14 @@ function perfReset(hold){PERF.low=0;PERF.sAt=0;if(hold)PERF.holdTo=performance.n
 /* the player picked a tier or flipped auto-adjust in Settings */
 function perfManual(){PERF.manual=true;perfReset(true);}
 function perfPoll(){
-  if(!window.SERVO_VIS)return;
+  if(!window.SCRAP_VIS)return;
   const now=performance.now();
   if(ST().gfxAuto===false||(PERF.dropped&&PERF.manual)||document.hidden||now-PERF.boot<PERF.SETTLE){perfReset(true);return;}
   if(navigator.webdriver&&PERF.force==null)return;
   const tier=gfxTier();if(tier!==PERF.tier){PERF.tier=tier;perfReset(true);}
   if(curTab!==PERF.tab){PERF.tab=curTab;perfReset(true);}
   if(now<PERF.holdTo)return;
-  const f=SERVO_VIS.fps();let fps;
+  const f=SCRAP_VIS.fps();let fps;
   if(PERF.force!=null){fps=PERF.force;if(!PERF.sAt){PERF.sAt=now;return;}}
   else if(f!==PERF.f){PERF.f=f;PERF.fAt=now;fps=f.fps;if(!PERF.sAt){PERF.sAt=now;return;}}
   else{if(now-PERF.fAt>1500)perfReset(false);return;}          // nothing drawn lately: start over
@@ -663,34 +660,33 @@ function perfPoll(){
   toast(`Graphics lowered to ${n[0].toUpperCase()+n.slice(1)} to keep things smooth. Change it in Settings.`);}
 setInterval(perfPoll,500);
 /* ?fps=1 shows the frame rate in the corner of the view */
-if(/[?&]fps=1(&|$)/.test(location.search))setInterval(()=>{const f=window.SERVO_VIS&&SERVO_VIS.fps();if(f)$("fpsHud").textContent=f.fps+" fps · "+gfxTier();},1000);
+if(/[?&]fps=1(&|$)/.test(location.search))setInterval(()=>{const f=window.SCRAP_VIS&&SCRAP_VIS.fps();if(f)$("fpsHud").textContent=f.fps+" fps · "+gfxTier();},1000);
 /* ===================== app/savecode.js: SAVE CODES, Back up / Restore =====================
-   One code holds everything this game keeps in the browser, so a player can move to another phone or browser, or keep a
-   copy somewhere safe. All of it lives in localStorage on this device; nothing is ever sent anywhere.
-     save    the current game ("srv-save"), taken live with snapshot(). Settings (theme, graphics, sound) ride in it, under save.settings.
-     slots   the 3 save slots ("srv-slot1" .. "srv-slot3"), null for an empty one
-   Code = "SRV1:" + body + a 6-character checksum. body = that object as JSON -> UTF-8 bytes -> LZW (9..16-bit codes) ->
+   One code holds everything this game keeps in the browser, so a player can move to another phone or browser, or keep
+   a copy somewhere safe. All of it lives in localStorage on this device; nothing is ever sent anywhere.
+     save    the current game ("scr-save"), taken live with snapshot(). Settings ride in it, under save.settings.
+     slots   the 3 save slots ("scr-slot1" .. "scr-slot3"), null for an empty one
+   Code = "SCR1:" + body + a 6-character checksum. body = that object as JSON -> UTF-8 bytes -> LZW (9..16-bit codes) ->
    base64url (A-Z a-z 0-9 - _ only), so it survives notes apps, email and chat. Same shape as PEW's PEW1: codes.
    Restore checks everything before it writes anything: checksum, unpack, JSON, the shape of every save and a trial
    hydrate() of each one. Then buWrite() writes all four keys and puts the old values back if any write fails, so a bad
-   paste can never leave a half-restored game. The next version of this format is SRV2:.
-   A new localStorage key must be added to buMake and buWrite (and to check-savecode.js), or backups won't carry it.
-   UI: Shop tab -> Saves, and Settings -> Saves (buttons call buBackupOpen / buRestoreOpen; the two file buttons carry
-   data-bu="file" / data-bu="load" and are picked up by one click listener at the bottom of this file).
-   Save safety (bottom of this file): backup files, asking the browser to keep our storage, and the backup reminder.
-   The last backup time is S.lastBackup (milliseconds), a field inside the srv-save object, so no new key.
+   paste can never leave a half-restored game. The next version of this format is SCR2:.
+   A new localStorage key must be added to buMake and buWrite (and to KEYS in check-savecode.js), or backups won't carry it.
+   UI: Shop tab -> Saves and Settings -> Saves. Buttons carry data-bu="backup" | "restore" | "file" | "load" and are picked
+   up by one click listener at the bottom of this file; status lines carry data-bk-store.
    Tests: `node check-savecode.js` in the repo root. */
-const BU_V=1,BU_PREFIX="SRV"+BU_V+":";
+const BU_V=1,BU_PREFIX="SCR"+BU_V+":";
 const BU_B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",BU_MAXCODES=65536;
-const BU_KEY="srv-save";
+const BU_KEY="scr-save";
 const BU_MSG={
   empty:"Paste a backup code into the box first.",
-  damaged:"That code is damaged or cut off. Copy the whole code again, from SRV1: right to the end, and paste it here.",
+  damaged:"That code is damaged or cut off. Copy the whole code again, from SCR1: right to the end, and paste it here.",
   newer:"That code was made by a newer version of the game. Reload the page to update, then try again.",
-  other:"That's a save code from a different game. Servo backup codes start with \"SRV1:\".",
-  notcode:"That doesn't look like a save code. Backup codes start with \"SRV1:\".",
+  other:"That's a save code from a different game. Scrapline backup codes start with \"SCR1:\".",
+  notcode:"That doesn't look like a save code. Backup codes start with \"SCR1:\".",
   bad:"That code opened, but the save inside doesn't look right, so nothing was changed.",
-  store:"This browser wouldn't let the game save (storage may be full or blocked), so nothing was changed."
+  store:"This browser wouldn't let the game save (storage may be full or blocked), so nothing was changed.",
+  busy:"Let the fight finish first, then restore."
 };
 const buFail=k=>{const e=new Error(BU_MSG[k]);e.bu=k;return e;};   // an error with a message that's fine to show the player
 
@@ -764,9 +760,9 @@ function buFullOk(d){return buObj(d)&&d.v===BU_V&&buSaveOk(d.save)&&Array.isArra
 /* ---- reading a code: {kind:"full",data}. Spaces, line breaks and text around the code are fine.
    Throws buFail(...) with a message for the player. ---- */
 function buRead(text){
-  const s=String(text==null?"":text).replace(/[\s​-‍⁠﻿]+/g,"");
+  const s=String(text==null?"":text).replace(/[\s\u200B-\u200D\u2060\uFEFF]+/g,"");
   if(!s)throw buFail("empty");
-  const m=/SRV(\d+):/.exec(s);
+  const m=/SCR(\d+):/.exec(s);
   if(!m){
     if(/(^|[^A-Za-z0-9])[A-Za-z]{2,8}\d+:[A-Za-z0-9_-]/.test(s))throw buFail("other");   // e.g. PEW1:... from another game
     throw buFail("notcode");}
@@ -793,9 +789,9 @@ function buWrite(d){
 /* ---- the two sheets ---- */
 function buSelect(ta){try{ta.select();ta.setSelectionRange(0,ta.value.length);}catch(e){}}
 async function buCopy(ta){
-  try{await navigator.clipboard.writeText(ta.value);buMarked();toast("Copied. Paste it somewhere safe.");return;}catch(e){}   // no clipboard access: select it instead
+  try{await navigator.clipboard.writeText(ta.value);buMarkBackup();toast("Copied. Paste it somewhere safe.");return;}catch(e){}   // no clipboard access: select it instead
   ta.focus();buSelect(ta);let ok=false;try{ok=document.execCommand("copy");}catch(e){}
-  if(ok)buMarked();
+  if(ok)buMarkBackup();
   toast(ok?"Copied. Paste it somewhere safe.":"Code selected. Long-press it and tap Copy.");}
 function buBackupOpen(){let code="";try{code=buCode();}catch(e){}
   if(!code){toast("Couldn't make a backup code on this device");return;}
@@ -821,89 +817,92 @@ function buAsk(d){const when=buNum(d.at)?new Date(d.at).toLocaleString("en-GB",{
 function buRestore(text,err){
   const say=k=>{err.textContent=BU_MSG[k]||BU_MSG.damaged;err.scrollIntoView&&err.scrollIntoView({block:"nearest"});};
   err.textContent="";
+  if(buFighting()){say("busy");return;}
   let r;try{r=buRead(text);}catch(e){say(e&&e.bu||"damaged");return;}
+  {const o=r.data.save,bk=S&&buNum(S.lastBackup)?S.lastBackup:0;if(bk>(buNum(o.lastBackup)?o.lastBackup:0))o.lastBackup=bk;}   // this device's last-backup time survives a restore
   if(!confirm(buAsk(r.data)))return;
-  r.data.save.lastBackup=Date.now();   // restoring means a copy of this game exists: no reminder for a while
   if(!buWrite(r.data)){say("store");return;}
   closeSheet();applyLoaded(r.data.save,"Backup restored");buPersist();}
 
-/* ===================== save safety =====================
-   Every Kelbo game shares the jxstrr0.github.io origin, so one storage quota: if the phone runs low, the browser may
-   clear the whole origin, and every game's saves with it. Three things make that less likely to hurt:
-   1. buPersist() asks the browser to keep our storage (navigator.storage.persist). Once per page load, and only once the
-      player has something worth keeping (a save write with progress, a backup or a restore), because Firefox shows a
-      prompt for it. Chrome and Safari decide quietly. buStoreLine() fills the "Storage: ..." line in both Saves spots.
-   2. Backup files: the same SRV1: code, as servo-backup-YYYY-MM-DD.txt. Shared through the share sheet where files
-      can be shared (iPhone: Save to Files, also from the Home Screen app), else downloaded. Loading a file puts its text
-      into the Restore sheet and runs the same checks and the same confirm as a pasted code.
-   3. buRemind(): with progress and no backup yet (or none for 14 days), one quiet bar per visit, at a calm moment (after
-      start-up or on a tab switch, never over a sheet or the intro). Later PRs: skip it while a fight or a pit window is running.
-   Nothing here touches anything outside srv-. */
-const BU_REMIND_DAYS=14,BU_FILE_MAX=16e6;
-function buFileName(d){d=d||new Date();const p=n=>String(n).padStart(2,"0");
-  return `servo-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.txt`;}   // local date
-/* something worth keeping: a career started, a bot fitted, a design saved, or a save slot used */
-function buHasProgress(){if(S&&(S.career||Object.keys(S.bots||{}).length||Object.keys(S.designs||{}).length))return true;
-  for(let i=1;i<=SLOTS;i++){try{if(localStorage.getItem(slotKey(i))!=null)return true;}catch(e){}}return false;}
-let buAsked=false;
-async function buPersist(){if(buAsked)return;buAsked=true;
-  try{const st=navigator.storage;if(!st||!st.persist||!st.persisted)return;if(!(await st.persisted()))await st.persist();}catch(e){}
-  buStoreLine();}
-function buSaved(){if(!buAsked&&buHasProgress())buPersist();}   // save() calls this after each good write
-async function buStoreLine(){const els=document.querySelectorAll("[data-bu-store]");if(!els.length)return;
-  let on=null;try{const st=navigator.storage;if(st&&st.persisted)on=await st.persisted();}catch(e){on=null;}
-  els.forEach(el=>{el.hidden=on===null;
-    el.textContent=on?"Storage: kept safe on this device.":"Storage: your browser may clear saves if the phone runs low. Keep a backup file.";});}
-function buMarked(){S.lastBackup=Date.now();save();buPersist();buBarHide();}   // a backup was made: copied code or saved file
-async function buSaveFile(){let code="";try{code=buCode();}catch(e){}
-  if(!code){toast("Couldn't make a backup code on this device");return;}
+/* ===================== SAVE SAFETY: backup files, keep-my-storage, the backup reminder (after PEW 1.76.66) =====================
+   Every Longlight game lives at jxstrr0.github.io, so they share one browser storage pot. When a phone runs short of
+   space the browser may clear all of it at once. Three things guard against that:
+     buPersist()   asks the browser to keep this site's storage (navigator.storage.persist). Once per page load, only after a
+                   save write with progress (save() in app/state.js calls buSaved) or after a backup / restore. Firefox may
+                   ask the player; Chrome and Safari decide quietly. Missing API: nothing happens.
+     buFileSave()  the same SCR1: code as Back up, in a text file. Share sheet with the file where the browser can
+                   (iPhone: "Save to Files", also from the Home Screen app), else a normal download.
+     buFileLoad()  reads a backup file and runs it through the Restore sheet, so the same checks and the same confirm happen.
+   S.lastBackup = when the last backup was taken (a code copied or a file saved). It rides in the save (scr-save), so no new
+   localStorage key; a restore keeps whichever time is newer. buRemind() shows a quiet bar (once per session, at a calm
+   moment) when there is real progress and no backup in BU_REMIND_DAYS days. Nothing here touches anything outside scr-. */
+const BU_REMIND_DAYS=14,BU_FILE_MAX=4e6;
+let buPersistAsked=false,buReminded=false;
+/* a fight or a pit window is running (app/fight.js and app/pit.js set html.infight): no restores, no reminder */
+function buFighting(){return typeof document!=="undefined"&&document.documentElement.classList.contains("infight");}
+/* something worth keeping: a career past its first weeks, a bot fitted, or a couple of saved designs */
+function buProgress(){if(!S)return false;
+  const c=S.career,nd=Object.values(S.designs||{}).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
+  return !!(c&&(+c.week||1)>=4)||Object.keys(S.bots||{}).length>0||nd>=2;}
+function buSaved(){if(!buPersistAsked&&buProgress())buPersist();}   // save() calls this after each good write
+function buPersist(){if(buPersistAsked)return;buPersistAsked=true;
+  try{const st=typeof navigator!=="undefined"&&navigator.storage;if(!st||!st.persist||!st.persisted)return;
+    st.persisted().then(p=>p||st.persist()).then(()=>buStoreLine(),()=>{});}catch(e){}}
+/* the status line in each Saves spot: is the storage kept, and when was the last backup */
+function buStoreLine(){if(typeof document==="undefined")return;const els=document.querySelectorAll("[data-bk-store]");if(!els.length)return;
+  const last=S&&buNum(S.lastBackup)&&S.lastBackup>0?"Last backup "+new Date(S.lastBackup).toLocaleDateString("en-GB",{month:"short",day:"numeric"})+".":"No backup yet.";
+  const put=t=>els.forEach(el=>{el.textContent=t;el.hidden=false;});
+  let st=null;try{st=navigator.storage;}catch(e){}
+  if(!st||!st.persisted){put(last);return;}
+  st.persisted().then(p=>put((p?"Storage: kept on this device. ":"Storage: the browser may clear saves if the phone runs low. Keep a backup file. ")+last),()=>put(last));}
+function buMarkBackup(){if(!S)return;S.lastBackup=Date.now();try{save();}catch(e){}buPersist();buStoreLine();buRemindHide();}
+function buFileName(d){d=d||new Date();const p=n=>String(n).padStart(2,"0");return`scrapline-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.txt`;}   // local date
+async function buFileSave(){let code="";try{code=buCode();}catch(e){}
+  if(!code){toast("Couldn't make a backup on this device");return;}
   const name=buFileName(),text=code+"\n";
-  try{const f=new File([text],name,{type:"text/plain"});
-    if(navigator.canShare&&navigator.share&&navigator.canShare({files:[f]})){
-      try{await navigator.share({files:[f]});buMarked();toast("Backup file saved.");}
-      catch(e){if(!e||e.name!=="AbortError")buDownload(text,name);}   // cancelled: not saved, say nothing
-      return;}}catch(e){}
-  buDownload(text,name);}
-function buDownload(text,name){
+  let file=null;try{file=new File([text],name,{type:"text/plain"});}catch(e){}
+  if(file&&navigator.canShare&&navigator.share){let can=false;try{can=navigator.canShare({files:[file]});}catch(e){}
+    if(can){try{await navigator.share({files:[file]});buMarkBackup();toast("Backup file saved");return;}
+      catch(e){if(e&&e.name==="AbortError")return;}}}   // cancelled: not saved. Any other refusal falls back to a download
   try{const url=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");
-    a.href=url;a.download=name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),4000);buMarked();toast("Backup file saved: "+name);}
-  catch(e){toast("Couldn't save a file here. Use Back up and copy the code instead.");}}
+    a.href=url;a.download=name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);
+    buMarkBackup();toast("Backup file saved: "+name);}
+  catch(e){toast("Couldn't save a file here. Use Back up and copy the code.");}}
 let buInput=null;
-function buLoadFile(){
+function buFileLoad(){if(buFighting()){toast("Let the fight finish first");return;}
   if(!buInput){buInput=document.createElement("input");buInput.type="file";buInput.accept=".txt,text/plain";buInput.hidden=true;
-    buInput.addEventListener("change",()=>{const f=buInput.files&&buInput.files[0];buInput.value="";if(!f)return;
-      if(f.size>BU_FILE_MAX){buRestoreFile("");return;}
-      const r=new FileReader();r.onload=()=>buRestoreFile(String(r.result||""));r.onerror=()=>buRestoreFile("");r.readAsText(f);});
-    document.body.appendChild(buInput);}
-  buInput.click();}
-/* the file's text goes through the Restore sheet: same checks, same errors, same confirm as a pasted code */
-function buRestoreFile(text){buRestoreOpen();const ta=$("codeIn"),err=$("codeErr");text=String(text).trim();ta.value=text;
-  if(!text){err.textContent=BU_MSG.notcode;return;}
-  buRestore(text,err);}
-/* the reminder bar (same look as the "New version ready" bar) */
-let buBar=null,buReminded=false;
-function buBarHide(){if(buBar)buBar.classList.remove("on");}
-function buRemind(){
-  if(buReminded||$("boot")||sheetOn()||!$("intro").hidden||!buHasProgress())return;
-  const pb=$("pwaBar");if(pb&&pb.classList.contains("on"))return;   // not now: the next calm moment tries again
-  const last=buNum(S.lastBackup)?S.lastBackup:0,days=last?Math.floor((Date.now()-last)/864e5):Infinity;
-  if(days<BU_REMIND_DAYS)return;
+    buInput.addEventListener("change",()=>buFileRead(buInput));document.body.appendChild(buInput);}
+  buInput.value="";buInput.click();}
+async function buFileRead(inp){const f=inp.files&&inp.files[0];inp.value="";if(!f)return;
+  let text="";
+  if(f.size>BU_FILE_MAX)text="\u0000";   // far too big to be a backup: the Restore sheet says it isn't a code
+  else{try{text=await f.text();}catch(e){text=await new Promise(res=>{try{const r=new FileReader();r.onload=()=>res(String(r.result||""));r.onerror=()=>res("");r.readAsText(f);}catch(_){res("");}});}}
+  text=String(text).trim();
+  buRestoreOpen();$("codeIn").value=text;
+  buRestore(text||"\u0000",$("codeErr"));}
+/* the reminder: real progress and no backup in BU_REMIND_DAYS days. Once per session, never over a fight, a sheet or
+   the intro; it tries again later if busy. */
+function buRemindDue(){return buProgress()&&(!buNum(S.lastBackup)||!S.lastBackup||Date.now()-S.lastBackup>=BU_REMIND_DAYS*864e5);}
+function buBusy(){return buFighting()||sheetOn()||!$("intro").hidden||!!document.querySelector("#pwaBar.on");}
+function buRemind(tries){if(buReminded||!buRemindDue())return;
+  if(buBusy()){if((tries|0)<20)setTimeout(()=>buRemind((tries|0)+1),30000);return;}
   buReminded=true;
-  if(!buBar){buBar=document.createElement("div");buBar.id="buBar";buBar.setAttribute("role","status");
-    buBar.innerHTML='<span id="buBarMsg"></span><button type="button" class="btn sm pri" id="buBarGo">Saves</button><button type="button" class="pwalater" id="buBarLater" aria-label="Dismiss until next visit">Later</button>';
-    ($("app")||document.body).appendChild(buBar);
-    $("buBarLater").addEventListener("click",buBarHide);
-    $("buBarGo").addEventListener("click",()=>{buBarHide();showTab("shop");
+  let bar=$("bkBar");
+  if(!bar){bar=document.createElement("div");bar.id="bkBar";bar.setAttribute("role","status");
+    bar.innerHTML='<span id="bkBarTxt"></span><button type="button" class="btn sm pri" id="bkBarGo">Saves</button><button type="button" class="pwalater" id="bkBarLater" aria-label="Dismiss the backup reminder">Later</button>';
+    ($("app")||document.body).appendChild(bar);
+    $("bkBarLater").addEventListener("click",buRemindHide);
+    $("bkBarGo").addEventListener("click",()=>{buRemindHide();if(buBusy())return;showTab("shop");
       const c=$("savesCard");if(c)c.scrollIntoView({block:"center",behavior:reduced()?"auto":"smooth"});});}
-  $("buBarMsg").textContent=last?`Last backup ${days} days ago.`:"No backup of this game yet.";
-  buBar.classList.add("on");}
+  const d=buNum(S.lastBackup)&&S.lastBackup>0?Math.floor((Date.now()-S.lastBackup)/864e5):-1;
+  $("bkBarTxt").textContent=d<0?"No backup yet. Keep a copy off this phone.":`Last backup ${d} days ago. Time for a fresh one.`;
+  requestAnimationFrame(()=>bar.classList.add("on"));
+  clearTimeout(buRemind.t);buRemind.t=setTimeout(buRemindHide,20000);}
+function buRemindHide(){const b=typeof document!=="undefined"&&document.getElementById("bkBar");if(b)b.classList.remove("on");}
 if(typeof document!=="undefined"){   // (check-savecode.js loads this file in node, with no page)
   document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-bu]");if(!b)return;
-    if(b.dataset.bu==="file")buSaveFile();else if(b.dataset.bu==="load")buLoadFile();});
-  $("tabs").addEventListener("click",()=>setTimeout(buRemind,700));
-  window.addEventListener("load",()=>setTimeout(buRemind,4000));
-  buStoreLine();}
+    const k=b.dataset.bu;if(k==="backup")buBackupOpen();else if(k==="restore")buRestoreOpen();else if(k==="file")buFileSave();else if(k==="load")buFileLoad();});
+  window.addEventListener("load",()=>setTimeout(buRemind,4000));}
 /* ===================== app/pwa.js: service worker, "New version ready" bar, Install app =====================
    Same as PEW. Registers sw.js (generated by build.js) on a real host, or anywhere over http(s) with ?sw=1, never on
    localhost or file://, so local testing is never cached. When a new worker is installed and waiting, the bar offers
@@ -968,18 +967,16 @@ function openSettings(){
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Theme</span>${segHtml("themeSeg","theme",[["dark","Dark","night shift"],["light","Light","daylight"],["auto","Auto","follow phone"]],ST().theme||"dark")}</div>
 <div class="field"><span class="lbl">Motion</span>${segHtml("reduceSeg","reduce",[["auto","Auto","follow phone"],["1","Reduced"],["0","Full"]],ST().reduce==null?"auto":ST().reduce?"1":"0")}</div>
-<div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" id="setBackup">Back up</button><button class="btn" id="setRestore">Restore</button></div>
-<div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bu-store hidden></p></div>
-${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Servo to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
-<p class="hint">Servo ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
+<div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
+<div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
+${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
+<p class="hint">Scrapline ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
   const pick=(id,attr,fn)=>$(id).addEventListener("click",e=>{const b=e.target.closest(`[data-${attr}]`);if(!b)return;
     fn(b.dataset[attr]);$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});save();});
   pick("gfxSeg","gfx",v=>{ST().gfx=v;perfManual();applyGfx();});
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
-  $("setBackup").addEventListener("click",buBackupOpen);
-  $("setRestore").addEventListener("click",buRestoreOpen);
   buStoreLine();
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
 }
@@ -995,16 +992,17 @@ $("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidd
 function start(){
   loadSaved();
   applyAll();   // sets the tier before the 3D view builds, so it builds once
-  try{SERVO_VIS.init($("gl"));}catch(e){$("tag").textContent="3D view unavailable on this device";}
+  try{SCRAP_VIS.init($("gl"));}catch(e){$("tag").textContent="3D view unavailable on this device";}
   $("verLbl").textContent="v"+VERSION;
   $("intro").hidden=!!ST().seen;
   showTab(ST().tab||"build");
+  buStoreLine();
   __ldDone();}
 __ldGo(start);
 /* ===================== app/build.js: the Build tab =====================
    The weight bar (always visible), section rows (Class, Chassis, Armour, Drive & Wheels, Power, Weapon, Weapon material,
    Extras) with PEW-style delta lines, the layout editor on the chassis grid, the side profile strip, the docked summary
-   capsule, the stress report, and named designs. Arrives in PR 2 (docs/SERVO-PLAN.md section 5). PR 1 shows the raw
+   capsule, the stress report, and named designs. Arrives in PR 2 (docs/SCRAPLINE-PLAN.md section 5). PR 1 shows the raw
    evalBuild() result here as text; until then ?sim=1 shows the stub's. */
 TAB_RENDER.build=function(){
   if(!/[?&]sim=1(&|$)/.test(location.search))return;
@@ -1026,7 +1024,7 @@ const DEBUGVIEW={draw(){}};
    gamepad. ASSISTS by driver skill. Arrives in PR 5 (plan section 9). */
 const CONTROLS={read(){return{throttle:0,steer:0,weapon:0,selfRight:0};}};
 /* ===================== app/fight.js: the Fight tab =====================
-   Sparring (any opponent in your class, any unlocked arena, no stakes), the frame loop that steps SERVO_SIM at 60 Hz
+   Sparring (any opponent in your class, any unlocked arena, no stakes), the frame loop that steps SCRAP_SIM at 60 Hz
    (accumulator clamped to 5 steps a frame, paused on visibilitychange), the HUD (clock, damage silhouettes, rpm, battery,
    heat). The debug view in PR 4a, the 3D arena in PR 5. */
 TAB_RENDER.fight=function(){};
@@ -1041,10 +1039,8 @@ const PIT={};
 const REPORT={};
 /* ===================== app/shop.js: the Shop tab =====================
    Tools, the workshop stages, pit kits and the books arrive with the career in PR 7 (plan section 11). For now: the Saves
-   card (Back up / Restore, app/savecode.js). */
+   card (its buttons are wired in app/savecode.js by their data-bu attribute). */
 TAB_RENDER.shop=function(){};
-$("exportSave").addEventListener("click",buBackupOpen);
-$("importSave").addEventListener("click",buRestoreOpen);
 /* ===================== app/career.js: the Career tab =====================
    The time model (act, then Close week; 52 weeks a season), the four acts (Garage, Circuit, Heavyweight, Legacy), the
    season calendar with brackets, money in thalers, repair bills, tools, the workshop, driver skill, rivals and the save

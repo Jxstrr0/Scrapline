@@ -1,6 +1,6 @@
 {
-  "name": "Servo",
-  "short_name": "Servo",
+  "name": "Scrapline",
+  "short_name": "Scrapline",
   "description": "Design a fighting robot under a weight limit, prove it on the bench, fight it and build better.",
   "id": "./",
   "start_url": "./",
