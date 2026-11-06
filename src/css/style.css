@@ -98,6 +98,18 @@ h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
 .kv dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .readout{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac)}
 .ok{color:var(--good)} .worn{color:var(--warn)} .broke{color:var(--crit-t)}
+.sel{width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:var(--card2);color:var(--ink);font:500 15px var(--font)}
+#bxKv{grid-template-columns:max-content 1fr}
+#bxKv dt{white-space:nowrap}
+.sub4{margin:16px 0 6px;font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted)}
+.stress{list-style:none;margin:0;padding:0;font-size:14px}
+.stress li{display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--rule)}
+.stress li:first-child{border-top:0}
+.stress .sev{flex:0 0 3.6em;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding-top:2px}
+.stress .sev.info{color:var(--dim)}
+details.raw{margin-top:12px}
+details.raw summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:14px}
+details.raw pre{max-height:50vh;overflow:auto;margin:6px 0 0;padding:10px;border-radius:10px;background:var(--base);border:1px solid var(--rule);font-size:11px;line-height:1.35;white-space:pre}
 textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:13px/1.4 var(--mono);word-break:break-all}
 .buerr{min-height:1em;color:var(--crit-t)}
 

@@ -20,7 +20,7 @@ node build.js --check    # exit 1 if either is stale, a script block does not co
 node check-savecode.js   # 16 save-code checks: round trip, empty save, damaged and cut-off codes, other games, storage full, backup files
 ```
 
-Run all three before every commit. From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` shows the raw `evalBuild()` result on the Build tab.
+Run all three before every commit. From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
 
 ## Source and build
 
@@ -84,13 +84,13 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.0.1)
+## Current status (0.1.1.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
-- `SCRAP_SIM` has the seeded generator (`rng`, `rRange`, `rInt`, `rPick`), the five `CLASSES` with their limits, and stubs for everything else under the plan's names.
+- PR 1 done (0.1.1.0): the build maths. `CLASSES` (grid, cell size, scaling), `PARTS` (nine slots, every option at beetle scale; `classMult` scales it), the chassis grid (`footprints`, `placeOk`, `autoLayout`), `DEFAULT_CFG`, `TEST_BUILDS` (12 archetypes), `K` and `evalBuild` (SI out), `COMBOS` and `stressReport`, `WEDGE_GAUGES`. `tools/sim-test.js` checks it all. The Build tab shows the raw result for any class and test build (nothing saved yet).
 - Files added beyond the plan's PR 0 manifest list: `app/pwa.js` (the service worker and update bar, as in PEW), `app/shop.js` (the Shop tab; the plan's list had no file for it) and `html/ld-vis.html` (a loading-bar step).
-- Next: PR 1, parts tables, layout grid, height profile, heat, build maths, stress report, `tools/sim-test.js`.
+- Next: PR 2, the Build tab: weight bar, section rows with deltas, layout editor, side profile, summary capsule, stress panel, designs (read PEW's pay-on-fit first).
 - What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
