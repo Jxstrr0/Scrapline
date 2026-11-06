@@ -39,7 +39,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | **SCRAP_SIM** (maths, runs in node) | |
 | `sim/rng.js` | `<script>`, header, IIFE open; `rng(seed)` (mulberry32), `rRange`, `rInt`, `rPick` |
 | `sim/parts.js` | `CLASSES`, `classMult`, `PARTS` (every option at beetle scale), the chassis grid (`cellOn`, `footprints`, `placeOk`, `autoLayout`), `normCfg`, `DEFAULT_CFG`, `TEST_BUILDS` |
-| `sim/build.js` | `K`, `evalBuild(cfg)`: grams and mm in, SI out (its header lists every field) |
+| `sim/build.js` | `K`, `evalBuild(cfg)`: grams and mm in, SI out (its header lists every field); `fitBill` (what fitting a draft costs) and `sameParts` |
 | `sim/combos.js` | `COMBOS` stress-report rules and `stressReport(b)` |
 | `sim/bench.js` | `WEDGE_GAUGES` (the stress report reads them); the six bench tests (PR 3) |
 | `sim/fight.js` | `runFight`, `STEP_HZ`, `WEDGE_RULES` (PR 4a) |
@@ -62,7 +62,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/savecode.js` | Back up / Restore: `buCode`, `buRead`, `buWrite`, the two sheets; save safety: backup files, `buPersist`, the storage line, the reminder bar |
 | `app/pwa.js` | service worker registration, the "New version ready" bar, `PWA.canInstall` / `install` / `iosTip` |
 | `app/boot.js` | `TABS`, `TAB_RENDER`, `showTab`, the Settings sheet, intro, `start()` (scheduled with `__ldGo`) |
-| `app/build.js` | the Build tab (PR 2); now the raw build maths for any class and test build (`?sim=1` opens the raw result) |
+| `app/build.js` | the Build tab: weight bar and summary, section rows with deltas, armour sketch, layout editor, side profile, stress report, designs, the draft and Fit (pay on fit, `SIM.fitBill`); `?sim=1` adds the raw result |
 | `app/bench.js` | the Bench tab (PR 3) |
 | `app/debugview.js` | the 2D top-down fight view (PR 4a) |
 | `app/controls.js` | direct and tactical driving, keyboard, gamepad, assists (PR 5) |
