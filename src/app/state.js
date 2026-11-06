@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.2.1";
+const VERSION="0.1.3.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -48,11 +48,11 @@ const SPONSORS=[];          // paint and a placing target (PR 8)
 const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=2;
+const SAVE_V=3;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle"};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   career:null,                    // {year, week, act, money, loan, hours, driverXp, rep, events, results} from PR 7
-  bots:{},                        // {<classId>: {cfg, damage, draft}}: the fitted bot per class (cfg null until first fitted) and the Build tab's unfitted edits
+  bots:{},                        // {<classId>: {cfg, damage, draft, bench}}: the fitted bot per class (cfg null until first fitted), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},
   staff:[],sponsors:[],rivals:{}, // PR 7 / PR 8
@@ -64,7 +64,8 @@ const ST=()=>S.settings;
 const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 /* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
 const MIGRATE={
-  1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;}   // 0.1.2.0: the Build tab remembers its class
+  1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;},   // 0.1.2.0: the Build tab remembers its class
+  2:o=>o   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
@@ -90,7 +91,8 @@ const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null
 const mqReduce=window.matchMedia?matchMedia("(prefers-reduced-motion: reduce)"):null;
 function applyTheme(){const t=ST().theme||"dark",eff=t==="auto"?(mqLight&&mqLight.matches?"light":"dark"):t;
   document.documentElement.setAttribute("data-theme",eff);
-  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";}
+  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";
+  try{if(curTab==="bench")bnPlots();}catch(e){}}   // canvases read the palette when drawn (curTab and bnPlots: boot.js, bench.js)   // canvases read the palette when drawn
 function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matches):!!r;}
 function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
