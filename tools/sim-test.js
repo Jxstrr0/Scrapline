@@ -97,5 +97,20 @@ for (const cls of SIM.CLASS_IDS) {
   if (odd.valid || !odd.errors.some((e) => /laser/.test(e))) fail("an unknown part should be reported");
 }
 
+/* ---- 5. pay on fit: the whole bot from nothing is evalBuild's cost; one change pays for that part only ---- */
+{
+  for (const cls of SIM.CLASS_IDS) {
+    const cfg = Object.assign({}, SIM.DEFAULT_CFG, { cls }), all = SIM.fitBill(null, cfg);
+    if (all.cost !== SIM.evalBuild(cfg).cost) fail(`${cls}: fitBill(null) ${all.cost} != evalBuild cost ${SIM.evalBuild(cfg).cost}`);
+    if (SIM.fitBill(cfg, cfg).lines.length) fail(`${cls}: an unchanged bot should cost nothing to fit`);
+  }
+  const a = SIM.DEFAULT_CFG, b = Object.assign({}, a, { battery: "small", armour: Object.assign({}, a.armour, { top: "none", back: "steel" }), extras: ["skid"] });
+  const bill = SIM.fitBill(a, b), ids = bill.lines.map((l) => l.slot + ":" + l.id).sort().join(" ");
+  if (ids !== "armour:steel battery:small extras:skid") fail("fitBill lines " + ids);
+  if (!SIM.sameParts(a, Object.assign({}, a, { layout: { battery: [0, 3] } })) || SIM.sameParts(a, b)) fail("sameParts");
+  const w = SIM.fitBill(a, Object.assign({}, a, { weapon: "drum" }));
+  if (!w.lines.some((l) => l.slot === "weaponMaterial")) fail("a new weapon should pay for its material");
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");
