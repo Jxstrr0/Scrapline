@@ -20,7 +20,7 @@ node build.js --check    # exit 1 if either is stale, a script block does not co
 node check-savecode.js   # 16 save-code checks: round trip, empty save, damaged and cut-off codes, other games, storage full, backup files
 ```
 
-Run all three before every commit, plus `node tools/sim-test.js` and `node tools/fight-test.js` (about 40 seconds for beetle; `-q` for a quick pass, `all` for every class in about 3.5 minutes, `-m` for the matchup matrix). From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
+Run all three before every commit, plus `node tools/sim-test.js` and `node tools/fight-test.js` (about 40 seconds for beetle; `-q` for a quick pass that prints the balance without enforcing it, `all` for every class in about 3.5 minutes, `-m` for the matchup matrix). From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
 
 ## Source and build
 
@@ -117,7 +117,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **`sim/fight.js`:**
     - `arenaOf`, hazards and the pit.
     - The judges (`judgeFight`, `F.judge`, the end log entry carries `j`); "under" control counts only while the wedge drives.
-    - The pin limit (10 s, then `release`).
+    - The pin limit (10 s, then `release`: the pinner drives straight away).
     - `WEDGE_RULES.discGuard`, `FIGHT.lip`, `slope`, `gyro` and `gyroClass`, `selfFlip`.
     - `FIGHT.shock` (single-hit KOs per class), `FIGHT.lethal`.
   - **`sim/ai.js`:** eight `AI_STYLES` and `autoStyle`.
