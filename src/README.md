@@ -71,7 +71,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/report.js` | the post-mortem: hit timeline, damage map, cause chain, redesign hint, repair bill, the opponent's build with Copy to designs (replay is in `app/fight.js`) |
 | `app/shop.js` | the Shop tab: the workshop stages, tools, pit kit prices, the books (the ledger), the three save slots (the Saves card's buttons are wired in `savecode.js`) |
 | `app/career.js` | the career: `S.career` (`crFresh`), the week and Close week, acts and promotion, the calendar and entering, the field and rivals, event days (round robin, bracket, rumble, tag team), quick sims and the hand-off to `ftEvent`, prizes, repairs in the workshop, the bank; what the career allows (`crPartLock`, `crClassLock`, `crFitBlock`, tool hour cuts) and the driver level (`crLevel`); the Career tab |
-| `app/team.js` | R&D, staff, sponsors, meta (PR 8) |
+| `app/team.js` | R&D projects, the team (hire, wages, cuts), sponsors and paint, the meta and the season's rules, the kit line, and their cards (PR 8) |
 | `app/help.js` | tutorial and help (PR 9); last app file, `</script>` |
 | `html/tail.html` | `</body></html>` (no trailing newline) |
 

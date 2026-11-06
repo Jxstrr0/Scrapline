@@ -56,7 +56,7 @@ function buildArena(F){
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
     return{h,m};});
   /* bots */
-  AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i);g.add(mesh);mesh.scale.setScalar(U);
+  AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
     return{o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0};});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
   const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.5));

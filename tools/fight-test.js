@@ -201,6 +201,24 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
   }
   console.log(`review checks: pins break front and rear, ${n - bad}/${n} arena replays match, starts clear of floor spinners, tie-break respects the disc guard`);
 }
+/* PR 8: minibots. One drops off its parent at the bell on the parent's team, stops when the parent is out, never decides
+   the fight and isn't judged; a fight with one replays from its log */
+{
+  const cls = "beetle", mb = Object.assign(cfgOf(T("vsp"), cls), { armour: { front: "steel", back: "hdpe6", left: "hdpe6", right: "hdpe6", top: "hdpe6" }, extras: ["minibot"] });
+  let bad = 0, n = 0;
+  for (let s = 1; s <= 6; s++) {
+    const opts = { seed: s, arena: SIM.CLASSES[cls].arenaId, bots: [{ cfg: mb, driver: { style: "auto", skill: 0.7 } }, { cfg: cfgOf(T("wedge"), cls), driver: { style: "auto", skill: 0.7 } }] };
+    const F = SIM.newFight(opts);
+    if (F.bots.length !== 3 || !F.bots[2].mini || F.bots[2].team !== F.bots[0].team || F.bots[2].parent !== 0) { fail("the minibot should be bot 2, on its parent's team"); break; }
+    let k = 0; while (!F.over && k++ < 6000) SIM.stepFight(F, null);
+    if (F.bots[0].out && !F.bots[2].out) fail("a minibot should stop when its parent is out");
+    if (F.winner === 0 && F.bots[0].out) fail("a minibot alone shouldn't win the fight");
+    if (F.judge && Object.keys(F.judge.scores).some((t) => t !== "0" && t !== "1")) fail("only teams with a main bot are judged");
+    const r = SIM.runFight(opts), rr = SIM.replayFight(r.log); n++; if (!rr || rr.winner !== r.winner || rr.timeS !== r.timeS) bad++;
+  }
+  if (bad) fail(`${bad}/${n} minibot fights didn't replay`);
+  console.log(`PR 8 checks: minibots drop off, stop with their parent, aren't judged; ${n - bad}/${n} replays match`);
+}
 /* the worst stick there is (flat out, flipping every tick, 4 bots): the log still fits, giving up the replay if it must */
 {
   const flick = (F) => { const o = {}; for (let i = 0; i < 4; i++) o[i] = { throttle: (F.n >> 1) & 1 ? 1 : -1, steer: (F.n >> 2) & 1 ? 1 : -1, weapon: (F.n >> 1) & 1, selfRight: (F.n >> 3) & 1 }; return o; };
