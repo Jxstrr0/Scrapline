@@ -97,15 +97,15 @@ function rpBill(o){const b=o.b,st=o.st,states=SIM.partStates(b,st),hs=SIM.classM
   for(const key in states){const s=states[key];if(s==="intact")continue;const pr=rpPrice(b,key),hp=pitHp(b,key);
     const left=key.indexOf("armour_")===0?st.armour[key.slice(7)]:key==="chassis"?st.chassis:st.parts[key],lostSh=hp>0?Math.min(1,Math.max(0,1-left/hp)):1;
     const fee=s==="destroyed"?pr.price*(key==="chassis"?REPAIR_COST.rebuildShare:1):pr.price*(REPAIR_COST.minShare+Math.max(lostSh,0.05)*(REPAIR_COST.maxShare-REPAIR_COST.minShare));
-    const h=(REPAIR_HOURS[pr.kind]||0.5)*hs*(s==="destroyed"?1:0.5);cost+=fee;hours+=h;
-    lines.push({key,name:pitName(b,key),state:s,cost:Math.round(fee),hours:Math.round(h*10)/10,lost:lostSh});}
+    const h=(REPAIR_HOURS[pr.kind]||0.5)*hs*(s==="destroyed"?1:0.2+0.6*lostSh);cost+=fee;hours+=h;
+    lines.push({key,kind:pr.kind,name:pitName(b,key),state:s,cost:Math.round(fee),hours:Math.round(h*10)/10,lost:lostSh});}
   lines.sort((x,y)=>y.cost-x.cost);
   return{lines,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
-function rpBillHtml(o){const bill=rpBill(o);
+function rpBillHtml(o,ev){const bill=rpBill(o);
   if(!bill.lines.length)return`<p class="ok">Nothing to pay: it came out without a scratch.</p>`;
   return`<table class="rpbill"><tbody>${bill.lines.map(l=>`<tr><th scope="row">${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></th><td class="readout">${fmt$(l.cost)}</td><td class="readout">${l.hours} h</td></tr>`).join("")}</tbody>
     <tfoot><tr><th scope="row">Total</th><td class="readout">${fmt$(bill.cost)}</td><td class="readout">${bill.hours} h</td></tr></tfoot></table>
-    <p class="hint">Everything still broken after this round. Sparring is free: from the career on (PR 7) the bill comes out of your thalers and your workshop week.</p>`;}
+    <p class="hint">Everything still broken after this round. ${ev?"An event's damage goes home with the bot: fix it in the workshop on the Career tab, for thalers and workshop hours, or take it to the next event as it is.":"Sparring is free: nothing is charged. At a career event, this comes out of your thalers and your workshop week."}</p>`;}
 
 /* ---- the opponent's build, revealed ---- */
 function rpReveal(F,i){const o=F.bots[i],b=o.b,cfg=o.cfg,P=(s,id)=>{const p=SIM.part(s,id);return p?esc(p.name):"none";},w=b.weapon;
@@ -132,6 +132,6 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
     <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
       <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
-  <div class="card"><h3>Repair bill</h3>${rpBillHtml(me)}</div>
+  <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
   <div class="card"><h3>${F.bots.length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
 function rpDraw(F){const cv=$("rpSil");if(cv&&F){const me=F.bots[0],s=SIM.partStates(me.b,me.st);if(me.flags.bent&&s.weapon==="intact")s.weapon="damaged";ftSil(cv,me,s,112);}}

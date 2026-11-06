@@ -61,6 +61,10 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Pit kits when sparring | **Free to pick when sparring**; the price (x the class's `prizeScale`) applies from the career on (Kelbo, PR 6) |
 | Best of three when sparring | Sparring gets a **Best of three** format, so the pit window can be tried before the career (PR 6 default) |
 | Replay scrubbing | **A jump re-runs the sim from the start** to that moment instead of keyframes (a round is a few milliseconds of sim), so **every tier scrubs**, Lite included (PR 6 default) |
+| Career start | **A fresh start** (Kelbo, PR 7): Th 1,500, hand tools, nothing fitted; bots fitted while sparring are cleared, saved designs stay as blueprints |
+| Event fights | **You drive it, or Quick sim** (Kelbo, PR 7): before each fight; a quick sim has the AI drive your bot at your driver skill and your crew does the pit work, for less driver xp |
+| Sparring in the career | **Stays free practice** (Kelbo, PR 7): fresh bots, no money, hours, damage or xp |
+| Garage calendar | **About ten event days a season** (Kelbo, PR 7): six club meets (four-bot round robins), two one-day tournaments (eight-bot brackets), a rumble night and the club championship |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -425,7 +429,7 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 4b: AI styles, arenas with hazard numbers, judges, 15 opponents, balance targets
 - [x] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
 - [x] PR 6: Pit window and pit kits, post-mortem with repair bill, copy build, replay
-- [ ] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
+- [x] PR 7: Time model, career acts, calendar, brackets, money, repair costs, tools, rivals, saves
 - [ ] PR 8: R&D, team, sponsors, meta waves, rule changes, kit line
 - [ ] PR 9: Tutorial, bot card share, settings, polish
 - [ ] PR 10: Blender props and CC0/CC-BY assets on Full/Ultra

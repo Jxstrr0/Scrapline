@@ -48,7 +48,7 @@ GitHub Pages serves the repo root from `main` (`.nojekyll` keeps Jekyll out). No
 - **The fight is simulated by `SCRAP_SIM` at a fixed 60 Hz step; the 3D view only renders it.** That is what makes fights testable and balanceable in node.
 - **Determinism is a hard rule.** `SCRAP_SIM` uses one seeded generator (`rng(seed)` in `sim/rng.js`, mulberry32) passed in as an argument. `Math.random`, `Date.now` and `performance.now` are banned anywhere in `src/sim/`.
 - **Units:** parts tables are in grams and millimetres; `evalBuild` is the one conversion point, and everything it returns and everything the fight uses is in kg, m, s, J, W.
-- Tuning numbers live in tables, not inline, under the names the plan gives them: `CLASSES`, `PARTS`, `DEFAULT_CFG` (`sim/parts.js`), `K` (`sim/build.js`), `COMBOS`, `WEDGE_GAUGES`, `BENCH`, `BENCH_TESTS` (`sim/bench.js`), `DAMAGE` (`sim/damage.js`), `WEDGE_RULES`, `FIGHT` (`sim/fight.js`), `AI_STYLES`, `AI_SKILL` (`sim/ai.js`), `ARENAS`, `JUDGE_WEIGHTS`, `OPPONENTS` in `src/sim/`; `WORLD`, `TIME`, `WORKSHOP_STAGES`, `TOOLS`, `SEASON_EVENTS`, `REPAIR_COST`, `REPAIR_HOURS`, `PIT_KITS`, `REPAIR_TIMES`, `ASSISTS`, `RIVALS`, `RND`, `STAFF`, `SPONSORS`, `META_WAVES`, `RULES_BY_SEASON` at the top of `src/app/state.js`.
+- Tuning numbers live in tables, not inline, under the names the plan gives them: `CLASSES`, `PARTS`, `DEFAULT_CFG` (`sim/parts.js`), `K` (`sim/build.js`), `COMBOS`, `WEDGE_GAUGES`, `BENCH`, `BENCH_TESTS` (`sim/bench.js`), `DAMAGE` (`sim/damage.js`), `WEDGE_RULES`, `FIGHT` (`sim/fight.js`), `AI_STYLES`, `AI_SKILL` (`sim/ai.js`), `ARENAS`, `JUDGE_WEIGHTS`, `OPPONENTS` in `src/sim/`; `WORLD`, `TIME`, `WORKSHOP_STAGES`, `TOOLS`, `SEASON_EVENTS`, `REPAIR_COST`, `REPAIR_HOURS`, `PIT_KITS`, `REPAIR_TIMES`, `ASSISTS`, `RIVALS`, `RND`, `STAFF`, `SPONSORS`, `META_WAVES`, `RULES_BY_SEASON` at the top of `src/app/state.js` (plus `EVENT_KINDS`, the event formats and prizes, and `TOOL_IDS`).
 - Place names live in `WORLD` (`src/app/state.js`); money is shown with `fmt$` (`Th 4,850`).
 - Three graphics tiers, `lite`, `full`, `ultra` (`src/app/perf.js`). Lite is the phone default and must keep working after every change: 30 fps render cap, no shadows, no post. Every effect needs a Lite path that is cheaper, not just "off". Auto-adjust steps a tier down when the frame rate stays low; after any change, the "Graphics lowered" toast must not appear where it didn't before.
 - Colours in three.js are written as sRGB hex and converted with `.convertSRGBToLinear()` (the renderer outputs sRGB); skip that and everything washes out.
@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.7.0)
+## Current status (0.1.8.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -139,8 +139,15 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **`app/report.js`:** the post-mortem: hit timeline, damage map, cause chain, a redesign hint from `COMBOS`, the repair bill (`REPAIR_COST`, `REPAIR_HOURS`; shown, charged from PR 7), their build revealed with Copy to designs.
   - **Replay** (`app/fight.js`): re-runs the sim from the log in the arena view or 2D, ½× to 2×; the scrub bar re-runs from the start to the moment (no keyframes), on every tier. `SCRAP_VIS.setFight(F, true)` keeps the scene; `SIM.unpackInputs` is exported.
   - **Saves:** nothing new (no `SAVE_V` change).
-- Next: PR 7, the career, circuit, money and saves.
-- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
+- PR 7 done (0.1.8.0): the career, circuit, money, saves.
+  - **`app/career.js`:** Start a career is a fresh start (Th 1,500, hand tools, nothing fitted; designs stay; Kelbo). Act, then Close week: rent out, the week's hours in (`TIME`, `WORKSHOP_STAGES`). Four acts (`TIME.acts`), moving up on the act's championship or rep. `SEASON_EVENTS` (about ten a Garage season, Kelbo) with `EVENT_KINDS`: club round robins, eight-bot brackets with a best-of-three final, rumbles, tag team. Entry, travel (`WORLD.venues` km and nights) and a pit kit.
+  - **Event days:** the field from the seed (rivals, named opponents, test builds); before each fight, drive it (`ftEvent` in `app/fight.js`, the pit window after) or Quick sim (the AI drives at your skill, your crew pits; Kelbo). Damage carries through the day and home (`bots[cls].damage`, `flags`); the workshop card fixes it for money and hours. Prizes, rep, the bank's one loan, broke twice ends the run.
+  - **Rules in the career:** tools (`TOOLS`, Shop tab) unlock parts and cut hours; classes open by act and workshop (`crFitBlock`). Driver xp sets the assist level (`crLevel`). `RIVALS` remember fights, upgrade a step a season, and talk.
+  - **Shop tab:** workshop, tools, pit kit prices, the books, the three save slots.
+  - **Sparring stays free practice** (Kelbo).
+  - **Saves:** `SAVE_V` 5 (`career`, `bots[cls].flags`, `unlocks.tools`, `rivals`).
+- Next: PR 8, R&D, team, sponsors, meta.
+- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; a save slot saves and loads; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
 

@@ -12,11 +12,11 @@
    Multi-touch: each control follows its own pointerId with setPointerCapture, so two thumbs never steal each other's input.
    ASSISTS (state.js) by driver skill apply to both schemes: auto-straighten (holds the heading when you aren't steering),
    turn damping (softens the steering, more at speed), and weapon auto-spin (a spinner spins up only when an enemy is
-   near, saving battery). Settings → Driving assists turns them off. The player's skill is the rookie's until PR 8's
-   drivers. */
+   near, saving battery). Settings → Driving assists turns them off. The level follows the career driver's skill (rookie,
+   club, pro: TIME.levels by xp, PR 7); before the career it's the rookie's. PR 8's hired drivers have a fixed skill. */
 const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown:false,wToggle:true,sr:false,keys:{},order:null,steerS:0,
   pads:false,lastPick:0};
-function ctlAssist(){return ST().assists===false?ASSISTS.off:ASSISTS[CTL.skill||"rookie"]||ASSISTS.rookie;}
+function ctlAssist(){return ST().assists===false?ASSISTS.off:ASSISTS[CTL.skill||crLevel()]||ASSISTS.rookie;}   // crLevel: the career driver's level (app/career.js), the rookie's before the career
 /* build the overlay inside the arena view; the Fight tab calls it when a fight starts with you driving */
 function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tactical":"direct";CTL.left=!!ST().leftHanded;
   CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.last=null;CTL.order=null;CTL.steerS=0;CTL.keys={};
