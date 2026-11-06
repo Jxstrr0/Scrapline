@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Servo: render the PWA icons into icons/ (192, 512, 512 maskable, 180 apple-touch).
+/* Scrapline: render the PWA icons into icons/ (192, 512, 512 maskable, 180 apple-touch).
  * Needs Playwright (preinstalled in Claude Code cloud sessions; elsewhere npm i -g playwright and
  * NODE_PATH=$(npm root -g) node tools/make-icons.js). Output is committed; re-run only to change the mark.
  * The mark: a horizontal spinner disc seen from above, two teeth on the rim, a hub and four bolt holes, clay on the

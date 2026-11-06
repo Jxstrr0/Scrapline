@@ -4,7 +4,7 @@
   <div id="view">
     <canvas id="gl" aria-label="Your robot on the workbench" role="img"></canvas>
     <div id="hud">
-      <div class="brand">Servo<small id="weekLbl">The Haldis · Velmark</small></div>
+      <div class="brand">Scrapline<small id="weekLbl">The Haldis · Velmark</small></div>
       <div class="money"><b id="cashLbl"></b><span id="repLbl"></span></div>
       <button class="hudbtn" id="setOpen" aria-label="Settings" title="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
@@ -47,9 +47,9 @@
       <p class="lede">Tools, the workshop, pit kits and the books.</p>
       <div class="card"><h3>Tools and workshop<span class="soon">PR 7</span></h3><p>From hand tools in a rented corner of a Haldis machine shop to a CNC, a press brake and a team HQ with a trailer.</p></div>
       <div class="card" id="savesCard"><h3>Saves</h3><p>A backup code holds your whole game. Keep it somewhere safe, or paste it into Restore on another phone.</p>
-        <div class="row"><button class="btn" id="exportSave">Back up</button><button class="btn" id="importSave">Restore</button></div>
+        <div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
         <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div>
-        <p class="hint" data-bu-store hidden></p></div>
+        <p class="hint" data-bk-store hidden></p></div>
     </section>
 
     <!-- CAREER: the season calendar, the circuit, rivals -->
@@ -75,7 +75,7 @@
 
   <div id="intro" hidden>
     <div class="box">
-      <h1>Servo</h1>
+      <h1>Scrapline</h1>
       <p class="sub">Combat robot builder · The Haldis, Velmark</p>
       <p>Design a fighting robot under a weight limit, prove it on the bench and drive it in the arena. Patch it in the pit, read the post-mortem, and build better. From a plywood box in a rented corner of a machine shop to the Scrapline Open.</p>
       <button class="btn pri" id="introGo">Open the workshop</button>
@@ -86,13 +86,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script>/* three.js post-processing addons (bloom on sparks) for the Ultra tier. A phone on Lite never loads them: they are written in here only
-   when the saved tier is Ultra, else SERVO_VIS.setQuality("ultra") loads them on demand through window.__srvPost. build.js reads SRV_LIBS
+   when the saved tier is Ultra, else SCRAP_VIS.setQuality("ultra") loads them on demand through window.__scrPost. build.js reads SCR_LIBS
    so the service worker precaches every URL (same pattern as PEW's PEW_LIBS). Order matters (Composer before the passes). */
-(function(){window.SRV_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
+(function(){window.SCR_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
 var ready=function(){return !!(window.THREE&&THREE.EffectComposer&&THREE.RenderPass&&THREE.UnrealBloomPass);},p=null;
-window.__srvPost=function(cb){if(ready()){cb&&cb(true);return;}
- if(!p)p=new Promise(function(res){var i=0;(function next(){if(i>=SRV_LIBS.length){res(ready());return;}var s=document.createElement("script");s.src=SRV_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=function(){p=null;res(false);};document.head.appendChild(s);})();});
+window.__scrPost=function(cb){if(ready()){cb&&cb(true);return;}
+ if(!p)p=new Promise(function(res){var i=0;(function next(){if(i>=SCR_LIBS.length){res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=function(){p=null;res(false);};document.head.appendChild(s);})();});
  p.then(function(ok){cb&&cb(ok);});};
-var sv=null;try{sv=JSON.parse(localStorage.getItem("srv-save")||"null");}catch(e){}
-if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SRV_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
+var sv=null;try{sv=JSON.parse(localStorage.getItem("scr-save")||"null");}catch(e){}
+if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SCR_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
 })();</script>
