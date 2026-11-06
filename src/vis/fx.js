@@ -17,7 +17,7 @@ function fxInit(){fxClear();const lite=V.tier==="lite",n=FX.n=lite?90:260;
   FX.pts=new THREE.Points(g,m);FX.pts.frustumCulled=false;FX.pts.userData.own=true;FX.pts.renderOrder=3;
   for(let i=0;i<n;i++)FX.pos[i*3+1]=-99;
   if(AR.g)AR.g.add(FX.pts);}
-function fxClear(){for(const c of FX.chunks)if(c.m.parent)c.m.parent.remove(c.m);for(const p of FX.puffs){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();}
+function fxClear(){for(const c of FX.chunks){if(c.m.parent)c.m.parent.remove(c.m);c.m.material.dispose();}for(const p of FX.puffs){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();}
   FX.chunks=[];FX.puffs=[];if(FX.pts){FX.pts.geometry.dispose();FX.pts.material.dispose();if(FX.pts.parent)FX.pts.parent.remove(FX.pts);FX.pts=null;}}
 let fxNext=0;
 function fxSpark(x,y,z,n,speed){if(!FX.pts)return;const col=FX.pts.geometry.attributes.color.array;
@@ -35,7 +35,7 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
     AR.cam.shake=Math.min(0.45,AR.cam.shake+Math.min(0.3,En*(big?0.004:0.0015)));}}
 /* a destroyed part flies off: a copy of its mesh in a world-space chunk */
 function fxChunk(i,key){const B=AR.bots[i];if(!B)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
-  if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);}
+  if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}
   const src=ms[0],m=src.clone();m.material=src.material.clone();m.material.transparent=true;m.userData={own:true};
   B.mesh.updateMatrixWorld(true);src.getWorldPosition(m.position);src.getWorldQuaternion(m.quaternion);m.scale.setScalar(AR.U);
   AR.g.add(m);const a=fxR()*Math.PI*2;FX.chunks.push({m,v:[Math.cos(a)*2.5,3+fxR()*2,Math.sin(a)*2.5],w:[fxR()*12-6,fxR()*12-6,fxR()*12-6],t:0});

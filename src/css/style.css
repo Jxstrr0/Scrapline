@@ -35,6 +35,7 @@
 }
 :root[data-theme=light] #view,:root[data-theme=light] #intro{
   --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189; --clay-t:#D97757; --lilac:#B48CE8; --rule:#34322D; --card:#1F1E1B; --card2:#2A2925;
+  --warn:#E2A93B; --good:#4CC38A; --crit-t:#F06A6E;
 }
 
 /* ---- 2. layout ---- */
@@ -199,6 +200,7 @@ textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-ra
 
 #pwaBar,#bkBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:60;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--lift);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transform:translate(-50%,16px);transition:opacity .25s,transform .25s}
 #pwaBar.on,#bkBar.on{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: they come back after it */
 #pwaBar .btn,#bkBar .btn{flex:0 0 auto}
 .pwalater{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
 

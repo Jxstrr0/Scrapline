@@ -31,11 +31,11 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const bots=[{cfg:bot.cfg,name:"You",driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
   if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,driver:o.driver});
   FT.F=SIM.newFight({seed,fx:true,arena:ftArena(cls),bots});FT.you=you;
-  FT.sig=bnSig(bot.cfg);FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;ftFrame.done=null;
+  FT.sig=bnSig(bot.cfg);FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};ftFrame.done=null;
   ftEnter();ftLoop();}
 function ftLoop(){if(!FT.raf)FT.raf=requestAnimationFrame(ftFrame);}
 function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on)SCRAP_SOUND.stop();else{FT.last=performance.now();FT.acc=0;ftLoop();}
-  const p=$("fPause");if(p)p.hidden=!on;const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);}
+  const p=$("fPause");if(p){p.hidden=!on;if(on){const r=p.querySelector("[data-fv=resume]");if(r)r.focus({preventScroll:true});}}const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);}
 function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
   if(curTab!=="fight"||document.hidden){if(!F.over&&!FT.paused)ftPause(true);return;}
   if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;FT.acc+=Math.min(dt,0.25)*(FT.you?1:FT.speed);
@@ -60,12 +60,14 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
     if(FT.on&&!FT.view2d)SCRAP_VIS.fx(ev);q.length=0;}
   /* a destroyed part or a broken plate flies off */
   const L=F.log,parts=[];for(let n=FT.partN;n<L.length;n++){const e=L[n];
-    if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"))parts.push({k:"part",v:e.v,key:e.key||"weapon"});
-    else if((e.k==="hit"||e.k==="grind"||e.k==="haz")&&e.pb)parts.push({k:"part",v:e.v,key:"armour_"+e.f});}
+    let key=null;if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"))key=e.key||"weapon";
+    else if((e.k==="hit"||e.k==="grind"||e.k==="haz")&&e.pb)key="armour_"+e.f;
+    if(key&&!FT.flung[e.v+":"+key]){FT.flung[e.v+":"+key]=1;parts.push({k:"part",v:e.v,key});}}   // each part flies off once
   FT.partN=L.length;if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
 
 /* ---- fight mode: the overlay on the 3D view ---- */
 function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
+  document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
@@ -80,13 +82,13 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
   if(FT.you)CONTROLS.mount(el);
   ftOverlay();}
-function ftExit(){FT.on=false;CONTROLS.unmount();SCRAP_SOUND.stop();$("app").classList.remove("fighting");const el=$("fov");if(el)el.remove();
+function ftExit(){FT.on=false;CONTROLS.unmount();SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
   if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
   ftRender();const r=$("ftResCard");if(r)r.scrollIntoView({block:"start"});}
 function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
   if(a==="pause")ftPause(!FT.paused);
   else if(a==="resume")ftPause(false);
-  else if(a==="quit"){if(F&&!F.over){FT.paused=false;F.over=true;F.reason="stopped";}ftExit();}
+  else if(a==="quit"){if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";}ftExit();}
   else if(a==="again"){ftExit();ftStart();}
   else if(a==="results")ftExit();
   else if(a==="2d"){FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
