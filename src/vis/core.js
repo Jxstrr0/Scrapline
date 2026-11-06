@@ -77,6 +77,7 @@ function makeMats(tier){
   };
   /* sponsor colours (vis/bot.js), made when first asked for, kept per tier */
   if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=matte;
-  if(!lite)propDressMats(V.mats);   // photo textures on Full / Ultra (vis/props.js)
+  V.mats.botPlate=V.mats.plate.clone();   // the bot's plate parts stay untextured (the photo texture lands late, after the bot is cloned)
+  propDropTex();if(!lite)propDressMats(V.mats);   // photo textures on Full / Ultra (vis/props.js); old ones freed on every tier
   return V.mats;
 }
