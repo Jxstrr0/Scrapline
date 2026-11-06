@@ -2,9 +2,17 @@
 
 Props for the Full and Ultra tiers (`src/vis/props.js`). Lite never loads them.
 
-All from [Poly Haven](https://polyhaven.com), CC0 1.0 (public domain). Each was downloaded at 1k with `tools/get-polyhaven.py`, which packs the glTF into one `.glb` with `tools/pack-model.py`. Nothing else was changed.
+The props are from [Poly Haven](https://polyhaven.com), CC0 1.0 (public domain). Each was downloaded at 1k with `tools/get-polyhaven.py`, which packs the glTF into one `.glb` with `tools/pack-model.py`. Nothing else was changed.
 
 Kelbo's own Blender models go here too, credited as original work ("Kelbo / Longlight Interactive, original").
+
+**Original work** (made for Scrapline, Longlight Interactive; no outside assets in it):
+
+| File | What | How | Licence |
+|---|---|---|---|
+| arena-kit.glb | The arena kit: kerbs, screen uprights, corner posts and beacons, wall rams, floor spinners, pit edge and well, stands with a crowd | Built in Blender 5.2 from code, `tools/blender-arena-kit.py`, packed with `tools/pack-model.py` | Scrapline's own |
+
+The Poly Haven props:
 
 | File | Asset | Author | Licence | URL |
 |---|---|---|---|---|
