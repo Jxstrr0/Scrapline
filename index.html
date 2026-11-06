@@ -666,13 +666,13 @@ const PARTS={
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
-    {id:"lifter", name:"Lifter",              type:"lifter", fp:[2,2],mount:"front",massG:160,motorMassG:110,powerW:120,heatW:25,edgeMm:2,   hp:60,cost:90, hours:4,unlock:"start",reachMm:60,liftN:70,liftMm:80,selfRights:true},
-    {id:"flipper",name:"Flipper (pneumatic)", type:"flipper",fp:[2,3],mount:"front",massG:190,motorMassG:170,powerW:10, heatW:0, edgeMm:2,   hp:60,cost:180,hours:6,unlock:"tool:drillpress",reachMm:70,shots:12,forceN:450,strokeMm:40,rechargeS:1.0,selfRights:true},
-    {id:"flipper2",name:"High-pressure flipper",type:"flipper",fp:[2,3],mount:"front",massG:215,motorMassG:195,powerW:10,heatW:0,edgeMm:2,  hp:65,cost:320,hours:7,unlock:"rnd:pneumatics",reachMm:70,shots:20,forceN:560,strokeMm:42,rechargeS:0.7,selfRights:true},
-    {id:"hammer", name:"Hammer",              type:"hammer", fp:[2,2],mount:"front",massG:170,motorMassG:130,powerW:200,heatW:30,edgeMm:3,   hp:60,cost:120,hours:5,unlock:"start",swingS:0.7,energyJ:25,selfRights:true},
+    {id:"lifter", name:"Lifter",              type:"lifter", fp:[2,2],mount:"front",massG:160,motorMassG:110,powerW:120,heatW:25,edgeMm:2,   hp:60,cost:90, hours:4,unlock:"start",reachMm:45,liftN:70,liftMm:80,selfRights:true},
+    {id:"flipper",name:"Flipper (pneumatic)", type:"flipper",fp:[2,3],mount:"front",massG:190,motorMassG:170,powerW:10, heatW:0, edgeMm:2,   hp:60,cost:180,hours:6,unlock:"tool:drillpress",reachMm:70,shots:18,forceN:450,strokeMm:40,rechargeS:1.0,selfRights:true},
+    {id:"flipper2",name:"High-pressure flipper",type:"flipper",fp:[2,3],mount:"front",massG:215,motorMassG:195,powerW:10,heatW:0,edgeMm:2,  hp:65,cost:320,hours:7,unlock:"rnd:pneumatics",reachMm:70,shots:24,forceN:560,strokeMm:42,rechargeS:0.7,selfRights:true},
+    {id:"hammer", name:"Hammer",              type:"hammer", fp:[2,2],mount:"front",massG:170,motorMassG:130,powerW:200,heatW:30,edgeMm:3,   hp:60,cost:120,hours:5,unlock:"start",swingS:0.7,energyJ:30,selfRights:true},
     {id:"hsp",    name:"Horizontal spinner",  type:"spinner",fp:[2,2],mount:"edge", massG:40, motorMassG:90, powerW:300,heatW:40,edgeMm:null,hp:70,cost:150,hours:5,unlock:"start",discMass:300,radius:75,rpmMax:5600, shapeK:0.5, bite:0.62,recoil:1.0},
-    {id:"vsp",    name:"Vertical spinner",    type:"spinner",fp:[2,2],mount:"front",massG:60, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:70,cost:150,hours:5,unlock:"start",discMass:250,radius:50,rpmMax:9000, shapeK:0.5, bite:0.90,recoil:0.6},
-    {id:"drum",   name:"Drum",                type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:45,edgeMm:3,   hp:80,cost:140,hours:5,unlock:"start",discMass:280,radius:30,rpmMax:11000,shapeK:0.55,bite:1.00,recoil:0.4},
+    {id:"vsp",    name:"Vertical spinner",    type:"spinner",fp:[2,2],mount:"front",massG:60, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:70,cost:150,hours:5,unlock:"start",discMass:250,radius:50,rpmMax:9000, shapeK:0.5, bite:0.85,recoil:0.6},
+    {id:"drum",   name:"Drum",                type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:45,edgeMm:3,   hp:80,cost:140,hours:5,unlock:"start",discMass:280,radius:30,rpmMax:11000,shapeK:0.55,bite:0.88,recoil:0.4},
     {id:"under",  name:"Undercutter",         type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:40,edgeMm:3,   hp:70,cost:140,hours:5,unlock:"start",discMass:250,radius:60,rpmMax:5500, shapeK:0.5, bite:0.62,recoil:0.9},
     {id:"crusher",name:"Crusher",             type:"crusher",fp:[2,3],mount:"front",massG:150,motorMassG:120,powerW:220,heatW:35,edgeMm:3,   hp:90,cost:260,hours:8,unlock:"rnd:crusher",forceN:900,crushJ:30},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
@@ -1314,7 +1314,7 @@ const STEP_HZ=60;
 const WEDGE_RULES={
   tolMm:0.3,
   underGrip:0.2,    // the lifted bot keeps this share of its grip
-  underGripClass:{feather:0.3},   // ... more in these classes (PR 4b review: the feather wedge sat just over the balance target)
+  underGripClass:{feather:0.4,heavy:0.45},   // ... more in these classes (the feather and heavy wedges sat over the balance target: PR 4b, 0.1.12.0)
   underBite:0.5,    // and its own weapon lands this share of its energy ...
   underBiteBy:{vsp:0.9,drum:0.75},   // ... except a vertical disc, which still bites the wedge it's sitting on
   discGuard:{vsp:0.5,drum:0.6},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
@@ -2122,10 +2122,10 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
    A pin (under a wedge or against a wall) lasts at most FIGHT.holdMaxS in one spell: then the pinner backs off. ---- */
 const ARENAS={
   box:{id:"box",name:"Test box",sizeM:2.4,wallE:0.35,pit:null,hazards:[]},
-  /* the antweights' table at club meets: small, an open pit on one side */
-  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.72,-0.2,1.0,0.2],openS:0},hazards:[]},
-  /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it */
-  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.86,-0.26,1.2,0.26],openS:20},
+  /* the antweights' table at club meets: small, an open pit on one side (narrowed in 0.1.12.0: it decided 79% of ant fights) */
+  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.8,-0.15,1.0,0.15],openS:0},hazards:[]},
+  /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it (narrowed in 0.1.12.0, as the tabletop's) */
+  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.94,-0.2,1.2,0.2],openS:20},
     hazards:[{type:"pusher",rect:[-1.2,-0.3,-0.98,0.3],n:[1,0],kickMs:2.2,J:6,vzMs:0,activeS:0.35,periodS:4,startS:0}]},
   /* the regional arenas (Stahlbrück, Eisenau, Grauwald): the pit opens a third of the way in; two pushers and a floor spinner */
   regional:{id:"regional",name:"Regional arena",sizeM:2.6,wallE:0.35,pit:{rect:[0.7,0.7,1.3,1.3],openS:30},
@@ -2922,7 +2922,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.11.0";
+const VERSION="0.1.12.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -3086,7 +3086,7 @@ const ASSISTS={
 const RND={
   cells:     {name:"High-discharge cells",  price:400, hours:10,act:0,needs:null,       line:"A battery that gives everything at once. Spinners spin up faster."},
   disc:      {name:"Your own disc profile", price:600, hours:14,act:0,needs:null,       fab:true,line:"Design the disc: one to three teeth, a light or heavy rim, and a name. The fabricator cuts it."},
-  pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty shots, harder, and a faster recharge."},
+  pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty-four shots, harder, and a faster recharge."},
   crusher:   {name:"Crusher",               price:900, hours:20,act:0,needs:"drillpress",line:"Hydraulic jaws that bite down and hold on."},
   brushless: {name:"Custom motor winding",  price:700, hours:16,act:0,needs:"lathe",    line:"Brushless drive and its speed controller. Much faster, and hotter."},
   saw:       {name:"Overhead saw",          price:1000,hours:20,act:1,needs:"lathe",    line:"A saw on an arm that grinds through top plates."},
