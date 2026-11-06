@@ -7,6 +7,7 @@
      lite   pixel ratio 1, Lambert / Phong materials, no shadows, no post. The phone default; it must always look finished.
      full   device pixel ratio up to 2, PBR steel and aluminium with a generated workshop reflection, soft shadows.
      ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__scrPost).
+   Full and Ultra also get photo textures and glTF props (vis/props.js, PR 10); Lite never loads them.
    Colours are written as sRGB hex and converted with .convertSRGBToLinear() (the renderer outputs sRGB). */
 const SCRAP_VIS=(function(){
 "use strict";
@@ -76,5 +77,7 @@ function makeMats(tier){
   };
   /* sponsor colours (vis/bot.js), made when first asked for, kept per tier */
   if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=matte;
+  V.mats.botPlate=V.mats.plate.clone();   // the bot's plate parts stay untextured (the photo texture lands late, after the bot is cloned)
+  propDropTex();if(!lite)propDressMats(V.mats);   // photo textures on Full / Ultra (vis/props.js); old ones freed on every tier
   return V.mats;
 }

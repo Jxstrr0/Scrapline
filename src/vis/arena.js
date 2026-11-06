@@ -8,11 +8,12 @@
      pusher     a slab in the wall that shoves out and lights amber while it fires
      spinner    a disc in the floor that spins and lights while it fires
      crowd      a cheap canvas texture of heads beyond the walls (Full and Ultra only; Lite gets a plain dark backdrop)
+     props      lights, crates and the like beyond the walls (Full and Ultra only, vis/props.js)
    Camera: tilted top-down (about 55 degrees), following the middle of the bots still in it, pulling back as they spread;
    it shakes on hits (fx.js), never under reduced motion. Lite: flat materials, no shadows. ---- */
 const AR={F:null,g:null,U:4,bots:[],haz:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
-  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
+  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
 function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
@@ -65,7 +66,7 @@ function buildArena(F){
   L.add(key);const rim=new THREE.DirectionalLight(0xffd2b8,.35);rim.position.set(H,H*0.6,-H*1.5);L.add(rim);
   AR.lights=L;AR.g=g;AR.F=F;AR.pitOpenAt=null;
   AR.cam={x:0,z:0,d:H*3,shake:0};
-  V.scene.add(g,L);return g;}
+  V.scene.add(g,L);propArena(F);return g;}
 
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */

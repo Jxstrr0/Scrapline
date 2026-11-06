@@ -528,13 +528,16 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
-<script>/* three.js post-processing addons (bloom on sparks) for the Ultra tier. A phone on Lite never loads them: they are written in here only
+<script>/* three.js addons: post-processing (bloom on sparks) for Ultra and GLTFLoader for the Full / Ultra props (vis/props.js). A phone on Lite never loads them: they are written in here only
    when the saved tier is Ultra, else SCRAP_VIS.setQuality("ultra") loads them on demand through window.__scrPost. build.js reads SCR_LIBS
    so the service worker precaches every URL (same pattern as PEW's PEW_LIBS). Order matters (Composer before the passes). */
-(function(){window.SCR_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
-var ready=function(){return !!(window.THREE&&THREE.EffectComposer&&THREE.RenderPass&&THREE.UnrealBloomPass);},p=null;
+(function(){window.SCR_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"];
+var has=[["CopyShader"],["LuminosityHighPassShader"],["EffectComposer"],["ShaderPass"],["RenderPass"],["UnrealBloomPass"],["GLTFLoader"]],p=null;
+var got=function(n){return !!(window.THREE&&THREE[n]);},ready=function(){return has.every(function(h){return got(h[0]);});};
+/* each file loads only if what it defines is missing, and one that fails does not stop the rest: bloom checks for its passes and the
+   props for GLTFLoader, each on its own (cb gets true only when everything is in). A later call tries the missing ones again. */
 window.__scrPost=function(cb){if(ready()){cb&&cb(true);return;}
- if(!p)p=new Promise(function(res){var i=0;(function next(){if(i>=SCR_LIBS.length){res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=function(){p=null;res(false);};document.head.appendChild(s);})();});
+ if(!p)p=new Promise(function(res){var i=0;(function next(){while(i<SCR_LIBS.length&&got(has[i][0]))i++;if(i>=SCR_LIBS.length){p=null;res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=next;document.head.appendChild(s);})();});
  p.then(function(ok){cb&&cb(ok);});};
 var sv=null;try{sv=JSON.parse(localStorage.getItem("scr-save")||"null");}catch(e){}
 if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SCR_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
@@ -2203,7 +2206,7 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 <script>__ld(.5,"Parts maths loaded")</script>
 <script>
 /* ===================== Scrapline: sound (SCRAP_SOUND) =====================
-   Web Audio, all synthesized, nothing loaded. The app calls these; the synth never reads game state.
+   Web Audio, synthesized; on Full / Ultra a few recorded clangs layer on top. The app calls these; the synth never reads game state.
      unlock()            on the first tap or key (browsers only start audio after a gesture)
      hit(e, kind)        a clang: a noise burst through a band-pass plus three inharmonic partials, louder and lower
                          the harder the hit (e 0..1, already scaled by the app for the class); kind "wall" and "land"
@@ -2211,10 +2214,25 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
      whine(i, w, d)      bot i's motors: w the weapon's share of full speed (a rising saw whine), d the drive's share of
                          top speed (a low hum). Smoothed, so the app can call it a few times a second.
      stop()              fade everything out (a fight ends, the tab is left, Settings turns sound off), then suspend
-   CC0 samples layer on top on Full / Ultra in PR 10 (docs/SCRAPLINE-PLAN.md section 9). */
+     samples(on)         the graphics tier says Full or Ultra (app/state.js applyGfx): recorded one-shots from sounds/ (CC0, credited
+                         in sounds/CREDITS.md) are fetched and decoded once, after the first tap, and each hit plays one variant over
+                         a quieter synth clang. Kinds: hit, big (a hit over 0.6), wall, land, haz, part (a part torn off; recorded
+                         only, the synth has no voice for it). Lite never fetches them and sounds exactly as before. A clip that
+                         fails to load is skipped and the synth plays alone. */
 const SCRAP_SOUND=(function(){
 "use strict";
 let ctx=null,master=null,noise=null,lastHit=0,hits=0,sleepT=0;const motors=[];
+/* recorded one-shots: kind -> clip ids in sounds/ (file id + ".mp3"); buf holds the decoded ones */
+const SAMP={on:false,started:false,buf:{},sets:{hit:["hit1","hit2","hit3","hit4"],big:["big1","big2","big3","big4"],wall:["wall1","wall2","wall3"],
+  land:["land1","land2","land3"],haz:["haz1","haz2"],part:["part1","part2"]}};
+function sampLoad(){if(SAMP.started||!SAMP.on||!ctx||typeof fetch!=="function")return;SAMP.started=true;
+  for(const k in SAMP.sets)for(const id of SAMP.sets[k])fetch("sounds/"+id+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status))
+    .then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej)))   // the callback form: older Safari has no promise from decodeAudioData
+    .then(b=>{SAMP.buf[id]=b;}).catch(()=>{});}
+/* one variant of a kind at volume v; false when none is decoded yet (the synth then plays at full strength) */
+function sampPlay(kind,v,e,t){if(!SAMP.on)return false;const ids=(SAMP.sets[kind]||[]).filter(id=>SAMP.buf[id]);if(!ids.length)return false;
+  const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=SAMP.buf[ids[Math.random()*ids.length|0]];
+  s.playbackRate.value=(0.92+Math.random()*0.16)*(1.08-0.16*e);g.gain.value=Math.min(1,v*1.25);s.connect(g);g.connect(master);s.start(t);return true;}
 /* after stop() the context is suspended (no idle oscillators burning battery); the next hit or whine wakes it */
 function awake(){if(!ctx)return false;if(sleepT){clearTimeout(sleepT);sleepT=0;}if(ctx.state==="suspended"){ctx.resume().catch(()=>{});return false;}return ctx.state==="running";}
 function unlock(){if(ctx){if(ctx.state==="suspended")ctx.resume().catch(()=>{});return;}
@@ -2223,16 +2241,19 @@ function unlock(){if(ctx){if(ctx.state==="suspended")ctx.resume().catch(()=>{});
   master=ctx.createGain();master.gain.value=0.55;
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=6;master.connect(comp);comp.connect(ctx.destination);
   const n=ctx.sampleRate*0.6|0,buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);let s=22222;
-  for(let i=0;i<n;i++){s=(s*16807)%2147483647;d[i]=s/1073741823.5-1;}noise=buf;}
-function hit(e,kind){if(!awake())return;const t=ctx.currentTime;
+  for(let i=0;i<n;i++){s=(s*16807)%2147483647;d[i]=s/1073741823.5-1;}noise=buf;sampLoad();}
+function hit(e,kind){if(kind==="part"&&!SAMP.on)return;if(!awake())return;const t=ctx.currentTime;
   if(t-lastHit<0.07){if(++hits>3)return;}else hits=0;lastHit=t;
   e=Math.max(0.03,Math.min(1,e||0));const dull=kind==="wall"||kind==="land",vol=0.12+0.6*e;
+  const rec=sampPlay(kind==="hit"||kind==="flip"||!SAMP.sets[kind]?(e>0.6?"big":"hit"):kind,vol,e,t);
+  if(kind==="part")return;
+  const sv=rec?0.45:1;   // under a recording the synth only adds body
   const src=ctx.createBufferSource();src.buffer=noise;src.playbackRate.value=0.8+Math.random()*0.4;   // the synth isn't part of the sim: Math.random is fine here
   const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.frequency.value=dull?600:1800-900*e;bp.Q.value=dull?0.7:1.4;
-  const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0008,t+(dull?0.12:0.08+0.2*e));
+  const g=ctx.createGain();g.gain.setValueAtTime(vol*sv,t);g.gain.exponentialRampToValueAtTime(0.0008,t+(dull?0.12:0.08+0.2*e));
   src.connect(bp);bp.connect(g);g.connect(master);src.start(t);src.stop(t+0.4);
   if(!dull){const base=380+500*(1-e);for(const [m,a] of [[1,1],[2.76,0.5],[5.4,0.25]]){const o=ctx.createOscillator(),og=ctx.createGain();o.type="sine";o.frequency.value=base*m;
-      og.gain.setValueAtTime(vol*0.35*a,t);og.gain.exponentialRampToValueAtTime(0.0005,t+0.15+0.5*e/m);o.connect(og);og.connect(master);o.start(t);o.stop(t+0.8);}}
+      og.gain.setValueAtTime(vol*0.35*a*sv,t);og.gain.exponentialRampToValueAtTime(0.0005,t+0.15+0.5*e/m);o.connect(og);og.connect(master);o.start(t);o.stop(t+0.8);}}
   if(kind==="haz"||e>0.6){const o=ctx.createOscillator(),og=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(40,t+0.2);
     og.gain.setValueAtTime(vol*0.8,t);og.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.connect(og);og.connect(master);o.start(t);o.stop(t+0.3);}}
 function motor(i){if(motors[i])return motors[i];const w=ctx.createOscillator(),wf=ctx.createBiquadFilter(),wg=ctx.createGain(),d=ctx.createOscillator(),dg=ctx.createGain();
@@ -2247,7 +2268,8 @@ function stop(){if(!ctx)return;const t=ctx.currentTime;for(const m of motors)if(
   if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(()=>{sleepT=0;if(ctx&&ctx.state==="running")ctx.suspend().catch(()=>{});},600);}
 const gesture=()=>unlock();
 for(const ev of ["pointerdown","touchend","click","keydown"])window.addEventListener(ev,gesture,{passive:true});
-return{get ready(){return!!ctx&&ctx.state==="running";},unlock,hit,whine,stop};
+function samples(on){SAMP.on=!!on;sampLoad();}
+return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples};
 })();
 </script>
 <script>
@@ -2259,6 +2281,7 @@ return{get ready(){return!!ctx&&ctx.state==="running";},unlock,hit,whine,stop};
      lite   pixel ratio 1, Lambert / Phong materials, no shadows, no post. The phone default; it must always look finished.
      full   device pixel ratio up to 2, PBR steel and aluminium with a generated workshop reflection, soft shadows.
      ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__scrPost).
+   Full and Ultra also get photo textures and glTF props (vis/props.js, PR 10); Lite never loads them.
    Colours are written as sRGB hex and converted with .convertSRGBToLinear() (the renderer outputs sRGB). */
 const SCRAP_VIS=(function(){
 "use strict";
@@ -2328,6 +2351,8 @@ function makeMats(tier){
   };
   /* sponsor colours (vis/bot.js), made when first asked for, kept per tier */
   if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=matte;
+  V.mats.botPlate=V.mats.plate.clone();   // the bot's plate parts stay untextured (the photo texture lands late, after the bot is cloned)
+  propDropTex();if(!lite)propDressMats(V.mats);   // photo textures on Full / Ultra (vis/props.js); old ones freed on every tier
   return V.mats;
 }
 /* ---- vis/bot.js: the robot mesh, made from the build (an evalBuild() result the app passes in; the vis only looks up the
@@ -2366,8 +2391,8 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
     if(u.wheel)g.userData.wheels.push(o);});
   g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;});
   return g;}
-function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.plate:M.alu;}
-function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.plate:M.steel;}
+function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
+function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
 
 function buildBot(b,team,sp){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?20:40,cfg=b.cfg,cx=b.com.x,cy=b.com.y;
@@ -2494,11 +2519,12 @@ function buildPlaceholderBot(){
      pusher     a slab in the wall that shoves out and lights amber while it fires
      spinner    a disc in the floor that spins and lights while it fires
      crowd      a cheap canvas texture of heads beyond the walls (Full and Ultra only; Lite gets a plain dark backdrop)
+     props      lights, crates and the like beyond the walls (Full and Ultra only, vis/props.js)
    Camera: tilted top-down (about 55 degrees), following the middle of the bots still in it, pulling back as they spread;
    it shakes on hits (fx.js), never under reduced motion. Lite: flat materials, no shadows. ---- */
 const AR={F:null,g:null,U:4,bots:[],haz:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
-  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
+  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
 function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
@@ -2551,7 +2577,7 @@ function buildArena(F){
   L.add(key);const rim=new THREE.DirectionalLight(0xffd2b8,.35);rim.position.set(H,H*0.6,-H*1.5);L.add(rim);
   AR.lights=L;AR.g=g;AR.F=F;AR.pitOpenAt=null;
   AR.cam={x:0,z:0,d:H*3,shake:0};
-  V.scene.add(g,L);return g;}
+  V.scene.add(g,L);propArena(F);return g;}
 
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
@@ -2691,18 +2717,18 @@ function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholde
 function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
 /* rebuild everything that depends on the tier */
 function rebuild(){
-  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();});V[k]=null;}   // keep: a cached prop model (vis/props.js)
   const fight=AR.F;arenaClear();placeBotClear();botCacheClear();
   makeMats(V.tier);
   V.shop=buildShop();V.lights=buildLights();
-  V.scene.add(V.shop,V.lights);placeBot();
+  V.scene.add(V.shop,V.lights);placeBot();propShop();
   if(fight){buildArena(fight);fxInit();}
   showView();
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
   if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
-  if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(ok=>{if(!ok||V.tier!=="ultra")return;
+  if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(()=>{if(V.tier!=="ultra"||!THREE.EffectComposer||!THREE.RenderPass||!THREE.UnrealBloomPass)return;
     V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
     V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
   resize(true);
@@ -2770,6 +2796,88 @@ function frame(now){
   V.frames++;
   if(now-V.fpsAt>=1000){V.fpsObj={fps:Math.round(V.frames*1000/(now-V.fpsAt)),at:now};V.frames=0;V.fpsAt=now;}
 }
+/* ---- vis/props.js: dressing for Full and Ultra (PR 10). Lite never loads any of it and keeps the coded stand-ins.
+     textures   photo textures from textures/ (Poly Haven, CC0; textures/CREDITS.md) on the workshop floor, the bench top, the
+                steel plate and the arena floor. Each is tinted so its average matches the coded colour, so the scene keeps the
+                Lite palette and only gains grain, wear and seams. A texture that fails to load leaves the plain colour.
+     props      small glTF models from models/ (Poly Haven, CC0; models/CREDITS.md), packed by tools/pack-model.py: a set per
+                workshop stage (SCRAP_VIS.setStage: corner, unit, shop, hq) and a few beyond the walls of the bigger arenas.
+                GLTFLoader comes with the SCR_LIBS addons (window.__scrPost). Each file loads once and is kept (its meshes
+                carry userData.keep, so the workshop and arena teardown skip them); a tier change or a new room just drops
+                the clones. Anything that lands after its room was replaced is dropped.
+   Kelbo's Blender models (the stage interiors, the arena shell and hazards, the trailer, trophies) drop in the same way: pack
+   the export with tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
+const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
+/* material name -> [texture, repeat u, repeat v, normal strength] */
+const PROP_TEX_USE={floor:["floor",14,14,.8],bench:["ply",2,1.25,.5],plate:["plate",2.4,1.8,.6],arenaFloor:["plate",5,5,.6]};
+const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:"models/extinguisher.glb",shelf:"models/shelf.glb",
+  oil:"models/oil-tin.glb",lube:"models/lube-spray.glb",chest:"models/tool-chest.glb",weld:"models/welding-cart.glb",
+  crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
+  truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
+  meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb"};
+/* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
+   runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
+   [key, x, y, z, turn] in scene units; y 0 is the bench top, -1.4 the floor. The camera starts at -x +z, so the room reads
+   behind the bench (-z) and to its right (+x). Each stage stays under ~100k triangles. */
+const SHOP_UNITS=2.4;
+const SHOP_SPOTS={
+  corner:[["vice",3.6,0,-1.6,2.6],["oil",-3.7,0,-1.9,.4],["lube",-3.3,0,-2.2,1.2],["shelf",-1.5,-1.4,-4.4,0],["box",-1.5,-1.4,-4.3,.2],
+    ["ext",5.4,-1.4,-3.4,-.6],["stool",5.6,-1.4,1.2,.5],["toolbox",1.6,-1.4,-3.9,.15]],
+  unit:[["vice",3.6,0,-1.6,2.6],["lube",-3.3,0,-2.2,1.2],["chest",-1.2,-1.4,-4.4,0],["weld",3.4,-1.4,-4.6,-.4],["propane",5.2,-1.4,-4.6,0],
+    ["crate",6.2,-1.4,-1.2,.3],["ext",6.4,-1.4,1.2,-1.2],["stool",-5.8,-1.4,-1.4,.9]],
+  shop:[["vice",3.6,0,-1.6,2.6],["oil",-3.7,0,-1.9,.4],["chest",-1.2,-1.4,-4.4,0],["drill",3.0,-1.4,-4.8,-.3],["weld",6.4,-1.4,-2.6,-1.3],
+    ["truck",-4.8,-1.4,-4.6,.7],["barrel",6.6,-1.4,1.0,0],["crate",6.0,-1.4,2.6,.5],["ext",-6.4,-1.4,-2.2,1.6]],
+  hq:[["vice",3.6,0,-1.6,2.6],["meter",-3.5,0,-1.8,.5],["chest",-1.2,-1.4,-4.4,0],["drill",3.0,-1.4,-4.8,-.3],["desk",-5.6,-1.4,-4.4,.2],
+    ["stool",-4.4,-1.4,-2.9,.4],["crate",6.2,-1.4,-1.6,.3],["barrel",6.6,-1.4,.6,0],["ext",6.4,-1.4,2.2,-1.2]]};
+/* arenas: [key, fx, dx, fz, dz, turn, metres per unit of size] placed at x = fx*H + dx, z = fz*H + dz (H the half size in
+   scene units, the camera at +z). Props are real size (AR.U units per sim metre), so a heavyweight arena dwarfs them as it
+   should. The test box has none; the ant's tabletop gets bench-top things. */
+const ARENA_SPOTS={
+  tabletop:[["meter",-.55,0,-1,-.9,.3],["oil",1,.9,-.6,0,.5],["lube",1,.8,-.35,0,1.6]],
+  clubbox:[["crate",-.35,0,-1,-1.2,.2],["sign",.45,0,-1,-1.0,-.4],["tyre",1,1.2,.15,0,1.57],["propane",-1,-1.0,-.55,0,0]],
+  regional:[["truck",-1,-1.3,-.2,0,1.5],["crate",.3,0,-1,-1.3,0],["barrel",1,1.3,.3,0,0],["crate",-.7,0,-1,-1.3,.6],["ext",1,1.1,-.7,0,-1.2]],
+  eisenhalle:[["gen",-.4,0,-1,-1.5,0],["truck",1,1.4,-.3,0,-1.5],["crate",-1,-1.3,.2,0,.4],["barrel",.5,0,-1,-1.4,0],["chest",-1,-1.4,-.6,0,1.57]]};
+const PROPS={img:{},imgWait:{},models:{},texList:[],gen:0};
+/* ---- textures ---- */
+function propImg(name,cb){const c=PROPS.img[name];if(c){cb(c);return;}
+  if(PROPS.imgWait[name]){PROPS.imgWait[name].push(cb);return;}PROPS.imgWait[name]=[cb];
+  const out={diff:null,nor:null,avg:null};let n=0;const done=()=>{if(++n<2)return;const w=PROPS.imgWait[name];delete PROPS.imgWait[name];if(!out.diff)return;PROPS.img[name]=out;w.forEach(f=>f(out));};
+  const L=new THREE.ImageLoader();
+  L.load(PROP_TEX[name]+"_diff.jpg",im=>{out.diff=im;try{const c=document.createElement("canvas");c.width=c.height=8;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(im,0,0,8,8);
+      const d=g.getImageData(0,0,8,8).data;let r=0,gg=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];gg+=d[i+1];b+=d[i+2];}
+      out.avg=new THREE.Color(r/64/255,gg/64/255,b/64/255).convertSRGBToLinear();}catch(e){out.avg=null;}done();},undefined,()=>done());
+  L.load(PROP_TEX[name]+"_nor.jpg",im=>{out.nor=im;done();},undefined,()=>done());}
+/* called by makeMats on Full and Ultra with the new materials */
+function propDropTex(){for(const t of PROPS.texList)t.dispose();PROPS.texList=[];}
+function propDressMats(M){
+  if(!window.THREE||!THREE.ImageLoader)return;
+  for(const k in PROP_TEX_USE){const [name,ru,rv,ns]=PROP_TEX_USE[k],m=M[k];if(!m)continue;const want=m.color.clone();
+    propImg(name,im=>{if(V.mats!==M)return;
+      const mk=(img,srgb)=>{const t=new THREE.Texture(img);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(ru,rv);t.anisotropy=Math.min(4,V.r.capabilities.getMaxAnisotropy());
+        if(srgb)t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;PROPS.texList.push(t);return t;};
+      m.map=mk(im.diff,true);if(im.nor&&m.normalScale){m.normalMap=mk(im.nor,false);m.normalScale.set(ns,ns);}
+      if(im.avg)m.color.setRGB(want.r/Math.max(im.avg.r,.02),want.g/Math.max(im.avg.g,.02),want.b/Math.max(im.avg.b,.02));   // keep the coded colour on average
+      m.needsUpdate=true;});}}
+/* ---- models ---- */
+function propModel(key,cb){const c=PROPS.models[key];if(c&&c.scene){cb(c.scene);return;}if(c){c.wait.push(cb);return;}
+  const e=PROPS.models[key]={wait:[cb]};
+  new THREE.GLTFLoader().load(PROP_FILES[key],g=>{g.scene.userData.lift=-Math.min(0,new THREE.Box3().setFromObject(g.scene).min.y);   // stand it on y 0
+    g.scene.traverse(o=>{if(!o.isMesh)return;o.userData.keep=true;
+      if(o.material){o.material.envMap=V.env;o.material.envMapIntensity=.6;}});
+    e.scene=g.scene;const w=e.wait;e.wait=null;w.forEach(f=>f(g.scene));},
+    undefined,err=>{if(typeof console!=="undefined")console.warn("model "+key,err&&err.message);delete PROPS.models[key];});}   // tried again with the next room
+/* clones of the models in spots into group G, for as long as ok() says G is still the room on screen */
+function propPlace(G,spots,ok){if(!spots||!spots.length)return;
+  if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(()=>{if(THREE.GLTFLoader&&ok())propPlace(G,spots,ok);});return;}
+  const sh=V.tier!=="lite";
+  for(const s of spots)propModel(s.key,src=>{if(!ok())return;const o=src.clone();o.scale.setScalar(s.scale);o.position.set(s.x,s.y+(s.hang?0:src.userData.lift*s.scale),s.z);o.rotation.y=s.turn;o.name="prop:"+s.key;
+    o.traverse(m=>{if(m.isMesh){m.castShadow=sh;m.receiveShadow=sh;}});G.add(o);});}
+function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.stage||"corner",gen=++PROPS.gen;   // a newer dressing of the room drops this one's late arrivals
+  propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&PROPS.gen===gen&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
+function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.half*AR.U;
+  propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:AR.U})),()=>AR.g===G&&V.tier!=="lite");}
+/* a new workshop stage: drop this room's props and dress it for the new one */
+function propShopSwap(){const G=V.shop;if(!G)return;for(const o of G.children.filter(c=>c.name.indexOf("prop:")===0))G.remove(o);propShop();}
 /* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
@@ -2778,6 +2886,8 @@ return{
   /* the workshop's bot: an evalBuild() result (null: the placeholder). Cached by build hash; old meshes are disposed */
   setBot(b){const k=b?JSON.stringify(b.cfg):null;if(k===V.botK)return;V.botK=k;V.botB=b||null;if(started&&V.mats)placeBot();},
   /* your sponsors' colours ({side, top}: "#rrggbb" or nothing), on your bot in the workshop and as bot 0 in a fight */
+  /* the workshop stage ("corner", "unit", "shop", "hq"): which props dress the room on Full / Ultra */
+  setStage(id){id=id||"corner";if(id===(V.stage||"corner")){V.stage=id;return;}V.stage=id;if(started&&V.shop)propShopSwap();},
   setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
   /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},
@@ -2812,7 +2922,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.10.0";
+const VERSION="0.1.11.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -3097,7 +3207,8 @@ function applyReduce(){document.documentElement.classList.toggle("reduce",reduce
 const fxLow=()=>ST().effects==="reduced";
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
-function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
+function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;
+  if(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.samples)SCRAP_SOUND.samples(q!=="lite");}   // recorded clangs on Full / Ultra (sound/synth.js)
 function applyAll(){applyTheme();applyReduce();applyGfx();hud();if(typeof tmPaint==="function")tmPaint();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
@@ -3801,7 +3912,9 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
 /* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
 document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
 /* the workshop's bot in 3D: the draft on the Build tab, the fitted bot elsewhere (the draft while nothing is fitted) */
-function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
+/* the workshop stage the 3D room is dressed for (props on Full / Ultra, vis/props.js): the career's, else the rented corner */
+function visStage(){if(window.SCRAP_VIS&&SCRAP_VIS.setStage)SCRAP_VIS.setStage(typeof crOn==="function"&&crOn()?crStage().id:"corner");}
+function visBot(){if(!window.SCRAP_VIS)return;visStage();const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
   SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
   if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
@@ -4295,7 +4408,8 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
     let key=null;if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"))key=e.key||"weapon";
     else if((e.k==="hit"||e.k==="grind"||e.k==="haz")&&e.pb)key="armour_"+e.f;
     if(key&&!FT.flung[e.v+":"+key]){FT.flung[e.v+":"+key]=1;parts.push({k:"part",v:e.v,key});}}   // each part flies off once
-  FT.partN=L.length;if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
+  FT.partN=L.length;if(parts.length&&snd)SCRAP_SOUND.hit(0.8,"part");   // recorded only (Full / Ultra); Lite stays silent here as before
+  if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
 
 /* ---- fight mode: the overlay on the 3D view ---- */
 function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
@@ -5299,7 +5413,7 @@ function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);tmGo
 function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);if(crOn())tmGone(id);save();tmPaint();}
 /* the sponsors' colours for your bot (vis/bot.js): {side, top} */
 function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp)o[sp.slot]=sp.colour;}return o;}
-function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());}
+function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());visStage();}
 
 /* ---- the kit line ---- */
 const tmKitOpen=()=>crOn()&&S.career.act>=KIT_LINE.act;
