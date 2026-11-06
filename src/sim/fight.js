@@ -25,7 +25,10 @@ const STEP_HZ=60;
 const WEDGE_RULES={
   tolMm:0.3,
   underGrip:0.2,    // the lifted bot keeps this share of its grip
-  underBite:0.5,    // and its own weapon lands this share of its energy
+  underBite:0.5,    // and its own weapon lands this share of its energy ...
+  underBiteBy:{vsp:0.9,drum:0.75},   // ... except a vertical disc, which still bites the wedge it's sitting on
+  discGuard:{vsp:0.5,drum:0.6},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
+                    // nothing gets under its front, and the disc bites the wedge's lip instead (plan 8e: vertical beats wedge)
   holdS:0.25,       // it stays lifted this long after the contact ends
   liftMm:12         // how high it rides up the wedge (beetle scale, x len), for the views
 };
@@ -44,24 +47,39 @@ const FIGHT={
   spinDrag:0.03,              // with the weapon off, the disc slows with this share of its motor's torque
   biteJitter:0.2,             // each hit's bite varies by up to this share
   glance:0.3,                 // a deflected hit lands this share of its energy (and takes that share off the disc)
-  damageShare:0.65,           // a spinner hit's energy that goes into damage ...
-  throwShare:0.35,            // ... and into throwing the target
+  slope:{wedge:0.6,flipper:0.2,lifter:0.2},   // a sloped front adds this to the chance a horizontal disc's hit glances off it
+  horizontal:{hsp:1,under:1}, // the spinners whose hits a sloped front turns (a vertical bites the edge instead) ...
+  lip:{vsp:1.8,drum:1.3},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
+  gyro:{vsp:0.3,drum:0.24},   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
+  gyroClass:{heavy:1.35},     // ... x this in a class (a heavyweight's disc is a flywheel the size of a manhole cover)
+  selfFlip:{vsp:0.01,drum:0.005},   // a full-power hit can throw a vertical spinner onto its back: this chance x the hit's share of full energy
+  damageShare:0.4,            // a spinner hit's energy that goes into damage ...
+  throwShare:0.15,            // ... and into throwing the target
   recoilShare:0.5,            // the attacker takes this x the throw impulse x the weapon's recoil, the other way
   up:{hsp:0,vsp:0.6,drum:0.5,under:0.3,saw:0},   // share of a spinner's throw that goes upward
   flipDmg:0.15,               // a flipper's arm hit: this x launchJ x bite in damage
   flipFwd:1,                  // m/s forward a flipped bot carries (x sqrt len)
   invertM:[0.08,0.25],        // a flip or throw this high (m, x len) may land the bot upside down, rising to ...
   invertMax:0.85,             // ... this chance at the top of the range
-  holdMaxS:10,                // the league's rule: a lift or a pin lets go after this long
+  holdMaxS:10,                // the league's rule: a lift or a pin lets go after this long ...
+  releaseS:1.2, releaseThr:0.7,   // ... and a pin (under a wedge or against a wall) is broken by the pinner backing off this long, at this throttle
   liftGrip:0.1,               // a bot held up on a lifter or in a crusher keeps this share of grip
   tipS:0.8, tipM:0.05, tipP:0.75,   // a lifter that holds a bot this long and lifts this high (m, x len) tips it over this often
   crushS:1, crushOpenS:0.6, crushAbsorb:0.5,   // a crusher's bite, opening again, and the share of absorb its point leaves
   hammerShare:0.9,            // share of a hammer blow that goes into damage
+  lethal:{ant:1,beetle:1,hobby:1,feather:1,heavy:1.2},   // weapon damage x this in each class (heavies' discs spin up slower and land fewer full hits)
+  /* a spinner hit with at least minShare of its full energy can shake the electronics loose (a lead out, an ESC off its
+     mount) whatever the armour: this chance per class (failsafe electronics halve it). Plan 8e: single-hit knockouts
+     3-8% of fights in the heavier classes, fewer in ant and beetle. */
+  shock:{minShare:0.6,p:{ant:0.0005,beetle:0.001,hobby:0.003,feather:0.006,heavy:0.0075}},
   rightS:1.2,                 // seconds to self-right
   hazCtrlS:3,                 // the judges count a shove into a hazard as this many seconds of control for whoever pushed
   /* the judges' bookkeeping: closing at this share of the bot's top speed counts as aggression (away from the enemy at it,
      as retreating); pinned against a wall means slower than pinV x top speed with an enemy on it */
-  judge:{closeV:0.2,pinV:0.3},
+  judge:{closeV:0.2,pinV:0.3,driveV:0.25,
+    /* each term is shared as (what a team did + ref) / the total, so a scratch against nothing is a small lead, not the
+       whole term: damage in shares of a bot's hp, aggression and control in shares of the round */
+    ref:{damage:0.1,aggression:0.1,control:0.05}},
   ramShare:0.3, ramMinJ:0.5,  // collisions (bots and walls): this share of the energy lost is damage, above ramMinJ (x mass)
   airM:0.03,                  // a spinner's throw that lifts a bot less than this (m, x len) is a jolt, not a flight
   microJ:1,                   // log entries under this (J, x mass) are merged into the last one
@@ -72,7 +90,7 @@ const FIGHT={
   /* weapon working zones, in the bot's frame: circle (around the disc), or a box ahead of the front face, w x the weapon's
      footprint width (full: the chassis width), reach x the bot's length (or the weapon's own reachM); top: it hits the
      top of what it lands on */
-  zone:{hsp:{circle:1},vsp:{w:0.4},drum:{w:1},under:{w:1},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
+  zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
     hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1}}
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
@@ -140,7 +158,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,
-    input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},wallT:null,airBy:null,invBy:null,
+    input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},wallT:null,pin:null,release:-1,airBy:null,invBy:null,
     stats:{dealt:0,taken:0,hits:0,landed:0,failHits:0},jd:{close:0,contact:0,retreat:0,ctrl:0}};
   o.rad=Math.max(...o.poly.map(p=>Math.hypot(p[0],p[1])));
   o.fx=damageEffects(b,o.st,o.flags);
@@ -196,6 +214,7 @@ function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>l
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics;
   const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1));
+  if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
   if(res.plate==null)res.plate=0;
@@ -266,11 +285,12 @@ function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon
     if(t.m>w.canLiftKg){logIt(F,{k:"flip",a:o.i,v:t.i,h:0,heavy:1});continue;}
     const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);
     launch(F,t,Math.sqrt(2*K.g*h),flip,o);logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});
-    damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1),"hit",o.i);o.stats.hits++;}
+    damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);o.stats.hits++;}
   if(!hit)logIt(F,{k:"flip",a:o.i,v:-1});}
+function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;
-    let E=w.energyJ*(w.bite||1)*(1+FIGHT.biteJitter*(2*F.rng()-1))*(isC?1:FIGHT.hammerShare)*(o.under?WEDGE_RULES.underBite:1);
+    let E=w.energyJ*(w.bite||1)*(1+FIGHT.biteJitter*(2*F.rng()-1))*(isC?1:FIGHT.hammerShare)*(o.under?WEDGE_RULES.underBite:1)*lethalOf(F);
     const dfl=!isC&&!(t.under&&t.under.by===o.i)&&F.rng()<t.b.armourMapJ.top.deflect;if(dfl)E*=FIGHT.glance;
     damageBot(F,t,"top",E,"hit",o.i,{absorbMul:isC?FIGHT.crushAbsorb:1,gl:dfl});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});o.stats.hits++;o.wp.last[t.i]=F.t;return;}}
 /* spinner hits: whenever the disc's zone touches another bot and the disc is up to speed */
@@ -281,10 +301,13 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0)damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i);
     if(wp.om<FIGHT.minSpin*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS))continue;
     const stored=0.5*w.inertia*wp.om*wp.om,full=wp.om>=0.98*w.omega;
-    let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?WEDGE_RULES.underBite:1);
-    const dfl=!(t.under&&t.under.by===o.i)&&F.rng()<t.b.armourMapJ[face].deflect;if(dfl)bite*=FIGHT.glance;
-    const E=stored*bite*(o.flags.bent?DAMAGE.bentMul:1);wp.om*=Math.sqrt(Math.max(0,1-bite));wp.last[t.i]=F.t;o.stats.hits++;
-    damageBot(F,t,face,E*FIGHT.damageShare,"hit",o.i,{logE:E,gl:dfl});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});
+    let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?(WEDGE_RULES.underBiteBy[w.id]||WEDGE_RULES.underBite):1);
+    const slope=face==="front"&&FIGHT.horizontal[w.id]&&!t.inverted?FIGHT.slope[t.b.weapon.type]||0:0;
+    const lip=face==="front"&&!t.inverted&&FIGHT.slope[t.b.weapon.type]&&FIGHT.lip[w.id]||1;
+    const dfl=lip===1&&!(t.under&&t.under.by===o.i)&&F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+slope);if(dfl)bite*=FIGHT.glance;
+    const E=stored*Math.min(0.98,bite*lip)*(o.flags.bent?DAMAGE.bentMul:1);wp.om*=Math.sqrt(Math.max(0,1-bite));wp.last[t.i]=F.t;o.stats.hits++;
+    const shock=E>=FIGHT.shock.minShare*0.5*w.inertia*w.omega*w.omega?FIGHT.shock.p[F.cls]||0:0;
+    damageBot(F,t,face,E*FIGHT.damageShare*lethalOf(F),"hit",o.i,{logE:E,gl:dfl,shock});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});
     /* the throw: away from the disc (hsp: round the rim), part of it upward; the attacker takes recoil */
     const J=Math.sqrt(2*t.m*E*FIGHT.throwShare);let dx,dy;
     if(o.zone.circle){const cc=toWorld(o,o.zone.x,o.zone.y),rx=c.px-cc[0],ry=c.py-cc[1],l=Math.hypot(rx,ry)||1;dx=0.3*rx/l-0.7*ry/l;dy=0.3*ry/l+0.7*rx/l;}
@@ -293,11 +316,14 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     impulseAt(t,dx*jh,dy*jh,c.px,c.py);
     if(up>0){const vz=J*up/t.m,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*t.M.len)launch(F,t,vz,F.rng()<invertChance(F,hM),null,o.i);}   // a smaller hop is a jolt, not a flight
     const kick=jh*FIGHT.recoilShare*(w.recoil||0);impulseAt(o,-dx*kick,-dy*kick,c.px,c.py);
+    /* a vertical spinner can throw itself over on a big hit */
+    const sf=FIGHT.selfFlip[w.id];if(sf&&!o.air&&F.rng()<sf*Math.min(1,E/(0.5*w.inertia*w.omega*w.omega))){const h=FIGHT.invertM[0]*o.M.len;
+      launch(F,o,Math.sqrt(2*K.g*h),true,null,null);logIt(F,{k:"self",v:o.i,what:"flip"});}
     /* self-damage: a big hit bends the disc; a huge one at full speed shears the shaft */
     if(!o.flags.bent&&E>w.bendJ*(0.85+0.3*F.rng())){o.flags.bent=true;o.fx=damageEffects(o.b,o.st,o.flags);logIt(F,{k:"self",v:o.i,what:"bent",E:r2(E)});}
     if(full&&E>w.shearJ*(0.8+0.4*F.rng())&&o.st.parts.weapon>0){const before=o.fx;o.st.parts.weapon=0;o.fx=damageEffects(o.b,o.st,o.flags);logIt(F,{k:"self",v:o.i,what:"shear",E:r2(E)});fxDiff(F,o,before);}}}
 
-function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.input;let draw=0;
+function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F.t?{throttle:-FIGHT.releaseThr,steer:0}:o.input;let draw=0;
   const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
   if(o.air){o.cmd=[0,0];return 0;}
   const go=mobile(o)&&!o.righting,p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
@@ -316,7 +342,8 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.input;let
   /* tyres don't slide sideways easily */
   const vL=o.vx*rt[0]+o.vy*rt[1],lat=Math.min(Math.abs(vL),FIGHT.latGrip*b.grip*g*gripMul*dt);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
   /* yaw: the two sides' difference, less the scrub of turning a skid-steer */
-  o.w+=(FR-FL)*half/o.I*dt;const scrub=FIGHT.scrub*b.grip*N*half*gripMul/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
+  const gy=FIGHT.gyro[b.weapon.id]&&b.weapon.omega>0?1-Math.min(0.9,FIGHT.gyro[b.weapon.id]*(FIGHT.gyroClass[F.cls]||1))*Math.min(1,o.wp.om/b.weapon.omega):1;
+  o.w+=(FR-FL)*half/o.I*dt*gy;const scrub=FIGHT.scrub*b.grip*N*half*gripMul/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
   return draw;}
 
 function stepHeat(F,o,driveW,weaponW){const h=o.b.heat,q=o.heat,dt=F.dt,full=o.b.power;
@@ -345,7 +372,8 @@ function collide(F,A,B){if(A.air||B.air||A.out==="pit"||B.out==="pit")return;
     if(Elost>FIGHT.ramMinJ*F.M.mass){damageBot(F,A,fa,Elost,"ram",B.i);damageBot(F,B,fb,Elost,"ram",A.i);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
 function edgeOf(o,face){return face==="front"?o.b.height.frontEdgeMm:o.b.height.clearanceMm;}
 function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_RULES.holdS;
-  const under=(X,Y,fy)=>{if(X.inverted&&!X.b.height.drivesInverted)return false;return edgeOf(X,"front")<edgeOf(Y,fy)-tol;};
+  const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
+  const under=(X,Y,fy)=>{if(X.inverted&&!X.b.height.drivesInverted)return false;if(guard(Y,fy))return false;return edgeOf(X,"front")<edgeOf(Y,fy)-tol;};
   let win=null;
   if(fa==="front"&&under(A,B,fb))win=[A,B];else if(fb==="front"&&under(B,A,fa))win=[B,A];
   else if(fa==="front"&&fb==="front"&&Math.abs(edgeOf(A,"front")-edgeOf(B,"front"))<=tol){
@@ -388,12 +416,19 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     if(!t)continue;const J=o.jd,vs=Math.max(o.b.driveSpeed||0,0.1),touching=o.touch[t.i]!=null&&F.t-o.touch[t.i]<0.1,
       vt=bd>1e-6?((t.x-o.x)*o.vx+(t.y-o.y)*o.vy)/bd:0,mob=mobile(o)&&!o.air;
     if(touching)J.contact+=dt;else if(mob&&vt>G.closeV*vs)J.close+=dt;else if(mob&&vt<-G.closeV*vs)J.retreat+=dt;
-    /* o held, under, upside down (and stuck that way) or pinned: whoever is doing it gets the time */
+    /* o held, under, upside down (and stuck that way) or pinned: whoever is doing it gets the time (a wedge only while it's
+       driving the bot about: sat still underneath is not control) */
+    const pinBy=o.held!=null?null:o.under?F.bots[o.under.by]:
+      !o.inverted&&touching&&o.wallT!=null&&F.t-o.wallT<0.1&&Math.hypot(o.vx,o.vy)<G.pinV*vs?t:null;
     let by=null;
-    if(o.held!=null)by=F.bots[o.held];else if(o.under)by=F.bots[o.under.by];
+    if(o.held!=null)by=F.bots[o.held];
+    else if(o.under){const u=pinBy;if(u&&Math.hypot(u.vx,u.vy)>G.driveV*Math.max(u.b.driveSpeed||0,0.1))by=u;}
     else if(o.inverted&&!o.b.height.drivesInverted)by=o.invBy!=null?F.bots[o.invBy]:t;
-    else if(touching&&o.wallT!=null&&F.t-o.wallT<0.1&&Math.hypot(o.vx,o.vy)<G.pinV*vs)by=t;
-    if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;}}
+    else by=pinBy;
+    if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;
+    /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
+    if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
+      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
 function outBot(F,o,why){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;}
@@ -436,15 +471,16 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   if(F.over){const e=logIt(F,{k:"end",w:F.winner,why:F.reason});if(F.judge)e.j=F.judge.scores;}
   return F;}
 /* time up: the judges (JUDGE_WEIGHTS, sim/arenas.js). Among the teams still in it, each term is shared in proportion to
-   what each did (evenly when nobody did any), x 100 x its weight, so the scores add up to 100. A draw only when the
-   totals are within half a point. */
-function judgeFight(F){const W=JUDGE_WEIGHTS,raw={};
+   what each did plus FIGHT.judge.ref (evenly when nobody did any), x 100 x its weight, so the scores add up to 100. A
+   draw only when the totals are within half a point. */
+function hpTotal(b){return Object.values(b.armourMapJ).reduce((a,f)=>a+(f.hpJ||0),0)+b.parts.reduce((a,p)=>a+(p.hpJ||0),0)+chassisHp(b);}
+function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},hp=F.bots.reduce((a,o)=>a+hpTotal(o.b),0)/F.bots.length,T=Math.max(F.t,1);
   for(const o of F.bots){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
-    s.damage+=o.stats.dealt;s.aggression+=Math.max(0,o.jd.close+o.jd.contact-o.jd.retreat);s.control+=o.jd.ctrl;}
+    s.damage+=o.stats.dealt/hp;s.aggression+=Math.max(0,o.jd.close+o.jd.contact-o.jd.retreat)/T;s.control+=o.jd.ctrl/T;}
   const ks=Object.keys(raw).filter(k=>F.bots.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
   for(const k of ks){sc[k]={damage:0,aggression:0,control:0,total:0};tot[k]=0;}
-  for(const term of ["damage","aggression","control"]){const sum=ks.reduce((a,k)=>a+raw[k][term],0);
-    for(const k of ks){const v=100*W[term]*(sum>1e-9?raw[k][term]/sum:1/ks.length);sc[k][term]=Math.round(v*10)/10;tot[k]+=v;}}
+  for(const term of ["damage","aggression","control"]){const sum=ks.reduce((a,k)=>a+raw[k][term]+R[term],0);
+    for(const k of ks){const v=100*W[term]*(raw[k][term]+R[term])/sum;sc[k][term]=Math.round(v*10)/10;tot[k]+=v;}}
   for(const k of ks)sc[k].total=Math.round(tot[k]*10)/10;
   const order=ks.slice().sort((a,b)=>tot[b]-tot[a]);F.judge={scores:sc,raw};
   if(order.length>1&&tot[order[0]]-tot[order[1]]<0.5){F.winner=null;F.reason="draw";}

@@ -20,7 +20,7 @@ node build.js --check    # exit 1 if either is stale, a script block does not co
 node check-savecode.js   # 16 save-code checks: round trip, empty save, damaged and cut-off codes, other games, storage full, backup files
 ```
 
-Run all three before every commit, plus `node tools/sim-test.js` and `node tools/fight-test.js` (about half a minute; `-q` for a quick pass, `all` for every class, `-m` for the matchup matrix). From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
+Run all three before every commit, plus `node tools/sim-test.js` and `node tools/fight-test.js` (about 40 seconds for beetle; `-q` for a quick pass, `all` for every class in about 3.5 minutes, `-m` for the matchup matrix). From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
 
 ## Source and build
 
@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.4.0)
+## Current status (0.1.5.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -109,7 +109,24 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **`ARENAS.box`:** the plain test box.
   - **The Fight tab:** the fitted bot against any test build, AI against AI, in the top-down debug view with readouts and the log in words. It pauses when hidden or when the tab is left, and saves nothing (no `SAVE_V` change).
   - **`tools/fight-test.js`:** the harness, with checks (repeatability, replay, log size, step budget, carried damage, rumble, the phone-test moments). Balance targets are printed only.
-- Next: PR 4b, AI styles, arenas with hazards, judges, 15 opponents and the balance targets.
+- PR 4b done (0.1.5.0): opponents, arenas, judges, balance.
+  - **`sim/arenas.js`:** `ARENAS`: box, tabletop (ant), clubbox (beetle, hobby), regional (feather), eisenhalle (heavy).
+    - Pits with an opening time (`openS`); wall pushers and floor spinners, each with impulse, J, vz kick and active time.
+    - The layout turns by a quarter turn from the seed.
+    - `JUDGE_WEIGHTS` .5 / .25 / .25.
+  - **`sim/fight.js`:**
+    - `arenaOf`, hazards and the pit.
+    - The judges (`judgeFight`, `F.judge`, the end log entry carries `j`); "under" control counts only while the wedge drives.
+    - The pin limit (10 s, then `release`).
+    - `WEDGE_RULES.discGuard`, `FIGHT.lip`, `slope`, `gyro` and `gyroClass`, `selfFlip`.
+    - `FIGHT.shock` (single-hit KOs per class), `FIGHT.lethal`.
+  - **`sim/ai.js`:** eight `AI_STYLES` and `autoStyle`.
+  - **`sim/opponents.js`:** 15 `OPPONENTS` with `opponentCfg`.
+  - **The Fight tab:** opponent, arena and style pickers, the personality line, the judges' table, and the hazards in the debug view.
+  - **`tools/fight-test.js`:** 12 seeds at skills 0.5 and 0.85. The target is each test build's record against the other test builds; a build more than 5 points outside 35-65% fails (plan section 1).
+  - **Tuned:** the Brick test build has PU wheels and an anti-spinner bar; horizontal, drum and undercutter discs were slowed. The numbers are in `docs/DESIGN.md`.
+  - **Saves:** nothing new (no `SAVE_V` change).
+- Next: PR 5, the arena view, controls, hit feedback and sparring.
 - What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
