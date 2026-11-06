@@ -12,7 +12,7 @@ const DV_COL={floor:"#1A1917",grid:"#262421",wall:"#6B665D",text:"#E8E5DE",dim:"
 const DEBUGVIEW={
   draw(cv,F,flashes,now){if(!cv||!F)return;const dpr=Math.min(window.devicePixelRatio||1,2),w=cv.clientWidth|0;if(!w)return;
     if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(w*dpr);}
-    const g=cv.getContext("2d"),W=cv.width,H=F.arena.half,pad=10*dpr,s=(W-2*pad)/(2*H),X=x=>W/2+x*s,Y=y=>W/2-y*s,red=reduced();
+    const g=cv.getContext("2d"),W=cv.width,H=F.arena.half,pad=10*dpr,s=(W-2*pad)/(2*H),X=x=>W/2+x*s,Y=y=>W/2-y*s,red=reduced()||fxLow();
     g.setTransform(1,0,0,1,0,0);g.fillStyle=DV_COL.floor;g.fillRect(0,0,W,W);
     /* floor grid every ~30 cm at beetle scale, walls */
     const step=0.3*F.M.len;g.strokeStyle=DV_COL.grid;g.lineWidth=1;g.beginPath();

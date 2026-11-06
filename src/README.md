@@ -72,7 +72,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/shop.js` | the Shop tab: the workshop stages, tools, pit kit prices, the books (the ledger), the three save slots (the Saves card's buttons are wired in `savecode.js`) |
 | `app/career.js` | the career: `S.career` (`crFresh`), the week and Close week, acts and promotion, the calendar and entering, the field and rivals, event days (round robin, bracket, rumble, tag team), quick sims and the hand-off to `ftEvent`, prizes, repairs in the workshop, the bank; what the career allows (`crPartLock`, `crClassLock`, `crFitBlock`, tool hour cuts) and the driver level (`crLevel`); the Career tab |
 | `app/team.js` | R&D projects, the team (hire, wages, cuts), sponsors and paint, the meta and the season's rules, the kit line, and their cards (PR 8) |
-| `app/help.js` | tutorial and help (PR 9); last app file, `</script>` |
+| `app/help.js` | the tutorial on a loaner, the bot card, trophy cards, `phoSave` (PR 9); last app file, ends with `</script>` |
 | `html/tail.html` | `</body></html>` (no trailing newline) |
 
 To find code, grep `src/`: `grep -rn "function showTab" src/`.

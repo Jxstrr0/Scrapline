@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.9.1)
+## Current status (0.1.10.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -153,8 +153,15 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **Kelbo's picks:** a hired driver drives quick sims; the minibot is a real little bot; the disc is teeth and rim plus a name; the kit line opens in Legacy, paid by win rate.
   - **Saves:** `SAVE_V` 6 (`career.rnd`, `offers`, `kit`, `repY0`; `staff` and `sponsors` arrays).
 - 0.1.9.1: hotfix. A comment in `ftOverlay` (`app/fight.js`) had swallowed the line after it, so every fight threw "h is not defined" and never showed its bell banner.
-- Next: PR 9, tutorial, bot card share, settings, polish.
-- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; an R&D project finishes and its part fits; a hire's wages come out at Close week; a sponsor signs and its colour shows on the bot; a save slot saves and loads; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
+- PR 9 done (0.1.10.0): tutorial, bot card, trophies, Effects, landscape.
+  - **`app/help.js`:** the tutorial on a loaner (Kelbo): eight spotlight steps (load and fit the Wedge, the impact test, spar Feierabend, the post-mortem). It snapshots the game and `TUT_ON` stops `save()`; ending puts the snapshot back with the phone's settings. Offered once after the intro; Settings runs it again.
+  - **Bot card:** the camera button over the 3D view; `SCRAP_VIS.shot(w, h)` renders the bot off screen; name, class, weight, weapon, speed, energy, record; shared through PEW's `phoSave`.
+  - **Trophies:** a card for every event won, gold for a championship or a move up an act (`tpAward` from `crFinish` / `crSeasonEnd`); the shelf on the Career tab.
+  - **Settings → Effects** (Kelbo: separate from Motion): Reduced cuts sparks, flying parts, smoke and the 2D hit rings (`fxLow()`, `SCRAP_VIS.setRun({fxLow})`).
+  - **Landscape** on a phone: the 3D view on the left, the panel on the right.
+  - **Saves:** `SAVE_V` 7 (`settings.effects`, `settings.tutDone`, `career.trophies`).
+- Next: PR 10, Blender props and CC0/CC-BY assets on Full/Ultra.
+- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; a career starts, a club meet is entered and fought (one driven, one quick sim), a repair is paid and a week closes; an R&D project finishes and its part fits; a hire's wages come out at Close week; a sponsor signs and its colour shows on the bot; a save slot saves and loads; a fresh install offers the tutorial and it runs to the end, then the workshop is as it was; the bot card shares; a trophy card opens from the shelf; Effects Reduced shows fewer sparks; landscape puts the view on the left; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
 

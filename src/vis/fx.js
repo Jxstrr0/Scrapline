@@ -6,6 +6,7 @@
      parts    a destroyed part's mesh is copied and flung off, spinning, then fades (at most 6 in the air)
      smoke    a bot whose battery smokes trails grey puffs (Lite: fewer, larger)
      shake    the camera shakes in proportion to the hit (none under reduced motion: arena.js)
+   Settings → Effects: Reduced (V.run.fxLow): a quarter of the sparks, no flying parts, at most three puffs of smoke.
    Particles use no Math.random either: a small seeded generator, so a replay looks the same. ---- */
 const FX={pts:null,n:0,pos:null,vel:null,life:null,chunks:[],puffs:[],seed:12345,smokeT:0};
 const fxR=()=>(FX.seed=(FX.seed*16807)%2147483647)/2147483647;
@@ -31,10 +32,10 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
     if(e.k==="part"){fxChunk(e.v,e.key);continue;}
     const En=(e.E||0)/mm,x=e.x*U,z=-e.y*U,big=e.k==="hit"||e.k==="flip"||e.k==="haz";
     if(e.k==="land"&&En<4)continue;
-    const n=Math.min(big?40:14,Math.round((big?4:1)+En*(big?0.35:0.12)));if(n>0)fxSpark(x,big?0.25:0.08,z,n,1.5+Math.min(5,Math.sqrt(En)*0.5));
+    let n=Math.min(big?40:14,Math.round((big?4:1)+En*(big?0.35:0.12)));if(V.run.fxLow)n=Math.min(6,Math.ceil(n/4));if(n>0)fxSpark(x,big?0.25:0.08,z,n,1.5+Math.min(5,Math.sqrt(En)*0.5));
     AR.cam.shake=Math.min(0.45,AR.cam.shake+Math.min(0.3,En*(big?0.004:0.0015)));}}
 /* a destroyed part flies off: a copy of its mesh in a world-space chunk */
-function fxChunk(i,key){const B=AR.bots[i];if(!B)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
+function fxChunk(i,key){const B=AR.bots[i];if(!B||V.run.fxLow)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
   if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}
   const src=ms[0],m=src.clone();m.material=src.material.clone();m.material.transparent=true;m.userData={own:true};
   B.mesh.updateMatrixWorld(true);src.getWorldPosition(m.position);src.getWorldQuaternion(m.quaternion);m.scale.setScalar(AR.U);
@@ -52,7 +53,7 @@ function fxTick(dt){if(!FX.pts&&!FX.chunks.length)return;const g=-9;
   FX.chunks=FX.chunks.filter(c=>{if(c.t>3){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();return false;}return true;});
   /* smoke from a bot whose battery is smoking */
   FX.smokeT-=dt;if(AR.F&&FX.smokeT<=0){const lite=V.tier==="lite";FX.smokeT=lite?0.35:0.15;
-    for(const B of AR.bots)if(B.o.flags&&B.o.flags.smoke&&!B.o.out&&FX.puffs.length<(lite?8:24)){const r=(lite?0.25:0.16)*(0.8+fxR()*0.5),m=new THREE.Mesh(new THREE.SphereGeometry(r,6,4),V.mats.smoke);
+    for(const B of AR.bots)if(B.o.flags&&B.o.flags.smoke&&!B.o.out&&FX.puffs.length<(V.run.fxLow?3:lite?8:24)){const r=(lite?0.25:0.16)*(0.8+fxR()*0.5),m=new THREE.Mesh(new THREE.SphereGeometry(r,6,4),V.mats.smoke);
       m.position.set(B.mesh.position.x,B.mesh.position.y+0.4,B.mesh.position.z);AR.g.add(m);FX.puffs.push({m,t:0});}}
   for(const p of FX.puffs){p.t+=dt;p.m.position.y+=dt*0.8;p.m.scale.setScalar(1+p.t*1.5);}
   FX.puffs=FX.puffs.filter(p=>{if(p.t>1.6){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();return false;}return true;});}
