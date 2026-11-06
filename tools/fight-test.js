@@ -10,7 +10,8 @@
    test builds (what the target is about) and against the whole field, draw %, the
    average share of hp it lost, the average fight length and the share of its fights that ended in a knockout. It exits 1
    if a fight is not repeatable, a replay from the log differs, a log is over 20 KB, a result holds NaN or a fight runs past
-   the bell, a step is over budget (2 ms for a 1v1, 4 ms for a 4-bot rumble, plan section 16), carried-in damage is lost,
+   the bell, a step is over budget (2 ms for a 1v1, 4 ms for a 4-bot rumble, plan section 16), carried-in damage (or a bent
+   disc) is lost,
    or the plan's phone-test moments never happen (a wedge getting under a high-fronted box, a flipper landing a bot
    upside down, plan 8e: a hazard-pusher winning by the pit, the judges' scores on every decision), or a test build is
    more than 5 points outside the balance target (35-65% against the other test builds in its class, in the class's own
@@ -217,6 +218,15 @@ for (const [a, b, s, style] of [["vsp", "wedge", 3, "rush"], ["flipper", "invert
   const s = F.bots[0].st;
   if (Math.abs(s.armour.front - (b.armourMapJ.front.hpJ - 5)) > 1e-9 || s.parts.drive0 !== 0 || Math.abs(s.parts.battery - (b.parts.find((p) => p.key === "battery").hpJ - 3)) > 1e-9) fail("carried-in damage didn't make it into the fight");
   const r = SIM.fightResult(F); if (r.bots[0].states.drive0 !== "destroyed" || r.bots[0].states.battery !== "damaged" || r.bots[0].states.armour_back !== "intact") fail("part states don't read the carried-in damage");
+}
+/* a best of three's next round: a bent disc carries in (flags), and the round replays from its log with it */
+{
+  const bots = [{ cfg: cfgOf(T("vsp"), cls), damage: { weapon: 2 }, flags: { bent: true }, driver: { style: "rush", skill: 0.6 } }, { cfg: cfgOf(T("hsp"), cls), driver: { style: "rush", skill: 0.6 } }];
+  const F = SIM.newFight({ seed: 11, bots });
+  if (!F.bots[0].flags.bent || F.bots[1].flags.bent) fail("a carried-in bent disc isn't bent at the start (or the other bot's is)");
+  const r = SIM.runFight({ seed: 11, bots }), q = SIM.replayFight(r.log);
+  if (!r.log.bots[0].flags || !r.log.bots[0].flags.bent) fail("the log doesn't keep the carried-in bent disc");
+  if (!q || q.winner !== r.winner || q.timeS !== r.timeS || JSON.stringify(q.bots[0].damage) !== JSON.stringify(r.bots[0].damage)) fail("a round with a carried-in bent disc doesn't replay the same");
 }
 /* a 4-bot rumble: runs, ends, within its step budget */
 {

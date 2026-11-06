@@ -2,6 +2,8 @@
      newFight({bots, arena, seed, rules, fx})   bots: [{cfg, team, name, driver, damage}]. driver {style, skill} is an AI
                                             (sim/ai.js); driver null is the player, who hands in inputs each step.
                                             damage: J already taken per key (S.bots[cls].damage), or nothing for fresh.
+                                            flags: {bent:true} carries a bent disc in (a best-of-three round after
+                                            a pit window that didn't fix it).
                                             fx: keep F.fxq, where hits and landings happened, for a view to flash.
      stepFight(F, inputs)                   one step. inputs: {botIndex: {throttle, steer, weapon, selfRight}} for the
                                             player bots (throttle and steer -1..1, weapon and selfRight 0 or 1)
@@ -155,7 +157,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
   const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
-    zone:weaponZone(b),st:damageState(b,spec.damage),flags:{esc:null,smoke:false,cell:false,bent:false},fx:null,
+    zone:weaponZone(b),st:damageState(b,spec.damage),flags:{esc:null,smoke:false,cell:false,bent:!!(spec.flags&&spec.flags.bent)},fx:null,
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,
@@ -171,7 +173,7 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
     spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
       bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,
-        driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null}))}};   // copies: the log is the fight as it started
+        driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:s.flags&&s.flags.bent?{bent:true}:null}))}};   // copies: the log is the fight as it started
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
   const n=F.bots.length,R=F.arena.half*0.6;
