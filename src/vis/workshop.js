@@ -25,18 +25,18 @@ function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholde
 function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
 /* rebuild everything that depends on the tier */
 function rebuild(){
-  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();});V[k]=null;}   // keep: a cached prop model (vis/props.js)
   const fight=AR.F;arenaClear();placeBotClear();botCacheClear();
   makeMats(V.tier);
   V.shop=buildShop();V.lights=buildLights();
-  V.scene.add(V.shop,V.lights);placeBot();
+  V.scene.add(V.shop,V.lights);placeBot();propShop();
   if(fight){buildArena(fight);fxInit();}
   showView();
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
   if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
-  if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(ok=>{if(!ok||V.tier!=="ultra")return;
+  if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(()=>{if(V.tier!=="ultra"||!THREE.EffectComposer||!THREE.RenderPass||!THREE.UnrealBloomPass)return;
     V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
     V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
   resize(true);

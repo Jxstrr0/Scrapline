@@ -287,7 +287,9 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
 /* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
 document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
 /* the workshop's bot in 3D: the draft on the Build tab, the fitted bot elsewhere (the draft while nothing is fitted) */
-function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
+/* the workshop stage the 3D room is dressed for (props on Full / Ultra, vis/props.js): the career's, else the rented corner */
+function visStage(){if(window.SCRAP_VIS&&SCRAP_VIS.setStage)SCRAP_VIS.setStage(typeof crOn==="function"&&crOn()?crStage().id:"corner");}
+function visBot(){if(!window.SCRAP_VIS)return;visStage();const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
   SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
   if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){

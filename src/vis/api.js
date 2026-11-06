@@ -6,6 +6,8 @@ return{
   /* the workshop's bot: an evalBuild() result (null: the placeholder). Cached by build hash; old meshes are disposed */
   setBot(b){const k=b?JSON.stringify(b.cfg):null;if(k===V.botK)return;V.botK=k;V.botB=b||null;if(started&&V.mats)placeBot();},
   /* your sponsors' colours ({side, top}: "#rrggbb" or nothing), on your bot in the workshop and as bot 0 in a fight */
+  /* the workshop stage ("corner", "unit", "shop", "hq"): which props dress the room on Full / Ultra */
+  setStage(id){id=id||"corner";if(id===(V.stage||"corner")){V.stage=id;return;}V.stage=id;if(started&&V.shop)propShopSwap();},
   setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
   /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},

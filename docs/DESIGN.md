@@ -244,6 +244,15 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Polish:** the Career tab's old "Team, sponsors and R&D (PR 8)" placeholder card is gone.
 - **Saves:** `SAVE_V` 7: `settings.effects`, `settings.tutDone`, `career.trophies`. No new localStorage key.
 
+## 0.1.11.0: free props, textures and recorded sounds on Full and Ultra (PR 10)
+
+- **Props** (`vis/props.js`): 20 CC0 models from Poly Haven (`models/`, credited in `models/CREDITS.md`), packed to `.glb` with `tools/pack-model.py` (copied from PEW) by `tools/get-polyhaven.py`. Each workshop stage has its own set of 8 or 9 behind and beside the bench (`SHOP_SPOTS`: a vice, oil and a shelf in the corner; a welding cart and gas in the unit; a drill press and hand truck in the shop; a desk and a multimeter at the HQ), at about half real scale so they read next to the long coded bench (`SHOP_UNITS` 2.4 units a metre). The clubbox, tabletop, regional and Eisenhalle arenas get a few beyond their walls at real size (`ARENA_SPOTS`). The stage follows the career's workshop (`SCRAP_VIS.setStage`, `visStage()` in `app/build.js`); outside a career it is the corner. Each file loads once and is kept; GLTFLoader comes with the on-demand addons (`SCR_LIBS`). About 60-90k triangles in the workshop on Full, 16-44k in the arenas.
+- **Textures** (`textures/`, Poly Haven CC0, 512 px): the workshop floor, the bench top, the steel plate and the arena floor, each with a normal map. Each one is tinted so its average matches the coded colour, so the scene keeps the Lite palette and gains grain and wear.
+- **Recorded sounds** (`sounds/`, three CC0 packs from OpenGameArt, credited in `sounds/CREDITS.md`): 18 short mp3s (about 120 KB) for hits, big hits, walls, landings, hazards and parts coming off. On Full and Ultra one plays under each synth clang (random variant, pitch and volume by hit energy) and the synth drops to under half; until they decode, the synth plays alone. A part coming off has a sound only with the recordings.
+- **Lite** loads none of it: no models, textures, sounds or GLTFLoader, the same triangles and the same synth as 0.1.10.0. A tier change drops the props and textures.
+- **Not yet:** Kelbo's Blender models (stage interiors, the arena shell and hazards, a trailer, trophies, hero shells). They drop in the same way: pack with `tools/pack-model.py`, add to `PROP_FILES` and the spots, credit as original.
+- **Saves:** nothing new (no `SAVE_V` change).
+
 ## Known loose ends
 
 - Balance sits at the edges in places (0.1.5.0 numbers):

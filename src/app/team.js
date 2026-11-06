@@ -107,7 +107,7 @@ function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);tmGo
 function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);if(crOn())tmGone(id);save();tmPaint();}
 /* the sponsors' colours for your bot (vis/bot.js): {side, top} */
 function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp)o[sp.slot]=sp.colour;}return o;}
-function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());}
+function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());visStage();}
 
 /* ---- the kit line ---- */
 const tmKitOpen=()=>crOn()&&S.career.act>=KIT_LINE.act;

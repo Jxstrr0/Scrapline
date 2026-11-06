@@ -123,7 +123,8 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
     let key=null;if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"))key=e.key||"weapon";
     else if((e.k==="hit"||e.k==="grind"||e.k==="haz")&&e.pb)key="armour_"+e.f;
     if(key&&!FT.flung[e.v+":"+key]){FT.flung[e.v+":"+key]=1;parts.push({k:"part",v:e.v,key});}}   // each part flies off once
-  FT.partN=L.length;if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
+  FT.partN=L.length;if(parts.length&&snd)SCRAP_SOUND.hit(0.8,"part");   // recorded only (Full / Ultra); Lite stays silent here as before
+  if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
 
 /* ---- fight mode: the overlay on the 3D view ---- */
 function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");

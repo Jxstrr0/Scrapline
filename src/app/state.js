@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.10.0";
+const VERSION="0.1.11.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -293,7 +293,8 @@ function applyReduce(){document.documentElement.classList.toggle("reduce",reduce
 const fxLow=()=>ST().effects==="reduced";
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
-function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
+function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;
+  if(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.samples)SCRAP_SOUND.samples(q!=="lite");}   // recorded clangs on Full / Ultra (sound/synth.js)
 function applyAll(){applyTheme();applyReduce();applyGfx();hud();if(typeof tmPaint==="function")tmPaint();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
