@@ -44,7 +44,7 @@ function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last
   ftEnter();ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
-  F.bots.forEach((o,i)=>{B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
+  F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
   const need=B.need||2,max=B.max||3;if(Object.keys(B.wins).some(t=>B.wins[t]>=need)||B.n>=max)B.over=true;
@@ -60,16 +60,16 @@ function ftPit(){const B=FT.bout,F=FT.F;if(!B||B.over)return;const e=$("fEnd");i
     onDone:r=>{B.pits.push({mine:r.done,lost:r.lost,theirs});ftNextRound();}});}
 function ftNextRound(){const B=FT.bout;const seed=B.ev?B.ev.seedN(B.n):(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
   const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:Object.assign({},B.flags[i])}));
-  ftGo(SIM.newFight({seed,fx:true,arena:B.ev?B.ev.arena:ftArena(FT.F.cls),bots}));
+  ftGo(SIM.newFight({seed,fx:true,arena:B.ev?B.ev.arena:ftArena(FT.F.cls),rules:B.ev?B.ev.rules:undefined,bots}));
   const t=B.pits[B.pits.length-1].theirs;toast(`${FT.F.bots[1].name}'s crew: ${t.length?t.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing to fix"}`);}
 /* ---- career events (app/career.js) ----
    ftEvent(o): one of your bouts at an event, driven by you. o: {bots (newFight specs, with the day's damage), seed,
-   seedN(n) (round n's seed), arena, bo (1 or 3), teams, kit, left (each bot's kit counts, shared with the day), label,
+   seedN(n) (round n's seed), arena, rules (the season's, app/team.js crFightRules), bo (1 or 3), teams, kit, left (each bot's kit counts, shared with the day), label,
    title, onDone(B, F) (records it; returns the bell's banner {t, s, cls, pit}), pit() (the pit window after the bout
    when you have another fight: {dmg, flags, kit, left, title}, or null)}. */
 function ftEvent(o){const cls=o.bots[0].cfg.cls,bot=bBot(cls);FT.you=true;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;
   FT.bout={seed:o.seed,bots:o.bots,kit:o.kit,wins:{},n:0,dmg:o.bots.map(b=>clone(b.damage||{})),flags:o.bots.map(b=>Object.assign({},b.flags||{})),left:o.left,pits:[],over:false,need:Math.ceil(o.bo/2),max:o.bo,ev:o};
-  ftGo(SIM.newFight({seed:o.seed,fx:true,arena:o.arena,bots:o.bots}));}
+  ftGo(SIM.newFight({seed:o.seed,fx:true,arena:o.arena,rules:o.rules,bots:o.bots}));}
 /* a quick-simmed bout's fights, to look at on the Fight tab (results, post-mortem, replay) */
 function ftShowSim(Fs,res,day,nx){FT.rounds=Fs.map(F=>{F.recorded=true;F.ev=true;return{F,log:null};});FT.rv=Fs.length-1;FT.rp=null;FT.sig=bnSig(bBot(day.cls).cfg);
   FT.bout=nx.bo>1?{wins:res.wins,n:Fs.length,over:true,pits:[],stopped:false}:null;}
@@ -114,7 +114,7 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
   if(q&&q.length){const ev=[];let bz=0;
     for(const e of q){const En=(e.E||0)/mm;if(e.k==="ram"&&En<=2)continue;FT.flashes.push(Object.assign({t0:now},e));ev.push(e);
       if(snd&&(e.k!=="land"||En>4))SCRAP_SOUND.hit(Math.sqrt(Math.min(1,En/140)),e.k==="hit"||e.k==="flip"?"hit":e.k);
-      const mine=e.v===0||F.bots.length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
+      const mine=e.v===0||F.bots.filter(o=>!o.mini).length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
       if(mine&&(e.k==="hit"||e.k==="flip"||e.k==="haz"||En>20))bz=Math.max(bz,Math.round(12+40*Math.min(1,En/140)));}
     if(bz&&now-FT.buzzT>140){FT.buzzT=now;buzz(bz);}
     if(FT.on&&!FT.view2d)SCRAP_VIS.fx(ev);q.length=0;}
@@ -132,7 +132,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
       ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
-    <div class="fbots" id="fBots">${F.bots.map(o=>`<div class="fbot" data-i="${o.i}"><canvas class="fsil" width="44" height="44" aria-hidden="true"></canvas><div class="fbinfo"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">${esc(o.name)}</b>
+    <div class="fbots" id="fBots">${F.bots.filter(o=>!o.mini).map(o=>`<div class="fbot" data-i="${o.i}"><canvas class="fsil" width="44" height="44" aria-hidden="true"></canvas><div class="fbinfo"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">${esc(o.name)}</b>
       <span class="fbar" title="weapon"><i data-b="w"></i></span><span class="fbar" title="battery"><i data-b="bat"></i></span><span class="fbar" title="heat"><i data-b="heat"></i></span><small data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
     <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">${FT.bout&&FT.bout.ev?"Forfeit":"Stop the fight"}</button></div></div>
@@ -169,7 +169,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
   const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
-  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el)return;const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
+  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arenaconst w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
     const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
     const set=(k,v,lo)=>{const x=el.querySelector(`[data-b="${k}"]`);if(x){x.style.width=Math.round(Math.max(0,Math.min(1,v))*100)+"%";x.classList.toggle("lo",!!lo);}};
@@ -210,7 +210,7 @@ document.addEventListener("keydown",e=>{if(!FT.on||e.key!=="Escape"||sheetOn())r
 /* ---- the results card under the setup: what happened, each bot's state, the judges ---- */
 function ftBar(v,cls){return`<span class="ftbar"><i class="${cls||""}" style="width:${Math.round(Math.max(0,Math.min(1,v))*100)}%"></i></span>`;}
 function ftHud(F){const el=$("ftHud");if(!F||!el)return;
-  el.innerHTML=F.bots.map(o=>{const w=o.b.weapon,lost=SIM.damageShare(o.b,o.st),bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0;
+  el.innerHTML=F.bots.filter(o=>!o.mini).map(o=>{const w=o.b.weapon,lost=SIM.damageShare(o.b,o.st),bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0;
     const st=o.out?`<span class="broke">${o.out==="ko"?"counted out":"in the pit"}</span>`:o.fx.dead?`<span class="broke">dead: ${esc(o.fx.dead)}</span>`:o.flat?`<span class="broke">battery flat</span>`:
       [o.inverted?"upside down":"",!o.fx.weaponOk&&w.type!=="none"?"weapon gone":"",o.fx.sides.left.out?"left side out":"",o.fx.sides.right.out?"right side out":""].filter(Boolean).map(s=>`<span class="worn">${s}</span>`).join(" · ");
     return`<div class="ftbot"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">●</b> <b>${esc(o.name)}</b> <small>${esc(SIM.part("weapon",o.cfg.weapon).name)}</small>

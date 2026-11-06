@@ -330,6 +330,16 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .shkits th small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
 .crtab td.readout,.shkits td.readout,.shbooks td.readout{color:var(--lilac);font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .shbooks td.readout.ok{color:var(--good)}.shbooks td:first-child{width:56px;text-align:left;color:var(--dim)}
+/* R&D, team, sponsors, kit line (app/team.js, PR 8) */
+.shlist h4,.card h4+.shlist{margin-top:4px}
+.tmcur{padding:4px 0 10px;border-bottom:1px solid var(--rule);margin-bottom:6px}.tmcur .readout{color:var(--lilac);font-family:var(--mono);font-size:13px}
+.tmbar{height:8px;border-radius:999px;background:var(--card2);overflow:hidden;margin:6px 0 8px}.tmbar i{display:block;height:100%;background:var(--clay)}
+.tmsp{list-style:none;margin:0 0 8px;padding:0;font-size:14px}
+.tmsp li{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--rule)}.tmsp li:first-child{border-top:0}
+.tmsp .nm{flex:1;min-width:0;color:var(--ink)}.tmsp small{color:var(--muted);font-size:12.5px}
+.tmsp .sw{flex:0 0 18px;height:18px;border-radius:5px;border:1px solid var(--rule)}
+.tmbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.field select,.field input{width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:15px var(--font)}
 
 /* ---- 4. accessibility preferences ---- */
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
@@ -631,6 +641,7 @@ const PARTS={
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
     {id:"lifter", name:"Lifter",              type:"lifter", fp:[2,2],mount:"front",massG:160,motorMassG:110,powerW:120,heatW:25,edgeMm:2,   hp:60,cost:90, hours:4,unlock:"start",reachMm:60,liftN:70,liftMm:80,selfRights:true},
     {id:"flipper",name:"Flipper (pneumatic)", type:"flipper",fp:[2,3],mount:"front",massG:190,motorMassG:170,powerW:10, heatW:0, edgeMm:2,   hp:60,cost:180,hours:6,unlock:"tool:drillpress",reachMm:70,shots:12,forceN:450,strokeMm:40,rechargeS:1.0,selfRights:true},
+    {id:"flipper2",name:"High-pressure flipper",type:"flipper",fp:[2,3],mount:"front",massG:215,motorMassG:195,powerW:10,heatW:0,edgeMm:2,  hp:65,cost:320,hours:7,unlock:"rnd:pneumatics",reachMm:70,shots:20,forceN:560,strokeMm:42,rechargeS:0.7,selfRights:true},
     {id:"hammer", name:"Hammer",              type:"hammer", fp:[2,2],mount:"front",massG:170,motorMassG:130,powerW:200,heatW:30,edgeMm:3,   hp:60,cost:120,hours:5,unlock:"start",swingS:0.7,energyJ:25,selfRights:true},
     {id:"hsp",    name:"Horizontal spinner",  type:"spinner",fp:[2,2],mount:"edge", massG:40, motorMassG:90, powerW:300,heatW:40,edgeMm:null,hp:70,cost:150,hours:5,unlock:"start",discMass:300,radius:75,rpmMax:5600, shapeK:0.5, bite:0.62,recoil:1.0},
     {id:"vsp",    name:"Vertical spinner",    type:"spinner",fp:[2,2],mount:"front",massG:60, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:70,cost:150,hours:5,unlock:"start",discMass:250,radius:50,rpmMax:9000, shapeK:0.5, bite:0.90,recoil:0.6},
@@ -656,6 +667,19 @@ const PARTS={
     {id:"minibot",  name:"Minibot",          fp:[1,2],massG:150,hp:20,cost:120,hours:4,unlock:"rnd:minibot",minibot:true}
   ]
 };
+/* your own disc profile (R&D "disc", PR 8): a spinner's cfg may carry disc {name, teeth 1-3, rim light|mid|heavy}. Fewer
+   teeth bite deeper (bite x); a heavier rim puts more of the disc's mass at the edge (disc mass x mass, I x shapeK), so it
+   stores more energy and spins up slower. Two teeth and a medium rim are the stock disc (every factor 1). Spinners only
+   (not the saw). */
+const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite:0.88,recoil:0.85}},
+  rim:{light:{mass:0.85,shapeK:0.9,name:"light rim"},mid:{mass:1,shapeK:1,name:"medium rim"},heavy:{mass:1.2,shapeK:1.12,name:"heavy rim"}},nameMax:24};
+/* a minibot (extras "minibot", R&D, PR 8) is a real little bot: at the bell it drops off its parent as a small AI-driven
+   wedge on the same team. It shoves and distracts but doesn't count for knockouts or the judges, and stops when its
+   parent is out. It is built as cfg in the class below (cls: the class it's built in, by its parent's class; an
+   antweight has nothing smaller). driver: its AI. */
+const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
+  cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
+  driver:{style:"rush"}};
 const PART_SLOTS=["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
@@ -676,7 +700,15 @@ function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,
   o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>part("extras",e)&&l.indexOf(e)===i):[];
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
+  const dp=normDisc(cfg.disc);if(dp&&part("weapon",o.weapon).type==="spinner")o.disc=dp;   // spinners only
   return o;}
+/* a disc profile, cleaned: {name, teeth, rim}, or null for the stock disc (or anything that isn't one) */
+function normDisc(d){if(!d||typeof d!=="object")return null;const t=+d.teeth,r=d.rim;
+  if(!DISC_PROFILES.teeth[t]||!DISC_PROFILES.rim[r])return null;
+  const name=String(d.name==null?"":d.name).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,DISC_PROFILES.nameMax)||"Own disc";
+  return{name,teeth:t,rim:r};}
+/* the same disc to cut: teeth and rim (the name is paint, not metal) */
+const sameDisc=(a,b)=>!a===!b&&(!a||(a.teeth===b.teeth&&a.rim===b.rim));
 
 /* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
 function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;
@@ -791,8 +823,10 @@ const K={
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const r3=v=>Math.round(v*1000)/1000;
 
-function evalBuild(cfgIn){
-  const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
+function evalBuild(cfgIn,opts){
+  const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c0=CLASSES[cfg.cls],M=classMult(cfg.cls);
+  /* opts.limitG: a season's rule change to the class limit (the career, PR 8); the parts still scale by the class */
+  const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
@@ -848,7 +882,8 @@ function evalBuild(cfgIn){
   let wpos=centreOf("weapon")||[0,hl];
   const frontMounted=wp.mount==="front";
   const discPos=isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;
-  const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass:0;
+  const DP=cfg.disc?{t:DISC_PROFILES.teeth[cfg.disc.teeth],r:DISC_PROFILES.rim[cfg.disc.rim]}:null;   // your own disc profile (normCfg keeps it on spinners only)
+  const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass*(DP?DP.r.mass:1):0;
   if(structG)addM("weapon_struct","weapon",wp.id,structG,wpos[0],wp.fp?wpos[1]:hl);
   if(motorG)addM("weapon_motor","weapon",wp.id,motorG,wpos[0],wpos[1]);
   if(discG)addM("weapon_disc","weapon",wp.id,discG,discPos[0],discPos[1]);
@@ -863,8 +898,10 @@ function evalBuild(cfgIn){
   const plate=g=>g/1000*((W/1000)*(W/1000)+(L/1000)*(L/1000))/12;
   moi+=plate(items[0].g)+plate(armourMapJ.top.massG);
   const radM=isSpin?wp.radius*M.len/1000:0;
-  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"?wp.shapeK:0.25);
+  const shapeK=wp.shapeK*(DP?DP.r.shapeK:1);
+  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"?shapeK:0.25);
   if(totalG>c.limitG+1e-6)errors.push("Over the "+c.name+" limit");
+  if(ex.some(e=>e.minibot)&&!MINIBOT.cls[cfg.cls])errors.push("An "+c.name.toLowerCase()+" has nothing smaller to carry as a minibot");
   const underBudgetPct=(1-totalG/c.limitG)*100;
 
   /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
@@ -900,10 +937,10 @@ function evalBuild(cfgIn){
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:wpos,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
-  if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=wp.shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega;
+  if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
-    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:wp.recoil,
-      recoilFactor:clamp(wp.recoil*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite,
+    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
+      recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*(DP?DP.t.bite:1),profile:cfg.disc||null,
       shearJ:wm.hp*wm.shearMult*M.mass,bendJ:wm.hp*M.mass,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
@@ -984,7 +1021,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
   for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
-  if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon))add("weaponMaterial",b.weaponMaterial);
+  if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
   const removed=[],off=(slot,id,face)=>{const p=part(slot,id);if(p)removed.push({slot,face:face||null,id,name:p.name});};
@@ -995,6 +1032,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
 /* the same cfg? (layout aside: moving parts round the chassis is free) */
 function sameParts(a,b){if(!a||!b)return false;a=normCfg(a);b=normCfg(b);if(a.cls!==b.cls)return false;
   for(const s of PART_SLOTS)if(a[s]!==b[s]&&!(s==="weaponMaterial"&&a.weapon==="none"&&b.weapon==="none"))return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
+  if(!sameDisc(a.disc,b.disc))return false;
   return a.extras.slice().sort().join()===b.extras.slice().sort().join();}
 /* ---- combos.js: COMBOS, the stress-report rules, and stressReport(b), which runs them over an evalBuild() result.
    These don't change the physics; they say in plain words what the physics is about to do to you ("spinner shaft will
@@ -1387,7 +1425,22 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
     stats:{dealt:0,taken:0,hits:0,landed:0,failHits:0},jd:{close:0,contact:0,retreat:0,ctrl:0}};
   o.rad=Math.max(...o.poly.map(p=>Math.hypot(p[0],p[1])));
   o.fx=damageEffects(b,o.st,o.flags);
+  /* a season's spinner energy cap (rules.capJ, PR 8): the disc's top speed comes down until it stores no more than that */
+  const w=b.weapon,cap=F&&F.rules.capJ;
+  if(cap>0&&(w.type==="spinner"||w.type==="saw")&&w.storedJ>cap){const k=Math.sqrt(cap/w.storedJ);
+    o.b=Object.assign({},b,{weapon:Object.assign({},w,{omega:w.omega*k,rpm:w.rpm*k,tipSpeed:w.tipSpeed*k,storedJ:cap,energyJ:cap,capped:true})});}
   return o;}
+/* a bot's minibot (sim/parts.js MINIBOT): dropped off behind it at the bell, on its team, AI-driven at its parent's
+   skill (0.5 for the player's). Only when the parent's minibot part isn't destroyed. */
+function newMini(F,o){const cls=MINIBOT.cls[o.b.cls];if(!cls||o.cfg.extras.indexOf("minibot")<0)return null;
+  if(partStates(o.b,o.st).minibot==="destroyed")return null;
+  const sk=o.driver&&o.driver.skill!=null?o.driver.skill:0.5,i=F.bots.length;
+  const m=newBot({cfg:Object.assign({},MINIBOT.cfg,{cls}),team:o.team,name:o.name+"'s minibot",driver:Object.assign({},MINIBOT.driver,{skill:sk})},i,F);
+  m.mini=true;m.parent=o.i;const d=o.rad+m.rad+0.01*F.M.len;
+  m.x=o.x-Math.cos(o.h)*d;m.y=o.y-Math.sin(o.h)*d;m.h=o.h;m.pw=worldPoly(m,m.poly);
+  m.ai=aiNew(m,(F.seed^Math.imul(0x85EBCA6B,i+1))>>>0,F);return m;}
+/* the bots that count (minibots don't, for knockouts or the judges) */
+const mainBots=F=>F.bots.filter(o=>!o.mini);
 function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.bots||[]).filter(s=>s&&s.cfg);
   if(specs.length<2)throw new Error("newFight needs two bots or more");
   const cls=normCfg(specs[0].cfg).cls,rules=Object.assign({roundS:FIGHT.roundS,koS:FIGHT.koS},opts.rules||{});
@@ -1411,6 +1464,8 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     o.h=wrapA(a+Math.PI+rRange(F.rng,-0.08,0.08));o.pw=worldPoly(o,o.poly);
     if(o.driver)o.ai=aiNew(o,(seed^Math.imul(0x9E3779B1,i+1))>>>0,F);
     else F.rec[i]={v:[[],[],[]],last:[FIGHT.inputLevels+1,FIGHT.inputLevels+1,0]};});
+  /* minibots go on the end, so every main bot keeps its index (and the player is still bot 0) */
+  for(const o of F.bots.slice()){const m=newMini(F,o);if(m)F.bots.push(m);}
   return F;}
 
 /* ---- the log ---- */
@@ -1450,7 +1505,7 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
   if(res.plate==null)res.plate=0;
-  const taken=(res.plate||0)+res.parts.reduce((a,p)=>a+p.dmg,0)+(res.through||0);o.stats.taken+=taken;if(att>=0&&F.bots[att])F.bots[att].stats.dealt+=taken;
+  const taken=(res.plate||0)+res.parts.reduce((a,p)=>a+p.dmg,0)+(res.through||0);o.stats.taken+=taken;if(att>=0&&F.bots[att]&&!o.mini)F.bots[att].stats.dealt+=taken;   // what's done to a minibot doesn't impress the judges
   /* the rolled parts of a failure */
   if(hadBat>0&&st.parts.battery<hadBat){if(st.parts.battery<=0){if(o.b.cfg.electronics==="failsafe"&&F.rng()<DAMAGE.cellSave){o.flags.cell=true;logIt(F,{k:"fail",v:o.i,what:"cell"});}}
     else if(!o.flags.smoke&&F.rng()<DAMAGE.smokeP)o.flags.smoke=true;}
@@ -1646,11 +1701,11 @@ function hazHit(F,h,i,o){const sq=Math.sqrt(F.M.len),E=h.J*F.M.mass,by=hazBy(F,o
     o.w=Math.max(-FIGHT.maxSpin,Math.min(FIGHT.maxSpin,o.w+(F.rng()<0.5?-1:1)*h.spinRad));}
   o.vx+=nx*h.kickMs*sq;o.vy+=ny*h.kickMs*sq;
   if(h.vzMs>0){const vz=h.vzMs*sq,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*o.M.len)launch(F,o,vz,F.rng()<invertChance(F,hM),null,by?by.i:null);}
-  if(by)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
+  if(by&&!o.mini&&!by.mini)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",x:o.x,y:o.y,E,v:o.i});}
 /* the judges' bookkeeping, each step (JUDGE_WEIGHTS, sim/arenas.js) */
 function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
-  for(const o of F.bots){if(o.out)continue;let t=null,bd=1e9;
-    for(const q of F.bots)if(q.team!==o.team&&!q.out){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
+  for(const o of F.bots){if(o.out||o.mini)continue;let t=null,bd=1e9;   // minibots neither score nor are scored against
+    for(const q of F.bots)if(q.team!==o.team&&!q.out&&!q.mini){const d=Math.hypot(q.x-o.x,q.y-o.y);if(d<bd){bd=d;t=q;}}
     if(!t)continue;const J=o.jd,vs=Math.max(o.b.driveSpeed||0,0.1),touching=o.touch[t.i]!=null&&F.t-o.touch[t.i]<0.1,
       vt=bd>1e-6?((t.x-o.x)*o.vx+(t.y-o.y)*o.vy)/bd:0,mob=mobile(o)&&!o.air;
     if(touching)J.contact+=dt;else if(mob&&vt>G.closeV*vs)J.close+=dt;else if(mob&&vt<-G.closeV*vs)J.retreat+=dt;
@@ -1663,15 +1718,16 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     else if(o.under){const u=pinBy;if(u&&Math.hypot(u.vx,u.vy)>G.driveV*Math.max(u.b.driveSpeed||0,0.1))by=u;}
     else if(o.inverted&&!o.b.height.drivesInverted)by=o.invBy!=null?F.bots[o.invBy]:t;
     else by=pinBy;
-    if(by&&by.team!==o.team&&!by.out)by.jd.ctrl+=dt;
+    if(by&&by.team!==o.team&&!by.out&&!by.mini)by.jd.ctrl+=dt;
     /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
       o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
-function outBot(F,o,why){o.out=why;o.outAt=F.t;
+function outBot(F,o,why,quiet){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;}
   if(o.held!=null){const a=F.bots[o.held];if(a&&a.wp.held===o.i)a.wp.held=null;o.held=null;}
-  logIt(F,{k:why,v:o.i});}
+  if(!quiet)logIt(F,{k:why,v:o.i});
+  if(!o.mini)for(const m of F.bots)if(m.mini&&m.parent===o.i&&!m.out)outBot(F,m,"parent",true);}   // a minibot stops with its parent
 
 function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots)if(!o.out)readInput(F,o,inputs);else o.input={throttle:0,steer:0,weapon:0,selfRight:0};
@@ -1702,9 +1758,9 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots){if(o.out)continue;const still=!mobile(o)&&!(o.righting>0&&o.fx.righter);
     o.immobileS=still?o.immobileS+dt:0;if(o.immobileS>=F.rules.koS)outBot(F,o,"ko");}
   F.t+=dt;F.n++;
-  const teams=[...new Set(F.bots.filter(o=>!o.out).map(o=>o.team))];
+  const teams=[...new Set(mainBots(F).filter(o=>!o.out).map(o=>o.team))];
   if(teams.length<=1){F.over=true;F.endT=F.t;F.winner=teams.length?teams[0]:null;
-    const last=F.bots.filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
+    const last=mainBots(F).filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
   else if(F.t>=F.rules.roundS-1e-9){F.over=true;F.endT=F.t;judgeFight(F);}
   if(F.over){const e=logIt(F,{k:"end",w:F.winner,why:F.reason});if(F.judge)e.j=F.judge.scores;}
   return F;}
@@ -1715,10 +1771,10 @@ function hpTotal(b){return Object.values(b.armourMapJ).reduce((a,f)=>a+(f.hpJ||0
 /* v rounded to whole tenths that add up to exactly want tenths (largest remainder; ties to the earlier team) */
 function tenths(v,want){const f=v.map(x=>Math.floor(x*10+1e-9)),left=want-f.reduce((a,x)=>a+x,0);
   const ord=v.map((x,i)=>i).sort((a,b)=>(v[b]*10-f[b])-(v[a]*10-f[a])||a-b);for(let k=0;k<left&&k<ord.length;k++)f[ord[k]]++;return f;}
-function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},hp=F.bots.reduce((a,o)=>a+hpTotal(o.b),0)/F.bots.length,T=Math.max(F.t,1);
-  for(const o of F.bots){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
+function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},B=mainBots(F),hp=B.reduce((a,o)=>a+hpTotal(o.b),0)/B.length,T=Math.max(F.t,1);
+  for(const o of B){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
     s.damage+=o.stats.dealt/hp;s.aggression+=Math.max(0,o.jd.close+o.jd.contact-o.jd.retreat)/T;s.control+=o.jd.ctrl/T;}
-  const ks=Object.keys(raw).filter(k=>F.bots.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
+  const ks=Object.keys(raw).filter(k=>B.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
   for(const k of ks){sc[k]={damage:0,aggression:0,control:0,total:0};tot[k]=0;}
   for(const term of ["damage","aggression","control"]){const sum=ks.reduce((a,k)=>a+raw[k][term]+R[term],0);
     const v=ks.map(k=>100*W[term]*(raw[k][term]+R[term])/sum),t=tenths(v,Math.round(1000*W[term]));
@@ -1726,7 +1782,7 @@ function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},hp=F.bots.
   for(const k of ks)sc[k].total=Math.round((sc[k].damage+sc[k].aggression+sc[k].control)*10)/10;   // the rows the table shows, so it adds up
   const order=ks.slice().sort((a,b)=>tot[b]-tot[a]);F.judge={scores:sc,raw};
   if(order.length>1&&tot[order[0]]-tot[order[1]]<0.5){F.winner=null;F.reason="draw";}
-  else{F.winner=F.bots.find(o=>String(o.team)===order[0]).team;F.reason="judges";}}
+  else{F.winner=B.find(o=>String(o.team)===order[0]).team;F.reason="judges";}}
 
 /* ---- the player's inputs, packed: three channels (throttle, steer, buttons), one value per input tick (30 Hz). Each
    channel is a list of tokens: a byte with the top bit set is a small step, value += ((b >> 3) & 15) - 7, held for
@@ -1774,7 +1830,7 @@ function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules
     while(JSON.stringify(L).length>FIGHT.logMaxB&&k<small.length){drop.add(small[k++].i);L.entries=all.filter((e,i)=>!drop.has(i));L.trimmed=drop.size;}}
   return L;}
 function fightResult(F){return{over:F.over,winner:F.winner,reason:F.reason,timeS:r2(F.endT!=null?F.endT:F.t),judge:F.judge||null,
-  bots:F.bots.map(o=>({i:o.i,name:o.name,team:o.team,out:o.out,inverted:o.inverted,damage:damageTaken(o.b,o.st),states:resStates(o),
+  bots:F.bots.map(o=>({i:o.i,name:o.name,team:o.team,mini:!!o.mini,out:o.out,inverted:o.inverted,damage:damageTaken(o.b,o.st),states:resStates(o),
     flags:Object.assign({},o.flags),
     share:r2(damageShare(o.b,o.st)),stats:{dealt:r2(o.stats.dealt),taken:r2(o.stats.taken),hits:o.stats.hits,landed:o.stats.landed,failHits:o.stats.failHits},
     judge:{close:r2(o.jd.close),contact:r2(o.jd.contact),retreat:r2(o.jd.retreat),control:r2(o.jd.ctrl)},style:o.ai?o.ai.style:null})),
@@ -2116,7 +2172,7 @@ const OPPONENTS=[
     cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe10",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"rubber",battery:"large",electronics:"dual",weapon:"crusher",weaponMaterial:"steel",extras:[]}}
 ];
 const opponentCfg=op=>Object.assign({},op.cfg,{cls:op.cls});
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DEFAULT_CFG,TEST_BUILDS,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
@@ -2246,6 +2302,8 @@ function makeMats(tier){
     smoke:new THREE.MeshBasicMaterial({color:C(0x8a8a86),transparent:true,opacity:.35,depthWrite:false}),
     team:BOT_TEAM.map(h=>matte(h,.5))
   };
+  /* sponsor colours (vis/bot.js), made when first asked for, kept per tier */
+  if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=matte;
   return V.mats;
 }
 /* ---- vis/bot.js: the robot mesh, made from the build (an evalBuild() result the app passes in; the vis only looks up the
@@ -2258,18 +2316,21 @@ function makeMats(tier){
    The mesh is in metres with its origin at the centre of mass (where the sim puts the bot), front along -z; the app's view
    scales it. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
    by build hash (a few at a time) and their geometry and materials are disposed when they drop out of the cache. A team
-   colour paints the side panels: clay for you, lilac, green and blue for the others. ---- */
+   colour paints the side panels: clay for you, lilac, green and blue for the others. Your bot (the workshop's, and bot 0
+   in a fight) also wears your sponsors' colours (SCRAP_VIS.setPaint, PR 8): a panel on each side, a patch on the top. ---- */
 const BOT_TEAM=[0xd97757,0xb48ce8,0x4cc38a,0x7fb3e6];
 const BOT_CACHE=new Map();   // hash -> group; kept to BOT_CACHE_MAX, oldest first out
 const BOT_CACHE_MAX=6;
-function botHash(b,team){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier;}
+function botHash(b,team,paint){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+"|"+(paint?(paint.side||"")+(paint.top||""):"");}
+/* a sponsor colour ("#rrggbb") as a material, shared and never disposed with a bot (core.js makeMats clears them) */
+function spMat(hex){let m=V.spMats[hex];if(!m)m=V.spMats[hex]=V.spMatte(parseInt(String(hex).slice(1),16)||0x888888,.45);return m;}
 function disposeTree(g){g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});}
 /* a clone leaving the scene: its geometry belongs to the cached source, only its own (damage-tinted) materials go */
 function disposeClone(g){if(g.parent)g.parent.remove(g);g.traverse(o=>{if(o.material&&o.userData.own)o.material.dispose();});}
 /* a mesh from the cache, or a new one. The workshop and the arena each get their own clone (same geometry, shared materials) */
-function botMesh(b,team){const k=botHash(b,team);let g=BOT_CACHE.get(k);
+function botMesh(b,team,paint){const k=botHash(b,team,paint);let g=BOT_CACHE.get(k);
   if(g){BOT_CACHE.delete(k);BOT_CACHE.set(k,g);}   // most recently used last
-  else{g=buildBot(b,team);BOT_CACHE.set(k,g);
+  else{g=buildBot(b,team,paint);BOT_CACHE.set(k,g);
     while(BOT_CACHE.size>BOT_CACHE_MAX){const [k0,g0]=BOT_CACHE.entries().next().value;BOT_CACHE.delete(k0);disposeTree(g0);}}   // a clone still on screen re-uploads it
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
@@ -2284,7 +2345,7 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.plate:M.steel;}
 
-function buildBot(b,team){
+function buildBot(b,team,sp){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?20:40,cfg=b.cfg,cx=b.com.x,cy=b.com.y;
   const L=b.lengthM,Wd=b.widthM,hw=Wd/2,hl=L/2,len=L/0.27;   // len: rough class scale from the length, for small fixed sizes
   const clr=Math.max(0.001,b.height.clearanceMm/1000),H=Math.max(clr+0.01,b.height.heightMm/1000),bodyH=H-clr;
@@ -2304,6 +2365,10 @@ function buildBot(b,team){
   if(th("top"))add(new THREE.BoxGeometry(Wd*0.98,th("top"),L*0.98),armourMat(A.top.id),-cx,H+th("top")/2,cy,"armour_top");
   /* team paint: a stripe down the top, so you can tell the bots apart from above */
   const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);paint.position.set(-cx,H+th("top")+0.0008*len,cy+L*0.05);g.add(paint);
+  /* sponsors: a panel on each side, a patch at the back of the top plate */
+  if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bodyH*0.5,L*0.5),spMat(sp.side));
+    m.position.set(s*hw-cx+s*0.0009*len,clr+bodyH*0.5,cy);g.add(m);}
+  if(sp&&sp.top){const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.6,0.0015*len,L*0.18),spMat(sp.top));m.position.set(-cx,H+th("top")+0.0009*len,cy+L*0.36);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
   const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
@@ -2453,7 +2518,7 @@ function buildArena(F){
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
     return{h,m};});
   /* bots */
-  AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i);g.add(mesh);mesh.scale.setScalar(U);
+  AR.bots=F.bots.map(o=>{const mesh=botMesh(o.b,o.team!=null?o.team:o.i,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
     return{o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0};});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
   const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.5));
@@ -2595,7 +2660,7 @@ function buildLights(){
 }
 /* the workshop's bot: the build passed to setBot, scaled to sit on the plate (a beetle and a heavyweight look the same size) */
 function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
-  if(V.botB){const g=botMesh(V.botB,0),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
+  if(V.botB){const g=botMesh(V.botB,0,V.paint),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
   else V.bot=buildPlaceholderBot();
   V.bot.visible=V.view==="workshop";V.scene.add(V.bot);}
 function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
@@ -2668,6 +2733,8 @@ return{
   setQuality(tier){tier=tier==="ultra"||tier==="full"?tier:"lite";if(tier===V.tier&&V.mats)return;V.tier=tier;if(started)rebuild();},
   /* the workshop's bot: an evalBuild() result (null: the placeholder). Cached by build hash; old meshes are disposed */
   setBot(b){const k=b?JSON.stringify(b.cfg):null;if(k===V.botK)return;V.botK=k;V.botB=b||null;if(started&&V.mats)placeBot();},
+  /* your sponsors' colours ({side, top}: "#rrggbb" or nothing), on your bot in the workshop and as bot 0 in a fight */
+  setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */
   setView(name){V.view=name==="arena"?"arena":"workshop";if(started)showView();},
@@ -2698,7 +2765,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.8.0";
+const VERSION="0.1.9.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -2722,7 +2789,7 @@ const WORLD={
   seasons:20
 };
 
-/* ---- career tables (plan sections 11-12). PR 7 fills the career's; PR 8 fills RND, STAFF, SPONSORS, META_WAVES. ---- */
+/* ---- career tables (plan sections 11-12): PR 7's career, PR 8's R&D, team, sponsors, meta, rule changes and kit line ---- */
 /* the time model (app/career.js). A season is 52 weeks; you act, then Close week. Each week the workshop stage gives its
    hours (WORKSHOP_STAGES); unused hours carry over up to bankWeeks weeks' worth. An event day takes eventHours, and each
    night away nightHours more; travel costs perKm both ways (x the stage's travel) plus night per night away.
@@ -2739,7 +2806,7 @@ const TIME={weeks:52,bankWeeks:2,eventHours:6,nightHours:4,perKm:0.3,night:45,
     {id:"garage", name:"Garage",     classes:["ant","beetle"],  repTo:60, line:"Club meets at the Haldis Gemeindehalle, a tournament or two, and the club championship."},
     {id:"circuit",name:"Circuit",    classes:["hobby","feather"],repTo:160,line:"Regional tournaments in Stahlbrück, Eisenau and Grauwald, rumbles and tag team, and the Regional Final."},
     {id:"heavy",  name:"Heavyweight",classes:["heavy"],          repTo:320,line:"The Scrapline Open at the Eisenhalle, on television."},
-    {id:"legacy", name:"Legacy",     classes:["heavy"],          repTo:0,  line:"You've won the Open. Defend it; a team, sponsors and a kit line come with PR 8."}]};
+    {id:"legacy", name:"Legacy",     classes:["heavy"],          repTo:0,  line:"You've won the Open. Defend it, run the team, and sell your best design as a kit."}]};
 /* the workshop (Shop tab): price to move in, rent a week, workshop hours a week, the heaviest class it can build, and
    travel (x travel costs: the shop has a van, the HQ a trailer) */
 const WORKSHOP_STAGES=[
@@ -2855,20 +2922,83 @@ const ASSISTS={
   pro:   {straighten:0.15,turnDamp:0.15,autoSpin:false},
   off:   {straighten:0,turnDamp:0,autoSpin:false}
 };
-const RND={};               // R&D projects (PR 8)
-const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
-const SPONSORS=[];          // paint and a placing target (PR 8)
-const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
+/* R&D (Shop tab, app/team.js): projects that unlock the parts marked "rnd:<id>" in SIM.PARTS (and "disc", your own disc
+   profile on the Build tab). Starting one pays its price (x nothing: R&D is priced for the workshop, not the class);
+   then you put workshop hours into it until it has hours. One project at a time. act: the first act it can be started
+   in. needs: a tool it needs first. fab: what it unlocks also needs a fabricator on the team to fit (custom work). */
+const RND={
+  cells:     {name:"High-discharge cells",  price:400, hours:10,act:0,needs:null,       line:"A battery that gives everything at once. Spinners spin up faster."},
+  disc:      {name:"Your own disc profile", price:600, hours:14,act:0,needs:null,       fab:true,line:"Design the disc: one to three teeth, a light or heavy rim, and a name. The fabricator cuts it."},
+  pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty shots, harder, and a faster recharge."},
+  crusher:   {name:"Crusher",               price:900, hours:20,act:0,needs:"drillpress",line:"Hydraulic jaws that bite down and hold on."},
+  brushless: {name:"Custom motor winding",  price:700, hours:16,act:0,needs:"lathe",    line:"Brushless drive and its speed controller. Much faster, and hotter."},
+  saw:       {name:"Overhead saw",          price:1000,hours:20,act:1,needs:"lathe",    line:"A saw on an arm that grinds through top plates."},
+  minibot:   {name:"Minibots",              price:1100,hours:22,act:1,needs:"printer",  line:"A little wedge that rides along and drops off at the bell to shove and distract."},
+  titanium:  {name:"Exotic armour",         price:1800,hours:28,act:1,needs:"mill",     line:"Titanium plate, chassis and weapon stock. Light, tough and dear."},
+  custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."}};
+const RND_IDS=Object.keys(RND);
+/* the team (Shop tab): one person per role, hired from these. salary: thalers a season, paid a week at a time at Close
+   week (salary / 52). act: from which act they'll talk to you.
+   engineer: cut (build and repair hours x (1 - cut), on top of the tools'), and an engineer's note: the impact and drop
+             lines of the stress report work out for the draft without the bench
+   fabricator: needed to fit custom work (RND fab: the custom chassis, your own disc); cut on those parts' hours
+   driver: a fixed skill that drives your quick sims (Kelbo, PR 8: "Drive it" is still you)
+   crew: cut on the pit window's repair times (REPAIR_TIMES) */
+const STAFF={
+  roles:{engineer:"Engineer",fabricator:"Fabricator",driver:"Driver",crew:"Pit crew"},
+  people:[
+    {id:"liesl", role:"engineer",  name:"Liesl Amrein", salary:2600, act:0,cut:0.15,line:"Retired from the watch factory's tooling office. Draws everything twice, in pencil."},
+    {id:"konrad",role:"engineer",  name:"Konrad Fehr",  salary:9000, act:1,cut:0.3, line:"Did ten years on rail bogies in Grauwald. Calls every bot \"the rolling stock\"."},
+    {id:"pia",   role:"fabricator",name:"Pia Lötscher", salary:3200, act:0,cut:0.1, line:"Welds the way other people write: neatly, and with opinions."},
+    {id:"bruno", role:"fabricator",name:"Bruno Zaugg",  salary:10000,act:1,cut:0.3, line:"Ran the Stahlbrück mill's repair shop. Has never once asked for a drawing."},
+    {id:"jonas", role:"driver",    name:"Jonas Ritter", salary:3500, act:0,skill:0.7, line:"Club racer turned robot driver. Smooth, polite, and terrifying near a wall."},
+    {id:"vera",  role:"driver",    name:"Vera Hasler",  salary:14000,act:1,skill:0.86,line:"Two-time Regional champion. Reads a fight like a timetable."},
+    {id:"emil",  role:"crew",      name:"Emil and Sohn",salary:2200, act:0,cut:0.25,line:"Father and son from the bicycle shop. Wheels off and on before you've said \"wheel\"."},
+    {id:"irma",  role:"crew",      name:"Irma's crew",  salary:7000, act:1,cut:0.4, line:"Three people, one toolbox, no wasted moves. Irma times them with a stopwatch."}]};
+/* sponsors (Career tab): an offer comes after a podium (top two) when your rep has reached minRep. Each wants its colour
+   on the bot (a paint slot: "side" paints the side panels, "top" a patch on the top plate) and a placing target for the
+   season. Signing pays the season's money at once (less for the weeks already gone, at least a quarter); at the end of
+   the season they renew and pay again if you hit the target, and drop you if you didn't. Two sponsors at most, one per
+   slot. target: {top: n podiums (top two)} | {win: n wins} | {champ: place at your act's championship or better} |
+   {rep: rep gained this season}. */
+const SPONSORS=[
+  {id:"zahnrad",  name:"Zahnrad Bräm",      colour:"#3A7BD5",slot:"side",pay:500,  minRep:4,  target:{top:2},  line:"Gear cutters in the Haldis. Want to see their blue on a podium, twice."},
+  {id:"kaffee",   name:"Kaffee Alpenrot",   colour:"#C8423B",slot:"top", pay:350,  minRep:4,  target:{rep:10}, line:"A roastery in the valley. They'd like people to hear your name. Ten rep's worth."},
+  {id:"seilbahn", name:"Seilbahn Haldis",   colour:"#2FA36B",slot:"side",pay:1200, minRep:30, target:{win:1},  line:"The cable car company. One win a season and their green rides on your bot."},
+  {id:"eisenwerk",name:"Stahlbrück Eisenwerk",colour:"#8A8F98",slot:"top",pay:2500,minRep:60, target:{champ:2},line:"The steel mill. Top two at the championship, or they'll find someone tougher."},
+  {id:"funk",     name:"Radio Velmark",     colour:"#E2B93B",slot:"side",pay:6000, minRep:150,target:{top:4},  line:"The national broadcaster. Four podiums a season keeps you on the evening sports."},
+  {id:"bahn",     name:"Velmark Bahn",      colour:"#7B4FC9",slot:"top", pay:15000,minRep:300,target:{win:3},  line:"The railways. Three wins a season, on time."}];
+const SPONSOR_MAX=2;
+/* the meta (app/team.js crMeta): which builds the other entrants favour, season by season, round and round. favour:
+   weapon ids that come first when an event's field is drawn (the rest still turn up). */
+const META_WAVES=[
+  {id:"spinner",name:"The spinner era",     favour:["vsp","hsp","drum"],      line:"Everyone's running discs. Armour your front and fear the first hit."},
+  {id:"wedge",  name:"The wedge era",       favour:["wedge","none","lifter"], line:"Low, fast and pointy. Get under them, or get a skid plate."},
+  {id:"under",  name:"The undercutter era", favour:["under","hsp","drum"],    line:"Discs at wheel height. Mind your wheels and your sides."},
+  {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
+/* rule changes (app/team.js crRules): each comes in at the start of its season (the career's season index, 0 = the
+   first), is announced a season ahead, and stays. capJ: a spinner energy cap (J at beetle scale, x the class's mass
+   multiplier; the disc's top speed comes down to fit, sim/fight.js); hazard: an extra hazard in one arena; limit: a class's
+   weight limit in grams; koS: the knockout count. */
+const RULES_BY_SEASON=[
+  {season:1,id:"cap",   name:"Spinner energy cap",  capJ:150,line:"Discs may store no more than 150 J at beetle scale (more in the bigger classes). A bigger disc just spins slower."},
+  {season:2,id:"haz",   name:"Floor spinner at the club box",hazard:{arena:"clubbox",h:{type:"spinner",at:[-0.4,0.6],rM:0.15,kickMs:1.5,J:8,vzMs:1,spinRad:12,activeS:0.25,periodS:5,startS:0}},line:"The Gemeindehalle's box gets a floor spinner."},
+  {season:3,id:"limit", name:"Heavier beetles",     limit:{beetle:1600},line:"The beetleweight limit goes up to 1.6 kg. Your bot can carry another 100 g."},
+  {season:5,id:"ko",    name:"A shorter count",     koS:8,line:"Knockouts are counted to eight seconds, not ten."}];
+/* the kit line (Legacy act, Kelbo PR 8): publish one design as a kit. At the end of each season it fights the class's
+   test builds in the sim (seeds fights each, at skill); income = base x the class's prizeScale x its win rate x (1 + rep /
+   repRef). You can change the kit once a season. */
+const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=5;
+const SAVE_V=6;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
-  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over}
+  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit} (rnd, offers, kit: PR 8)
   bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
-  unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: PR 8
-  staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff and sponsors PR 8
+  unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
+  staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff: [{id, y, w}] hired (STAFF.people id, when); sponsors: [{id, y, w}] signed (SPONSORS id, when; PR 8)
   lastFight:null,                 // the latest fight log, for replay (PR 6)
   lastBackup:0};}
 let S=freshState();
@@ -2880,7 +3010,9 @@ const MIGRATE={
   1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;},   // 0.1.2.0: the Build tab remembers its class
   2:o=>o,   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
   3:o=>{const s=o.settings;if(s&&typeof s==="object"){if(s.controls!=="tactical")s.controls="direct";s.leftHanded=!!s.leftHanded;if(s.assists!==false)s.assists=true;}return o;},   // 0.1.6.0: control scheme, handedness, assists
-  4:o=>{o.career=null;return o;}   // 0.1.8.0: the career (PR 7). Nothing could have one before, so it starts empty; bots[cls].flags is optional
+  4:o=>{o.career=null;return o;},   // 0.1.8.0: the career (PR 7). Nothing could have one before, so it starts empty; bots[cls].flags is optional
+  5:o=>{const c=o.career;if(c&&typeof c==="object"){c.rnd={cur:null,put:{}};c.offers=[];c.kit=null;}   // 0.1.9.0: R&D, sponsor offers, the kit line (PR 8)
+    if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;}
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
@@ -2913,7 +3045,7 @@ function applyReduce(){document.documentElement.classList.toggle("reduce",reduce
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
-function applyAll(){applyTheme();applyReduce();applyGfx();hud();}
+function applyAll(){applyTheme();applyReduce();applyGfx();hud();if(typeof tmPaint==="function")tmPaint();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 
@@ -3329,6 +3461,9 @@ __ldGo(start);
    (SIM.fitBill: every part that differs from the fitted bot, at full price) and Fit charges it in the career (money and
    workshop hours, cut by tools: crFitHours); before the career it is free. In the career a part may need a tool and a
    class may not be open yet (crFitBlock, app/career.js). Going over the weight limit is refused, never fitted. Moving parts on the grid is free.
+   PR 8: a spinner's weapon row has your own disc profile (teeth, rim, a name; R&D "disc" and a fabricator in the career),
+   the class limit follows the season's rule changes (crLimitG, app/team.js), and with an engineer on the team the stress
+   report works out the impact and drop lines for the draft (no bench needed).
    ?sim=1 adds the raw evalBuild() result at the bottom. */
 const B={open:{stress:true},face:"front",sel:null,drag:null,delKey:null};
 const fmtG=g=>Math.abs(g)>=10000?(g/1000).toLocaleString("en-GB",{maximumFractionDigits:1})+" kg":Math.round(g).toLocaleString("en-GB")+" g";
@@ -3338,6 +3473,8 @@ const FACE_LBL={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const SEV_LBL={bad:["broke","Bad"],warn:["worn","Weak"],info:["info","Note"],good:["ok","Good"]};
 const VERDICT={valid:["ok","Ready"],flaws:["worn","Flaws"],over:["broke","Over"],invalid:["broke","Can't fit"]};
 const clone=o=>JSON.parse(JSON.stringify(o));
+/* evalBuild at the season's weight limit (the career's rule changes, app/team.js crLimitG) */
+const bEv=cfg=>SIM.evalBuild(cfg,{limitG:crLimitG(SIM.normCfg(cfg).cls)});
 
 /* ---- the bot and its draft for the class on the Build tab ---- */
 function bCls(){const c=ST().buildCls;return SIM.CLASSES[c]?c:"beetle";}
@@ -3353,11 +3490,11 @@ function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
 const draft=()=>bBot().draft;
 /* evalBuild results for this draft, kept until it changes */
 let bEvalKey="",bEvalRes=null;
-function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=SIM.evalBuild(draft());}return bEvalRes;}
+function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
 const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 
 /* change the draft. Refused (with the grams) if it would go over the limit and adds weight. */
-function bSet(mut,why){const before=bEval(),c=bTry(mut),r=SIM.evalBuild(c);
+function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c);
   if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
   bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
 /* moving parts is free: if the draft and the fitted bot have the same parts, the fitted bot takes the new layout */
@@ -3365,7 +3502,12 @@ function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft))b.c
 const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
 
 /* the stress report: with measured numbers from the bench when the draft is the fitted, tested bot (app/bench.js) */
-function bStress(){const r=bEval(),m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m?SIM.stressReport(r,m):r.stress;}
+function bStress(){const r=bEval(),m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null,eng=tmHas("engineer");
+  if(!eng)return m?SIM.stressReport(r,m):r.stress;
+  /* the engineer works the impact and drop tests out on paper for the draft (kept until the draft changes) */
+  const k=JSON.stringify(draft());if(bStress.k!==k){bStress.k=k;bStress.paper={impact:SIM.runBench(r,"impact"),drop:SIM.runBench(r,"drop")};}
+  const mm=Object.assign({},bStress.paper,m||{}),bench=id=>(SIM.COMBOS.find(c=>c.id===id)||{}).bench;
+  return SIM.stressReport(r,mm).map(l=>l.measured&&!(m&&m[bench(l.id)])?Object.assign({},l,{measured:false,paper:tmFirst(eng.name)}):l);}
 
 /* the weak side: measured by the impact test when the draft is the tested bot, else predicted */
 function bWeak(r){const m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m&&m.impact&&m.impact.weakest||r.weakestFace;}
@@ -3393,7 +3535,7 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
 
 /* ---- option rows ---- */
 function bOpts(slot,cur,fittedId,mk,price){const base=bEval(),cls=bCls(),M=SIM.classMult(cls);
-  return`<div class="opts">`+SIM.PARTS[slot].map(p=>{const c=bTry(x=>mk(x,p.id)),r=p.id===cur?base:SIM.evalBuild(c),on=p.id===cur;
+  return`<div class="opts">`+SIM.PARTS[slot].map(p=>{const c=bTry(x=>mk(x,p.id)),r=p.id===cur?base:bEv(c),on=p.id===cur;
     const pr=price===false?"":p.cost?fmt$(p.cost*M.cost):"—";
     return`<button type="button" class="opt${on?" on":""}${r.totalG>r.limitG&&!on?" over":""}" data-slot="${slot}" data-id="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${fittedId===p.id?'<span class="tag">fitted</span>':""}${bLock(slot,p.id)}</span><span class="pr">${pr}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,slot)}</small></button>`;}).join("")+`</div>`;}
 /* in the career a part may need a tool first: shown on the option, refused at Fit (app/career.js) */
@@ -3402,9 +3544,9 @@ const bName=(slot,id)=>{const p=SIM.part(slot,id);return p?p.name:id;};
 
 /* ---- each section: title, a one-line summary, and its body ---- */
 const B_SECS=[
-  {id:"cls",t:"Class",sum:()=>SIM.CLASSES[bCls()].name+" · "+fmtG(SIM.CLASSES[bCls()].limitG),
+  {id:"cls",t:"Class",sum:()=>SIM.CLASSES[bCls()].name+" · "+fmtG(crLimitG(bCls())),
     body:()=>`<div class="seg" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>{const c=SIM.CLASSES[id],on=id===bCls(),f=S.bots[id]&&S.bots[id].cfg;
-      return`<button type="button" data-cls="${id}" class="${on?"on":""}" aria-pressed="${on}">${c.name.replace("weight","")}<small>${fmtG(c.limitG)}${f?" ·&nbsp;fitted":""}</small></button>`;}).join("")}</div>
+      return`<button type="button" data-cls="${id}" class="${on?"on":""}" aria-pressed="${on}">${c.name.replace("weight","")}<small>${fmtG(crLimitG(id))}${f?" ·&nbsp;fitted":""}</small></button>`;}).join("")}</div>
       <p>One bot per class. Each class keeps its own bot, draft and designs.</p>`},
   {id:"chassis",t:"Chassis",sum:()=>bName("chassis",draft().chassis),
     body:()=>bOpts("chassis",draft().chassis,bFit("chassis"),(c,id)=>{c.chassis=id;})},
@@ -3417,20 +3559,31 @@ const B_SECS=[
     body:()=>`<h4>Drive</h4>`+bOpts("drive",draft().drive,bFit("drive"),(c,id)=>{c.drive=id;})+`<h4>Wheels</h4>`+bOpts("wheels",draft().wheels,bFit("wheels"),(c,id)=>{c.wheels=id;})},
   {id:"power",t:"Power",sum:()=>bName("battery",draft().battery)+" · "+bName("electronics",draft().electronics),
     body:()=>`<h4>Battery</h4>`+bOpts("battery",draft().battery,bFit("battery"),(c,id)=>{c.battery=id;})+`<h4>Speed controllers</h4>`+bOpts("electronics",draft().electronics,bFit("electronics"),(c,id)=>{c.electronics=id;})},
-  {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon),
-    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;})},
+  {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon)+(draft().disc?` · “${draft().disc.name}”`:""),
+    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;})+bDisc()},
   {id:"material",t:"Weapon material",sum:()=>draft().weapon==="none"?"no weapon":bName("weaponMaterial",draft().weaponMaterial),
     body:()=>draft().weapon==="none"?"<p>No weapon fitted, so there is nothing to make out of anything.</p>":bOpts("weaponMaterial",draft().weaponMaterial,bFit("weaponMaterial"),(c,id)=>{c.weaponMaterial=id;})+"<p>The disc, arm or wedge plate. Tougher stock bends later and bites harder; lighter stock stores less energy.</p>"},
   {id:"extras",t:"Extras",sum:()=>draft().extras.length?draft().extras.map(e=>bName("extras",e).toLowerCase()).join(", "):"none",
     body:()=>{const base=bEval(),M=SIM.classMult(bCls()),f=bBot().cfg;
-      return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=SIM.evalBuild(c);
+      return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=bEv(c);
         return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}${bLock("extras",p.id)}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
   {id:"layout",t:"Layout & side profile",sum:()=>{const r=bEval();return`COM ${Math.round(r.com.x*1000)}, ${Math.round(r.com.y*1000)} mm`;},
     body:()=>bLayout()+bProfile()},
   {id:"stress",t:"Stress report",sum:()=>{const s=bStress(),n=k=>s.filter(x=>x.sev===k).length,b=n("bad"),w=n("warn");return b?`${b} bad${w?`, ${w} weak`:""}`:w?`${w} weak`:"nothing serious";},
-    body:()=>{const s=bStress();return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>`;}},
+    body:()=>{const s=bStress();return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':x.paper?` <span class="bntag">${esc(x.paper)}</span>`:""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>${tmHas("engineer")?`<p class="hint">${esc(tmFirst(tmHas("engineer").name))} has worked out the impact and drop lines on paper.</p>`:""}`;}},
   {id:"designs",t:"Designs",sum:()=>{const n=bDesigns().length;return n?`${n} saved`:"none saved";},body:()=>bDesignsBody()}
 ];
+/* your own disc profile (sim/parts.js DISC_PROFILES): any spinner but the saw; teeth, rim and a name */
+function bDisc(){const d=draft(),w=SIM.part("weapon",d.weapon);if(!w||w.type!=="spinner")return"";const lock=crDiscLock(),dp=d.disc,base=bEval();
+  const tryD=x=>{const c=bTry(q=>{q.disc=x;});return bEv(c);};
+  const opt=(lbl,x,on,key)=>{const r=on?base:tryD(x);return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-disc="${key}" aria-pressed="${on}"><span>${lbl}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,"weapon")}</small></button>`;};
+  const cur=dp||{name:"",teeth:2,rim:"mid"};
+  return`<h4>Disc profile${lock?` <span class="tag lock">${esc(lock)}</span>`:""}</h4>
+    <div class="opts">${opt("Stock disc",null,!dp,"stock")}${opt(dp?`Your disc: ${esc(dp.name)}`:"Your own disc",dp||{name:"Own disc",teeth:2,rim:"mid"},!!dp,"own")}</div>
+    ${dp?`<div class="opts">${[1,2,3].map(t=>opt(`${t} ${t>1?"teeth":"tooth"}`,Object.assign({},cur,{teeth:t}),cur.teeth===t,"t"+t)).join("")}</div>
+      <div class="opts">${Object.keys(SIM.DISC_PROFILES.rim).map(k=>opt(ftCap(SIM.DISC_PROFILES.rim[k].name),Object.assign({},cur,{rim:k}),cur.rim===k,"r"+k)).join("")}</div>
+      <div class="dname"><input id="discName" maxlength="${SIM.DISC_PROFILES.nameMax}" value="${esc(dp.name)}" aria-label="Disc name" autocomplete="off"><button type="button" class="btn sm" data-act="disc-name">Name it</button></div>`:""}
+    <p>Fewer teeth bite deeper; a heavier rim stores more energy and spins up slower.${lock?" You can design one here; fitting it needs the R&amp;D and a fabricator.":""} A new profile is a new disc: fitting it pays for the material again.</p>`;}
 /* the fitted bot's part in a slot (for the "fitted" tag) */
 function bFit(slot,face){const f=bBot().cfg;if(!f)return null;const n=SIM.normCfg(f);return face?n.armour[face]:n[slot];}
 
@@ -3495,7 +3648,7 @@ function bProfile(){const r=bEval(),h=r.height,cfg=draft(),wp=SIM.part("weapon",
 const D_MAX=12;
 function bDesigns(){const c=bCls();if(!Array.isArray(S.designs[c]))S.designs[c]=[];return S.designs[c];}
 function bDesignsBody(){const L=bDesigns(),cls=bCls();
-  const item=(nm,cfg,key,del)=>{const r=SIM.evalBuild(Object.assign({},cfg,{cls})),v=VERDICT[r.verdict]||VERDICT.flaws,bill=SIM.fitBill(bBot().cfg,Object.assign({},cfg,{cls}));
+  const item=(nm,cfg,key,del)=>{const r=bEv(Object.assign({},cfg,{cls})),v=VERDICT[r.verdict]||VERDICT.flaws,bill=SIM.fitBill(bBot().cfg,Object.assign({},cfg,{cls}));
     return`<li><span class="nm">${esc(nm)}<small>${fmtG(r.totalG)} · <span class="${v[0]}">${v[1].toLowerCase()}</span> · to fit ${bill.lines.length?fmt$(bill.cost):"nothing"}</small></span><button type="button" class="btn sm" data-load="${key}">Load</button>${del?`<button type="button" class="btn sm ghost" data-del="${key}">${B.delKey===key?"Sure?":"Delete"}</button>`:""}</li>`;};
   return`<ul class="dlist">${L.length?L.map((d,i)=>item(d.name,d.cfg,"d"+i,true)).join(""):"<li><span class=\"nm\">No designs for this class yet.</span></li>"}</ul>
     <div class="dname"><input id="dName" maxlength="32" placeholder="Name this draft" aria-label="Design name" autocomplete="off"><button type="button" class="btn sm pri" data-act="design-save">Save</button></div>
@@ -3508,7 +3661,7 @@ function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
-  const m=$("bwMeter");m.setAttribute("aria-valuemax",c.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
+  const m=$("bwMeter");m.setAttribute("aria-valuemax",r.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
   $("bCap").innerHTML=`<span><b>${r.driveSpeed.toFixed(1)}</b> m/s</span><span>${w.energyJ>=1?`<b class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</b> J`:`<b>${w.type==="none"?"no weapon":w.type}</b>`}</span><span>weak <b>${FACE_LBL[bWeak(r)].toLowerCase()}</b></span><span><b class="readout">${fmtS(r.runtimeS)}</b> run</span><span class="chip ${v[0]}">${v[1]}</span>`;
   $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
@@ -3552,9 +3705,11 @@ function bClick(e){const t=e.target;let x;
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
     bSet(c=>{if(s==="armour")c.armour[B.face]=id;else c[s]=id;});return;}
+  if((x=t.closest(".opt[data-disc]"))){const k=x.dataset.disc,d=draft().disc,cur=d||{name:"Own disc",teeth:2,rim:"mid"};
+    bSet(c=>{if(k==="stock")delete c.disc;else if(k==="own")c.disc=cur;else if(k[0]==="t")c.disc=Object.assign({},cur,{teeth:+k.slice(1)});else c.disc=Object.assign({},cur,{rim:k.slice(1)});});return;}
   if((x=t.closest(".opt[data-extra]"))){const id=x.dataset.extra;bSet(c=>{c.extras=c.extras.indexOf(id)>=0?c.extras.filter(e=>e!==id):c.extras.concat([id]);});return;}
   if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src||!src.cfg||typeof src.cfg!=="object")return;
-    const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=SIM.evalBuild(cfg);
+    const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=bEv(cfg);
     B.sel=null;bBot().draft=SIM.normCfg(cfg);bNormed.add(bBot().draft);bLayoutSync();save();bRender();
     const bill=SIM.fitBill(bBot().cfg,bBot().draft);toast(r.totalG>r.limitG?`${src.name} is over the limit in this class`:`${src.name} loaded into the draft${bill.lines.length?" · fitting it costs "+fmt$(bill.cost):""}`);return;}
   if((x=t.closest("[data-del]"))){const k=x.dataset.del;if(B.delKey!==k){B.delKey=k;bRender();clearTimeout(bClick.t);bClick.t=setTimeout(()=>{B.delKey=null;if(curTab==="build")bRender();},3000);return;}
@@ -3564,6 +3719,8 @@ function bClick(e){const t=e.target;let x;
     else if(a==="layout-reset"){B.sel=null;bSet(c=>{c.layout={};},"Parts back in their usual places");}
     else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);bNormed.add(b.draft);B.sel=null;save();bRender();toast("Back to the fitted bot");}
     else if(a==="fit")bFitOpen();
+    else if(a==="disc-name"){const nm=($("discName").value||"").trim();if(draft().disc&&bSet(c=>{c.disc=Object.assign({},c.disc,{name:nm});},`Disc named ${SIM.normDisc(Object.assign({},draft().disc,{name:nm})).name}`)){
+      const bb=bBot();if(bb.cfg&&bb.cfg.disc&&SIM.sameParts(bb.cfg,bb.draft)){bb.cfg.disc=clone(bb.draft.disc);save();}}}   // a new name is free: the fitted disc takes it
     else if(a==="design-save"){const L=bDesigns();if(L.length>=D_MAX){toast(`${D_MAX} designs per class. Delete one first.`);return;}
       const nm=($("dName").value||"").trim().slice(0,32)||`Design ${L.length+1}`;L.push({name:nm,cfg:clone(draft())});save();bRender();toast(`Saved ${nm}`);}
     return;}}
@@ -3581,7 +3738,7 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
 /* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
 document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
 /* the workshop's bot in 3D: the draft on the Build tab, the fitted bot elsewhere (the draft while nothing is fitted) */
-function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():SIM.evalBuild(bot.cfg);
+function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
   SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
   if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
@@ -3589,7 +3746,8 @@ TAB_RENDER.build=function(){
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});
     tb.addEventListener("pointerdown",bDown);tb.addEventListener("pointermove",bMove);tb.addEventListener("pointerup",bUp);
     tb.addEventListener("pointercancel",()=>{B.drag=null;});
-    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}});
+    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}
+      if(e.key==="Enter"&&e.target.id==="discName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="disc-name"]')});}});
     $("bxRaw").addEventListener("toggle",bRender);
     if(/[?&]sim=1(&|$)/.test(location.search)){$("bxRaw").hidden=false;$("bxRaw").open=true;}
 }
@@ -3622,7 +3780,7 @@ function bnSig(cfg){const k=JSON.stringify(SIM.normCfg(cfg));let s=bnSigMemo.get
   if(s==null){const n=SIM.normCfg(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
   return s;}
 let bnCache={sig:"",b:null,res:{}};
-function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:SIM.evalBuild(cfg),res:{}};return bnCache;}
+function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:bEv(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
 /* the tests that have run on this bot as it is fitted now ([] if none, or if it has changed since) */
 function bnDone(bot){const r=bot&&bot.bench;return bot&&bot.cfg&&r&&typeof r==="object"&&Array.isArray(r.done)&&r.sig===bnSig(bot.cfg)?r.done.filter(id=>SIM.BENCH_TESTS.some(t=>t.id===id)):[];}
@@ -3995,7 +4153,7 @@ function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last
   ftEnter();ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
-  F.bots.forEach((o,i)=>{B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
+  F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
   const need=B.need||2,max=B.max||3;if(Object.keys(B.wins).some(t=>B.wins[t]>=need)||B.n>=max)B.over=true;
@@ -4011,16 +4169,16 @@ function ftPit(){const B=FT.bout,F=FT.F;if(!B||B.over)return;const e=$("fEnd");i
     onDone:r=>{B.pits.push({mine:r.done,lost:r.lost,theirs});ftNextRound();}});}
 function ftNextRound(){const B=FT.bout;const seed=B.ev?B.ev.seedN(B.n):(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
   const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:Object.assign({},B.flags[i])}));
-  ftGo(SIM.newFight({seed,fx:true,arena:B.ev?B.ev.arena:ftArena(FT.F.cls),bots}));
+  ftGo(SIM.newFight({seed,fx:true,arena:B.ev?B.ev.arena:ftArena(FT.F.cls),rules:B.ev?B.ev.rules:undefined,bots}));
   const t=B.pits[B.pits.length-1].theirs;toast(`${FT.F.bots[1].name}'s crew: ${t.length?t.map(x=>PIT_NAMES[x.kind].toLowerCase()).join(", "):"nothing to fix"}`);}
 /* ---- career events (app/career.js) ----
    ftEvent(o): one of your bouts at an event, driven by you. o: {bots (newFight specs, with the day's damage), seed,
-   seedN(n) (round n's seed), arena, bo (1 or 3), teams, kit, left (each bot's kit counts, shared with the day), label,
+   seedN(n) (round n's seed), arena, rules (the season's, app/team.js crFightRules), bo (1 or 3), teams, kit, left (each bot's kit counts, shared with the day), label,
    title, onDone(B, F) (records it; returns the bell's banner {t, s, cls, pit}), pit() (the pit window after the bout
    when you have another fight: {dmg, flags, kit, left, title}, or null)}. */
 function ftEvent(o){const cls=o.bots[0].cfg.cls,bot=bBot(cls);FT.you=true;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;
   FT.bout={seed:o.seed,bots:o.bots,kit:o.kit,wins:{},n:0,dmg:o.bots.map(b=>clone(b.damage||{})),flags:o.bots.map(b=>Object.assign({},b.flags||{})),left:o.left,pits:[],over:false,need:Math.ceil(o.bo/2),max:o.bo,ev:o};
-  ftGo(SIM.newFight({seed:o.seed,fx:true,arena:o.arena,bots:o.bots}));}
+  ftGo(SIM.newFight({seed:o.seed,fx:true,arena:o.arena,rules:o.rules,bots:o.bots}));}
 /* a quick-simmed bout's fights, to look at on the Fight tab (results, post-mortem, replay) */
 function ftShowSim(Fs,res,day,nx){FT.rounds=Fs.map(F=>{F.recorded=true;F.ev=true;return{F,log:null};});FT.rv=Fs.length-1;FT.rp=null;FT.sig=bnSig(bBot(day.cls).cfg);
   FT.bout=nx.bo>1?{wins:res.wins,n:Fs.length,over:true,pits:[],stopped:false}:null;}
@@ -4065,7 +4223,7 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
   if(q&&q.length){const ev=[];let bz=0;
     for(const e of q){const En=(e.E||0)/mm;if(e.k==="ram"&&En<=2)continue;FT.flashes.push(Object.assign({t0:now},e));ev.push(e);
       if(snd&&(e.k!=="land"||En>4))SCRAP_SOUND.hit(Math.sqrt(Math.min(1,En/140)),e.k==="hit"||e.k==="flip"?"hit":e.k);
-      const mine=e.v===0||F.bots.length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
+      const mine=e.v===0||F.bots.filter(o=>!o.mini).length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
       if(mine&&(e.k==="hit"||e.k==="flip"||e.k==="haz"||En>20))bz=Math.max(bz,Math.round(12+40*Math.min(1,En/140)));}
     if(bz&&now-FT.buzzT>140){FT.buzzT=now;buzz(bz);}
     if(FT.on&&!FT.view2d)SCRAP_VIS.fx(ev);q.length=0;}
@@ -4083,7 +4241,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
       ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
-    <div class="fbots" id="fBots">${F.bots.map(o=>`<div class="fbot" data-i="${o.i}"><canvas class="fsil" width="44" height="44" aria-hidden="true"></canvas><div class="fbinfo"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">${esc(o.name)}</b>
+    <div class="fbots" id="fBots">${F.bots.filter(o=>!o.mini).map(o=>`<div class="fbot" data-i="${o.i}"><canvas class="fsil" width="44" height="44" aria-hidden="true"></canvas><div class="fbinfo"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">${esc(o.name)}</b>
       <span class="fbar" title="weapon"><i data-b="w"></i></span><span class="fbar" title="battery"><i data-b="bat"></i></span><span class="fbar" title="heat"><i data-b="heat"></i></span><small data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
     <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">${FT.bout&&FT.bout.ev?"Forfeit":"Stop the fight"}</button></div></div>
@@ -4120,7 +4278,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
   const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
-  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el)return;const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
+  F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arenaconst w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
     const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
     const set=(k,v,lo)=>{const x=el.querySelector(`[data-b="${k}"]`);if(x){x.style.width=Math.round(Math.max(0,Math.min(1,v))*100)+"%";x.classList.toggle("lo",!!lo);}};
@@ -4161,7 +4319,7 @@ document.addEventListener("keydown",e=>{if(!FT.on||e.key!=="Escape"||sheetOn())r
 /* ---- the results card under the setup: what happened, each bot's state, the judges ---- */
 function ftBar(v,cls){return`<span class="ftbar"><i class="${cls||""}" style="width:${Math.round(Math.max(0,Math.min(1,v))*100)}%"></i></span>`;}
 function ftHud(F){const el=$("ftHud");if(!F||!el)return;
-  el.innerHTML=F.bots.map(o=>{const w=o.b.weapon,lost=SIM.damageShare(o.b,o.st),bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0;
+  el.innerHTML=F.bots.filter(o=>!o.mini).map(o=>{const w=o.b.weapon,lost=SIM.damageShare(o.b,o.st),bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0;
     const st=o.out?`<span class="broke">${o.out==="ko"?"counted out":"in the pit"}</span>`:o.fx.dead?`<span class="broke">dead: ${esc(o.fx.dead)}</span>`:o.flat?`<span class="broke">battery flat</span>`:
       [o.inverted?"upside down":"",!o.fx.weaponOk&&w.type!=="none"?"weapon gone":"",o.fx.sides.left.out?"left side out":"",o.fx.sides.right.out?"right side out":""].filter(Boolean).map(s=>`<span class="worn">${s}</span>`).join(" · ");
     return`<div class="ftbot"><b style="color:${DV_COL.bots[o.i%DV_COL.bots.length]}">●</b> <b>${esc(o.name)}</b> <small>${esc(SIM.part("weapon",o.cfg.weapon).name)}</small>
@@ -4302,7 +4460,7 @@ TAB_RENDER.fight=function(){
                                      counts still unused.
      pitApply(b, dmg, flags, key, kind)   does it: a swap clears the key's damage (a disc unbends it), a bodge leaves half
                                      its hp
-     pitAuto(b, dmg, flags, left)    the other corner's crew: the most useful repairs that fit in PIT_S, in order. Returns
+     pitAuto(b, dmg, flags, left, mine)    the other corner's crew (mine: yours, in a quick sim, with the pit crew's cut): the most useful repairs that fit in PIT_S, in order. Returns
                                      [{key, kind}]. Deterministic, no clock.
      PIT.open({host, b, dmg, flags, kit, left, title, onDone})   the pit panel in the fight overlay. dmg, flags and left
                                      are changed in place; onDone({done:[{key, kind}], lost}) once you're ready or the
@@ -4326,7 +4484,7 @@ function pitItems(b,dmg,flags,left,tLeft){const out=[];flags=flags||{};   // tLe
     const bent=key==="weapon"&&flags.bent;if(frac>=0.999&&!bent)continue;
     const state=frac<=1e-9?"destroyed":"damaged",opts=[];
     if(key!=="chassis"){const sw=pitSwap(b,key,flags,frac);
-      const opt=k=>{const n=left[k]||0,late=tLeft!=null&&REPAIR_TIMES[k]>tLeft;return{kind:k,ok:n>0&&!late,why:!(k in left)?"not in this kit":n<=0?"none left":late?"no time":""};};
+      const opt=k=>{const n=left[k]||0,late=tLeft!=null&&tmPitS(k)>tLeft;return{kind:k,ok:n>0&&!late,why:!(k in left)?"not in this kit":n<=0?"none left":late?"no time":""};};
       if(sw)opts.push(opt(sw));
       if(frac<0.5&&!bent)opts.push(opt("bodge"));}
     out.push({key,name:pitName(b,key),state,frac,bent,opts});}
@@ -4338,14 +4496,15 @@ function pitApply(b,dmg,flags,key,kind){const hp=pitHp(b,key);
   if(key==="battery"){flags.cell=false;if(kind==="battery")flags.smoke=false;}   // a live battery needs no failsafe cell; a new one doesn't smoke
   if(key==="electronics")flags.esc=null;}
 /* how much a repair matters to the next round: losing a side or the battery ends fights, the weapon wins them */
-function pitValue(b,it,kind){const k=it.key,p=b.parts.find(q=>q.key===k),gain=(kind==="bodge"?0.5:1)-it.frac;
+function pitValue(b,it,kind,T){const k=it.key,p=b.parts.find(q=>q.key===k),gain=(kind==="bodge"?0.5:1)-it.frac;
   const w=k==="battery"||k==="electronics"?5:p&&(p.slot==="wheels"||p.slot==="drive")?4:k==="weapon"?3:k.indexOf("armour_")===0?2:1;
-  return w*Math.max(gain,it.bent?0.5:0)/REPAIR_TIMES[kind];}
-function pitAuto(b,dmg,flags,left){let t=PIT_S;const done=[];
+  return w*Math.max(gain,it.bent?0.5:0)/T(kind);}
+/* mine: your crew (a quick sim), whose pit crew hire is faster (app/team.js tmPitS); the other crews work at REPAIR_TIMES */
+function pitAuto(b,dmg,flags,left,mine){let t=PIT_S;const done=[],T=k=>mine?tmPitS(k):REPAIR_TIMES[k];
   for(let guard=0;guard<20;guard++){let best=null;
-    for(const it of pitItems(b,dmg,flags,left))for(const o of it.opts)if(o.ok&&REPAIR_TIMES[o.kind]<=t){const v=pitValue(b,it,o.kind);if(!best||v>best.v)best={v,key:it.key,kind:o.kind};}
+    for(const it of pitItems(b,dmg,flags,left))for(const o of it.opts)if(o.ok&&T(o.kind)<=t){const v=pitValue(b,it,o.kind,T);if(!best||v>best.v)best={v,key:it.key,kind:o.kind};}
     if(!best||best.v<=0)break;
-    pitApply(b,dmg,flags,best.key,best.kind);left[best.kind]--;t-=REPAIR_TIMES[best.kind];done.push({key:best.key,kind:best.kind});}
+    pitApply(b,dmg,flags,best.key,best.kind);left[best.kind]--;t-=T(best.kind);done.push({key:best.key,kind:best.kind});}
   return done;}
 
 const PIT={on:false,kit:null};
@@ -4375,7 +4534,7 @@ function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
 function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
   const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${o.left[k]||0}`).join(" · ");
   L.innerHTML=items.length?items.map(it=>`<li><span class="nm">${esc(ftCap(it.name))} <small class="${it.state==="destroyed"?"broke":"worn"}">${it.bent?"bent":it.state==="destroyed"?"destroyed":Math.round(it.frac*100)+"%"}</small></span>
-      <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${REPAIR_TIMES[p.kind]} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
+      <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${tmPitS(p.kind)} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
   ftSil($("fPitSil"),{b:o.b},pitStates(o),88);
   const rb=$("fPitReady");if(rb){rb.textContent=busy?"Ready (stop the repair)":"Ready";if(lost)rb.focus({preventScroll:true});}}   // the list was rebuilt: keep the focus in the panel
@@ -4383,8 +4542,8 @@ function pitStates(o){const st=SIM.damageState(o.b,o.dmg),s=SIM.partStates(o.b,s
 function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x||!PIT.on)return;
   if(x.dataset.pit==="ready"){const j=PIT.job;if(j)PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
     PIT.job=null;pitEnd(null);return;}
-  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0)||REPAIR_TIMES[kind]>PIT.t)return;
-  o.left[kind]--;PIT.job={key,kind,name:pitName(o.b,key),left:REPAIR_TIMES[kind],total:REPAIR_TIMES[kind]};buzz(8);pitRender();pitTick();}
+  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0)||tmPitS(kind)>PIT.t)return;
+  o.left[kind]--;PIT.job={key,kind,name:pitName(o.b,key),left:tmPitS(kind),total:tmPitS(kind)};buzz(8);pitRender();pitTick();}
 /* ===================== app/report.js: the post-mortem =====================
    Built from a finished fight (F, the sim's fight object) for your bot (bot 0), under the Fight tab's result card:
      rpTimeline(F)   the hits along the round: yours above the line, theirs on you below, bar height by energy
@@ -4520,18 +4679,19 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
       <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
   <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
-  <div class="card"><h3>${F.bots.length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
+  <div class="card"><h3>${F.bots.filter(o=>!o.mini).length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0&&!o.mini).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
 function rpDraw(F){const cv=$("rpSil");if(cv&&F){const me=F.bots[0],s=SIM.partStates(me.b,me.st);if(me.flags.bent&&s.weapon==="intact")s.weapon="damaged";ftSil(cv,me,s,112);}}
 /* ===================== app/shop.js: the Shop tab =====================
    The career's spending outside the bot (plan section 11): the workshop (WORKSHOP_STAGES: move up for its price; rent
-   and hours a week change), tools (TOOLS: unlock parts and cut build and repair hours), the pit kits' prices by class
+   and hours a week change), tools (TOOLS: unlock parts and cut build and repair hours), R&D and the team (app/team.js
+   tmRndCard, tmTeamCard; PR 8), the pit kits' prices by class
    (bought when you enter an event, Career tab), and the books (S.career.ledger, the last 60 lines).
    Saves: the three save slots ("scr-slot1".."scr-slot3": save the current game into one, or load one; loading keeps this
    phone's settings, loadSlot in app/state.js), then the Saves card (backup codes and files; its buttons are wired in
    app/savecode.js by their data-bu attribute). */
 const SH={ask:null};   // which slot button is waiting for "Sure?"
 function shRender(){const el=$("shBody");if(!el)return;const c=crOn()?S.career:null;
-  el.innerHTML=(c?shWorkshop(c)+shTools(c)+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it.</p></div>`)+shSlots();}
+  el.innerHTML=(c?shWorkshop(c)+shTools(c)+tmRndCard()+tmTeamCard()+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it.</p></div>`)+shSlots();}
 function shWorkshop(c){const cur=crStage(),i=WORKSHOP_STAGES.indexOf(cur);
   return`<div class="card"><h3>Workshop</h3><ul class="shlist">${WORKSHOP_STAGES.map((w,k)=>`<li class="${k===i?"on":""}"><span class="nm"><b>${esc(ftCap(w.name))}</b><small>${esc(w.line)}</small>
     <small>${w.hours} h a week · rent ${fmt$(w.rent)} a week · up to ${esc(SIM.CLASSES[w.maxCls].name.toLowerCase())}${w.travel<1?` · travel ${Math.round((1-w.travel)*100)}% cheaper`:""}</small></span>
@@ -4556,7 +4716,7 @@ function shSlots(){let h="";for(let i=1;i<=SLOTS;i++){const o=buStored(slotKey(i
   return`<div class="card"><h3>Save slots</h3><p>Keep up to three games on this phone. Saving here copies the game you're playing; loading one replaces it (your settings stay).</p><ul class="shlist">${h}</ul></div>`;}
 /* a second tap within the card confirms */
 function shSure(k){if(SH.ask===k){SH.ask=null;return true;}SH.ask=k;shRender();return false;}
-function shClick(e){const x=e.target.closest("[data-shstage],[data-shtool],[data-shsave],[data-shload]");if(!x)return;const c=S.career;
+function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage],[data-shtool],[data-shsave],[data-shload]");if(!x)return;const c=S.career;
   if(x.dataset.shstage){const w=WORKSHOP_STAGES.find(s=>s.id===x.dataset.shstage);if(!crOn()||!w)return;
     if(c.money<w.price){toast(`Need ${fmt$(w.price-c.money)} more`);return;}if(!shSure("st:"+w.id))return;
     crPay(w.price,`Moved into ${w.name.toLowerCase()}`);c.stage=w.id;save();hud();shRender();toast(`Moved: ${w.name.toLowerCase()}`);buzz([10,30,10]);return;}
@@ -4567,7 +4727,7 @@ function shClick(e){const x=e.target.closest("[data-shstage],[data-shtool],[data
     try{localStorage.setItem(slotKey(i),JSON.stringify(S));}catch(err){toast("Couldn't save: storage is full");shRender();return;}shRender();toast(`Saved in slot ${i}`);return;}
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
     loadSlot(o,`Slot ${i} loaded`);}}
-TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;shRender();};
+TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;TM.ask=null;shRender();};
 /* ===================== app/career.js: the career and the Career tab =====================
    The career (plan section 11) lives in S.career (null until Start career; crFresh() gives its shape). Starting one is a
    fresh start (Kelbo, PR 7): Th 1,500 (TIME.startMoney), nothing fitted, hand tools only; saved designs stay as
@@ -4590,7 +4750,10 @@ TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop")
    tab), rent. Going broke at Close week brings the Haldis Savings Bank's one loan; broke again ends the run.
    Driver skill: xp per fight (TIME.xp) sets your assist level (ASSISTS via crLevel, used by app/controls.js) and the
    skill a quick sim drives at. Rivals (RIVALS) remember every fight (S.rivals) and their bots take a step a season.
-   Sparring on the Fight tab stays free practice with nothing kept (Kelbo, PR 7). */
+   Sparring on the Fight tab stays free practice with nothing kept (Kelbo, PR 7).
+   PR 8 (app/team.js): R&D unlocks "rnd:" parts, the team (engineer, fabricator, driver, pit crew) and its wages at Close
+   week, sponsor offers after a podium and their check at the season's end, the meta orders each event's field, the
+   season's rule changes go into every career fight (crFightRules), and the kit line pays at the season's end. */
 const CR={};   // UI state only, never saved
 const crOn=()=>!!(S.career&&!S.career.over);
 const crHash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;};
@@ -4602,16 +4765,24 @@ const crR1=x=>Math.round(x*10)/10;
 /* driver skill: the assist level and the quick-sim skill */
 function crLevel(){if(!crOn())return"rookie";const xp=S.career.driverXp||0;let l="rookie";for(const[k,v]of TIME.levels)if(xp>=v)l=k;return l;}
 function crSkill(){const x=S.career?S.career.driverXp||0:0;return Math.min(TIME.skill.max,TIME.skill.base+x*TIME.skill.perXp);}
+/* who drives a quick sim: a hired driver at their fixed skill (Kelbo, PR 8), else you at yours */
+function crSimSkill(){const d=tmDriver();return d?d.skill:crSkill();}
+function crSimWho(){const d=tmDriver();return d?`${tmFirst(d.name)} drives your bot at skill ${Math.round(d.skill*100)}`:`the AI drives your bot at your skill (${crLevel()})`;}
 
 /* ---- what the career allows: parts by tool, classes by act and workshop ---- */
 function crPartLock(slot,id){if(!crOn())return null;const p=SIM.part(slot,id);if(!p||!p.unlock||p.unlock==="start")return null;
   const k=p.unlock.split(":");if(k[0]==="tool")return crHas(k[1])?null:"needs a "+(TOOLS[k[1]]?TOOLS[k[1]].name.toLowerCase():k[1]);
-  return"needs R&D (PR 8)";}
+  if(k[0]==="rnd"){const R=RND[k[1]];if(!S.unlocks.rnd[k[1]])return"needs R&D: "+(R?R.name.toLowerCase():k[1]);if(R&&R.fab&&!tmHas("fabricator"))return"needs a fabricator";return null;}
+  return"locked";}
+/* your own disc profile: R&D, then a fabricator to cut it */
+function crDiscLock(){if(!crOn())return null;if(!S.unlocks.rnd.disc)return"needs R&D: your own disc profile";if(!tmHas("fabricator"))return"needs a fabricator";return null;}
 /* every locked part in a cfg: [{slot, id, name, why}] */
 function crCfgLocks(cfg){if(!crOn()||!cfg)return[];const c=SIM.normCfg(cfg),out=[],add=(slot,id)=>{const w=crPartLock(slot,id);if(w&&!out.some(x=>x.slot===slot&&x.id===id))out.push({slot,id,name:SIM.part(slot,id).name,why:w});};
   for(const s of["chassis","drive","wheels","battery","electronics","weapon"])add(s,c[s]);
   if(c.weapon!=="none")add("weaponMaterial",c.weaponMaterial);
-  for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);return out;}
+  for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);
+  if(c.disc){const w=crDiscLock();if(w)out.push({slot:"disc",id:"disc",name:`Disc profile “${c.disc.name}”`,why:w});}
+  return out;}
 /* why a class can't be fitted yet in the career, or null */
 function crClassLock(cls){if(!crOn())return null;const c=S.career;
   const ok=TIME.acts.slice(0,c.act+1).some(a=>a.classes.indexOf(cls)>=0);
@@ -4623,8 +4794,8 @@ function crFitBlock(cfg){if(!crOn())return null;if(S.career.day)return"You're at
   const cl=crClassLock(cfg.cls);if(cl)return`${SIM.CLASSES[cfg.cls].name} ${cl}`;
   const L=crCfgLocks(cfg);return L.length?`${L[0].name} ${L[0].why}${L.length>1?` (and ${L.length-1} more)`:""}`:null;}
 /* tools cut build and repair hours: x (1 - cut) for each owned tool that names the slot, down to half */
-function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m);}
-function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot),0));}
+function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m)*(1-tmEngCut());}   // the engineer's cut on top of the tools'
+function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot)*(tmFab(l.slot,l.id)?1-tmFabCut():1),0));}
 const CR_KIND_SLOT={wheel:"wheels",pod:"drive",armour:"armour",battery:"battery",electronics:"electronics",weapon:"weapon",extras:"extras",chassis:"chassis"};
 
 /* ---- money ---- */
@@ -4637,7 +4808,7 @@ function crEarn(amt,what){const c=S.career;amt=Math.round(amt);if(!amt)return;c.
 /* ---- start ---- */
 function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffffff)^0x5C1A)>>>0,year:WORLD.startYear,week:1,season:0,act:0,
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
-  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[]};}
+  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
 const CR_START={chassis:"hdpe",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
@@ -4646,7 +4817,7 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
 function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
-function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.rivals={};S.lastFight=null;S.bots={};
+function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -4682,9 +4853,10 @@ function crTalk(rv){const m=S.rivals[rv.id];if(!m||!m.last)return rv.talk.first;
 function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crHash(crKey(e)))>>>0),cls=e.cls;
   const skill=Math.min(EVENT_SKILL_MAX,k.skill+EVENT_SKILL_ACT*e.act),out=[];
   const rv=RIVALS.filter(r=>r.bots[cls]).map(r=>({id:"rv:"+r.id,rival:r.id,name:r.bots[cls].name,who:r.name,cfg:crRivalCfg(r,cls),driver:{style:"auto",skill:Math.min(EVENT_SKILL_MAX,Math.max(skill,r.skill+0.03*crRivalLevel(r)))}}));
-  const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
+  let pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
     .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:t.name,cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=pool[i];pool[i]=pool[j];pool[j]=t;}
+  pool=crMetaOrder(pool,c.season);   // the season's meta (META_WAVES) comes first
   /* rivals come to the bigger days; a club meet gets one of them at most */
   const nRv=e.kind==="club"?Math.min(1,rv.length):rv.length;for(let i=rv.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=rv[i];rv[i]=rv[j];rv[j]=t;}
   const need=k.size-1;for(const x of rv.slice(0,nRv))if(out.length<need)out.push(x);for(const x of pool)if(out.length<need)out.push(x);
@@ -4706,28 +4878,29 @@ function crNext(day){if(!day||day.done)return null;const k=EVENT_KINDS[day.kind]
   if(day.fights.length)return null;
   if(k.format==="tag")return{idx:[0,1,2,3],teams:[0,0,1,1],bo:1,label:"tag match"};
   return{idx:[0,1,2,3],teams:[0,1,2,3],bo:1,label:"rumble"};}
-const crArena=day=>SIM.CLASSES[day.cls].arenaId;
+const crArena=day=>crFightRules(day.cls).arena;   // the class's arena, with the season's extra hazards (app/team.js)
+const crRulesOf=day=>crFightRules(day.cls).rules;
 const crMatchSeed=(day,idx,n)=>(day.seed+crHash(idx.join(",")+"#"+n+"#"+(day.rd||0)))>>>0;
 const crEvals=new Map();
 function crB(e){const k=JSON.stringify(e.cfg);let b=crEvals.get(k);if(!b){b=SIM.evalBuild(e.cfg);crEvals.set(k,b);if(crEvals.size>40)crEvals.delete(crEvals.keys().next().value);}return b;}
 const crFlags=f=>{const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;if(f.esc)o.esc=f.esc;return o;};
 /* a bot spec for newFight from a field entry: you are the AI at your driver skill in a quick sim, else the player */
-function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:e.name,team,driver:i===0?(quick?{style:"auto",skill:crSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
+function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:e.name,team,driver:i===0?(quick?{style:"auto",skill:crSimSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
 /* a finished bout: the winning team (most rounds; level goes to the smaller damage share, then the first) */
 function crBoutWinner(wins,F,teams){let best=null,bw=-1,tie=false;for(const t of teams){const w=wins[t]||0;if(w>bw){bw=w;best=t;tie=false;}else if(w===bw)tie=true;}
-  if(!tie)return best;const top=teams.filter(t=>(wins[t]||0)===bw),sh=t=>{const os=F.bots.filter(o=>o.team===t);return os.reduce((a,o)=>a+SIM.damageShare(o.b,o.st)+(o.out?1:0),0)/Math.max(1,os.length);};
+  if(!tie)return best;const top=teams.filter(t=>(wins[t]||0)===bw),sh=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+SIM.damageShare(o.b,o.st)+(o.out?1:0),0)/Math.max(1,os.length);};
   return top.sort((a,b)=>sh(a)-sh(b)||a-b)[0];}
 /* a whole match without anyone watching: rounds to the bo, the crews' pit work between */
 function crSimMatch(day,idx,teams,bo,quick){const T=teams||idx.map((_,k)=>k),wins={},Fs=[],need=Math.ceil(bo/2);
-  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),bots:idx.map((i,k)=>crSpec(day,i,T[k],quick))});
+  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),rules:crRulesOf(day),bots:idx.map((i,k)=>crSpec(day,i,T[k],quick))});
     const cap=Math.ceil(F.rules.roundS*SIM.STEP_HZ)+2;let s=0;while(!F.over&&s++<cap)SIM.stepFight(F,null);
     Fs.push(F);crCarry(day,idx,F);if(F.winner!=null)wins[F.winner]=(wins[F.winner]||0)+1;
     if(Object.keys(wins).some(t=>wins[t]>=need))break;
     if(n<bo-1)for(const i of idx)if(i!==0||quick)crCrew(day,i);}
   return{wt:crBoutWinner(wins,Fs[Fs.length-1],Array.from(new Set(T))),wins,Fs,teams:T};}
-function crCarry(day,idx,F){F.bots.forEach((o,k)=>{const e=day.field[idx[k]];e.dmg=SIM.damageTaken(o.b,o.st);e.flags=crFlags(o.flags);});}
+function crCarry(day,idx,F){F.bots.forEach((o,k)=>{if(o.mini)return;const e=day.field[idx[k]];e.dmg=SIM.damageTaken(o.b,o.st);e.flags=crFlags(o.flags);});}
 /* a crew's pit work between fights (pitAuto, app/pit.js) */
-function crCrew(day,i){const e=day.field[i];if(!e.left||!Object.keys(e.left).length)return[];return pitAuto(crB(e),e.dmg,e.flags,e.left);}
+function crCrew(day,i){const e=day.field[i];if(!e.left||!Object.keys(e.left).length)return[];return pitAuto(crB(e),e.dmg,e.flags,e.left,i===0);}
 
 /* a match is over: put it in the day's table or bracket. res {wt, teams, Fs} */
 function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F=res.Fs[res.Fs.length-1];
@@ -4744,7 +4917,7 @@ function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F
     for(const [kk,i] of idx.entries())if(res.teams[kk]!==me&&day.field[i].rival)crRivalMeet(day.field[i].rival,won);}}
 const crAnd=a=>a.length>1?a.slice(0,-1).join(", ")+" and "+a[a.length-1]:a.join("");
 /* a rumble or tag team's finishing order by team: the winner, then who's still going, then the least damaged */
-function crRank(F,wt,teams,stopped){const T=Array.from(new Set(teams)),sc=t=>{const os=F.bots.filter(o=>o.team===t);return os.reduce((a,o)=>a+(o.out||o.fx.dead?2:0)+SIM.damageShare(o.b,o.st),0)/os.length;};
+function crRank(F,wt,teams,stopped){const T=Array.from(new Set(teams)),sc=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+(o.out||o.fx.dead?2:0)+SIM.damageShare(o.b,o.st),0)/os.length;};
   return T.sort((a,b)=>(a===wt?-1:b===wt?1:0)||(stopped?(a===0?1:b===0?-1:0):0)||sc(a)-sc(b));}
 function crRivalMeet(id,won){const m=S.rivals[id]||(S.rivals[id]={w:0,l:0,run:0});if(won){m.w++;m.run=m.last&&m.last.won?m.run+1:1;}else{m.l++;m.run=0;}
   const c=S.career;m.last={y:c.year,wk:c.week,ev:c.day?crEv(c.day.ev).name:"",won};}
@@ -4776,8 +4949,9 @@ function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],p
   if(prize>0)crEarn(prize,`${e.name}: ${crPlaceTxt(day.kind,place)}`);c.rep+=rep;
   const b=bBot(day.cls),me=day.field[0];if(bnSig(b.cfg)===bnSig(me.cfg)){b.damage=clone(me.dmg);b.flags=crFlags(me.flags);}
   c.events[day.key]={place,prize,rep};
-  c.results.unshift({y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
-  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind};save();hud();}
+  c.seq=(c.seq||0)+1;c.results.unshift({seq:c.seq,y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
+  const offer=tmAfterEvent(day,place);
+  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null};save();hud();}
 
 /* ---- your fights ---- */
 function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
@@ -4786,7 +4960,7 @@ function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
   toast(`${f.draw?"Draw":f.won?"Won":"Lost"}: ${f.label} vs ${f.vs}`);}
 function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const e=crEv(day.ev),T=nx.teams||[0,1];
   ST().buildCls=day.cls;day.live=nx.label;save();showTab("fight");
-  ftEvent({arena:crArena(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
+  ftEvent({arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
     kit:day.kit,left:nx.idx.map(i=>day.field[i].left||{}),label:nx.label,title:e.name,
     onDone:(B,F)=>{CR.seen=true;delete day.live;const res={wt:B.stopped?T.find(t=>t!==T[0]):crBoutWinner(B.wins,F,Array.from(new Set(T))),wins:B.wins,Fs:FT.rounds.map(r=>r.F),teams:T};
       nx.idx.forEach((i,k)=>{if(B.dmg[k]){day.field[i].dmg=B.dmg[k];day.field[i].flags=crFlags(B.flags[k]||{});}});
@@ -4796,7 +4970,7 @@ function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const
    fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
 function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
   const nx=crNext(day);delete day.live;if(!nx){save();return;}const T=nx.teams||[0,1];
-  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
+  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
   const res={wt:T.find(t=>t!==T[0]),wins:{},Fs:[F],teams:T};
   crRecord(day,nx,res,true);for(const i of nx.idx)if(i!==0)crCrew(day,i);crAdvance(day);save();hud();
   toast(`The ${nx.label} was left unfinished: counted as a forfeit`);}
@@ -4831,7 +5005,7 @@ function crClose(force){const c=S.career;if(!crOn())return;
   if(c.day&&!force){openSheet("Close the week?",`<p>You're entered in <b>${esc(crEv(c.day.ev).name)}</b> and it isn't over. Closing the week forfeits the rest of it; the damage so far comes home with the bot.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Forfeit and close the week</button></div>`);return;}
   if(c.day){const d=c.day;d.out=true;const b=bBot(d.cls);if(bnSig(b.cfg)===bnSig(d.field[0].cfg)){b.damage=clone(d.field[0].dmg);b.flags=crFlags(d.field[0].flags);}
     c.events[d.key]={place:null,prize:0,rep:0,forfeit:true};c.day=null;c.entered=null;}
-  closeSheet();const st=crStage();crPay(st.rent,`Rent: ${st.name.toLowerCase()}`);CR.end=null;c.last=null;
+  closeSheet();const st=crStage();crPay(st.rent,`Rent: ${st.name.toLowerCase()}`);tmWages();CR.end=null;c.last=null;
   if(c.money<0&&crBroke())return;
   c.week++;if(c.week>TIME.weeks){crSeasonEnd();}
   c.hours=crR1(Math.min(st.hours*TIME.bankWeeks,c.hours+st.hours));save();hud();crRender();
@@ -4846,20 +5020,22 @@ function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).leng
 function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act],ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];
   const best=c.results.filter(x=>x.y===c.year).sort((x,y)=>x.place-y.place||y.prize-x.prize)[0];
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
+  const tl=tmSeasonEnd();   // sponsors renew or go, the kit pays, the new season's rules and meta (app/team.js)
   c.seasons.push({y:c.year,act:c.act,rep:c.rep,money:c.money,best:best?`${best.name}: ${crPlaceTxt(best.kind,best.place)}`:null});
-  if(up)c.act++;c.year++;c.season++;c.week=1;
+  if(up)c.act++;c.year++;c.season++;c.week=1;c.repY0=c.rep;
   if(c.season>=WORLD.seasons){c.over=true;c.done=true;}
   setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>
     ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
+    ${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>`}`),200);}
 
 /* ---- the tab ---- */
-function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();const c=S.career;
+function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start: what you've fitted while sparring isn't kept (it was free). Your saved designs stay, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
   if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${crResultsCard()}`;return;}
-  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+crCalendarCard()+crRivalsCard()+crResultsCard()+
+  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+crResultsCard()+
     `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
@@ -4872,6 +5048,7 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
     <div class="row"><button type="button" class="btn pri" data-cr="close">Close week</button></div></div>`;}
 function crEventCard(){const c=S.career;
   if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${crFightsHtml(c.results[0]?c.results[0].fights:[])}
+    ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
     <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p></div>`;
   if(c.day)return crDayCard(c.day);
   const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p></div>`;}
@@ -4909,7 +5086,7 @@ function crDayCard(day){const e=crEv(day.ev),k=EVENT_KINDS[day.kind],nx=crNext(d
     ${nx?`<div class="crnext"><p><b>Next: the ${esc(nx.label)}</b>${nx.bo>1?" (best of three)":""} against ${crAnd(opp.map(o=>`<b>${esc(o.name)}</b>${o.who?` (${esc(o.who)})`:""}`))}${partner?`, with ${esc(partner.name)} as your partner`:""}.</p>
       ${rv.map(r=>`<p class="crtalk">“${esc(crTalk(r))}” <small>${esc(r.name)}</small></p>`).join("")}
       <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
-      <p class="hint">Quick sim: the AI drives your bot at your skill (${crLevel()}) and your crew does the pit work. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
+      <p class="hint">Quick sim: ${esc(crSimWho())} and your crew does the pit work. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
 function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${f.esc} speed controller dead`:""].filter(Boolean).join(", ");}
 function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}</small></li>`).join("")}</ul>`;}
 /* the round robin's table, or the bracket so far */
@@ -4933,7 +5110,7 @@ function crRivalsCard(){const c=S.career,cls=TIME.acts[c.act].classes;
       ${m.w+m.l?`<br><span>You <span class="readout">${m.w}–${m.l}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}</span>`:""}</li>`;}).join("")}</ul></div>`;}
 function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
   return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${r.y} wk ${r.w}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
-function crClick(e){const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
+function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
   if(x.dataset.crfix){crFix(x.dataset.crfix,x.dataset.crkey||null);return;}
   const a=x.dataset.cr;
   if(a==="start"){if(S.career)return;openSheet("Start a career",`<p>You start with ${fmt$(TIME.startMoney)} in ${esc(WORLD.home)}. Bots fitted while sparring are cleared; designs stay.</p><div class="row"><button type="button" class="btn pri" data-cr="start-ok">Start</button></div>`);}
@@ -4948,10 +5125,206 @@ function crRestart(){S.career=null;closeSheet();crStart();}
 document.addEventListener("click",e=>{const x=e.target.closest&&e.target.closest("[data-cr]");if(!x||!$("sheet").contains(x))return;const a=x.dataset.cr;
   if(a==="start-ok")crStart();else if(a==="enter-ok")crEnter();else if(a==="close-ok")crClose(true);else if(a==="restart")crRestart();});
 TAB_RENDER.career=function(){if(!crRender.bound){crRender.bound=true;$("tab-career").addEventListener("click",crClick);}crRender();};
-/* ===================== app/team.js: R&D, team, sponsors, meta =====================
-   R&D projects, staff (engineer, fabricator, driver, pit crew), sponsor offers with paint and a placing target, the meta
-   waves and rule changes by season, and the kit line. Arrives in PR 8 (plan section 12). */
-const TEAM={};
+/* ===================== app/team.js: R&D, team, sponsors, meta, rule changes, kit line =====================
+   Plan section 12, in the career only (sparring stays free practice with everything open).
+   R&D (RND): one project at a time. Starting one pays its price; then you put workshop hours into it from the Shop tab
+     until it has its hours. A finished project goes into S.unlocks.rnd and unlocks the parts marked "rnd:<id>" (and your
+     own disc profile, "disc", on the Build tab). Custom work (RND fab) also needs a fabricator on the team to fit.
+   The team (STAFF): one person per role, hired from STAFF.people (S.staff [{id, y, w}]); salaries a season, paid a week
+     at a time at Close week. Engineer: build and repair hours, and the stress report works out the impact and drop lines
+     for the draft. Fabricator: custom work. Driver: drives your quick sims at a fixed skill. Pit crew: faster pit repairs.
+   Sponsors (SPONSORS): offers after a podium (c.offers [{id, y}]), signed into S.sponsors [{id, y, w}]: their colour on
+     the bot (SCRAP_VIS.setPaint) and a placing target for the season; renewed or dropped at the end of it (tmSeasonEnd).
+   The meta (META_WAVES) orders who turns up at events, season by season; the rule changes (RULES_BY_SEASON) pile up:
+     an energy cap, an extra hazard, a weight limit, a shorter count. crFightRules(cls) hands career fights their arena
+     and rules.
+   The kit line (KIT_LINE, the Legacy act): one design published as a kit (c.kit); at the end of each season it fights the
+     class's test builds and earns by its win rate and your rep. */
+const TM={};   // UI state only, never saved
+const tmPerson=id=>STAFF.people.find(p=>p.id===id)||null;
+/* who's on the team in a role (career only), or null */
+function tmHas(role){if(!crOn())return null;for(const s of S.staff){const p=tmPerson(s.id);if(p&&p.role===role)return p;}return null;}
+const tmFirst=n=>String(n).split(" ")[0];
+/* the career's PR 8 fields, there even on a career that somehow lacks them */
+function tmC(){const c=S.career;if(!c.rnd||typeof c.rnd!=="object")c.rnd={cur:null,put:{}};if(!c.rnd.put)c.rnd.put={};if(!Array.isArray(c.offers))c.offers=[];if(c.kit===undefined)c.kit=null;return c;}
+
+/* ---- R&D ---- */
+const tmRndDone=id=>!crOn()||!!S.unlocks.rnd[id];
+/* why it can't be started, or null */
+function tmRndWhy(id){const R=RND[id],c=tmC();if(S.unlocks.rnd[id])return"done";
+  if(c.act<R.act)return`opens in the ${TIME.acts[R.act].name} act`;
+  if(R.needs&&!S.unlocks.tools[R.needs])return`needs a ${TOOLS[R.needs].name.toLowerCase()}`;
+  if(c.rnd.cur&&c.rnd.cur!==id)return"one project at a time";
+  return null;}
+function tmRndStart(id){const R=RND[id],c=tmC();if(c.rnd.cur||tmRndWhy(id))return;if(c.money<R.price){toast(`Need ${fmt$(R.price-c.money)} more`);return;}
+  crPay(R.price,`R&D: ${R.name.toLowerCase()}`);c.rnd.cur=id;c.rnd.put[id]=c.rnd.put[id]||0;save();hud();toast(`R&D started: ${R.name}`);}
+/* put hours from this week into the project */
+function tmRndWork(h){const c=tmC(),id=c.rnd.cur;if(!id)return;const R=RND[id],left=crR1(R.hours-(c.rnd.put[id]||0)),put=crR1(Math.min(h,left,c.hours));
+  if(put<=0){toast(c.hours<=0?"No workshop hours left this week":"Nothing left to do");return;}
+  c.hours=crR1(c.hours-put);c.rnd.put[id]=crR1((c.rnd.put[id]||0)+put);
+  if(c.rnd.put[id]>=R.hours-1e-9){S.unlocks.rnd[id]=true;c.rnd.cur=null;delete c.rnd.put[id];save();hud();
+    openSheet("R&D done",`<p><b>${esc(R.name)}</b> is ready.</p><p>${esc(R.line)}</p><p class="hint">${esc(tmRndUnlocks(id))}${R.fab&&!tmHas("fabricator")?" Fitting it needs a fabricator on the team (Shop tab → Team).":""}</p>`);buzz([10,30,10]);return;}
+  save();hud();toast(`${put} h into ${R.name.toLowerCase()} · ${crR1(R.hours-c.rnd.put[id])} h to go`);}
+function tmRndUnlocks(id){if(id==="disc")return"The Build tab's weapon row gets a Disc profile for any spinner.";const out=[];
+  for(const slot in SIM.PARTS)for(const p of SIM.PARTS[slot])if(p.unlock==="rnd:"+id&&out.indexOf(p.name)<0)out.push(p.name);
+  return out.length?"Unlocks: "+out.join(", ")+".":"";}
+
+/* ---- the team ---- */
+function tmHireWhy(p){const c=tmC();if(S.staff.some(s=>s.id===p.id))return"hired";if(c.act<p.act)return`talks to you in the ${TIME.acts[p.act].name} act`;return null;}
+const tmWeek=p=>Math.round(p.salary/TIME.weeks);
+function tmHire(id){const p=tmPerson(id),c=tmC();if(!p||tmHireWhy(p))return;if(c.money<tmWeek(p)){toast(`Not enough for ${p.name}'s first week (${fmt$(tmWeek(p))})`);return;}const cur=tmHas(p.role);
+  if(cur)S.staff=S.staff.filter(s=>s.id!==cur.id);
+  S.staff.push({id,y:c.year,w:c.week});crPay(tmWeek(p),`Wages: ${p.name} (first week)`);save();hud();toast(`${p.name} hired · ${fmt$(tmWeek(p))} a week, the first now`);}
+function tmFire(id){const p=tmPerson(id);S.staff=S.staff.filter(s=>s.id!==id);save();if(p)toast(`${p.name} has gone`);}
+/* Close week: the week's wages (not for someone hired this week: they were paid on hiring) */
+function tmWages(){if(!crOn())return;const c=S.career;for(const s of S.staff){const p=tmPerson(s.id);if(p&&!(s.y===c.year&&s.w===c.week))crPay(tmWeek(p),`Wages: ${p.name}`);}}
+const tmEngCut=()=>{const e=tmHas("engineer");return e?e.cut:0;};
+/* a part that is custom work: the fabricator fits it */
+function tmFab(slot,id){const p=SIM.part(slot,id);if(!p||!p.unlock)return false;const k=p.unlock.split(":");return k[0]==="rnd"&&!!(RND[k[1]]&&RND[k[1]].fab);}
+const tmFabCut=()=>{const f=tmHas("fabricator");return f?f.cut:0;};
+/* the pit window's repair seconds, less the pit crew's cut */
+function tmPitS(kind){const c=tmHas("crew");return Math.round(REPAIR_TIMES[kind]*(c?1-c.cut:1));}
+/* the skill your quick sims drive at: the hired driver's, else yours */
+function tmDriver(){return tmHas("driver");}
+
+/* ---- the meta and the rulebook ---- */
+const crMeta=season=>META_WAVES[((season||0)%META_WAVES.length+META_WAVES.length)%META_WAVES.length];
+/* the rules in force in a season: every change up to it */
+function crRules(season){const r={capJ:0,koS:0,limit:{},hazards:{},list:[]};
+  for(const x of RULES_BY_SEASON){if(x.season>season)continue;r.list.push(x);if(x.capJ)r.capJ=x.capJ;if(x.koS)r.koS=x.koS;if(x.limit)Object.assign(r.limit,x.limit);
+    if(x.hazard)(r.hazards[x.hazard.arena]||(r.hazards[x.hazard.arena]=[])).push(x.hazard.h);}
+  return r;}
+const tmSeason=()=>crOn()?S.career.season:-1;
+/* the class's weight limit this season (grams) */
+function crLimitG(cls){const base=SIM.CLASSES[cls].limitG;if(!crOn())return base;return crRules(tmSeason()).limit[cls]||base;}
+/* a career fight's arena (an ARENAS id, or a copy with the season's extra hazards) and its rules for newFight */
+function crFightRules(cls){const id=SIM.CLASSES[cls].arenaId;if(!crOn())return{arena:id,rules:undefined};const R=crRules(tmSeason()),rules={};
+  if(R.capJ)rules.capJ=Math.round(R.capJ*SIM.classMult(cls).mass*10)/10;if(R.koS)rules.koS=R.koS;
+  const extra=R.hazards[id],arena=extra?Object.assign({},SIM.ARENAS[id],{hazards:SIM.ARENAS[id].hazards.concat(extra)}):id;
+  return{arena,rules:Object.keys(rules).length?rules:undefined};}
+/* order a shuffled pool: the season's favoured weapons first (a stable sort keeps the shuffle inside each group) */
+function crMetaOrder(pool,season){const fav=crMeta(season).favour;return pool.map((x,i)=>({x,i,f:fav.indexOf(SIM.normCfg(x.cfg).weapon)>=0?0:1})).sort((a,b)=>a.f-b.f||a.i-b.i).map(q=>q.x);}
+
+/* ---- sponsors ---- */
+const tmSp=id=>SPONSORS.find(s=>s.id===id)||null;
+function tmTargetTxt(t){return t.top?`${t.top} podium${t.top>1?"s":""} (top two) this season`:t.win?`${t.win} win${t.win>1?"s":""} this season`:t.champ?`top ${t.champ} at the championship`:t.rep?`${t.rep} rep this season`:"";}
+/* how a signed sponsor's target stands: {have, need, met, txt}. Only results since signing count. */
+function tmProgress(s){const sp=tmSp(s.id),c=S.career,t=sp.target,since=r=>r.y===c.year&&(s.seq!=null?(r.seq||0)>s.seq:(s.y<c.year||r.w>s.w));const R=c.results.filter(since);
+  if(t.top){const n=R.filter(r=>r.place&&r.place<=2).length;return{have:n,need:t.top,met:n>=t.top,txt:`${n} of ${t.top}`};}
+  if(t.win){const n=R.filter(r=>r.place===1).length;return{have:n,need:t.win,met:n>=t.win,txt:`${n} of ${t.win}`};}
+  if(t.champ){const a=Math.min(c.act,2),ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&R.find(x=>x.ev===ch.id);const p=r&&r.place;return{have:p||0,need:t.champ,met:!!p&&p<=t.champ,txt:p?`placed ${p}`:"not fought yet"};}
+  if(t.rep){const base=s.y===c.year&&s.rep!=null?s.rep:(c.repY0!=null?c.repY0:0),n=c.rep-base;return{have:n,need:t.rep,met:n>=t.rep,txt:`${Math.max(0,n)} of ${t.rep}`};}
+  return{have:0,need:0,met:true,txt:""};}
+/* after an event day: a podium may bring an offer from a sponsor whose rep bar you've passed and who isn't yours */
+function tmAfterEvent(day,place){const c=tmC();if(!place||place>2)return null;
+  const busy=new Set(S.sponsors.map(s=>s.id).concat(c.offers.map(o=>o.id)).concat((c.declined||[]).filter(d=>d.y===c.year).map(d=>d.id)));
+  const can=SPONSORS.filter(s=>s.minRep<=c.rep&&!busy.has(s.id));if(!can.length)return null;
+  const R=SIM.rng((c.seed^crHash(day.key+"/sponsor"))>>>0),sp=can.sort((a,b)=>b.minRep-a.minRep).slice(0,2)[Math.floor(R()*Math.min(2,can.length))];
+  c.offers.push({id:sp.id,y:c.year});return sp;}
+/* the pay for signing now: the season's money, less the weeks gone (at least a quarter) */
+function tmSignPay(sp){const c=S.career;return Math.round(sp.pay*Math.max(0.25,(TIME.weeks-c.week+1)/TIME.weeks));}
+/* a sponsor you dropped or swapped out won't offer again this season */
+function tmGone(id){const c=S.career;(c.declined||(c.declined=[])).push({id,y:c.year});if(c.declined.length>12)c.declined.shift();}
+function tmSign(id){const sp=tmSp(id),c=tmC();if(!sp)return;const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
+  if(S.sponsors.length>=SPONSOR_MAX&&!clash){toast("Two sponsors already");return;}
+  if(clash){S.sponsors=S.sponsors.filter(s=>s!==clash);tmGone(clash.id);crLedger(0,`${tmSp(clash.id).name} dropped for ${sp.name}`);}
+  c.offers=c.offers.filter(o=>o.id!==id);S.sponsors.push({id,y:c.year,w:c.week,rep:c.rep,seq:c.seq||0});crEarn(tmSignPay(sp),`Sponsor: ${sp.name}`);
+  save();hud();tmPaint();toast(`${sp.name} signed`);buzz([10,30,10]);}
+function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);tmGone(id);save();}
+function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);if(crOn())tmGone(id);save();tmPaint();}
+/* the sponsors' colours for your bot (vis/bot.js): {side, top} */
+function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp)o[sp.slot]=sp.colour;}return o;}
+function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());}
+
+/* ---- the kit line ---- */
+const tmKitOpen=()=>crOn()&&S.career.act>=KIT_LINE.act;
+/* the kit against the class's test builds (Sloppy budget aside): its win rate 0..1 */
+function tmKitRate(cfg){const cls=cfg.cls,fr=crFightRules(cls);let w=0,n=0;
+  for(const t of SIM.TEST_BUILDS){if(t.id==="sloppy")continue;for(let k=0;k<KIT_LINE.seeds;k++){const seed=(crHash(JSON.stringify(cfg)+t.id)+k*7919)>>>0;
+    const r=SIM.runFight({seed,arena:fr.arena,rules:fr.rules,bots:[{cfg,driver:{style:"auto",skill:KIT_LINE.skill}},{cfg:Object.assign({},t.cfg,{cls}),driver:{style:"auto",skill:KIT_LINE.skill}}]});
+    n++;if(r.winner===0)w++;else if(r.winner==null)w+=0.5;}}
+  return n?w/n:0;}
+const tmKitPay=(cls,rate)=>Math.round(KIT_LINE.base*SIM.CLASSES[cls].prizeScale*rate*(1+S.career.rep/KIT_LINE.repRef));
+function tmKitPublish(name,cfg){const c=tmC();if(!tmKitOpen())return;if(c.kit&&c.kit.y===c.year){toast("One kit change a season");return;}
+  const rate=tmKitRate(cfg);c.kit={name:String(name).slice(0,40),cfg:clone(cfg),cls:cfg.cls,y:c.year,rate,earned:0};save();
+  toast(`${c.kit.name} is on sale · wins ${Math.round(rate*100)}% in testing`);}
+
+/* ---- the end of a season: sponsors renew or go, the kit pays. Lines for the season sheet. ---- */
+function tmSeasonEnd(){const c=tmC(),lines=[];
+  for(const s of S.sponsors.slice()){const sp=tmSp(s.id);if(!sp){S.sponsors=S.sponsors.filter(x=>x!==s);continue;}const p=tmProgress(s);
+    if(p.met){crEarn(sp.pay,`Sponsor renewed: ${sp.name}`);s.y=c.year+1;s.w=1;s.rep=null;lines.push(`<span class="ok">${esc(sp.name)} renews</span>: target met (${esc(p.txt)}). ${fmt$(sp.pay)} for next season.`);}
+    else{S.sponsors=S.sponsors.filter(x=>x!==s);lines.push(`<span class="worn">${esc(sp.name)} drops you</span>: ${esc(tmTargetTxt(sp.target))}, you got ${esc(p.txt)}.`);}}
+  c.offers=[];
+  if(c.kit&&tmKitOpen()){const rate=tmKitRate(c.kit.cfg),pay=tmKitPay(c.kit.cls,rate);c.kit.rate=rate;c.kit.earned+=pay;if(pay>0)crEarn(pay,`Kit sales: ${c.kit.name}`);
+    lines.push(`Kit line: <b>${esc(c.kit.name)}</b> won ${Math.round(rate*100)}% in testing and sold ${fmt$(pay)} worth.`);}
+  const R=crRules(c.season+1),next=RULES_BY_SEASON.filter(x=>x.season===c.season+1),soon=RULES_BY_SEASON.filter(x=>x.season===c.season+2);
+  if(next.length)lines.push(`New rules this season: ${next.map(x=>`<b>${esc(x.name)}</b>`).join(", ")}. ${next.map(x=>esc(x.line)).join(" ")}`);
+  if(soon.length)lines.push(`<span class="hint">Announced for next season: ${soon.map(x=>esc(x.name.toLowerCase())).join(", ")}.</span>`);
+  lines.push(`The meta: <b>${esc(crMeta(c.season+1).name.toLowerCase())}</b>. ${esc(crMeta(c.season+1).line)}`);
+  void R;tmPaint();return lines;}
+
+/* ---- cards ---- */
+/* Shop tab: R&D */
+function tmRndCard(){const c=tmC(),cur=c.rnd.cur;let h=`<div class="card"><h3>R&amp;D</h3>`;
+  if(cur){const R=RND[cur],put=c.rnd.put[cur]||0,left=crR1(R.hours-put);
+    h+=`<div class="tmcur"><p><b>${esc(R.name)}</b> <span class="readout">${crR1(put)} / ${R.hours} h</span></p><div class="tmbar" role="progressbar" aria-label="${esc(R.name)} progress" aria-valuemin="0" aria-valuemax="${R.hours}" aria-valuenow="${crR1(put)}"><i style="width:${Math.round(put/R.hours*100)}%"></i></div>
+      <div class="row"><button type="button" class="btn sm" data-tm="work" data-h="4"${c.hours<=0?" disabled":""}>Put in 4 h</button><button type="button" class="btn sm" data-tm="work" data-h="${left}"${c.hours<=0?" disabled":""}>Put in ${crR1(Math.min(left,c.hours))} h</button></div>
+      <p class="hint">${crR1(c.hours)} h left this week. ${left} h to go.</p></div>`;}
+  h+=`<ul class="shlist">${RND_IDS.map(id=>{const R=RND[id],why=tmRndWhy(id),done=why==="done",on=cur===id;
+    return`<li class="${done?"on":""}"><span class="nm"><b>${esc(R.name)}</b><small>${esc(R.line)}</small><small>${fmt$(R.price)} · ${R.hours} h${R.needs?` · needs a ${esc(TOOLS[R.needs].name.toLowerCase())}`:""}${R.fab?" · fitted by a fabricator":""}</small></span>
+      ${done?'<span class="tag">done</span>':on?'<span class="tag">on it</span>':why?`<span class="tag lock">${esc(why)}</span>`:`<button type="button" class="btn sm" data-tm="rnd" data-id="${id}">${TM.ask==="rnd:"+id?"Sure? ":""}${fmt$(R.price)}</button>`}</li>`;}).join("")}</ul>
+    <p class="hint">One project at a time: pay to start it, then put workshop hours in.</p></div>`;
+  return h;}
+/* Shop tab: the team */
+function tmTeamCard(){const c=tmC(),wk=S.staff.reduce((a,s)=>{const p=tmPerson(s.id);return a+(p?tmWeek(p):0);},0);
+  return`<div class="card"><h3>Team</h3>${Object.keys(STAFF.roles).map(role=>{const ppl=STAFF.people.filter(p=>p.role===role),cur=tmHas(role);
+    return`<h4>${esc(STAFF.roles[role])}</h4><ul class="shlist">${ppl.map(p=>{const hired=cur&&cur.id===p.id,why=hired?null:tmHireWhy(p);
+      return`<li class="${hired?"on":""}"><span class="nm"><b>${esc(p.name)}</b><small>${esc(p.line)}</small><small>${esc(tmStaffWhat(p))} · ${fmt$(p.salary)} a season (${fmt$(tmWeek(p))} a week)</small></span>
+        ${hired?`<button type="button" class="btn sm ghost" data-tm="fire" data-id="${p.id}">${TM.ask==="fire:"+p.id?"Sure?":"Let go"}</button>`:why?`<span class="tag lock">${esc(why)}</span>`:`<button type="button" class="btn sm" data-tm="hire" data-id="${p.id}">${TM.ask==="hire:"+p.id?"Sure?":cur?"Swap in":"Hire"}</button>`}</li>`;}).join("")}</ul>`;}).join("")}
+    <p class="hint">${wk?`Wages ${fmt$(wk)} a week, at Close week.`:"Nobody yet. Wages come out at Close week."}</p></div>`;}
+function tmStaffWhat(p){if(p.role==="engineer")return`build and repair hours −${Math.round(p.cut*100)}%, impact and drop worked out on paper`;
+  if(p.role==="fabricator")return`fits custom work, its hours −${Math.round(p.cut*100)}%`;
+  if(p.role==="driver")return`drives your quick sims at skill ${Math.round(p.skill*100)}`;
+  return`pit repairs ${Math.round(p.cut*100)}% faster`;}
+/* Career tab: sponsors */
+function tmSponsorCard(){const c=tmC();const mine=S.sponsors.map(s=>({s,sp:tmSp(s.id)})).filter(x=>x.sp),offers=c.offers.map(o=>tmSp(o.id)).filter(Boolean);
+  if(!mine.length&&!offers.length)return`<div class="card"><h3>Sponsors</h3><p>No sponsors yet. A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.</p></div>`;
+  return`<div class="card"><h3>Sponsors</h3>${mine.length?`<ul class="tmsp">${mine.map(({s,sp})=>{const p=tmProgress(s);
+      return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
+    ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
+      return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b><br><small>${esc(sp.line)}</small><br><small>${fmt$(tmSignPay(sp))} now, ${fmt$(sp.pay)} a season after · ${sp.slot==="side"?"side panels":"top plate"} · target: ${esc(tmTargetTxt(sp.target))}${clash?` · <span class="worn">replaces ${esc(tmSp(clash.id).name)}</span>`:""}</small></span>
+        <span class="tmbtns"><button type="button" class="btn sm" data-tm="sign" data-id="${sp.id}">Sign</button><button type="button" class="btn sm ghost" data-tm="decline" data-id="${sp.id}">No</button></span></li>`;}).join("")}</ul><p class="hint">Offers lapse at the end of the season.</p>`:""}
+    <p class="hint">Hit the target and they renew at the end of the season; miss it and they go.</p></div>`;}
+/* Career tab: the season (meta and rules) */
+function tmSeasonCard(){const c=S.career,m=crMeta(c.season),R=crRules(c.season),soon=RULES_BY_SEASON.filter(x=>x.season===c.season+1);
+  return`<div class="card"><h3>The season</h3><p><b>${esc(m.name)}.</b> ${esc(m.line)}</p>
+    ${R.list.length?`<p class="hint">Rules in force: ${R.list.map(x=>esc(x.name.toLowerCase())).join(", ")}.</p>`:""}
+    ${soon.length?`<p class="hint">Next season: ${soon.map(x=>`<b>${esc(x.name)}</b>. ${esc(x.line)}`).join(" ")}</p>`:""}</div>`;}
+/* Career tab: the kit line (Legacy act) */
+function tmKitCard(){if(!tmKitOpen())return"";const c=tmC(),k=c.kit,opts=[];
+  for(const cls of SIM.CLASS_IDS){const b=S.bots[cls];if(b&&b.cfg)opts.push({v:"fit:"+cls,t:`Your fitted ${SIM.CLASSES[cls].name.toLowerCase()}`});
+    (S.designs[cls]||[]).forEach((d,i)=>opts.push({v:`d:${cls}:${i}`,t:`${d.name} (${SIM.CLASSES[cls].name.toLowerCase()})`}));}
+  const can=!k||k.y!==c.year;
+  return`<div class="card"><h3>Kit line</h3>${k?`<p><b>${esc(k.name)}</b> (${esc(SIM.CLASSES[k.cls].name.toLowerCase())}) is on sale: it wins ${Math.round(k.rate*100)}% in testing. Sales so far ${fmt$(k.earned)}.</p>`:"<p>Publish one of your designs as a kit. It earns at the end of each season, by how it does against the test builds and by your rep.</p>"}
+    ${can&&opts.length?`<div class="field"><label class="lbl" for="tmKitSel">Design</label><select id="tmKitSel">${opts.map(o=>`<option value="${esc(o.v)}">${esc(o.t)}</option>`).join("")}</select></div>
+      <div class="field"><label class="lbl" for="tmKitName">Kit name</label><input id="tmKitName" maxlength="40" value="${esc(k?k.name:"Haldis Special")}"></div>
+      <div class="row"><button type="button" class="btn" data-tm="kit">${k?"Replace the kit":"Publish"}</button></div><p class="hint">Testing it takes a moment. One change a season.</p>`:can?"<p class=\"hint\">Fit a bot or save a design first.</p>":"<p class=\"hint\">You can change the kit next season.</p>"}</div>`;}
+
+/* ---- clicks (Shop and Career tabs; data-tm) ---- */
+function tmSure(k){if(TM.ask===k){TM.ask=null;return true;}TM.ask=k;tmRedraw();return false;}
+function tmRedraw(){if(curTab==="shop")shRender();else if(curTab==="career")crRender();}
+function tmClick(e){const x=e.target.closest&&e.target.closest("[data-tm]");if(!x||!crOn())return false;const a=x.dataset.tm,id=x.dataset.id;
+  if(a==="rnd"){if(!tmSure("rnd:"+id))return true;tmRndStart(id);}
+  else if(a==="work")tmRndWork(+x.dataset.h||0);
+  else if(a==="hire"){if(!tmSure("hire:"+id))return true;tmHire(id);}
+  else if(a==="fire"){if(!tmSure("fire:"+id))return true;tmFire(id);}
+  else if(a==="sign")tmSign(id);
+  else if(a==="decline")tmDecline(id);
+  else if(a==="drop"){if(!tmSure("drop:"+id))return true;tmDrop(id);}
+  else if(a==="kit"){const v=($("tmKitSel")||{}).value||"",nm=(($("tmKitName")||{}).value||"").trim()||"Haldis Special",k=v.split(":");let cfg=null;
+    if(k[0]==="fit"&&S.bots[k[1]])cfg=S.bots[k[1]].cfg;else if(k[0]==="d"&&S.designs[k[1]]&&S.designs[k[1]][+k[2]])cfg=Object.assign({},S.designs[k[1]][+k[2]].cfg,{cls:k[1]});
+    if(cfg)tmKitPublish(nm,SIM.normCfg(cfg));}
+  TM.ask=null;tmRedraw();return true;}
 /* ===================== app/help.js: help and the tutorial =====================
    The first-run tutorial (build the starter wedge, run the impact test, spar one club bot, read the post-mortem) in PEW's
    help card pattern, and the bot card share image. Arrives in PR 9 (plan section 13). Last file of the app script block. */

@@ -74,5 +74,7 @@ function makeMats(tier){
     smoke:new THREE.MeshBasicMaterial({color:C(0x8a8a86),transparent:true,opacity:.35,depthWrite:false}),
     team:BOT_TEAM.map(h=>matte(h,.5))
   };
+  /* sponsor colours (vis/bot.js), made when first asked for, kept per tier */
+  if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=matte;
   return V.mats;
 }

@@ -1,13 +1,14 @@
 /* ===================== app/shop.js: the Shop tab =====================
    The career's spending outside the bot (plan section 11): the workshop (WORKSHOP_STAGES: move up for its price; rent
-   and hours a week change), tools (TOOLS: unlock parts and cut build and repair hours), the pit kits' prices by class
+   and hours a week change), tools (TOOLS: unlock parts and cut build and repair hours), R&D and the team (app/team.js
+   tmRndCard, tmTeamCard; PR 8), the pit kits' prices by class
    (bought when you enter an event, Career tab), and the books (S.career.ledger, the last 60 lines).
    Saves: the three save slots ("scr-slot1".."scr-slot3": save the current game into one, or load one; loading keeps this
    phone's settings, loadSlot in app/state.js), then the Saves card (backup codes and files; its buttons are wired in
    app/savecode.js by their data-bu attribute). */
 const SH={ask:null};   // which slot button is waiting for "Sure?"
 function shRender(){const el=$("shBody");if(!el)return;const c=crOn()?S.career:null;
-  el.innerHTML=(c?shWorkshop(c)+shTools(c)+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it.</p></div>`)+shSlots();}
+  el.innerHTML=(c?shWorkshop(c)+shTools(c)+tmRndCard()+tmTeamCard()+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it.</p></div>`)+shSlots();}
 function shWorkshop(c){const cur=crStage(),i=WORKSHOP_STAGES.indexOf(cur);
   return`<div class="card"><h3>Workshop</h3><ul class="shlist">${WORKSHOP_STAGES.map((w,k)=>`<li class="${k===i?"on":""}"><span class="nm"><b>${esc(ftCap(w.name))}</b><small>${esc(w.line)}</small>
     <small>${w.hours} h a week · rent ${fmt$(w.rent)} a week · up to ${esc(SIM.CLASSES[w.maxCls].name.toLowerCase())}${w.travel<1?` · travel ${Math.round((1-w.travel)*100)}% cheaper`:""}</small></span>
@@ -32,7 +33,7 @@ function shSlots(){let h="";for(let i=1;i<=SLOTS;i++){const o=buStored(slotKey(i
   return`<div class="card"><h3>Save slots</h3><p>Keep up to three games on this phone. Saving here copies the game you're playing; loading one replaces it (your settings stay).</p><ul class="shlist">${h}</ul></div>`;}
 /* a second tap within the card confirms */
 function shSure(k){if(SH.ask===k){SH.ask=null;return true;}SH.ask=k;shRender();return false;}
-function shClick(e){const x=e.target.closest("[data-shstage],[data-shtool],[data-shsave],[data-shload]");if(!x)return;const c=S.career;
+function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage],[data-shtool],[data-shsave],[data-shload]");if(!x)return;const c=S.career;
   if(x.dataset.shstage){const w=WORKSHOP_STAGES.find(s=>s.id===x.dataset.shstage);if(!crOn()||!w)return;
     if(c.money<w.price){toast(`Need ${fmt$(w.price-c.money)} more`);return;}if(!shSure("st:"+w.id))return;
     crPay(w.price,`Moved into ${w.name.toLowerCase()}`);c.stage=w.id;save();hud();shRender();toast(`Moved: ${w.name.toLowerCase()}`);buzz([10,30,10]);return;}
@@ -43,4 +44,4 @@ function shClick(e){const x=e.target.closest("[data-shstage],[data-shtool],[data
     try{localStorage.setItem(slotKey(i),JSON.stringify(S));}catch(err){toast("Couldn't save: storage is full");shRender();return;}shRender();toast(`Saved in slot ${i}`);return;}
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
     loadSlot(o,`Slot ${i} loaded`);}}
-TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;shRender();};
+TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;TM.ask=null;shRender();};

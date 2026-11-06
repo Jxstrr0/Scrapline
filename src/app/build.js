@@ -10,6 +10,9 @@
    (SIM.fitBill: every part that differs from the fitted bot, at full price) and Fit charges it in the career (money and
    workshop hours, cut by tools: crFitHours); before the career it is free. In the career a part may need a tool and a
    class may not be open yet (crFitBlock, app/career.js). Going over the weight limit is refused, never fitted. Moving parts on the grid is free.
+   PR 8: a spinner's weapon row has your own disc profile (teeth, rim, a name; R&D "disc" and a fabricator in the career),
+   the class limit follows the season's rule changes (crLimitG, app/team.js), and with an engineer on the team the stress
+   report works out the impact and drop lines for the draft (no bench needed).
    ?sim=1 adds the raw evalBuild() result at the bottom. */
 const B={open:{stress:true},face:"front",sel:null,drag:null,delKey:null};
 const fmtG=g=>Math.abs(g)>=10000?(g/1000).toLocaleString("en-GB",{maximumFractionDigits:1})+" kg":Math.round(g).toLocaleString("en-GB")+" g";
@@ -19,6 +22,8 @@ const FACE_LBL={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const SEV_LBL={bad:["broke","Bad"],warn:["worn","Weak"],info:["info","Note"],good:["ok","Good"]};
 const VERDICT={valid:["ok","Ready"],flaws:["worn","Flaws"],over:["broke","Over"],invalid:["broke","Can't fit"]};
 const clone=o=>JSON.parse(JSON.stringify(o));
+/* evalBuild at the season's weight limit (the career's rule changes, app/team.js crLimitG) */
+const bEv=cfg=>SIM.evalBuild(cfg,{limitG:crLimitG(SIM.normCfg(cfg).cls)});
 
 /* ---- the bot and its draft for the class on the Build tab ---- */
 function bCls(){const c=ST().buildCls;return SIM.CLASSES[c]?c:"beetle";}
@@ -34,11 +39,11 @@ function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
 const draft=()=>bBot().draft;
 /* evalBuild results for this draft, kept until it changes */
 let bEvalKey="",bEvalRes=null;
-function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=SIM.evalBuild(draft());}return bEvalRes;}
+function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
 const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 
 /* change the draft. Refused (with the grams) if it would go over the limit and adds weight. */
-function bSet(mut,why){const before=bEval(),c=bTry(mut),r=SIM.evalBuild(c);
+function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c);
   if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
   bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
 /* moving parts is free: if the draft and the fitted bot have the same parts, the fitted bot takes the new layout */
@@ -46,7 +51,12 @@ function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft))b.c
 const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
 
 /* the stress report: with measured numbers from the bench when the draft is the fitted, tested bot (app/bench.js) */
-function bStress(){const r=bEval(),m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m?SIM.stressReport(r,m):r.stress;}
+function bStress(){const r=bEval(),m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null,eng=tmHas("engineer");
+  if(!eng)return m?SIM.stressReport(r,m):r.stress;
+  /* the engineer works the impact and drop tests out on paper for the draft (kept until the draft changes) */
+  const k=JSON.stringify(draft());if(bStress.k!==k){bStress.k=k;bStress.paper={impact:SIM.runBench(r,"impact"),drop:SIM.runBench(r,"drop")};}
+  const mm=Object.assign({},bStress.paper,m||{}),bench=id=>(SIM.COMBOS.find(c=>c.id===id)||{}).bench;
+  return SIM.stressReport(r,mm).map(l=>l.measured&&!(m&&m[bench(l.id)])?Object.assign({},l,{measured:false,paper:tmFirst(eng.name)}):l);}
 
 /* the weak side: measured by the impact test when the draft is the tested bot, else predicted */
 function bWeak(r){const m=typeof benchMeasured==="function"?benchMeasured(bCls(),draft()):null;return m&&m.impact&&m.impact.weakest||r.weakestFace;}
@@ -74,7 +84,7 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
 
 /* ---- option rows ---- */
 function bOpts(slot,cur,fittedId,mk,price){const base=bEval(),cls=bCls(),M=SIM.classMult(cls);
-  return`<div class="opts">`+SIM.PARTS[slot].map(p=>{const c=bTry(x=>mk(x,p.id)),r=p.id===cur?base:SIM.evalBuild(c),on=p.id===cur;
+  return`<div class="opts">`+SIM.PARTS[slot].map(p=>{const c=bTry(x=>mk(x,p.id)),r=p.id===cur?base:bEv(c),on=p.id===cur;
     const pr=price===false?"":p.cost?fmt$(p.cost*M.cost):"—";
     return`<button type="button" class="opt${on?" on":""}${r.totalG>r.limitG&&!on?" over":""}" data-slot="${slot}" data-id="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${fittedId===p.id?'<span class="tag">fitted</span>':""}${bLock(slot,p.id)}</span><span class="pr">${pr}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,slot)}</small></button>`;}).join("")+`</div>`;}
 /* in the career a part may need a tool first: shown on the option, refused at Fit (app/career.js) */
@@ -83,9 +93,9 @@ const bName=(slot,id)=>{const p=SIM.part(slot,id);return p?p.name:id;};
 
 /* ---- each section: title, a one-line summary, and its body ---- */
 const B_SECS=[
-  {id:"cls",t:"Class",sum:()=>SIM.CLASSES[bCls()].name+" · "+fmtG(SIM.CLASSES[bCls()].limitG),
+  {id:"cls",t:"Class",sum:()=>SIM.CLASSES[bCls()].name+" · "+fmtG(crLimitG(bCls())),
     body:()=>`<div class="seg" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>{const c=SIM.CLASSES[id],on=id===bCls(),f=S.bots[id]&&S.bots[id].cfg;
-      return`<button type="button" data-cls="${id}" class="${on?"on":""}" aria-pressed="${on}">${c.name.replace("weight","")}<small>${fmtG(c.limitG)}${f?" ·&nbsp;fitted":""}</small></button>`;}).join("")}</div>
+      return`<button type="button" data-cls="${id}" class="${on?"on":""}" aria-pressed="${on}">${c.name.replace("weight","")}<small>${fmtG(crLimitG(id))}${f?" ·&nbsp;fitted":""}</small></button>`;}).join("")}</div>
       <p>One bot per class. Each class keeps its own bot, draft and designs.</p>`},
   {id:"chassis",t:"Chassis",sum:()=>bName("chassis",draft().chassis),
     body:()=>bOpts("chassis",draft().chassis,bFit("chassis"),(c,id)=>{c.chassis=id;})},
@@ -98,20 +108,31 @@ const B_SECS=[
     body:()=>`<h4>Drive</h4>`+bOpts("drive",draft().drive,bFit("drive"),(c,id)=>{c.drive=id;})+`<h4>Wheels</h4>`+bOpts("wheels",draft().wheels,bFit("wheels"),(c,id)=>{c.wheels=id;})},
   {id:"power",t:"Power",sum:()=>bName("battery",draft().battery)+" · "+bName("electronics",draft().electronics),
     body:()=>`<h4>Battery</h4>`+bOpts("battery",draft().battery,bFit("battery"),(c,id)=>{c.battery=id;})+`<h4>Speed controllers</h4>`+bOpts("electronics",draft().electronics,bFit("electronics"),(c,id)=>{c.electronics=id;})},
-  {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon),
-    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;})},
+  {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon)+(draft().disc?` · “${draft().disc.name}”`:""),
+    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;})+bDisc()},
   {id:"material",t:"Weapon material",sum:()=>draft().weapon==="none"?"no weapon":bName("weaponMaterial",draft().weaponMaterial),
     body:()=>draft().weapon==="none"?"<p>No weapon fitted, so there is nothing to make out of anything.</p>":bOpts("weaponMaterial",draft().weaponMaterial,bFit("weaponMaterial"),(c,id)=>{c.weaponMaterial=id;})+"<p>The disc, arm or wedge plate. Tougher stock bends later and bites harder; lighter stock stores less energy.</p>"},
   {id:"extras",t:"Extras",sum:()=>draft().extras.length?draft().extras.map(e=>bName("extras",e).toLowerCase()).join(", "):"none",
     body:()=>{const base=bEval(),M=SIM.classMult(bCls()),f=bBot().cfg;
-      return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=SIM.evalBuild(c);
+      return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=bEv(c);
         return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}${bLock("extras",p.id)}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
   {id:"layout",t:"Layout & side profile",sum:()=>{const r=bEval();return`COM ${Math.round(r.com.x*1000)}, ${Math.round(r.com.y*1000)} mm`;},
     body:()=>bLayout()+bProfile()},
   {id:"stress",t:"Stress report",sum:()=>{const s=bStress(),n=k=>s.filter(x=>x.sev===k).length,b=n("bad"),w=n("warn");return b?`${b} bad${w?`, ${w} weak`:""}`:w?`${w} weak`:"nothing serious";},
-    body:()=>{const s=bStress();return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>`;}},
+    body:()=>{const s=bStress();return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':x.paper?` <span class="bntag">${esc(x.paper)}</span>`:""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>${tmHas("engineer")?`<p class="hint">${esc(tmFirst(tmHas("engineer").name))} has worked out the impact and drop lines on paper.</p>`:""}`;}},
   {id:"designs",t:"Designs",sum:()=>{const n=bDesigns().length;return n?`${n} saved`:"none saved";},body:()=>bDesignsBody()}
 ];
+/* your own disc profile (sim/parts.js DISC_PROFILES): any spinner but the saw; teeth, rim and a name */
+function bDisc(){const d=draft(),w=SIM.part("weapon",d.weapon);if(!w||w.type!=="spinner")return"";const lock=crDiscLock(),dp=d.disc,base=bEval();
+  const tryD=x=>{const c=bTry(q=>{q.disc=x;});return bEv(c);};
+  const opt=(lbl,x,on,key)=>{const r=on?base:tryD(x);return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-disc="${key}" aria-pressed="${on}"><span>${lbl}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,"weapon")}</small></button>`;};
+  const cur=dp||{name:"",teeth:2,rim:"mid"};
+  return`<h4>Disc profile${lock?` <span class="tag lock">${esc(lock)}</span>`:""}</h4>
+    <div class="opts">${opt("Stock disc",null,!dp,"stock")}${opt(dp?`Your disc: ${esc(dp.name)}`:"Your own disc",dp||{name:"Own disc",teeth:2,rim:"mid"},!!dp,"own")}</div>
+    ${dp?`<div class="opts">${[1,2,3].map(t=>opt(`${t} ${t>1?"teeth":"tooth"}`,Object.assign({},cur,{teeth:t}),cur.teeth===t,"t"+t)).join("")}</div>
+      <div class="opts">${Object.keys(SIM.DISC_PROFILES.rim).map(k=>opt(ftCap(SIM.DISC_PROFILES.rim[k].name),Object.assign({},cur,{rim:k}),cur.rim===k,"r"+k)).join("")}</div>
+      <div class="dname"><input id="discName" maxlength="${SIM.DISC_PROFILES.nameMax}" value="${esc(dp.name)}" aria-label="Disc name" autocomplete="off"><button type="button" class="btn sm" data-act="disc-name">Name it</button></div>`:""}
+    <p>Fewer teeth bite deeper; a heavier rim stores more energy and spins up slower.${lock?" You can design one here; fitting it needs the R&amp;D and a fabricator.":""} A new profile is a new disc: fitting it pays for the material again.</p>`;}
 /* the fitted bot's part in a slot (for the "fitted" tag) */
 function bFit(slot,face){const f=bBot().cfg;if(!f)return null;const n=SIM.normCfg(f);return face?n.armour[face]:n[slot];}
 
@@ -176,7 +197,7 @@ function bProfile(){const r=bEval(),h=r.height,cfg=draft(),wp=SIM.part("weapon",
 const D_MAX=12;
 function bDesigns(){const c=bCls();if(!Array.isArray(S.designs[c]))S.designs[c]=[];return S.designs[c];}
 function bDesignsBody(){const L=bDesigns(),cls=bCls();
-  const item=(nm,cfg,key,del)=>{const r=SIM.evalBuild(Object.assign({},cfg,{cls})),v=VERDICT[r.verdict]||VERDICT.flaws,bill=SIM.fitBill(bBot().cfg,Object.assign({},cfg,{cls}));
+  const item=(nm,cfg,key,del)=>{const r=bEv(Object.assign({},cfg,{cls})),v=VERDICT[r.verdict]||VERDICT.flaws,bill=SIM.fitBill(bBot().cfg,Object.assign({},cfg,{cls}));
     return`<li><span class="nm">${esc(nm)}<small>${fmtG(r.totalG)} · <span class="${v[0]}">${v[1].toLowerCase()}</span> · to fit ${bill.lines.length?fmt$(bill.cost):"nothing"}</small></span><button type="button" class="btn sm" data-load="${key}">Load</button>${del?`<button type="button" class="btn sm ghost" data-del="${key}">${B.delKey===key?"Sure?":"Delete"}</button>`:""}</li>`;};
   return`<ul class="dlist">${L.length?L.map((d,i)=>item(d.name,d.cfg,"d"+i,true)).join(""):"<li><span class=\"nm\">No designs for this class yet.</span></li>"}</ul>
     <div class="dname"><input id="dName" maxlength="32" placeholder="Name this draft" aria-label="Design name" autocomplete="off"><button type="button" class="btn sm pri" data-act="design-save">Save</button></div>
@@ -189,7 +210,7 @@ function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
-  const m=$("bwMeter");m.setAttribute("aria-valuemax",c.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
+  const m=$("bwMeter");m.setAttribute("aria-valuemax",r.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
   $("bCap").innerHTML=`<span><b>${r.driveSpeed.toFixed(1)}</b> m/s</span><span>${w.energyJ>=1?`<b class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</b> J`:`<b>${w.type==="none"?"no weapon":w.type}</b>`}</span><span>weak <b>${FACE_LBL[bWeak(r)].toLowerCase()}</b></span><span><b class="readout">${fmtS(r.runtimeS)}</b> run</span><span class="chip ${v[0]}">${v[1]}</span>`;
   $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
@@ -233,9 +254,11 @@ function bClick(e){const t=e.target;let x;
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
     bSet(c=>{if(s==="armour")c.armour[B.face]=id;else c[s]=id;});return;}
+  if((x=t.closest(".opt[data-disc]"))){const k=x.dataset.disc,d=draft().disc,cur=d||{name:"Own disc",teeth:2,rim:"mid"};
+    bSet(c=>{if(k==="stock")delete c.disc;else if(k==="own")c.disc=cur;else if(k[0]==="t")c.disc=Object.assign({},cur,{teeth:+k.slice(1)});else c.disc=Object.assign({},cur,{rim:k.slice(1)});});return;}
   if((x=t.closest(".opt[data-extra]"))){const id=x.dataset.extra;bSet(c=>{c.extras=c.extras.indexOf(id)>=0?c.extras.filter(e=>e!==id):c.extras.concat([id]);});return;}
   if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src||!src.cfg||typeof src.cfg!=="object")return;
-    const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=SIM.evalBuild(cfg);
+    const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=bEv(cfg);
     B.sel=null;bBot().draft=SIM.normCfg(cfg);bNormed.add(bBot().draft);bLayoutSync();save();bRender();
     const bill=SIM.fitBill(bBot().cfg,bBot().draft);toast(r.totalG>r.limitG?`${src.name} is over the limit in this class`:`${src.name} loaded into the draft${bill.lines.length?" · fitting it costs "+fmt$(bill.cost):""}`);return;}
   if((x=t.closest("[data-del]"))){const k=x.dataset.del;if(B.delKey!==k){B.delKey=k;bRender();clearTimeout(bClick.t);bClick.t=setTimeout(()=>{B.delKey=null;if(curTab==="build")bRender();},3000);return;}
@@ -245,6 +268,8 @@ function bClick(e){const t=e.target;let x;
     else if(a==="layout-reset"){B.sel=null;bSet(c=>{c.layout={};},"Parts back in their usual places");}
     else if(a==="undo"){const b=bBot();b.draft=clone(b.cfg);bNormed.add(b.draft);B.sel=null;save();bRender();toast("Back to the fitted bot");}
     else if(a==="fit")bFitOpen();
+    else if(a==="disc-name"){const nm=($("discName").value||"").trim();if(draft().disc&&bSet(c=>{c.disc=Object.assign({},c.disc,{name:nm});},`Disc named ${SIM.normDisc(Object.assign({},draft().disc,{name:nm})).name}`)){
+      const bb=bBot();if(bb.cfg&&bb.cfg.disc&&SIM.sameParts(bb.cfg,bb.draft)){bb.cfg.disc=clone(bb.draft.disc);save();}}}   // a new name is free: the fitted disc takes it
     else if(a==="design-save"){const L=bDesigns();if(L.length>=D_MAX){toast(`${D_MAX} designs per class. Delete one first.`);return;}
       const nm=($("dName").value||"").trim().slice(0,32)||`Design ${L.length+1}`;L.push({name:nm,cfg:clone(draft())});save();bRender();toast(`Saved ${nm}`);}
     return;}}
@@ -262,7 +287,7 @@ function bUp(e){const tg=document.elementFromPoint(e.clientX,e.clientY)||e.targe
 /* the bill sheet's Fit button: bound at load, since the Bench tab opens the sheet too (the Build tab may not have rendered yet) */
 document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]'))bFitDo();});
 /* the workshop's bot in 3D: the draft on the Build tab, the fitted bot elsewhere (the draft while nothing is fitted) */
-function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():SIM.evalBuild(bot.cfg);
+function visBot(){if(!window.SCRAP_VIS)return;const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
   SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
   if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
@@ -270,7 +295,8 @@ TAB_RENDER.build=function(){
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});
     tb.addEventListener("pointerdown",bDown);tb.addEventListener("pointermove",bMove);tb.addEventListener("pointerup",bUp);
     tb.addEventListener("pointercancel",()=>{B.drag=null;});
-    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}});
+    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}
+      if(e.key==="Enter"&&e.target.id==="discName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="disc-name"]')});}});
     $("bxRaw").addEventListener("toggle",bRender);
     if(/[?&]sim=1(&|$)/.test(location.search)){$("bxRaw").hidden=false;$("bxRaw").open=true;}
 }
