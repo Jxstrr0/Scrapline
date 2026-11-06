@@ -48,6 +48,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Lethality | A single big hit **can** end a fight, but rarely; tuned by the balance harness (section 8d) |
 | Modes | 1v1, **rumbles** (3–4 bot free-for-all), **tag team** (2v2), and **minibots**. The sim is N-body from PR 4 |
 | Parts economy | **Pay on fit, no refund** (Kelbo, PR 2; PEW's swap rule, "no refund on cut metal"). No parts inventory. Build-tab edits are a draft; tapping **Fit** shows the bill for every part that differs from the fitted bot, at full price, then charges it. Parts taken off are gone. A new weapon pays for its material too. Moving parts on the grid is free. Nothing is charged before the career exists (PR 7) |
+| Bench | **Tests the fitted bot only** (Kelbo, PR 3): the draft has to be fitted first, and the Bench says when the draft has unfitted changes. **The rig is safe:** nothing the impact or drop test breaks is kept; the bench costs workshop hours (from PR 7), never repairs |
 | Spares at events | A **pit kit** bought per event (basic / full / pro, priced by class) decides which repairs the 60 s pit window allows |
 | Damage after a fight | **Damaged** parts (hp left) pay a **repair fee** scaled by damage taken. **Destroyed** parts (hp 0, torn off, sheared, bent past use) are **re-bought at full price**. Both cost workshop hours |
 | Sponsors | Paint on the bot plus a per-season placing target |
@@ -407,7 +408,7 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 0: Scaffold, tabs, PWA, Settings, world and palette, save safety, CLAUDE.md
 - [x] PR 1: Classes, parts tables, layout grid, height profile, heat, build maths, stress report, node tests
 - [x] PR 2: Build tab: weight bar, layout editor, side profile, deltas, designs
-- [ ] PR 3: Bench tests including wedge gauge and drop test
+- [x] PR 3: Bench tests including wedge gauge and drop test
 - [ ] PR 4a: N-body headless sim, height axis, wedge rules, damage, input recording, two AIs, debug view, first harness
 - [ ] PR 4b: AI styles, arenas with hazard numbers, judges, 15 opponents, balance targets
 - [ ] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
