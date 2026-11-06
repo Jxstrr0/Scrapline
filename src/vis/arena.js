@@ -67,6 +67,11 @@ function buildArena(F){
   AR.cam={x:0,z:0,d:H*3,shake:0};
   V.scene.add(g,L);return g;}
 
+/* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
+   it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
+function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
+  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;});
+  for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
 function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;

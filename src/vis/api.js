@@ -9,7 +9,7 @@ return{
   /* "workshop" or "arena" */
   setView(name){V.view=name==="arena"?"arena":"workshop";if(started)showView();},
   /* the fight to draw in the arena view (a SCRAP_SIM fight object; null clears it). The vis reads it, never steps it */
-  setFight(F){if(!started)return;if(!F){arenaClear();showView();return;}if(F===AR.F)return;buildArena(F);fxInit();showView();},
+  setFight(F,keep){if(!started)return;if(!F){arenaClear();showView();return;}if(F===AR.F)return;if(keep&&arenaRebind(F))return;buildArena(F);fxInit();showView();},   // keep: a replay seek, same scene
   /* hit feedback: the sim's fx events ({k, x, y, E, v}) and {k:"part", v, key} when a part is destroyed */
   fx(list){if(started&&list&&list.length)fxEvents(list);},
   /* one bot's part states ({key: "intact"|"damaged"|"destroyed"}, from SCRAP_SIM.partStates) */

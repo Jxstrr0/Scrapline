@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.6.0)
+## Current status (0.1.7.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -133,8 +133,14 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **`sound/synth.js`:** `SCRAP_SOUND`.
   - **The Fight tab:** sparring, one on one or a rumble, you or the AI driving, fight mode full screen with the HUD, the results card.
   - **Saves:** `SAVE_V` 4 (`settings.controls`, `leftHanded`, `assists`).
-- Next: PR 6, the pit window, post-mortem and replay.
-- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
+- PR 6 done (0.1.7.0): the pit window, post-mortem, replay.
+  - **Best of three** in sparring (first to two). Damage and failures carry between rounds (`newFight` bots take `flags: {bent, smoke, cell, esc}`).
+  - **`app/pit.js`:** the 60 s pit window between rounds. `PIT_KITS` (basic, full, pro; free when sparring, Kelbo) and `REPAIR_TIMES` in `state.js`; one repair at a time, the clock runs while you choose and pauses when hidden. `pitItems`, `pitApply`, and `pitAuto` (the other crew).
+  - **`app/report.js`:** the post-mortem: hit timeline, damage map, cause chain, a redesign hint from `COMBOS`, the repair bill (`REPAIR_COST`, `REPAIR_HOURS`; shown, charged from PR 7), their build revealed with Copy to designs.
+  - **Replay** (`app/fight.js`): re-runs the sim from the log in the arena view or 2D, ½× to 2×; the scrub bar re-runs from the start to the moment (no keyframes), on every tier. `SCRAP_VIS.setFight(F, true)` keeps the scene; `SIM.unpackInputs` is exported.
+  - **Saves:** nothing new (no `SAVE_V` change).
+- Next: PR 7, the career, circuit, money and saves.
+- What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; a spar starts, drives and ends; a best of three reaches the pit and the next round; a replay plays and scrubs; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)
 
