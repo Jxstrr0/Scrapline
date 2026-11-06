@@ -39,7 +39,7 @@ const COMBOS=[
   {id:"heat",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:b=>b.heat.fightDerateS!=null&&b.heat.fightDerateS<K.runtimeMin*1.33&&b.heat.fightDerateS,
     text:(b,v)=>(b.heat.hotPart==="weapon"?"Weapon motor":"Drive")+" overheats at "+n0(v)+" s and loses power."},
   {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
-    text:(b,v)=>"The "+(part("battery",b.cfg.battery).dischargeW<=part("electronics",b.cfg.electronics).maxPowerW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
+    text:(b,v)=>"The "+(b.limits.batteryW<=b.limits.escW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
   {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
   {id:"com",sev:"warn",test:b=>Math.abs(b.com.x)>b.widthM*0.02&&b.com.x,
     text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
@@ -62,6 +62,6 @@ const COMBOS=[
     text:()=>"Every face armoured and the insides tucked away."}
 ];
 function stressReport(b){const out=[];
-  for(const r of COMBOS){let v;try{v=r.test(b);}catch(e){v=null;}if(!v&&v!==0||v===false)continue;if(v===0)continue;
-    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}
+  for(const r of COMBOS){try{const v=r.test(b);if(!v)continue;   // a rule that throws is skipped, never fatal
+    const sev=typeof r.sev==="function"?r.sev(b,v):r.sev;out.push({id:r.id,sev,text:r.text(b,v)});}catch(e){}}
   return out.sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);}

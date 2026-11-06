@@ -36,6 +36,15 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Designs:** save the draft under a name (12 per class), load one back into the draft (it says what fitting it would cost), delete with a second tap. The twelve test builds are there as starting points.
 - **Save:** `v` 2. `settings.buildCls` is the class on the Build tab; `bots[cls]` holds `{cfg, damage, draft}`.
 
+## 0.1.2.1: fixes from a review of PRs 1 and 2
+
+- **Damaged saves can't break the Build tab:** an unknown part id (from an old or hand-edited save) is reported and swapped for the default part everywhere, so the weight, the bill and the layout all agree; a draft or design with missing fields is filled in.
+- **Taking parts off** shows as "N taken off" on the Fit bar and in the bill, not as a free "part changed". Changing the material of no weapon is no change.
+- **Fitting keeps damage** on the parts you didn't change (it only mattered from PR 4a, but it would have been a free repair).
+- **Custom shape:** the two cut corners are armoured with the front plate and weigh what they should (about 27 g more on a beetle).
+- **Layout:** tapping another part switches to it; a drag released off the tab still lands; the "won't fit" message says what is actually wrong.
+- Option buttons that would go over the limit get a dashed border instead of fading their text below readable contrast.
+
 ## Known loose ends
 
 - Save slots exist in the save format but have no UI until PR 7.

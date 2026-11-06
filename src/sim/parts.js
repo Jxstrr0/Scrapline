@@ -136,17 +136,25 @@ const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
   drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
 
-/* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). Unknown ids stay as they are; evalBuild
-   reports them and uses the default part. */
-function normCfg(cfg){cfg=cfg||{};const d=DEFAULT_CFG,o={};
+/* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
+   part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them
+   and evalBuild reports them. */
+function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,o={};
   o.cls=CLASSES[cfg.cls]?cfg.cls:d.cls;
-  for(const s of PART_SLOTS)o[s]=typeof cfg[s]==="string"?cfg[s]:d[s];
+  for(const s of PART_SLOTS)o[s]=part(s,cfg[s])?cfg[s]:d[s];
   o.armour={};const a=cfg.armour&&typeof cfg.armour==="object"?cfg.armour:{};
-  for(const f of FACES)o.armour[f]=typeof a[f]==="string"?a[f]:d.armour[f];
-  o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>typeof e==="string"&&l.indexOf(e)===i):[];
+  for(const f of FACES)o.armour[f]=part("armour",a[f])?a[f]:d.armour[f];
+  o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>part("extras",e)&&l.indexOf(e)===i):[];
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
   return o;}
+
+/* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
+function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;
+  for(const s of PART_SLOTS)if(cfg[s]!=null&&!part(s,cfg[s]))out.push(s+" \""+cfg[s]+"\"");
+  if(cfg.armour&&typeof cfg.armour==="object")for(const f of FACES)if(cfg.armour[f]!=null&&!part("armour",cfg.armour[f]))out.push(f+" armour \""+cfg.armour[f]+"\"");
+  if(Array.isArray(cfg.extras))for(const e of cfg.extras)if(!part("extras",e))out.push("extra \""+e+"\"");
+  return out;}
 
 /* ---- the chassis grid ---- */
 /* cells that exist on this chassis: a box has them all; the custom shape cuts the front corners */
