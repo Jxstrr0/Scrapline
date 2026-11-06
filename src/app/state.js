@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.8.0";
+const VERSION="0.1.9.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -32,7 +32,7 @@ const WORLD={
   seasons:20
 };
 
-/* ---- career tables (plan sections 11-12). PR 7 fills the career's; PR 8 fills RND, STAFF, SPONSORS, META_WAVES. ---- */
+/* ---- career tables (plan sections 11-12): PR 7's career, PR 8's R&D, team, sponsors, meta, rule changes and kit line ---- */
 /* the time model (app/career.js). A season is 52 weeks; you act, then Close week. Each week the workshop stage gives its
    hours (WORKSHOP_STAGES); unused hours carry over up to bankWeeks weeks' worth. An event day takes eventHours, and each
    night away nightHours more; travel costs perKm both ways (x the stage's travel) plus night per night away.
@@ -49,7 +49,7 @@ const TIME={weeks:52,bankWeeks:2,eventHours:6,nightHours:4,perKm:0.3,night:45,
     {id:"garage", name:"Garage",     classes:["ant","beetle"],  repTo:60, line:"Club meets at the Haldis Gemeindehalle, a tournament or two, and the club championship."},
     {id:"circuit",name:"Circuit",    classes:["hobby","feather"],repTo:160,line:"Regional tournaments in Stahlbrück, Eisenau and Grauwald, rumbles and tag team, and the Regional Final."},
     {id:"heavy",  name:"Heavyweight",classes:["heavy"],          repTo:320,line:"The Scrapline Open at the Eisenhalle, on television."},
-    {id:"legacy", name:"Legacy",     classes:["heavy"],          repTo:0,  line:"You've won the Open. Defend it; a team, sponsors and a kit line come with PR 8."}]};
+    {id:"legacy", name:"Legacy",     classes:["heavy"],          repTo:0,  line:"You've won the Open. Defend it, run the team, and sell your best design as a kit."}]};
 /* the workshop (Shop tab): price to move in, rent a week, workshop hours a week, the heaviest class it can build, and
    travel (x travel costs: the shop has a van, the HQ a trailer) */
 const WORKSHOP_STAGES=[
@@ -165,20 +165,83 @@ const ASSISTS={
   pro:   {straighten:0.15,turnDamp:0.15,autoSpin:false},
   off:   {straighten:0,turnDamp:0,autoSpin:false}
 };
-const RND={};               // R&D projects (PR 8)
-const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
-const SPONSORS=[];          // paint and a placing target (PR 8)
-const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
+/* R&D (Shop tab, app/team.js): projects that unlock the parts marked "rnd:<id>" in SIM.PARTS (and "disc", your own disc
+   profile on the Build tab). Starting one pays its price (x nothing: R&D is priced for the workshop, not the class);
+   then you put workshop hours into it until it has hours. One project at a time. act: the first act it can be started
+   in. needs: a tool it needs first. fab: what it unlocks also needs a fabricator on the team to fit (custom work). */
+const RND={
+  cells:     {name:"High-discharge cells",  price:400, hours:10,act:0,needs:null,       line:"A battery that gives everything at once. Spinners spin up faster."},
+  disc:      {name:"Your own disc profile", price:600, hours:14,act:0,needs:null,       fab:true,line:"Design the disc: one to three teeth, a light or heavy rim, and a name. The fabricator cuts it."},
+  pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty shots, harder, and a faster recharge."},
+  crusher:   {name:"Crusher",               price:900, hours:20,act:0,needs:"drillpress",line:"Hydraulic jaws that bite down and hold on."},
+  brushless: {name:"Custom motor winding",  price:700, hours:16,act:0,needs:"lathe",    line:"Brushless drive and its speed controller. Much faster, and hotter."},
+  saw:       {name:"Overhead saw",          price:1000,hours:20,act:1,needs:"lathe",    line:"A saw on an arm that grinds through top plates."},
+  minibot:   {name:"Minibots",              price:1100,hours:22,act:1,needs:"printer",  line:"A little wedge that rides along and drops off at the bell to shove and distract."},
+  titanium:  {name:"Exotic armour",         price:1800,hours:28,act:1,needs:"mill",     line:"Titanium plate, chassis and weapon stock. Light, tough and dear."},
+  custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."}};
+const RND_IDS=Object.keys(RND);
+/* the team (Shop tab): one person per role, hired from these. salary: thalers a season, paid a week at a time at Close
+   week (salary / 52). act: from which act they'll talk to you.
+   engineer: cut (build and repair hours x (1 - cut), on top of the tools'), and an engineer's note: the impact and drop
+             lines of the stress report work out for the draft without the bench
+   fabricator: needed to fit custom work (RND fab: the custom chassis, your own disc); cut on those parts' hours
+   driver: a fixed skill that drives your quick sims (Kelbo, PR 8: "Drive it" is still you)
+   crew: cut on the pit window's repair times (REPAIR_TIMES) */
+const STAFF={
+  roles:{engineer:"Engineer",fabricator:"Fabricator",driver:"Driver",crew:"Pit crew"},
+  people:[
+    {id:"liesl", role:"engineer",  name:"Liesl Amrein", salary:2600, act:0,cut:0.15,line:"Retired from the watch factory's tooling office. Draws everything twice, in pencil."},
+    {id:"konrad",role:"engineer",  name:"Konrad Fehr",  salary:9000, act:1,cut:0.3, line:"Did ten years on rail bogies in Grauwald. Calls every bot \"the rolling stock\"."},
+    {id:"pia",   role:"fabricator",name:"Pia Lötscher", salary:3200, act:0,cut:0.1, line:"Welds the way other people write: neatly, and with opinions."},
+    {id:"bruno", role:"fabricator",name:"Bruno Zaugg",  salary:10000,act:1,cut:0.3, line:"Ran the Stahlbrück mill's repair shop. Has never once asked for a drawing."},
+    {id:"jonas", role:"driver",    name:"Jonas Ritter", salary:3500, act:0,skill:0.7, line:"Club racer turned robot driver. Smooth, polite, and terrifying near a wall."},
+    {id:"vera",  role:"driver",    name:"Vera Hasler",  salary:14000,act:1,skill:0.86,line:"Two-time Regional champion. Reads a fight like a timetable."},
+    {id:"emil",  role:"crew",      name:"Emil and Sohn",salary:2200, act:0,cut:0.25,line:"Father and son from the bicycle shop. Wheels off and on before you've said \"wheel\"."},
+    {id:"irma",  role:"crew",      name:"Irma's crew",  salary:7000, act:1,cut:0.4, line:"Three people, one toolbox, no wasted moves. Irma times them with a stopwatch."}]};
+/* sponsors (Career tab): an offer comes after a podium (top two) when your rep has reached minRep. Each wants its colour
+   on the bot (a paint slot: "side" paints the side panels, "top" a patch on the top plate) and a placing target for the
+   season. Signing pays the season's money at once (less for the weeks already gone, at least a quarter); at the end of
+   the season they renew and pay again if you hit the target, and drop you if you didn't. Two sponsors at most, one per
+   slot. target: {top: n podiums (top two)} | {win: n wins} | {champ: place at your act's championship or better} |
+   {rep: rep gained this season}. */
+const SPONSORS=[
+  {id:"zahnrad",  name:"Zahnrad Bräm",      colour:"#3A7BD5",slot:"side",pay:500,  minRep:4,  target:{top:2},  line:"Gear cutters in the Haldis. Want to see their blue on a podium, twice."},
+  {id:"kaffee",   name:"Kaffee Alpenrot",   colour:"#C8423B",slot:"top", pay:350,  minRep:4,  target:{rep:10}, line:"A roastery in the valley. They'd like people to hear your name. Ten rep's worth."},
+  {id:"seilbahn", name:"Seilbahn Haldis",   colour:"#2FA36B",slot:"side",pay:1200, minRep:30, target:{win:1},  line:"The cable car company. One win a season and their green rides on your bot."},
+  {id:"eisenwerk",name:"Stahlbrück Eisenwerk",colour:"#8A8F98",slot:"top",pay:2500,minRep:60, target:{champ:2},line:"The steel mill. Top two at the championship, or they'll find someone tougher."},
+  {id:"funk",     name:"Radio Velmark",     colour:"#E2B93B",slot:"side",pay:6000, minRep:150,target:{top:4},  line:"The national broadcaster. Four podiums a season keeps you on the evening sports."},
+  {id:"bahn",     name:"Velmark Bahn",      colour:"#7B4FC9",slot:"top", pay:15000,minRep:300,target:{win:3},  line:"The railways. Three wins a season, on time."}];
+const SPONSOR_MAX=2;
+/* the meta (app/team.js crMeta): which builds the other entrants favour, season by season, round and round. favour:
+   weapon ids that come first when an event's field is drawn (the rest still turn up). */
+const META_WAVES=[
+  {id:"spinner",name:"The spinner era",     favour:["vsp","hsp","drum"],      line:"Everyone's running discs. Armour your front and fear the first hit."},
+  {id:"wedge",  name:"The wedge era",       favour:["wedge","none","lifter"], line:"Low, fast and pointy. Get under them, or get a skid plate."},
+  {id:"under",  name:"The undercutter era", favour:["under","hsp","drum"],    line:"Discs at wheel height. Mind your wheels and your sides."},
+  {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
+/* rule changes (app/team.js crRules): each comes in at the start of its season (the career's season index, 0 = the
+   first), is announced a season ahead, and stays. capJ: a spinner energy cap (J at beetle scale, x the class's mass
+   multiplier; the disc's top speed comes down to fit, sim/fight.js); hazard: an extra hazard in one arena; limit: a class's
+   weight limit in grams; koS: the knockout count. */
+const RULES_BY_SEASON=[
+  {season:1,id:"cap",   name:"Spinner energy cap",  capJ:150,line:"Discs may store no more than 150 J at beetle scale (more in the bigger classes). A bigger disc just spins slower."},
+  {season:2,id:"haz",   name:"Floor spinner at the club box",hazard:{arena:"clubbox",h:{type:"spinner",at:[-0.4,0.6],rM:0.15,kickMs:1.5,J:8,vzMs:1,spinRad:12,activeS:0.25,periodS:5,startS:0}},line:"The Gemeindehalle's box gets a floor spinner."},
+  {season:3,id:"limit", name:"Heavier beetles",     limit:{beetle:1600},line:"The beetleweight limit goes up to 1.6 kg. Your bot can carry another 100 g."},
+  {season:5,id:"ko",    name:"A shorter count",     koS:8,line:"Knockouts are counted to eight seconds, not ten."}];
+/* the kit line (Legacy act, Kelbo PR 8): publish one design as a kit. At the end of each season it fights the class's
+   test builds in the sim (seeds fights each, at skill); income = base x the class's prizeScale x its win rate x (1 + rep /
+   repRef). You can change the kit once a season. */
+const KIT_LINE={act:3,base:400,repRef:200,seeds:2,skill:0.6};
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=5;
+const SAVE_V=6;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true};}
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
-  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over}
+  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit} (rnd, offers, kit: PR 8)
   bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
-  unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: PR 8
-  staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff and sponsors PR 8
+  unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
+  staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff: [{id, y, w}] hired (STAFF.people id, when); sponsors: [{id, y, w}] signed (SPONSORS id, when; PR 8)
   lastFight:null,                 // the latest fight log, for replay (PR 6)
   lastBackup:0};}
 let S=freshState();
@@ -190,7 +253,9 @@ const MIGRATE={
   1:o=>{if(o.settings&&typeof o.settings==="object"&&!o.settings.buildCls)o.settings.buildCls="beetle";return o;},   // 0.1.2.0: the Build tab remembers its class
   2:o=>o,   // 0.1.3.0: bots[cls].bench {sig, done} (which bench tests have run on the fitted bot) is optional; nothing to fill
   3:o=>{const s=o.settings;if(s&&typeof s==="object"){if(s.controls!=="tactical")s.controls="direct";s.leftHanded=!!s.leftHanded;if(s.assists!==false)s.assists=true;}return o;},   // 0.1.6.0: control scheme, handedness, assists
-  4:o=>{o.career=null;return o;}   // 0.1.8.0: the career (PR 7). Nothing could have one before, so it starts empty; bots[cls].flags is optional
+  4:o=>{o.career=null;return o;},   // 0.1.8.0: the career (PR 7). Nothing could have one before, so it starts empty; bots[cls].flags is optional
+  5:o=>{const c=o.career;if(c&&typeof c==="object"){c.rnd={cur:null,put:{}};c.offers=[];c.kit=null;}   // 0.1.9.0: R&D, sponsor offers, the kit line (PR 8)
+    if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;}
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
@@ -223,7 +288,7 @@ function applyReduce(){document.documentElement.classList.toggle("reduce",reduce
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
-function applyAll(){applyTheme();applyReduce();applyGfx();hud();}
+function applyAll(){applyTheme();applyReduce();applyGfx();hud();if(typeof tmPaint==="function")tmPaint();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 

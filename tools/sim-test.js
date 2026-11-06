@@ -162,5 +162,28 @@ for (const cls of SIM.CLASS_IDS) {
   if (SIM.BENCH_TESTS.length !== 6 || SIM.BENCH_TESTS.filter((t) => t.hours === 0).map((t) => t.id).join() !== "drive,weapon") fail("six tests, the drive and weapon tests free");
 }
 
+/* ---- PR 8: your own disc profile, the high-pressure flipper, minibots, the season's rules ---- */
+{
+  const B = (cfg) => SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, cfg));
+  const st = B({}), mid = B({ disc: { name: "Two", teeth: 2, rim: "mid" } });
+  if (Math.abs(mid.weapon.storedJ - st.weapon.storedJ) > 1e-6 || Math.abs(mid.weapon.bite - st.weapon.bite) > 1e-9 || mid.totalG !== st.totalG) fail("two teeth and a medium rim should be the stock disc");
+  const heavy = B({ disc: { name: "Heavy", teeth: 1, rim: "heavy" } }), light = B({ disc: { name: "Light", teeth: 3, rim: "light" } });
+  if (!(heavy.weapon.storedJ > st.weapon.storedJ && heavy.weapon.spinUpS > st.weapon.spinUpS && heavy.weapon.bite > st.weapon.bite)) fail("a one-tooth heavy rim should store more, spin up slower and bite deeper");
+  if (!(light.weapon.storedJ < st.weapon.storedJ && light.weapon.bite < st.weapon.bite && light.totalG < st.totalG)) fail("a three-tooth light rim should store less, bite less and weigh less");
+  if (SIM.normCfg(Object.assign({}, SIM.DEFAULT_CFG, { weapon: "wedge", disc: { teeth: 1, rim: "mid" } })).disc) fail("a disc profile belongs on a spinner only");
+  if (SIM.normCfg({ disc: { teeth: 4, rim: "mid" } }).disc || SIM.normCfg({ disc: { teeth: 1, rim: "gold" } }).disc) fail("a disc profile with unknown teeth or rim should be dropped");
+  if (SIM.normCfg({ disc: { teeth: 1, rim: "mid", name: "<b>" + "x".repeat(40) } }).disc.name.length > SIM.DISC_PROFILES.nameMax || /</.test(SIM.normCfg({ disc: { teeth: 1, rim: "mid", name: "<b>" } }).disc.name)) fail("a disc name is cleaned and cut short");
+  const nd = Object.assign({}, SIM.DEFAULT_CFG, { disc: { name: "A", teeth: 1, rim: "mid" } });
+  if (SIM.sameParts(SIM.DEFAULT_CFG, nd) || !SIM.fitBill(SIM.DEFAULT_CFG, nd).lines.some((l) => l.slot === "weaponMaterial")) fail("a new disc profile is a new disc on the bill");
+  const fl = SIM.evalBuild(Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === "flipper").cfg, { cls: "beetle", weapon: "flipper2" })), f1 = SIM.evalBuild(Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === "flipper").cfg, { cls: "beetle" }));
+  if (!fl.valid || !(fl.weapon.shots > f1.weapon.shots && fl.weapon.launchJ > f1.weapon.launchJ)) fail("the high-pressure flipper should fit the flipper build with more shots and a harder throw");
+  if (SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls: "ant", extras: ["minibot"] })).valid) fail("an antweight can't carry a minibot");
+  for (const cls of ["beetle", "hobby", "feather", "heavy"]) { const m = SIM.evalBuild(Object.assign({}, SIM.MINIBOT.cfg, { cls: SIM.MINIBOT.cls[cls] })); if (!m.valid) fail(`the ${cls}'s minibot should be a valid build: ${m.errors.join("; ")}`); }
+  if (SIM.evalBuild(SIM.DEFAULT_CFG, { limitG: 1600 }).limitG !== 1600 || heavy.valid || !SIM.evalBuild(heavy.cfg, { limitG: 1600 }).valid) fail("a season's limit should change the class limit");
+  const F = SIM.newFight({ seed: 3, rules: { capJ: 50 }, bots: [{ cfg: SIM.DEFAULT_CFG, driver: { style: "auto", skill: 0.5 } }, { cfg: SIM.DEFAULT_CFG, driver: { style: "auto", skill: 0.5 } }] });
+  if (Math.abs(0.5 * F.bots[0].b.weapon.inertia * F.bots[0].b.weapon.omega ** 2 - 50) > 0.01) fail("an energy cap should bring the disc's top speed down to store the cap");
+  console.log("PR 8 checks: disc profiles, the high-pressure flipper, minibots, season rules");
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");

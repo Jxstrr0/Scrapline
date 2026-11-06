@@ -37,8 +37,10 @@ const K={
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const r3=v=>Math.round(v*1000)/1000;
 
-function evalBuild(cfgIn){
-  const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c=CLASSES[cfg.cls],M=classMult(cfg.cls);
+function evalBuild(cfgIn,opts){
+  const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c0=CLASSES[cfg.cls],M=classMult(cfg.cls);
+  /* opts.limitG: a season's rule change to the class limit (the career, PR 8); the parts still scale by the class */
+  const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
@@ -94,7 +96,8 @@ function evalBuild(cfgIn){
   let wpos=centreOf("weapon")||[0,hl];
   const frontMounted=wp.mount==="front";
   const discPos=isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;
-  const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass:0;
+  const DP=cfg.disc?{t:DISC_PROFILES.teeth[cfg.disc.teeth],r:DISC_PROFILES.rim[cfg.disc.rim]}:null;   // your own disc profile (normCfg keeps it on spinners only)
+  const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass*(DP?DP.r.mass:1):0;
   if(structG)addM("weapon_struct","weapon",wp.id,structG,wpos[0],wp.fp?wpos[1]:hl);
   if(motorG)addM("weapon_motor","weapon",wp.id,motorG,wpos[0],wpos[1]);
   if(discG)addM("weapon_disc","weapon",wp.id,discG,discPos[0],discPos[1]);
@@ -109,8 +112,10 @@ function evalBuild(cfgIn){
   const plate=g=>g/1000*((W/1000)*(W/1000)+(L/1000)*(L/1000))/12;
   moi+=plate(items[0].g)+plate(armourMapJ.top.massG);
   const radM=isSpin?wp.radius*M.len/1000:0;
-  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"?wp.shapeK:0.25);
+  const shapeK=wp.shapeK*(DP?DP.r.shapeK:1);
+  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"?shapeK:0.25);
   if(totalG>c.limitG+1e-6)errors.push("Over the "+c.name+" limit");
+  if(ex.some(e=>e.minibot)&&!MINIBOT.cls[cfg.cls])errors.push("An "+c.name.toLowerCase()+" has nothing smaller to carry as a minibot");
   const underBudgetPct=(1-totalG/c.limitG)*100;
 
   /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
@@ -146,10 +151,10 @@ function evalBuild(cfgIn){
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:wpos,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
-  if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=wp.shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega;
+  if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
-    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:wp.recoil,
-      recoilFactor:clamp(wp.recoil*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite,
+    Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
+      recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*(DP?DP.t.bite:1),profile:cfg.disc||null,
       shearJ:wm.hp*wm.shearMult*M.mass,bendJ:wm.hp*M.mass,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
@@ -230,7 +235,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
   for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
-  if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon))add("weaponMaterial",b.weaponMaterial);
+  if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
   const removed=[],off=(slot,id,face)=>{const p=part(slot,id);if(p)removed.push({slot,face:face||null,id,name:p.name});};
@@ -241,4 +246,5 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
 /* the same cfg? (layout aside: moving parts round the chassis is free) */
 function sameParts(a,b){if(!a||!b)return false;a=normCfg(a);b=normCfg(b);if(a.cls!==b.cls)return false;
   for(const s of PART_SLOTS)if(a[s]!==b[s]&&!(s==="weaponMaterial"&&a.weapon==="none"&&b.weapon==="none"))return false;for(const f of FACES)if(a.armour[f]!==b.armour[f])return false;
+  if(!sameDisc(a.disc,b.disc))return false;
   return a.extras.slice().sort().join()===b.extras.slice().sort().join();}

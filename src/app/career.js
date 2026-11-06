@@ -20,7 +20,10 @@
    tab), rent. Going broke at Close week brings the Haldis Savings Bank's one loan; broke again ends the run.
    Driver skill: xp per fight (TIME.xp) sets your assist level (ASSISTS via crLevel, used by app/controls.js) and the
    skill a quick sim drives at. Rivals (RIVALS) remember every fight (S.rivals) and their bots take a step a season.
-   Sparring on the Fight tab stays free practice with nothing kept (Kelbo, PR 7). */
+   Sparring on the Fight tab stays free practice with nothing kept (Kelbo, PR 7).
+   PR 8 (app/team.js): R&D unlocks "rnd:" parts, the team (engineer, fabricator, driver, pit crew) and its wages at Close
+   week, sponsor offers after a podium and their check at the season's end, the meta orders each event's field, the
+   season's rule changes go into every career fight (crFightRules), and the kit line pays at the season's end. */
 const CR={};   // UI state only, never saved
 const crOn=()=>!!(S.career&&!S.career.over);
 const crHash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;};
@@ -32,16 +35,24 @@ const crR1=x=>Math.round(x*10)/10;
 /* driver skill: the assist level and the quick-sim skill */
 function crLevel(){if(!crOn())return"rookie";const xp=S.career.driverXp||0;let l="rookie";for(const[k,v]of TIME.levels)if(xp>=v)l=k;return l;}
 function crSkill(){const x=S.career?S.career.driverXp||0:0;return Math.min(TIME.skill.max,TIME.skill.base+x*TIME.skill.perXp);}
+/* who drives a quick sim: a hired driver at their fixed skill (Kelbo, PR 8), else you at yours */
+function crSimSkill(){const d=tmDriver();return d?d.skill:crSkill();}
+function crSimWho(){const d=tmDriver();return d?`${tmFirst(d.name)} drives your bot at skill ${Math.round(d.skill*100)}`:`the AI drives your bot at your skill (${crLevel()})`;}
 
 /* ---- what the career allows: parts by tool, classes by act and workshop ---- */
 function crPartLock(slot,id){if(!crOn())return null;const p=SIM.part(slot,id);if(!p||!p.unlock||p.unlock==="start")return null;
   const k=p.unlock.split(":");if(k[0]==="tool")return crHas(k[1])?null:"needs a "+(TOOLS[k[1]]?TOOLS[k[1]].name.toLowerCase():k[1]);
-  return"needs R&D (PR 8)";}
+  if(k[0]==="rnd"){const R=RND[k[1]];if(!S.unlocks.rnd[k[1]])return"needs R&D: "+(R?R.name.toLowerCase():k[1]);if(R&&R.fab&&!tmHas("fabricator"))return"needs a fabricator";return null;}
+  return"locked";}
+/* your own disc profile: R&D, then a fabricator to cut it */
+function crDiscLock(){if(!crOn())return null;if(!S.unlocks.rnd.disc)return"needs R&D: your own disc profile";if(!tmHas("fabricator"))return"needs a fabricator";return null;}
 /* every locked part in a cfg: [{slot, id, name, why}] */
 function crCfgLocks(cfg){if(!crOn()||!cfg)return[];const c=SIM.normCfg(cfg),out=[],add=(slot,id)=>{const w=crPartLock(slot,id);if(w&&!out.some(x=>x.slot===slot&&x.id===id))out.push({slot,id,name:SIM.part(slot,id).name,why:w});};
   for(const s of["chassis","drive","wheels","battery","electronics","weapon"])add(s,c[s]);
   if(c.weapon!=="none")add("weaponMaterial",c.weaponMaterial);
-  for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);return out;}
+  for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);
+  if(c.disc){const w=crDiscLock();if(w)out.push({slot:"disc",id:"disc",name:`Disc profile “${c.disc.name}”`,why:w});}
+  return out;}
 /* why a class can't be fitted yet in the career, or null */
 function crClassLock(cls){if(!crOn())return null;const c=S.career;
   const ok=TIME.acts.slice(0,c.act+1).some(a=>a.classes.indexOf(cls)>=0);
@@ -53,8 +64,8 @@ function crFitBlock(cfg){if(!crOn())return null;if(S.career.day)return"You're at
   const cl=crClassLock(cfg.cls);if(cl)return`${SIM.CLASSES[cfg.cls].name} ${cl}`;
   const L=crCfgLocks(cfg);return L.length?`${L[0].name} ${L[0].why}${L.length>1?` (and ${L.length-1} more)`:""}`:null;}
 /* tools cut build and repair hours: x (1 - cut) for each owned tool that names the slot, down to half */
-function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m);}
-function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot),0));}
+function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m)*(1-tmEngCut());}   // the engineer's cut on top of the tools'
+function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot)*(tmFab(l.slot,l.id)?1-tmFabCut():1),0));}
 const CR_KIND_SLOT={wheel:"wheels",pod:"drive",armour:"armour",battery:"battery",electronics:"electronics",weapon:"weapon",extras:"extras",chassis:"chassis"};
 
 /* ---- money ---- */
@@ -67,7 +78,7 @@ function crEarn(amt,what){const c=S.career;amt=Math.round(amt);if(!amt)return;c.
 /* ---- start ---- */
 function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffffff)^0x5C1A)>>>0,year:WORLD.startYear,week:1,season:0,act:0,
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
-  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[]};}
+  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
 const CR_START={chassis:"hdpe",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
@@ -76,7 +87,7 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
 function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
-function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.rivals={};S.lastFight=null;S.bots={};
+function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -112,9 +123,10 @@ function crTalk(rv){const m=S.rivals[rv.id];if(!m||!m.last)return rv.talk.first;
 function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crHash(crKey(e)))>>>0),cls=e.cls;
   const skill=Math.min(EVENT_SKILL_MAX,k.skill+EVENT_SKILL_ACT*e.act),out=[];
   const rv=RIVALS.filter(r=>r.bots[cls]).map(r=>({id:"rv:"+r.id,rival:r.id,name:r.bots[cls].name,who:r.name,cfg:crRivalCfg(r,cls),driver:{style:"auto",skill:Math.min(EVENT_SKILL_MAX,Math.max(skill,r.skill+0.03*crRivalLevel(r)))}}));
-  const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
+  let pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
     .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:t.name,cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=pool[i];pool[i]=pool[j];pool[j]=t;}
+  pool=crMetaOrder(pool,c.season);   // the season's meta (META_WAVES) comes first
   /* rivals come to the bigger days; a club meet gets one of them at most */
   const nRv=e.kind==="club"?Math.min(1,rv.length):rv.length;for(let i=rv.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=rv[i];rv[i]=rv[j];rv[j]=t;}
   const need=k.size-1;for(const x of rv.slice(0,nRv))if(out.length<need)out.push(x);for(const x of pool)if(out.length<need)out.push(x);
@@ -136,28 +148,29 @@ function crNext(day){if(!day||day.done)return null;const k=EVENT_KINDS[day.kind]
   if(day.fights.length)return null;
   if(k.format==="tag")return{idx:[0,1,2,3],teams:[0,0,1,1],bo:1,label:"tag match"};
   return{idx:[0,1,2,3],teams:[0,1,2,3],bo:1,label:"rumble"};}
-const crArena=day=>SIM.CLASSES[day.cls].arenaId;
+const crArena=day=>crFightRules(day.cls).arena;   // the class's arena, with the season's extra hazards (app/team.js)
+const crRulesOf=day=>crFightRules(day.cls).rules;
 const crMatchSeed=(day,idx,n)=>(day.seed+crHash(idx.join(",")+"#"+n+"#"+(day.rd||0)))>>>0;
 const crEvals=new Map();
 function crB(e){const k=JSON.stringify(e.cfg);let b=crEvals.get(k);if(!b){b=SIM.evalBuild(e.cfg);crEvals.set(k,b);if(crEvals.size>40)crEvals.delete(crEvals.keys().next().value);}return b;}
 const crFlags=f=>{const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;if(f.esc)o.esc=f.esc;return o;};
 /* a bot spec for newFight from a field entry: you are the AI at your driver skill in a quick sim, else the player */
-function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:e.name,team,driver:i===0?(quick?{style:"auto",skill:crSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
+function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:e.name,team,driver:i===0?(quick?{style:"auto",skill:crSimSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
 /* a finished bout: the winning team (most rounds; level goes to the smaller damage share, then the first) */
 function crBoutWinner(wins,F,teams){let best=null,bw=-1,tie=false;for(const t of teams){const w=wins[t]||0;if(w>bw){bw=w;best=t;tie=false;}else if(w===bw)tie=true;}
-  if(!tie)return best;const top=teams.filter(t=>(wins[t]||0)===bw),sh=t=>{const os=F.bots.filter(o=>o.team===t);return os.reduce((a,o)=>a+SIM.damageShare(o.b,o.st)+(o.out?1:0),0)/Math.max(1,os.length);};
+  if(!tie)return best;const top=teams.filter(t=>(wins[t]||0)===bw),sh=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+SIM.damageShare(o.b,o.st)+(o.out?1:0),0)/Math.max(1,os.length);};
   return top.sort((a,b)=>sh(a)-sh(b)||a-b)[0];}
 /* a whole match without anyone watching: rounds to the bo, the crews' pit work between */
 function crSimMatch(day,idx,teams,bo,quick){const T=teams||idx.map((_,k)=>k),wins={},Fs=[],need=Math.ceil(bo/2);
-  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),bots:idx.map((i,k)=>crSpec(day,i,T[k],quick))});
+  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),rules:crRulesOf(day),bots:idx.map((i,k)=>crSpec(day,i,T[k],quick))});
     const cap=Math.ceil(F.rules.roundS*SIM.STEP_HZ)+2;let s=0;while(!F.over&&s++<cap)SIM.stepFight(F,null);
     Fs.push(F);crCarry(day,idx,F);if(F.winner!=null)wins[F.winner]=(wins[F.winner]||0)+1;
     if(Object.keys(wins).some(t=>wins[t]>=need))break;
     if(n<bo-1)for(const i of idx)if(i!==0||quick)crCrew(day,i);}
   return{wt:crBoutWinner(wins,Fs[Fs.length-1],Array.from(new Set(T))),wins,Fs,teams:T};}
-function crCarry(day,idx,F){F.bots.forEach((o,k)=>{const e=day.field[idx[k]];e.dmg=SIM.damageTaken(o.b,o.st);e.flags=crFlags(o.flags);});}
+function crCarry(day,idx,F){F.bots.forEach((o,k)=>{if(o.mini)return;const e=day.field[idx[k]];e.dmg=SIM.damageTaken(o.b,o.st);e.flags=crFlags(o.flags);});}
 /* a crew's pit work between fights (pitAuto, app/pit.js) */
-function crCrew(day,i){const e=day.field[i];if(!e.left||!Object.keys(e.left).length)return[];return pitAuto(crB(e),e.dmg,e.flags,e.left);}
+function crCrew(day,i){const e=day.field[i];if(!e.left||!Object.keys(e.left).length)return[];return pitAuto(crB(e),e.dmg,e.flags,e.left,i===0);}
 
 /* a match is over: put it in the day's table or bracket. res {wt, teams, Fs} */
 function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F=res.Fs[res.Fs.length-1];
@@ -174,7 +187,7 @@ function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F
     for(const [kk,i] of idx.entries())if(res.teams[kk]!==me&&day.field[i].rival)crRivalMeet(day.field[i].rival,won);}}
 const crAnd=a=>a.length>1?a.slice(0,-1).join(", ")+" and "+a[a.length-1]:a.join("");
 /* a rumble or tag team's finishing order by team: the winner, then who's still going, then the least damaged */
-function crRank(F,wt,teams,stopped){const T=Array.from(new Set(teams)),sc=t=>{const os=F.bots.filter(o=>o.team===t);return os.reduce((a,o)=>a+(o.out||o.fx.dead?2:0)+SIM.damageShare(o.b,o.st),0)/os.length;};
+function crRank(F,wt,teams,stopped){const T=Array.from(new Set(teams)),sc=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+(o.out||o.fx.dead?2:0)+SIM.damageShare(o.b,o.st),0)/os.length;};
   return T.sort((a,b)=>(a===wt?-1:b===wt?1:0)||(stopped?(a===0?1:b===0?-1:0):0)||sc(a)-sc(b));}
 function crRivalMeet(id,won){const m=S.rivals[id]||(S.rivals[id]={w:0,l:0,run:0});if(won){m.w++;m.run=m.last&&m.last.won?m.run+1:1;}else{m.l++;m.run=0;}
   const c=S.career;m.last={y:c.year,wk:c.week,ev:c.day?crEv(c.day.ev).name:"",won};}
@@ -207,7 +220,8 @@ function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],p
   const b=bBot(day.cls),me=day.field[0];if(bnSig(b.cfg)===bnSig(me.cfg)){b.damage=clone(me.dmg);b.flags=crFlags(me.flags);}
   c.events[day.key]={place,prize,rep};
   c.results.unshift({y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
-  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind};save();hud();}
+  const offer=tmAfterEvent(day,place);
+  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null};save();hud();}
 
 /* ---- your fights ---- */
 function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
@@ -216,7 +230,7 @@ function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
   toast(`${f.draw?"Draw":f.won?"Won":"Lost"}: ${f.label} vs ${f.vs}`);}
 function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const e=crEv(day.ev),T=nx.teams||[0,1];
   ST().buildCls=day.cls;day.live=nx.label;save();showTab("fight");
-  ftEvent({arena:crArena(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
+  ftEvent({arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
     kit:day.kit,left:nx.idx.map(i=>day.field[i].left||{}),label:nx.label,title:e.name,
     onDone:(B,F)=>{CR.seen=true;delete day.live;const res={wt:B.stopped?T.find(t=>t!==T[0]):crBoutWinner(B.wins,F,Array.from(new Set(T))),wins:B.wins,Fs:FT.rounds.map(r=>r.F),teams:T};
       nx.idx.forEach((i,k)=>{if(B.dmg[k]){day.field[i].dmg=B.dmg[k];day.field[i].flags=crFlags(B.flags[k]||{});}});
@@ -226,7 +240,7 @@ function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const
    fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
 function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
   const nx=crNext(day);delete day.live;if(!nx){save();return;}const T=nx.teams||[0,1];
-  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
+  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
   const res={wt:T.find(t=>t!==T[0]),wins:{},Fs:[F],teams:T};
   crRecord(day,nx,res,true);for(const i of nx.idx)if(i!==0)crCrew(day,i);crAdvance(day);save();hud();
   toast(`The ${nx.label} was left unfinished: counted as a forfeit`);}
@@ -261,7 +275,7 @@ function crClose(force){const c=S.career;if(!crOn())return;
   if(c.day&&!force){openSheet("Close the week?",`<p>You're entered in <b>${esc(crEv(c.day.ev).name)}</b> and it isn't over. Closing the week forfeits the rest of it; the damage so far comes home with the bot.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Forfeit and close the week</button></div>`);return;}
   if(c.day){const d=c.day;d.out=true;const b=bBot(d.cls);if(bnSig(b.cfg)===bnSig(d.field[0].cfg)){b.damage=clone(d.field[0].dmg);b.flags=crFlags(d.field[0].flags);}
     c.events[d.key]={place:null,prize:0,rep:0,forfeit:true};c.day=null;c.entered=null;}
-  closeSheet();const st=crStage();crPay(st.rent,`Rent: ${st.name.toLowerCase()}`);CR.end=null;c.last=null;
+  closeSheet();const st=crStage();crPay(st.rent,`Rent: ${st.name.toLowerCase()}`);tmWages();CR.end=null;c.last=null;
   if(c.money<0&&crBroke())return;
   c.week++;if(c.week>TIME.weeks){crSeasonEnd();}
   c.hours=crR1(Math.min(st.hours*TIME.bankWeeks,c.hours+st.hours));save();hud();crRender();
@@ -276,20 +290,22 @@ function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).leng
 function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act],ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];
   const best=c.results.filter(x=>x.y===c.year).sort((x,y)=>x.place-y.place||y.prize-x.prize)[0];
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
+  const tl=tmSeasonEnd();   // sponsors renew or go, the kit pays, the new season's rules and meta (app/team.js)
   c.seasons.push({y:c.year,act:c.act,rep:c.rep,money:c.money,best:best?`${best.name}: ${crPlaceTxt(best.kind,best.place)}`:null});
-  if(up)c.act++;c.year++;c.season++;c.week=1;
+  if(up)c.act++;c.year++;c.season++;c.week=1;c.repY0=c.rep;
   if(c.season>=WORLD.seasons){c.over=true;c.done=true;}
   setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>
     ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
+    ${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>`}`),200);}
 
 /* ---- the tab ---- */
-function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();const c=S.career;
+function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start: what you've fitted while sparring isn't kept (it was free). Your saved designs stay, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
   if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${crResultsCard()}`;return;}
-  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+crCalendarCard()+crRivalsCard()+crResultsCard()+
+  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+crResultsCard()+
     `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
@@ -302,6 +318,7 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
     <div class="row"><button type="button" class="btn pri" data-cr="close">Close week</button></div></div>`;}
 function crEventCard(){const c=S.career;
   if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${crFightsHtml(c.results[0]?c.results[0].fights:[])}
+    ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
     <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p></div>`;
   if(c.day)return crDayCard(c.day);
   const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p></div>`;}
@@ -339,7 +356,7 @@ function crDayCard(day){const e=crEv(day.ev),k=EVENT_KINDS[day.kind],nx=crNext(d
     ${nx?`<div class="crnext"><p><b>Next: the ${esc(nx.label)}</b>${nx.bo>1?" (best of three)":""} against ${crAnd(opp.map(o=>`<b>${esc(o.name)}</b>${o.who?` (${esc(o.who)})`:""}`))}${partner?`, with ${esc(partner.name)} as your partner`:""}.</p>
       ${rv.map(r=>`<p class="crtalk">“${esc(crTalk(r))}” <small>${esc(r.name)}</small></p>`).join("")}
       <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
-      <p class="hint">Quick sim: the AI drives your bot at your skill (${crLevel()}) and your crew does the pit work. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
+      <p class="hint">Quick sim: ${esc(crSimWho())} and your crew does the pit work. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
 function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${f.esc} speed controller dead`:""].filter(Boolean).join(", ");}
 function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}</small></li>`).join("")}</ul>`;}
 /* the round robin's table, or the bracket so far */
@@ -363,7 +380,7 @@ function crRivalsCard(){const c=S.career,cls=TIME.acts[c.act].classes;
       ${m.w+m.l?`<br><span>You <span class="readout">${m.w}–${m.l}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}</span>`:""}</li>`;}).join("")}</ul></div>`;}
 function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
   return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${r.y} wk ${r.w}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
-function crClick(e){const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
+function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
   if(x.dataset.crfix){crFix(x.dataset.crfix,x.dataset.crkey||null);return;}
   const a=x.dataset.cr;
   if(a==="start"){if(S.career)return;openSheet("Start a career",`<p>You start with ${fmt$(TIME.startMoney)} in ${esc(WORLD.home)}. Bots fitted while sparring are cleared; designs stay.</p><div class="row"><button type="button" class="btn pri" data-cr="start-ok">Start</button></div>`);}

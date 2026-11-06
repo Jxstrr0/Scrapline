@@ -165,7 +165,22 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
     stats:{dealt:0,taken:0,hits:0,landed:0,failHits:0},jd:{close:0,contact:0,retreat:0,ctrl:0}};
   o.rad=Math.max(...o.poly.map(p=>Math.hypot(p[0],p[1])));
   o.fx=damageEffects(b,o.st,o.flags);
+  /* a season's spinner energy cap (rules.capJ, PR 8): the disc's top speed comes down until it stores no more than that */
+  const w=b.weapon,cap=F&&F.rules.capJ;
+  if(cap>0&&(w.type==="spinner"||w.type==="saw")&&w.storedJ>cap){const k=Math.sqrt(cap/w.storedJ);
+    o.b=Object.assign({},b,{weapon:Object.assign({},w,{omega:w.omega*k,rpm:w.rpm*k,tipSpeed:w.tipSpeed*k,storedJ:cap,energyJ:cap,capped:true})});}
   return o;}
+/* a bot's minibot (sim/parts.js MINIBOT): dropped off behind it at the bell, on its team, AI-driven at its parent's
+   skill (0.5 for the player's). Only when the parent's minibot part isn't destroyed. */
+function newMini(F,o){const cls=MINIBOT.cls[o.b.cls];if(!cls||o.cfg.extras.indexOf("minibot")<0)return null;
+  if(partStates(o.b,o.st).minibot==="destroyed")return null;
+  const sk=o.driver&&o.driver.skill!=null?o.driver.skill:0.5,i=F.bots.length;
+  const m=newBot({cfg:Object.assign({},MINIBOT.cfg,{cls}),team:o.team,name:o.name+"'s minibot",driver:Object.assign({},MINIBOT.driver,{skill:sk})},i,F);
+  m.mini=true;m.parent=o.i;const d=o.rad+m.rad+0.01*F.M.len;
+  m.x=o.x-Math.cos(o.h)*d;m.y=o.y-Math.sin(o.h)*d;m.h=o.h;m.pw=worldPoly(m,m.poly);
+  m.ai=aiNew(m,(F.seed^Math.imul(0x85EBCA6B,i+1))>>>0,F);return m;}
+/* the bots that count (minibots don't, for knockouts or the judges) */
+const mainBots=F=>F.bots.filter(o=>!o.mini);
 function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.bots||[]).filter(s=>s&&s.cfg);
   if(specs.length<2)throw new Error("newFight needs two bots or more");
   const cls=normCfg(specs[0].cfg).cls,rules=Object.assign({roundS:FIGHT.roundS,koS:FIGHT.koS},opts.rules||{});
@@ -189,6 +204,8 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     o.h=wrapA(a+Math.PI+rRange(F.rng,-0.08,0.08));o.pw=worldPoly(o,o.poly);
     if(o.driver)o.ai=aiNew(o,(seed^Math.imul(0x9E3779B1,i+1))>>>0,F);
     else F.rec[i]={v:[[],[],[]],last:[FIGHT.inputLevels+1,FIGHT.inputLevels+1,0]};});
+  /* minibots go on the end, so every main bot keeps its index (and the player is still bot 0) */
+  for(const o of F.bots.slice()){const m=newMini(F,o);if(m)F.bots.push(m);}
   return F;}
 
 /* ---- the log ---- */
@@ -446,10 +463,11 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
       o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
-function outBot(F,o,why){o.out=why;o.outAt=F.t;
+function outBot(F,o,why,quiet){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;}
   if(o.held!=null){const a=F.bots[o.held];if(a&&a.wp.held===o.i)a.wp.held=null;o.held=null;}
-  logIt(F,{k:why,v:o.i});}
+  if(!quiet)logIt(F,{k:why,v:o.i});
+  if(!o.mini)for(const m of F.bots)if(m.mini&&m.parent===o.i&&!m.out)outBot(F,m,"parent",true);}   // a minibot stops with its parent
 
 function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots)if(!o.out)readInput(F,o,inputs);else o.input={throttle:0,steer:0,weapon:0,selfRight:0};
@@ -480,9 +498,9 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots){if(o.out)continue;const still=!mobile(o)&&!(o.righting>0&&o.fx.righter);
     o.immobileS=still?o.immobileS+dt:0;if(o.immobileS>=F.rules.koS)outBot(F,o,"ko");}
   F.t+=dt;F.n++;
-  const teams=[...new Set(F.bots.filter(o=>!o.out).map(o=>o.team))];
+  const teams=[...new Set(mainBots(F).filter(o=>!o.out).map(o=>o.team))];
   if(teams.length<=1){F.over=true;F.endT=F.t;F.winner=teams.length?teams[0]:null;
-    const last=F.bots.filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
+    const last=mainBots(F).filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
   else if(F.t>=F.rules.roundS-1e-9){F.over=true;F.endT=F.t;judgeFight(F);}
   if(F.over){const e=logIt(F,{k:"end",w:F.winner,why:F.reason});if(F.judge)e.j=F.judge.scores;}
   return F;}
@@ -493,10 +511,10 @@ function hpTotal(b){return Object.values(b.armourMapJ).reduce((a,f)=>a+(f.hpJ||0
 /* v rounded to whole tenths that add up to exactly want tenths (largest remainder; ties to the earlier team) */
 function tenths(v,want){const f=v.map(x=>Math.floor(x*10+1e-9)),left=want-f.reduce((a,x)=>a+x,0);
   const ord=v.map((x,i)=>i).sort((a,b)=>(v[b]*10-f[b])-(v[a]*10-f[a])||a-b);for(let k=0;k<left&&k<ord.length;k++)f[ord[k]]++;return f;}
-function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},hp=F.bots.reduce((a,o)=>a+hpTotal(o.b),0)/F.bots.length,T=Math.max(F.t,1);
-  for(const o of F.bots){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
+function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},B=mainBots(F),hp=B.reduce((a,o)=>a+hpTotal(o.b),0)/B.length,T=Math.max(F.t,1);
+  for(const o of B){const s=raw[o.team]||(raw[o.team]={damage:0,aggression:0,control:0});
     s.damage+=o.stats.dealt/hp;s.aggression+=Math.max(0,o.jd.close+o.jd.contact-o.jd.retreat)/T;s.control+=o.jd.ctrl/T;}
-  const ks=Object.keys(raw).filter(k=>F.bots.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
+  const ks=Object.keys(raw).filter(k=>B.some(o=>String(o.team)===k&&!o.out)),sc={},tot={};
   for(const k of ks){sc[k]={damage:0,aggression:0,control:0,total:0};tot[k]=0;}
   for(const term of ["damage","aggression","control"]){const sum=ks.reduce((a,k)=>a+raw[k][term]+R[term],0);
     const v=ks.map(k=>100*W[term]*(raw[k][term]+R[term])/sum),t=tenths(v,Math.round(1000*W[term]));
@@ -504,7 +522,7 @@ function judgeFight(F){const W=JUDGE_WEIGHTS,R=FIGHT.judge.ref,raw={},hp=F.bots.
   for(const k of ks)sc[k].total=Math.round((sc[k].damage+sc[k].aggression+sc[k].control)*10)/10;   // the rows the table shows, so it adds up
   const order=ks.slice().sort((a,b)=>tot[b]-tot[a]);F.judge={scores:sc,raw};
   if(order.length>1&&tot[order[0]]-tot[order[1]]<0.5){F.winner=null;F.reason="draw";}
-  else{F.winner=F.bots.find(o=>String(o.team)===order[0]).team;F.reason="judges";}}
+  else{F.winner=B.find(o=>String(o.team)===order[0]).team;F.reason="judges";}}
 
 /* ---- the player's inputs, packed: three channels (throttle, steer, buttons), one value per input tick (30 Hz). Each
    channel is a list of tokens: a byte with the top bit set is a small step, value += ((b >> 3) & 15) - 7, held for
@@ -552,7 +570,7 @@ function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules
     while(JSON.stringify(L).length>FIGHT.logMaxB&&k<small.length){drop.add(small[k++].i);L.entries=all.filter((e,i)=>!drop.has(i));L.trimmed=drop.size;}}
   return L;}
 function fightResult(F){return{over:F.over,winner:F.winner,reason:F.reason,timeS:r2(F.endT!=null?F.endT:F.t),judge:F.judge||null,
-  bots:F.bots.map(o=>({i:o.i,name:o.name,team:o.team,out:o.out,inverted:o.inverted,damage:damageTaken(o.b,o.st),states:resStates(o),
+  bots:F.bots.map(o=>({i:o.i,name:o.name,team:o.team,mini:!!o.mini,out:o.out,inverted:o.inverted,damage:damageTaken(o.b,o.st),states:resStates(o),
     flags:Object.assign({},o.flags),
     share:r2(damageShare(o.b,o.st)),stats:{dealt:r2(o.stats.dealt),taken:r2(o.stats.taken),hits:o.stats.hits,landed:o.stats.landed,failHits:o.stats.failHits},
     judge:{close:r2(o.jd.close),contact:r2(o.jd.contact),retreat:r2(o.jd.retreat),control:r2(o.jd.ctrl)},style:o.ai?o.ai.style:null})),
