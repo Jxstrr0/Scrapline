@@ -19,7 +19,7 @@ const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown
 function ctlAssist(){return ST().assists===false?ASSISTS.off:ASSISTS[CTL.skill||"rookie"]||ASSISTS.rookie;}
 /* build the overlay inside the arena view; the Fight tab calls it when a fight starts with you driving */
 function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tactical":"direct";CTL.left=!!ST().leftHanded;
-  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.order=null;CTL.steerS=0;CTL.keys={};
+  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.last=null;CTL.order=null;CTL.steerS=0;CTL.keys={};
   const el=document.createElement("div");el.id="ctl";el.className="ctl "+CTL.scheme+(CTL.left?" lefty":"");
   el.innerHTML=CTL.scheme==="direct"
     ?`<div class="ctlpad" data-c="pad" aria-hidden="true"><i class="ctlbase"></i><i class="ctlknob"></i><span class="ctlhint">Drive</span></div>
@@ -41,7 +41,7 @@ function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tact
     wpn.addEventListener("pointerup",end);wpn.addEventListener("pointercancel",end);wpn.addEventListener("lostpointercapture",end);
     wpn.addEventListener("click",e=>e.preventDefault());}
   if(sr){sr.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.sr=true;sr.classList.add("down");});
-    const end=()=>{CTL.sr=false;sr.classList.remove("down");};sr.addEventListener("pointerup",end);sr.addEventListener("pointercancel",end);}
+    const end=()=>{CTL.sr=false;sr.classList.remove("down");};sr.addEventListener("pointerup",end);sr.addEventListener("pointercancel",end);sr.addEventListener("lostpointercapture",end);}
   if(tap)tap.addEventListener("pointerdown",e=>{e.preventDefault();ctlTap(e);});}
 function ctlUnmount(){if(CTL.el&&CTL.el.parentNode)CTL.el.parentNode.removeChild(CTL.el);CTL.el=null;CTL.on=false;CTL.stick=null;CTL.keys={};}
 /* the stick: knob offset from where the thumb landed, at most 56 px */
@@ -53,7 +53,15 @@ function ctlDrawStick(){if(!CTL.el)return;const base=CTL.el.querySelector(".ctlb
   const v=ctlStickVec(),x=s.x0-s.rx,y=s.y0-s.ry;base.style.opacity=knob.style.opacity="1";if(hint)hint.hidden=true;
   base.style.left=x+"px";base.style.top=y+"px";knob.style.left=(x+v.dx)+"px";knob.style.top=(y+v.dy)+"px";}
 /* tactical: what did the tap land on? */
-function ctlTap(e){const F=FT.F;if(!F)return;const r=CTL.el.getBoundingClientRect(),p=SCRAP_VIS.pick(e.clientX-r.left,e.clientY-r.top);if(!p)return;
+/* where a tap lands on the floor, in sim metres: through the top-down canvas when it shows (2D, or no WebGL), else the 3D pick */
+function ctlFloor(F,e){const cv=FT.view2d&&$("fCv");
+  if(cv&&!cv.hidden){const q=cv.getBoundingClientRect();if(!q.width||!q.height)return null;
+    const dpr=Math.min(window.devicePixelRatio||1,2),W=cv.width,H=F.arena.half,pad=10*dpr,s=(W-2*pad)/(2*H);   // DEBUGVIEW.draw's transform
+    const cx=(e.clientX-q.left)*W/q.width,cy=(e.clientY-q.top)*cv.height/q.height,x=(cx-W/2)/s,y=(W/2-cy)/s;
+    return Math.abs(x)<=H*1.05&&Math.abs(y)<=H*1.05?{x,y}:null;}
+  if(!window.SCRAP_VIS||SCRAP_VIS.view!=="arena")return null;
+  const r=CTL.el.getBoundingClientRect();return SCRAP_VIS.pick(e.clientX-r.left,e.clientY-r.top);}
+function ctlTap(e){const F=FT.F;if(!F)return;const r=CTL.el.getBoundingClientRect(),p=ctlFloor(F,e);if(!p)return;
   const me=F.bots[0];let hit=null,best=1e9;
   for(const o of F.bots){if(o.out)continue;const d=Math.hypot(o.x-p.x,o.y-p.y);if(d<o.rad*1.6+0.03*F.M.len&&d<best){best=d;hit=o;}}
   if(hit===me)CTL.order={k:"back",t:F.t+0.8};else if(hit&&hit.team!==me.team)CTL.order={k:"attack",v:hit.i};else CTL.order={k:"go",x:p.x,y:p.y};
@@ -72,6 +80,9 @@ function ctlPad(){if(!navigator.getGamepads)return null;let gp=null;try{for(cons
 
 /* this step's input for bot o in fight F */
 function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CTL.on||!o)return out;
+  /* the sim only reads the player on every inputTick-th step: between those, hold the last reading so a tap (a flipper
+     shot, the spinner toggle) is kept for the next read instead of being spent on a step the sim ignores */
+  if(F.n%SIM.FIGHT.inputTick&&CTL.last)return CTL.last;
   const A=ctlAssist(),W=o.b.weapon,spinner=W.type==="spinner"||W.type==="saw",foe=ctlFoe(F,o),near=foe&&Math.hypot(foe.x-o.x,foe.y-o.y)<(o.rad+foe.rad)*4;
   let thr=0,st=0,wpn=false,sr=CTL.sr,steering=false;
   const v=ctlStickVec(),K=CTL.keys,gp=ctlPad();
@@ -92,7 +103,7 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CT
   out.throttle=Math.max(-1,Math.min(1,thr));out.steer=Math.max(-1,Math.min(1,st));out.weapon=wpn?1:0;out.selfRight=sr?1:0;
   /* the self-right button shows only when it's needed */
   const srb=CTL.el&&CTL.el.querySelector("[data-c=sr]");if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
-  return out;}
+  CTL.last=out;return out;}
 function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}
 /* tactical orders to throttle and steer: point at the target, go when roughly facing it */
 function ctlTactical(F,o,ord){let tx,ty,wpn=false;

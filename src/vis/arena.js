@@ -12,8 +12,8 @@
    it shakes on hits (fx.js), never under reduced motion. Lite: flat materials, no shadows. ---- */
 const AR={F:null,g:null,U:4,bots:[],haz:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
-  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own)o.material.dispose();});}
-  if(AR.lights){V.scene.remove(AR.lights);AR.lights=null;}
+  if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
+  if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
 function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
   g.fillStyle="#141311";g.fillRect(0,0,512,64);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;   // fixed pattern, no Math.random
@@ -72,9 +72,8 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
     /* falling into the pit: sink and fade out over half a second */
     if(o.out==="pit"){B.fall=Math.min(1,B.fall+dt*2);m.position.y=-B.fall*3;m.visible=B.fall<1;continue;}
-    const lift=(o.held!=null?0.06:o.under?0.012:0)*4;
     B.inv+=((o.inverted?1:0)-B.inv)*Math.min(1,dt*10);   // roll over smoothly when the sim flips it
-    m.position.set(o.x*U,(o.z||0)*U+lift+B.inv*(u.H||0.05)*U,-o.y*U);
+    m.position.set(o.x*U,(o.z||0)*U+B.inv*(u.H||0.05)*U,-o.y*U);
     m.rotation.set(0,o.h-Math.PI/2,0);m.rotateZ(B.inv*Math.PI);
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */

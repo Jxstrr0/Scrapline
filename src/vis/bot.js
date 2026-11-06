@@ -89,7 +89,7 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     g.add(spin);
     /* a blur disc that shows when it's up to speed (opacity set per frame) */
     const blur=new THREE.Mesh(spin.userData.axis==="y"?new THREE.CircleGeometry(r*1.05,seg):new THREE.CircleGeometry(r*1.05,seg),M.blur.clone());
-    blur.userData.role="blur";
+    blur.userData.role="blur";blur.userData.own=true;   // its own material copy: freed with the cached source
     if(spin.userData.axis==="y")blur.rotation.x=-Math.PI/2;else blur.rotation.y=Math.PI/2;
     blur.position.copy(spin.position);blur.position.y+=spin.userData.axis==="y"?r*0.05:0;g.add(blur);
     return;}
