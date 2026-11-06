@@ -409,7 +409,7 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] PR 1: Classes, parts tables, layout grid, height profile, heat, build maths, stress report, node tests
 - [x] PR 2: Build tab: weight bar, layout editor, side profile, deltas, designs
 - [x] PR 3: Bench tests including wedge gauge and drop test
-- [ ] PR 4a: N-body headless sim, height axis, wedge rules, damage, input recording, two AIs, debug view, first harness
+- [x] PR 4a: N-body headless sim, height axis, wedge rules, damage, input recording, two AIs, debug view, first harness
 - [ ] PR 4b: AI styles, arenas with hazard numbers, judges, 15 opponents, balance targets
 - [ ] PR 5: Arena view, two control schemes, multi-touch, haptics, HUD, sparring
 - [ ] PR 6: Pit window and pit kits, post-mortem with repair bill, copy build, replay

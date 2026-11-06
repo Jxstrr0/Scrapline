@@ -59,7 +59,47 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **The stress report** uses the measured numbers once a test has run (runtime, overheating, spin-up, wedges that get under you), adds the weak side from the impact test and drop failures, and tags those lines "Bench", here and on the Build tab.
 - **Save:** `v` 3. `bots[cls].bench` says which tests have run on the fitted bot; the results themselves are worked out again (the sim is deterministic).
 
+## 0.1.4.0: the fight simulation (PR 4a)
+
+- **The fight is run by the sim, not the view.** `SIM.newFight({bots, arena, seed, rules})` then `SIM.stepFight(F, inputs)` at a fixed 60 Hz, or `SIM.runFight(opts)` to the end. Same seed, same builds, same player inputs: the same fight, every time, in a browser or in node. Any number of bots, each with a team, so rumbles and tag team are just longer bot lists.
+- **Bodies:** each bot is its build's outline (a box, or the custom shape with its cut corners) with the build's mass and yaw inertia, pushed by tank steering: each side's wheels push like a DC motor (full push at a standstill, none at top speed), capped by grip. Tyres scrub when turning and resist sliding sideways. A lost wheel takes its share of that side's grip, a lost drive pod its share of the push; a side with no pods, no wheels or a dead speed controller is out.
+- **Height:** bots can be in the air (a flip, a big vertical spinner hit, a lifter tipping them). In the air there's no drive and no bumping into other bots; landing hurts by the drop test's maths, and a big enough throw can land a bot upside down. Upside down, a bot whose wheels stand proud of both faces drives on; anything else has to self-right (a self-righter takes 1.2 s; a flipper fires a shot) or it is stuck.
+- **Wedges:** when a bot's front touches another bot, the lower edge gets under if it is lower by more than the tolerance (0.3 mm on a beetle): the other bot's front edge, or its ground clearance on any other face. The bot that's under keeps a fifth of its grip, its own weapon lands half, and the wedge's hits skip its armour's deflect. Front to front within the tolerance, a skid plate wins, then the harder edge.
+- **Weapons,** each with a working zone in front of the bot (a circle round a horizontal disc):
+  - **Spinners** spin up on the bench's motor curve and slow with the weapon off. A hit needs a quarter of top speed and lands stored energy x bite (a little random each time). A hit on a plate that deflects, unless the target is lifted, glances off for 30%. The disc loses that share of its energy. The target takes 65% as damage and 35% as a throw (verticals and drums throw upward), and the attacker is kicked back by the weapon's recoil.
+  - **Self-damage:** a hit over the material's bend rating bends the disc (half energy from then on, and it spins up slower); a huge hit at full speed can shear the shaft.
+  - **Flippers** fire a shot (12, with a second to recharge) and launch anything they can lift, as high as their energy allows. **Lifters** hold a bot up (no grip) and tip it over after 0.8 s. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
+- **Damage:** every hit goes through the bench's damage model (absorb, plate, then the most exposed part behind the face). The fight adds the effects:
+  - a dead side;
+  - a damaged battery that may smoke (power drops to 60%);
+  - a destroyed battery: dead, unless a failsafe ESC keeps one cell going;
+  - speed controllers: one side dies below half hp, the bot dies with them;
+  - the weapon motor dies below 35% (the disc only coasts), and the weapon is gone at 0;
+  - a self-righter lost;
+  - chassis flex: a battered chassis lets the armour absorb less.
+  
+  Knocks against bots and walls do a little damage too. Motors heat up and back off to half power, and the battery runs down.
+- **Ends:** a knockout (immobile for 10 s: dead, both sides out, a flat battery, or stuck upside down; being thrown about doesn't stop the count), the pit (once PR 4b's arenas have one), or the bell. For now the bell goes to whoever lost the smaller share of their hp; PR 4b brings the judges.
+- **The log** holds every hit, failure, flip, landing and knockout with its time, plus the seed, builds, arena and rules, and the player's inputs. The inputs are read at 30 Hz, each stick axis in 63 steps, small changes packed into a byte. So a busy round's log is about 12 KB, under the 20 KB cap. `SIM.replayFight(log)` plays the same fight again from it.
+- **Two AI drivers,** each with a skill (how late it reacts, how far its aim wanders): **rush** drives at the nearest enemy with the weapon on; **keep-away** circles at a distance until its disc is up to speed (or the enemy looks away), then closes. Both back off when stuck, self-right when they need to, and fire flippers and hammers when the enemy is in reach.
+- **The Fight tab** plays the fitted bot against any test build in a top-down view, both AI-driven, at 1x, 2x or 4x:
+  - the view shows outlines, heading lines, weapon zones (a spinner's glows as it spins up), hit flashes, shadows in the air, and UNDER / INV / LIFTED / OUT markers;
+  - under it, each bot's weapon, battery, heat and damage, and the log in words.
+  
+  It pauses when the phone hides the page or you leave the tab. It saves nothing.
+- **`tools/fight-test.js`** fights every test build against every other, 20 seeds, both AIs (2,640 beetle fights in about half a minute), and prints win rates, damage, fight length and knockouts, with `-m` for the matchup matrix. It also checks:
+  - repeatability and replay;
+  - log size and NaN;
+  - the step budget (about 3.5 µs a step against 2 ms);
+  - carried-in damage;
+  - a 4-bot rumble;
+  - that the wedge gets under the brick and a flipper lands a bot upside down.
+  
+  The balance targets are printed, not enforced, until PR 4b.
+
 ## Known loose ends
 
 - Save slots exist in the save format but have no UI until PR 7.
 - The control scheme and handedness settings arrive with the arena in PR 5.
+- Balance is first-pass (PR 4b tunes it): spinners win most beetle matchups; hammers barely dent a thick HDPE top (its absorb eats a 25 J blow whole); flippers and wedges have nothing to finish with until PR 4b's pits and judges; the "Sloppy budget" build loses nearly everything, as it should.
+- Spinner disc against spinner disc (weapon clashes) isn't modelled yet: a hit is a hit on the face it lands on.
