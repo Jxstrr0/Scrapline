@@ -134,7 +134,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
   - **The Fight tab:** sparring, one on one or a rumble, you or the AI driving, fight mode full screen with the HUD, the results card.
   - **Saves:** `SAVE_V` 4 (`settings.controls`, `leftHanded`, `assists`).
 - PR 6 done (0.1.7.0): the pit window, post-mortem, replay.
-  - **Best of three** in sparring (first to two). Damage and a bent disc carry between rounds (`newFight` bots take `flags: {bent}`).
+  - **Best of three** in sparring (first to two). Damage and failures carry between rounds (`newFight` bots take `flags: {bent, smoke, cell, esc}`).
   - **`app/pit.js`:** the 60 s pit window between rounds. `PIT_KITS` (basic, full, pro; free when sparring, Kelbo) and `REPAIR_TIMES` in `state.js`; one repair at a time, the clock runs while you choose and pauses when hidden. `pitItems`, `pitApply`, and `pitAuto` (the other crew).
   - **`app/report.js`:** the post-mortem: hit timeline, damage map, cause chain, a redesign hint from `COMBOS`, the repair bill (`REPAIR_COST`, `REPAIR_HOURS`; shown, charged from PR 7), their build revealed with Copy to designs.
   - **Replay** (`app/fight.js`): re-runs the sim from the log in the arena view or 2D, ½× to 2×; the scrub bar re-runs from the start to the moment (no keyframes), on every tier. `SCRAP_VIS.setFight(F, true)` keeps the scene; `SIM.unpackInputs` is exported.

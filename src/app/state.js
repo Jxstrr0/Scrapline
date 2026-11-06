@@ -52,7 +52,8 @@ const PIT_KITS={
   pro:  {name:"Pro kit",  price:420,allow:{wheel:4,bodge:4,belt:2,armour:4,battery:2,pod:2,disc:1},line:"Adds drive pods and a spare weapon disc."}
 };
 /* pit-window repairs: seconds and what each does. A swap puts the part back to new; a bodge patches any damaged or
-   destroyed part (not the chassis) to half strength. belt: a damaged weapon (not bent); disc: a bent or wrecked weapon. */
+   destroyed part (not the chassis or a bent disc) to half strength. belt: a damaged weapon (not bent); disc: a bent or
+   wrecked weapon (pro kit only). A swapped battery stops smoking; a bodged speed controller brings its side back. */
 const REPAIR_TIMES={wheel:15,belt:20,pod:35,battery:25,armour:30,bodge:10,disc:30};
 const PIT_S=60;
 /* driving assists by driver skill (app/controls.js): straighten holds the heading when you aren't steering (x the spin
