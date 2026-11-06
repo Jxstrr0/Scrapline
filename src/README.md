@@ -42,11 +42,11 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/build.js` | `K`, `evalBuild(cfg)`: grams and mm in, SI out (its header lists every field); `fitBill` (what fitting a draft costs) and `sameParts` |
 | `sim/combos.js` | `COMBOS` stress-report rules and `stressReport(b)` |
 | `sim/bench.js` | `WEDGE_GAUGES`, `BENCH`, `BENCH_TESTS`, `runBench` and the six bench tests (drive, weapon, impact, wedge gauge, endurance, drop), `benchPartName` |
-| `sim/fight.js` | `STEP_HZ`, `WEDGE_RULES`, `FIGHT` (the fight's tuning numbers); `newFight`, `stepFight`, `runFight`, `replayFight`, `fightResult`: bodies, drive, the height axis, weapons and their zones, collisions, the wedge rule, knockouts, the log and the packed player inputs |
+| `sim/fight.js` | `STEP_HZ`, `WEDGE_RULES`, `FIGHT` (the fight's tuning numbers); `newFight`, `stepFight`, `runFight`, `replayFight`, `fightResult`: bodies, drive, the height axis, weapons and their zones, collisions, the wedge rule, the pin limit, `arenaOf` (layout from the seed), the pit and hazards, the judges, knockouts, the log and the packed player inputs |
 | `sim/damage.js` | `DAMAGE`, `PART_STATES`; `damageState` (fresh or with carried damage), `hitOrder`, `hitFace` (the bench uses them too), `landHit`, `damageEffects` (what the damage does), `damageTaken`, `partStates`, `damageShare` |
-| `sim/ai.js` | `AI_STYLES` (rush, keep-away; the rest in PR 4b), `AI_SKILL`, `aiNew`, `aiThink` |
-| `sim/arenas.js` | `ARENAS` (the plain test box now; hazards in PR 4b), `JUDGE_WEIGHTS` (PR 4b) |
-| `sim/opponents.js` | `OPPONENTS` (PR 4b); **the SCRAP_SIM export object**, `module.exports`, `</script>` |
+| `sim/ai.js` | `AI_STYLES` (rush, keep-away, aggressive, cautious, counter, box-rush, hazard-pusher, opportunist), `AI_SKILL`, `autoStyle`, `aiNew`, `aiThink` |
+| `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
+| `sim/opponents.js` | `OPPONENTS` (15: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
 | `sound/synth.js` | the whole block: synthesized clangs and motor whine (PR 5; a stub now) |
 | **SCRAP_VIS** (three.js) | |
@@ -64,9 +64,9 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/boot.js` | `TABS`, `TAB_RENDER`, `showTab`, the Settings sheet, intro, `start()` (scheduled with `__ldGo`) |
 | `app/build.js` | the Build tab: weight bar and summary, section rows with deltas, armour sketch, layout editor, side profile, stress report, designs, the draft and Fit (pay on fit, `SIM.fitBill`); `?sim=1` adds the raw result |
 | `app/bench.js` | the Bench tab: the fitted bot's six tests with canvas readouts, which have run (`bots[cls].bench`), `benchMeasured` for the Build tab's stress report |
-| `app/debugview.js` | `DEBUGVIEW.draw`: the 2D top-down fight view (dark in both themes) |
+| `app/debugview.js` | `DEBUGVIEW.draw`: the 2D top-down fight view (dark in both themes): bots, zones, the pit (dashed while shut), pushers and floor spinners |
 | `app/controls.js` | direct and tactical driving, keyboard, gamepad, assists (PR 5) |
-| `app/fight.js` | the Fight tab: the test fight (fitted bot against a test build, AI against AI), the fixed-step loop (5 steps a frame at most, paused when hidden), the readouts and the log in words; sparring and the HUD in PR 5 |
+| `app/fight.js` | the Fight tab: the test fight (fitted bot against a named opponent or a test build, in any arena, AI against AI), the judges' table, the fixed-step loop (5 steps a frame at most, paused when hidden), the readouts and the log in words; sparring and the HUD in PR 5 |
 | `app/pit.js` | the 60 s pit window (PR 6) |
 | `app/report.js` | the post-mortem, repair bill, copy build, replay (PR 6) |
 | `app/shop.js` | the Shop tab (PR 7); now the Saves card buttons |
