@@ -144,7 +144,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const pos=$("fRpPos");if(pos){pos.addEventListener("pointerup",()=>{if(FT.rp)FT.rp.drag=false;});pos.addEventListener("blur",()=>{if(FT.rp)FT.rp.drag=false;});
     pos.addEventListener("input",()=>{FT.rp.drag=true;$("fRpT").textContent=ftT(Math.max(0,FT.F.rules.roundS-pos.value/SIM.STEP_HZ));});
     pos.addEventListener("change",()=>{FT.rp.drag=false;ftSeek(+pos.value);});}
-  SCRAP_VIS.setRun({reduce:reduced()});
+  SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
   if(FT.you)CONTROLS.mount(el);
   ftOverlay();}

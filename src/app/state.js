@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.9.1";
+const VERSION="0.1.10.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -234,10 +234,10 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=6;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true};}
+const SAVE_V=7;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false};}   // effects, tutDone: PR 9
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
-  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit} (rnd, offers, kit: PR 8)
+  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit, trophies} (rnd, offers, kit: PR 8; trophies: PR 9, app/help.js)
   bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
@@ -255,10 +255,14 @@ const MIGRATE={
   3:o=>{const s=o.settings;if(s&&typeof s==="object"){if(s.controls!=="tactical")s.controls="direct";s.leftHanded=!!s.leftHanded;if(s.assists!==false)s.assists=true;}return o;},   // 0.1.6.0: control scheme, handedness, assists
   4:o=>{o.career=null;return o;},   // 0.1.8.0: the career (PR 7). Nothing could have one before, so it starts empty; bots[cls].flags is optional
   5:o=>{const c=o.career;if(c&&typeof c==="object"){c.rnd={cur:null,put:{}};c.offers=[];c.kit=null;}   // 0.1.9.0: R&D, sponsor offers, the kit line (PR 8)
-    if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;}
+    if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;},
+  6:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){if(s.effects!=="reduced")s.effects="full";s.tutDone=!!s.seen;}   // 0.1.10.0: Effects, the tutorial (offered only to a new player), trophies (PR 9)
+    if(c&&typeof c==="object"&&!Array.isArray(c.trophies))c.trophies=[];return o;}
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
-function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
+/* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
+let TUT_ON=false;
+function save(){if(TUT_ON)return;try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
 function snapshot(){return JSON.parse(JSON.stringify(S));}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
@@ -272,9 +276,9 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;
 /* a restored game: take it, store it, redraw everything */
-function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();save();applyAll();showTab(ST().tab||"build");toast(msg);}
+function applyLoaded(o,msg){if(TUT_ON)tutStop();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();save();applyAll();showTab(ST().tab||"build");toast(msg);}
 /* loading a save slot keeps this phone's settings (plan section 15) */
-function loadSlot(o,msg){const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
+function loadSlot(o,msg){if(TUT_ON)tutStop();const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
 
 /* ---- settings that change the page ---- */
 const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null;
@@ -284,7 +288,9 @@ function applyTheme(){const t=ST().theme||"dark",eff=t==="auto"?(mqLight&&mqLigh
   const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";
   try{if(curTab==="bench")bnPlots();}catch(e){}}   // canvases read the palette when drawn (curTab and bnPlots: boot.js, bench.js)   // canvases read the palette when drawn
 function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matches):!!r;}
-function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
+function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());if(window.SCRAP_VIS)SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});}
+/* Settings → Effects: Reduced: fewer sparks, no flying parts, light smoke, small steady hit rings in the 2D view (Kelbo, PR 9) */
+const fxLow=()=>ST().effects==="reduced";
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}

@@ -228,6 +228,21 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **The kit line** (`KIT_LINE`, Legacy act, Kelbo): publish one of your designs (once a season). At each season end it fights the class's test builds in the sim (one seed each at skill 0.6, so publishing and the season end pause for a moment on a phone); income = Th 400 x the class's prize scale x its win rate x (1 + rep / 200).
 - **Saves:** `SAVE_V` 6: `career.rnd {cur, put, done}`, `career.offers`, `career.kit`, `career.repY0`; `staff` and `sponsors` are arrays of `{id, y, w}`.
 
+## 0.1.9.1: hotfix
+
+- A comment in `ftOverlay` had swallowed the declaration after it, so every fight threw and never reached its bell banner (from 0.1.9.0's review fixes). Split back into two lines.
+
+## 0.1.10.0: the tutorial, bot cards, trophies, Effects, landscape (PR 9)
+
+- **The tutorial** (`app/help.js`, Kelbo: coached, on a loaner): eight steps, each a spotlight on the real control and a card. 1 a loaner beetle; 2 load the Wedge from Designs → Starting points; 3 fit it; 4 run the impact test on the Bench; 5 read it; 6 spar Feierabend (a careful club bot), one on one, you driving; 7 read the post-mortem; 8 that's the loop. The steps with a task move on by themselves when it's done; the card says which tab a step is on if you wander off, and hides in fight mode and while a sheet is open. Offered once, after the intro, to a new player (a save from before 0.1.10.0 counts as seen); **Settings → Tutorial** runs it again; **Leave the tutorial** ends it at any step.
+- **The loaner:** starting takes a copy of the whole game, then clears the career, bots, staff and sponsors. While it runs nothing is written to storage (`TUT_ON` in `save()`), and saving to a slot is refused. Ending puts the copy back and keeps the phone's settings. Closing the page mid-tutorial loses nothing. Loading a slot or restoring a backup ends it first.
+- **The bot card** (the camera button over the 3D view, Kelbo): a 1080 x 1350 picture. The fitted bot (the draft when nothing is fitted) from a fixed three-quarter view (`SCRAP_VIS.shot(w, h)`: an off-screen render target at twice the size, scaled down, no bloom), its name (a matching saved design's name, else the disc's, else "My beetleweight"; you can rename it on the card, not stored), class, weight against the limit, weapon, top speed, weapon energy, weakest side, run time and its career record in the class. No 3D: the top-down sketch instead. Share (the share sheet with the picture where it takes files) or Save picture (a download), PEW's `phoSave`.
+- **Trophies** (Kelbo): every event you win puts a trophy on the shelf (Career tab); a championship win and a move up an act are gold. Each one has a card (cup, event, venue, year and week, class, weapon, act) to share or save. Kept in `career.trophies`, newest first, 80 at most; a new career starts an empty shelf.
+- **Effects** (Settings, Kelbo: its own setting): Reduced is a quarter of the sparks (six at most a hit), no parts flying off, three puffs of smoke at most, and small steady hit rings in the 2D view. Motion still covers the camera shake and the menus.
+- **Landscape:** on a phone on its side (under 560 px tall), the 3D view is the left 44% and the tab and its tab bar are on the right, instead of a strip under the view. The tutorial card sits over the panel.
+- **Polish:** the Career tab's old "Team, sponsors and R&D (PR 8)" placeholder card is gone.
+- **Saves:** `SAVE_V` 7: `settings.effects`, `settings.tutDone`, `career.trophies`. No new localStorage key.
+
 ## Known loose ends
 
 - Balance sits at the edges in places (0.1.5.0 numbers):
