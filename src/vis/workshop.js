@@ -25,7 +25,7 @@ function rebuild(){
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
   V.comp=null;V.bloom=null;
-  if(V.tier==="ultra"&&window.__srvPost)window.__srvPost(ok=>{if(!ok||V.tier!=="ultra")return;
+  if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(ok=>{if(!ok||V.tier!=="ultra")return;
     V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
     V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
   resize(true);

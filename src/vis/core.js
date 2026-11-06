@@ -1,14 +1,14 @@
 <script>
-/* ===================== Servo: 3D (SERVO_VIS) =====================
+/* ===================== Scrapline: 3D (SCRAP_VIS) =====================
    three.js r128. One IIFE spread over vis/core.js, bot.js, arena.js, fx.js, workshop.js and api.js; the public object is
-   in api.js. The vis never reads game state and never runs the fight: SERVO_SIM simulates, the app passes the result in.
-   The app calls SERVO_VIS.setBot(cfg), .setRun({spin}), .setView(name), .setQuality(tier) and reads .fps().
+   in api.js. The vis never reads game state and never runs the fight: SCRAP_SIM simulates, the app passes the result in.
+   The app calls SCRAP_VIS.setBot(cfg), .setRun({spin}), .setView(name), .setQuality(tier) and reads .fps().
    This file: module state, the renderer, the three graphics tiers and the materials.
      lite   pixel ratio 1, Lambert / Phong materials, no shadows, no post. The phone default; it must always look finished.
      full   device pixel ratio up to 2, PBR steel and aluminium with a generated workshop reflection, soft shadows.
-     ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__srvPost).
+     ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__scrPost).
    Colours are written as sRGB hex and converted with .convertSRGBToLinear() (the renderer outputs sRGB). */
-const SERVO_VIS=(function(){
+const SCRAP_VIS=(function(){
 "use strict";
 const V={r:null,scene:null,cam:null,canvas:null,tier:"lite",w:0,h:0,mats:null,env:null,comp:null,bloom:null,
   bot:null,shop:null,lights:null,run:{spin:1},t0:performance.now(),last:0,ang:0,
