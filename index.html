@@ -224,7 +224,9 @@ html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: 
 .pwalater{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
 
 @media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
-@media (max-height:560px) and (orientation:landscape){#view{flex-basis:46%;min-height:160px}}
+/* a phone on its side (PR 9): the 3D view on the left, the tab and the tab bar on the right, so neither is a sliver */
+@media (max-height:560px) and (orientation:landscape){#app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+  #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:44%}#tabs button{font-size:11px}}
 
 /* ---- the Bench tab (app/bench.js) ---- */
 .bncls{margin:0 0 12px}
@@ -419,6 +421,28 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .ctlmark.attack{border-color:var(--clay)} .ctlmark.back{border-color:var(--warn)}
 .ctlhint2{position:absolute;left:12px;right:12px;bottom:14px;margin:0;text-align:center;font-size:12px;color:var(--muted)}
 @media (prefers-reduced-transparency:reduce){.fbot{background:#141413}.fovtop{background:#0A0A09eb}.fpause,.fend{background:#1F1E1B}}
+/* the tutorial coach (app/help.js, PR 9): a spotlight on the real control and a card; taps go through to the page */
+#coach{position:fixed;inset:0;z-index:45;pointer-events:none}
+#coachSpot{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(10,10,9,.6);border:2px solid var(--clay);transition:all .25s ease;pointer-events:none}
+#coachBox{position:fixed;left:50%;transform:translateX(-50%);width:min(528px,calc(100vw - 24px));max-height:calc(100% - 16px);overflow-y:auto;background:var(--card);border:1px solid var(--rule);border-radius:var(--r);padding:12px 14px;pointer-events:auto;box-shadow:var(--lift);transition:top .25s ease,bottom .25s ease}
+#coachBox .step{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--clay-t)}
+#coachBox h3{font-size:18px;margin:2px 0 4px}
+#coachBox p{margin:0 0 10px;font-size:15px;line-height:1.45}
+#coachBox .row{margin:0}#coachBox #coachNext{flex:1}
+html.infight #coach{display:none}
+html.reduce #coachSpot,html.reduce #coachBox{transition:none}
+@media (prefers-reduced-transparency:reduce){#coachSpot{box-shadow:0 0 0 9999px rgba(10,10,9,.85)}}
+/* the bot card and trophy card pictures in the sheet */
+.cardpic{display:grid;place-items:center;min-height:120px;margin-bottom:10px}
+.cardimg{display:block;width:100%;max-width:360px;height:auto;border-radius:10px;box-shadow:var(--lift)}
+/* the trophy shelf (Career tab) */
+.tpshelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.tp{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:44px;padding:10px 6px;border-radius:10px;background:var(--card2);border:1px solid var(--rule);color:var(--ink);font-size:13px;font-weight:600;text-align:center;line-height:1.25}
+.tp small{font:11px var(--mono);color:var(--muted);font-weight:400}
+.tp.gold{border-color:#C9A040}
+.tpcup{width:30px;height:30px;fill:none;stroke:#AEB3BA;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tpcup.gold{stroke:#D9B24C}
+:root[data-theme=light] .tpcup{stroke:#6E737A} :root[data-theme=light] .tpcup.gold{stroke:#9C7420} :root[data-theme=light] .tp.gold{border-color:#B08A2E}
 </style>
 
 <div id="app">
@@ -427,6 +451,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
     <div id="hud">
       <div class="brand">Scrapline<small id="weekLbl">The Haldis · Velmark</small></div>
       <div class="money"><b id="cashLbl"></b><span id="repLbl"></span></div>
+      <button class="hudbtn" id="cardOpen" aria-label="Bot card" title="Bot card" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
       <button class="hudbtn" id="setOpen" aria-label="Settings" title="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
     <div id="tag">Placeholder bot · horizontal spinner</div>
@@ -476,7 +501,6 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
       <h2 id="h-career">Career</h2>
       <p class="lede">Twenty seasons, from club meets at the Haldis Gemeindehalle to the televised Scrapline Open at the Eisenhalle.</p>
       <div id="crBody"></div>
-      <div class="card"><h3>Team, sponsors and R&amp;D<span class="soon">PR 8</span></h3><p>An engineer, a fabricator, a driver, a pit crew. Sponsors with paint and a placing target. Crushers, saws and your own disc profile.</p></div>
     </section>
   </div>
 
@@ -2589,6 +2613,7 @@ function arenaPick(px,py){if(!AR.F||!V.w)return null;const v=new THREE.Vector3(p
      parts    a destroyed part's mesh is copied and flung off, spinning, then fades (at most 6 in the air)
      smoke    a bot whose battery smokes trails grey puffs (Lite: fewer, larger)
      shake    the camera shakes in proportion to the hit (none under reduced motion: arena.js)
+   Settings → Effects: Reduced (V.run.fxLow): a quarter of the sparks, no flying parts, at most three puffs of smoke.
    Particles use no Math.random either: a small seeded generator, so a replay looks the same. ---- */
 const FX={pts:null,n:0,pos:null,vel:null,life:null,chunks:[],puffs:[],seed:12345,smokeT:0};
 const fxR=()=>(FX.seed=(FX.seed*16807)%2147483647)/2147483647;
@@ -2614,10 +2639,10 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
     if(e.k==="part"){fxChunk(e.v,e.key);continue;}
     const En=(e.E||0)/mm,x=e.x*U,z=-e.y*U,big=e.k==="hit"||e.k==="flip"||e.k==="haz";
     if(e.k==="land"&&En<4)continue;
-    const n=Math.min(big?40:14,Math.round((big?4:1)+En*(big?0.35:0.12)));if(n>0)fxSpark(x,big?0.25:0.08,z,n,1.5+Math.min(5,Math.sqrt(En)*0.5));
+    let n=Math.min(big?40:14,Math.round((big?4:1)+En*(big?0.35:0.12)));if(V.run.fxLow)n=Math.min(6,Math.ceil(n/4));if(n>0)fxSpark(x,big?0.25:0.08,z,n,1.5+Math.min(5,Math.sqrt(En)*0.5));
     AR.cam.shake=Math.min(0.45,AR.cam.shake+Math.min(0.3,En*(big?0.004:0.0015)));}}
 /* a destroyed part flies off: a copy of its mesh in a world-space chunk */
-function fxChunk(i,key){const B=AR.bots[i];if(!B)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
+function fxChunk(i,key){const B=AR.bots[i];if(!B||V.run.fxLow)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
   if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}
   const src=ms[0],m=src.clone();m.material=src.material.clone();m.material.transparent=true;m.userData={own:true};
   B.mesh.updateMatrixWorld(true);src.getWorldPosition(m.position);src.getWorldQuaternion(m.quaternion);m.scale.setScalar(AR.U);
@@ -2635,7 +2660,7 @@ function fxTick(dt){if(!FX.pts&&!FX.chunks.length)return;const g=-9;
   FX.chunks=FX.chunks.filter(c=>{if(c.t>3){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();return false;}return true;});
   /* smoke from a bot whose battery is smoking */
   FX.smokeT-=dt;if(AR.F&&FX.smokeT<=0){const lite=V.tier==="lite";FX.smokeT=lite?0.35:0.15;
-    for(const B of AR.bots)if(B.o.flags&&B.o.flags.smoke&&!B.o.out&&FX.puffs.length<(lite?8:24)){const r=(lite?0.25:0.16)*(0.8+fxR()*0.5),m=new THREE.Mesh(new THREE.SphereGeometry(r,6,4),V.mats.smoke);
+    for(const B of AR.bots)if(B.o.flags&&B.o.flags.smoke&&!B.o.out&&FX.puffs.length<(V.run.fxLow?3:lite?8:24)){const r=(lite?0.25:0.16)*(0.8+fxR()*0.5),m=new THREE.Mesh(new THREE.SphereGeometry(r,6,4),V.mats.smoke);
       m.position.set(B.mesh.position.x,B.mesh.position.y+0.4,B.mesh.position.z);AR.g.add(m);FX.puffs.push({m,t:0});}}
   for(const p of FX.puffs){p.t+=dt;p.m.position.y+=dt*0.8;p.m.scale.setScalar(1+p.t*1.5);}
   FX.puffs=FX.puffs.filter(p=>{if(p.t>1.6){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();return false;}return true;});}
@@ -2711,6 +2736,25 @@ function bindOrbit(el){
   el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
   el.addEventListener("wheel",e=>{if(V.view!=="workshop")return;e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
 }
+/* the bot card's picture (app/help.js): the workshop's bot from a fixed three-quarter view, rendered off screen into a
+   w x h canvas (2x supersampled, then scaled down), so the screen never flickers. No bloom; shadows as the tier has them.
+   null when there is no renderer. */
+function shotBot(w,h){if(!V.r||!V.bot)return null;const ss=2,W=w*ss,H=h*ss,mx=V.r.capabilities.maxTextureSize||4096;if(W>mx||H>mx)return null;
+  const vis=[V.shop,V.lights,V.bot].map(o=>o&&o.visible),ag=AR.g&&AR.g.visible,al=AR.lights&&AR.lights.visible;
+  for(const o of [V.shop,V.lights,V.bot])if(o)o.visible=true;if(AR.g){AR.g.visible=false;AR.lights.visible=false;}
+  const cam=new THREE.PerspectiveCamera(30,w/h,.1,100),yaw=-.75,pitch=.42,dist=6.4,cp=Math.cos(pitch);
+  cam.position.set(Math.sin(yaw)*cp*dist,.3+Math.sin(pitch)*dist,Math.cos(yaw)*cp*dist);cam.lookAt(0,.3,0);
+  const fn=V.scene.fog.near,ff=V.scene.fog.far;V.scene.fog.near=12;V.scene.fog.far=28;
+  const rt=new THREE.WebGLRenderTarget(W,H,{depthBuffer:true});rt.texture.encoding=THREE.sRGBEncoding;
+  let out=null;
+  try{V.r.setRenderTarget(rt);V.r.render(V.scene,cam);const px=new Uint8Array(W*H*4);V.r.readRenderTargetPixels(rt,0,0,W,H,px);
+    const big=document.createElement("canvas");big.width=W;big.height=H;const bg=big.getContext("2d"),img=bg.createImageData(W,H),row=W*4;
+    for(let y=0;y<H;y++)img.data.set(px.subarray((H-1-y)*row,(H-y)*row),y*row);   // the GPU's rows run bottom up
+    bg.putImageData(img,0,0);out=document.createElement("canvas");out.width=w;out.height=h;const g=out.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(big,0,0,w,h);}
+  catch(e){out=null;}
+  finally{V.r.setRenderTarget(null);rt.dispose();V.scene.fog.near=fn;V.scene.fog.far=ff;
+    [V.shop,V.lights,V.bot].forEach((o,i)=>{if(o)o.visible=vis[i];});if(AR.g){AR.g.visible=ag;AR.lights.visible=al;}}
+  return out;}
 /* Lite renders at most 30 frames a second (plan section 16); Full and Ultra follow the display */
 function frame(now){
   requestAnimationFrame(frame);
@@ -2735,6 +2779,7 @@ return{
   setBot(b){const k=b?JSON.stringify(b.cfg):null;if(k===V.botK)return;V.botK=k;V.botB=b||null;if(started&&V.mats)placeBot();},
   /* your sponsors' colours ({side, top}: "#rrggbb" or nothing), on your bot in the workshop and as bot 0 in a fight */
   setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
+  /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */
   setView(name){V.view=name==="arena"?"arena":"workshop";if(started)showView();},
@@ -2746,6 +2791,8 @@ return{
   damage(i,states){const B=AR.bots[i];if(B)botDamage(B.mesh,states);},
   /* a point on the canvas (CSS px) to the arena floor in sim metres, or null */
   pick(x,y){return arenaPick(x,y);},
+  /* the workshop's bot as a picture (a w x h canvas), for the bot card; null without a renderer */
+  shot(w,h){return started?shotBot(w,h):null;},
   fps(){return V.fpsObj;},
   get tier(){return V.tier;},
   get view(){return V.view;},
@@ -2765,7 +2812,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.9.1";
+const VERSION="0.1.10.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -2991,10 +3038,10 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=6;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true};}
+const SAVE_V=7;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false};}   // effects, tutDone: PR 9
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
-  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit} (rnd, offers, kit: PR 8)
+  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit, trophies} (rnd, offers, kit: PR 8; trophies: PR 9, app/help.js)
   bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
@@ -3012,10 +3059,14 @@ const MIGRATE={
   3:o=>{const s=o.settings;if(s&&typeof s==="object"){if(s.controls!=="tactical")s.controls="direct";s.leftHanded=!!s.leftHanded;if(s.assists!==false)s.assists=true;}return o;},   // 0.1.6.0: control scheme, handedness, assists
   4:o=>{o.career=null;return o;},   // 0.1.8.0: the career (PR 7). Nothing could have one before, so it starts empty; bots[cls].flags is optional
   5:o=>{const c=o.career;if(c&&typeof c==="object"){c.rnd={cur:null,put:{}};c.offers=[];c.kit=null;}   // 0.1.9.0: R&D, sponsor offers, the kit line (PR 8)
-    if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;}
+    if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;},
+  6:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){if(s.effects!=="reduced")s.effects="full";s.tutDone=!!s.seen;}   // 0.1.10.0: Effects, the tutorial (offered only to a new player), trophies (PR 9)
+    if(c&&typeof c==="object"&&!Array.isArray(c.trophies))c.trophies=[];return o;}
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
-function save(){try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
+/* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
+let TUT_ON=false;
+function save(){if(TUT_ON)return;try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
 function snapshot(){return JSON.parse(JSON.stringify(S));}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
@@ -3029,9 +3080,9 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;
 /* a restored game: take it, store it, redraw everything */
-function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();save();applyAll();showTab(ST().tab||"build");toast(msg);}
+function applyLoaded(o,msg){if(TUT_ON)tutStop();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();save();applyAll();showTab(ST().tab||"build");toast(msg);}
 /* loading a save slot keeps this phone's settings (plan section 15) */
-function loadSlot(o,msg){const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
+function loadSlot(o,msg){if(TUT_ON)tutStop();const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}if(typeof crReset==="function")crReset();S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
 
 /* ---- settings that change the page ---- */
 const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null;
@@ -3041,7 +3092,9 @@ function applyTheme(){const t=ST().theme||"dark",eff=t==="auto"?(mqLight&&mqLigh
   const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";
   try{if(curTab==="bench")bnPlots();}catch(e){}}   // canvases read the palette when drawn (curTab and bnPlots: boot.js, bench.js)   // canvases read the palette when drawn
 function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matches):!!r;}
-function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
+function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());if(window.SCRAP_VIS)SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});}
+/* Settings → Effects: Reduced: fewer sparks, no flying parts, light smoke, small steady hit rings in the 2D view (Kelbo, PR 9) */
+const fxLow=()=>ST().effects==="reduced";
 const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
@@ -3377,8 +3430,8 @@ const PWA=(()=>{
 })();
 /* ===================== app/boot.js: tabs, Settings, intro, start-up =====================
    showTab(t) switches the five tabs (Build, Bench, Fight, Shop, Career) and remembers the last one in S.settings.tab.
-   openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, saves, install, version. The control
-   scheme (direct / tactical) and handedness join it in PR 5.
+   openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, effects (PR 9), controls (direct /
+   tactical), hand, assists, sound, the tutorial again (PR 9), saves, install, version.
    start() runs once the whole app script has loaded (scheduled through __ldGo at the bottom of this file): it loads
    the save, starts the 3D view, draws the tabs and lifts the loading splash. */
 const TABS=["build","bench","fight","shop","career"];
@@ -3407,12 +3460,15 @@ function openSettings(){
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Theme</span>${segHtml("themeSeg","theme",[["dark","Dark","night shift"],["light","Light","daylight"],["auto","Auto","follow phone"]],ST().theme||"dark")}</div>
 <div class="field"><span class="lbl">Motion</span>${segHtml("reduceSeg","reduce",[["auto","Auto","follow phone"],["1","Reduced"],["0","Full"]],ST().reduce==null?"auto":ST().reduce?"1":"0")}</div>
+<div class="field"><span class="lbl">Effects</span>${segHtml("fxSeg","fxl",[["full","Full","sparks, smoke, flying parts"],["reduced","Reduced","a few sparks"]],fxLow()?"reduced":"full")}
+<p class="hint">Reduced keeps the fight readable with less going on: a few sparks, light smoke, no parts flying off, small steady hit rings in the 2D view. Motion covers camera shake and movement in the menus.</p></div>
 <div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
 <p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
 <div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
 <div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
 <div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Tutorial</span><div class="row"><button class="btn" id="tutAgain"${TUT_ON?" disabled":""}>Run the tutorial</button></div><p class="hint">A coached first fight on a loaner bot. Your workshop is put back as it was at the end.</p></div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
 ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
@@ -3423,11 +3479,13 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
+  pick("fxSeg","fxl",v=>{ST().effects=v==="reduced"?"reduced":"full";applyReduce();});
   pick("ctlSeg","ctl",v=>{ST().controls=v;});
   pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
   pick("asSeg","assist",v=>{ST().assists=v==="1";});
   pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();});
   buStoreLine();
+  $("tutAgain").addEventListener("click",()=>{closeSheet();tutStart();});
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
 }
 $("setOpen").addEventListener("click",openSettings);
@@ -3436,7 +3494,7 @@ $("scrim").addEventListener("click",closeSheet);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOn()){closeSheet();e.preventDefault();}});
 
 /* ---- intro (first visit only) ---- */
-$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});});
+$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
 
 /* ---- start-up ---- */
 function start(){
@@ -3939,7 +3997,7 @@ const DV_COL={floor:"#1A1917",grid:"#262421",wall:"#6B665D",text:"#E8E5DE",dim:"
 const DEBUGVIEW={
   draw(cv,F,flashes,now){if(!cv||!F)return;const dpr=Math.min(window.devicePixelRatio||1,2),w=cv.clientWidth|0;if(!w)return;
     if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(w*dpr);}
-    const g=cv.getContext("2d"),W=cv.width,H=F.arena.half,pad=10*dpr,s=(W-2*pad)/(2*H),X=x=>W/2+x*s,Y=y=>W/2-y*s,red=reduced();
+    const g=cv.getContext("2d"),W=cv.width,H=F.arena.half,pad=10*dpr,s=(W-2*pad)/(2*H),X=x=>W/2+x*s,Y=y=>W/2-y*s,red=reduced()||fxLow();
     g.setTransform(1,0,0,1,0,0);g.fillStyle=DV_COL.floor;g.fillRect(0,0,W,W);
     /* floor grid every ~30 cm at beetle scale, walls */
     const step=0.3*F.M.len;g.strokeStyle=DV_COL.grid;g.lineWidth=1;g.beginPath();
@@ -4253,7 +4311,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const pos=$("fRpPos");if(pos){pos.addEventListener("pointerup",()=>{if(FT.rp)FT.rp.drag=false;});pos.addEventListener("blur",()=>{if(FT.rp)FT.rp.drag=false;});
     pos.addEventListener("input",()=>{FT.rp.drag=true;$("fRpT").textContent=ftT(Math.max(0,FT.F.rules.roundS-pos.value/SIM.STEP_HZ));});
     pos.addEventListener("change",()=>{FT.rp.drag=false;ftSeek(+pos.value);});}
-  SCRAP_VIS.setRun({reduce:reduced()});
+  SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
   if(FT.you)CONTROLS.mount(el);
   ftOverlay();}
@@ -4724,7 +4782,7 @@ function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage
   if(x.dataset.shtool){const t=x.dataset.shtool,T=TOOLS[t];if(!crOn()||S.unlocks.tools[t]||shToolNeeds(t))return;
     if(c.money<T.price){toast(`Need ${fmt$(T.price-c.money)} more`);return;}if(!shSure("tl:"+t))return;
     crPay(T.price,`Bought: ${T.name.toLowerCase()}`);S.unlocks.tools[t]=true;save();hud();shRender();toast(`${T.name} bought`);buzz([10,30,10]);return;}
-  if(x.dataset.shsave){const i=+x.dataset.shsave;if(!shSure("sv:"+i))return;
+  if(x.dataset.shsave){const i=+x.dataset.shsave;if(TUT_ON){toast("Not during the tutorial: this bot is a loaner");return;}if(!shSure("sv:"+i))return;
     try{localStorage.setItem(slotKey(i),JSON.stringify(S));}catch(err){toast("Couldn't save: storage is full");shRender();return;}shRender();toast(`Saved in slot ${i}`);return;}
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
     loadSlot(o,`Slot ${i} loaded`);}}
@@ -4809,7 +4867,7 @@ function crEarn(amt,what){const c=S.career;amt=Math.round(amt);if(!amt)return;c.
 /* ---- start ---- */
 function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffffff)^0x5C1A)>>>0,year:WORLD.startYear,week:1,season:0,act:0,
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
-  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0};}
+  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0,trophies:[]};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
 const CR_START={chassis:"hdpe",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
@@ -4951,6 +5009,7 @@ function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],p
   const b=bBot(day.cls),me=day.field[0];if(bnSig(b.cfg)===bnSig(me.cfg)){b.damage=clone(me.dmg);b.flags=crFlags(me.flags);}
   c.events[day.key]={place,prize,rep};
   c.seq=(c.seq||0)+1;c.results.unshift({seq:c.seq,y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
+  if(place===1)tpAward(day.kind==="champ"?"title":"win",e,day.cls);   // a trophy card (app/help.js)
   const offer=tmAfterEvent(day,place);
   c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null};save();hud();}
 
@@ -5023,7 +5082,7 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
   const tl=tmSeasonEnd();   // sponsors renew or go, the kit pays, the new season's rules and meta (app/team.js)
   c.seasons.push({y:c.year,act:c.act,rep:c.rep,money:c.money,best:best?`${best.name}: ${crPlaceTxt(best.kind,best.place)}`:null});
-  if(up)c.act++;c.year++;c.season++;c.week=1;c.repY0=c.rep;
+  if(up){c.act++;tpAward("promo",{id:"act"+c.act,name:`Up to the ${TIME.acts[c.act].name} act`,venue:null},null);}c.year++;c.season++;c.week=1;c.repY0=c.rep;
   if(c.season>=WORLD.seasons){c.over=true;c.done=true;}
   setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>
     ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
@@ -5035,8 +5094,8 @@ function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();c
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start: what you've fitted while sparring isn't kept (it was free). Your saved designs stay, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
-  if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${crResultsCard()}`;return;}
-  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+crResultsCard()+
+  if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${tpShelf()}${crResultsCard()}`;return;}
+  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+
     `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
@@ -5326,9 +5385,191 @@ function tmClick(e){const x=e.target.closest&&e.target.closest("[data-tm]");if(!
     if(k[0]==="fit"&&S.bots[k[1]])cfg=S.bots[k[1]].cfg;else if(k[0]==="d"&&S.designs[k[1]]&&S.designs[k[1]][+k[2]])cfg=Object.assign({},S.designs[k[1]][+k[2]].cfg,{cls:k[1]});
     if(cfg)tmKitPublish(nm,SIM.normCfg(cfg));}
   TM.ask=null;tmRedraw();return true;}
-/* ===================== app/help.js: help and the tutorial =====================
-   The first-run tutorial (build the starter wedge, run the impact test, spar one club bot, read the post-mortem) in PEW's
-   help card pattern, and the bot card share image. Arrives in PR 9 (plan section 13). Last file of the app script block. */
-const HELP={};
+/* ===================== app/help.js: the tutorial, the bot card, trophy cards =====================
+   The tutorial (Kelbo, PR 9: coached, on a loaner). PEW's First Fire pattern: a spotlight on the real control and a card
+   that waits for you to use it. Fit the starter wedge, run the impact test, spar one club bot, read the post-mortem.
+   It runs on a borrowed beetle: tutStart() snapshots the whole game, clears the career, bots, staff and sponsors, and
+   sets TUT_ON so save() writes nothing (state.js); tutStop() puts the snapshot back, keeping this phone's settings.
+   Closing the page mid-tutorial loses nothing: storage never saw the loaner. Offered once after the intro; Settings
+   runs it again. Loading a slot or restoring a backup ends it first (state.js).
+   The bot card (Kelbo, PR 9): the fitted bot (the draft when nothing is fitted) from SCRAP_VIS.shot, a fixed
+   three-quarter render off screen, with its name, class, weight against the limit, weapon, speed, weapon energy and its
+   career record; where there is no 3D, the top-down sketch (ftSil, app/fight.js). The camera button over the 3D view.
+   Trophy cards (Kelbo, PR 9): every event you win (tpAward from crFinish, app/career.js), gold for a championship or a
+   move up an act (crSeasonEnd). Kept in S.career.trophies (newest first); the shelf is on the Career tab.
+   Both pictures go out through phoSave (PEW's): the share sheet where it takes files, else a download. Last file of the
+   app script block. */
+
+/* ---- saving a picture (PEW's phoSave) ---- */
+async function phoSave(c,fn,title,share){
+  const blob=await new Promise(r=>c.toBlob(r,"image/png"));if(!blob){toast("Couldn't make the picture here");return false;}
+  if(share){const file=new File([blob],fn,{type:"image/png"});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title});return true;}catch(e){if(e&&e.name==="AbortError")return false;}}}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),8000);toast("Picture saved");return true;}
+const phoSlug=s=>String(s||"bot").toLowerCase().normalize("NFKD").replace(/[^\w]+/g,"-").replace(/^-+|-+$/g,"").slice(0,32)||"bot";
+
+/* ---- drawing the cards (always the dark palette: a picture has no theme) ---- */
+const CARD={W:1080,H:1350,pad:64,bg:"#141413",panel:"#1F1E1B",rule:"#34322D",ink:"#F2EFE8",muted:"#ABA79E",clay:"#D97757",lilac:"#B48CE8",
+  f:'"Space Grotesk",-apple-system,"Segoe UI",sans-serif',m:'"JetBrains Mono",ui-monospace,Menlo,monospace'};
+async function cardFonts(){try{if(document.fonts&&document.fonts.load)await Promise.all([document.fonts.load(`700 64px ${CARD.f}`),document.fonts.load(`500 30px ${CARD.m}`)]);}catch(e){}}
+function cardBase(){const c=document.createElement("canvas");c.width=CARD.W;c.height=CARD.H;const g=c.getContext("2d");
+  g.fillStyle=CARD.bg;g.fillRect(0,0,CARD.W,CARD.H);g.strokeStyle=CARD.clay;g.lineWidth=4;g.strokeRect(18,18,CARD.W-36,CARD.H-36);
+  g.textBaseline="alphabetic";g.fillStyle=CARD.clay;g.font=`700 30px ${CARD.f}`;cardSpaced(g,"SCRAPLINE",CARD.pad,96,6);
+  g.fillStyle=CARD.muted;g.font=`500 24px ${CARD.m}`;g.textAlign="center";g.fillText(`© ${new Date().getFullYear()} Kelbo / Longlight Interactive · jxstrr0.github.io/Scrapline`,CARD.W/2,CARD.H-52);g.textAlign="left";
+  return{c,g};}
+function cardSpaced(g,s,x,y,sp){for(const ch of s){g.fillText(ch,x,y);x+=g.measureText(ch).width+sp;}}
+/* text shrunk until it fits w */
+function cardFit(g,s,x,y,w,px,weight,font){let p=px;do{g.font=`${weight} ${p}px ${font||CARD.f}`;p-=2;}while(g.measureText(s).width>w&&p>18);g.fillText(s,x,y);}
+function cardRound(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+/* a picture into the sheet: an <img> of the canvas */
+function cardImg(c,alt){return`<img class="cardimg" src="${c.toDataURL("image/png")}" alt="${esc(alt)}">`;}
+
+/* ---- the bot card ---- */
+const BC={name:null,canvas:null};
+function bcCfg(){const bot=bBot();return bot.cfg||bot.draft;}
+function bcDefaultName(cfg){const L=bDesigns().filter(d=>d&&d.cfg&&SIM.sameParts(Object.assign({},d.cfg,{cls:cfg.cls}),cfg));
+  if(L.length)return L[0].name;if(cfg.disc&&cfg.disc.name)return cfg.disc.name;return"My "+SIM.CLASSES[cfg.cls].name.toLowerCase();}
+function bcRecord(cls){const c=S.career;if(!c||!Array.isArray(c.results))return"Not raced yet";const R=c.results.filter(r=>r.cls===cls);if(!R.length)return"Not raced yet";
+  const w=R.filter(r=>r.place===1).length;return`${R.length} event${R.length===1?"":"s"} · ${w} won`;}
+async function bcDraw(name){await cardFonts();const cfg=bcCfg(),b=bEv(cfg),{c,g}=cardBase(),P=CARD.pad,fitted=!!bBot().cfg;
+  g.fillStyle=CARD.muted;g.font=`600 26px ${CARD.f}`;g.textAlign="right";g.fillText(b.className.toUpperCase()+(fitted?"":" · DRAFT"),CARD.W-P,96);g.textAlign="left";
+  /* the picture */
+  const px=P,py=130,pw=CARD.W-2*P,ph=600;g.save();cardRound(g,px,py,pw,ph,22);g.clip();g.fillStyle="#0E0E0D";g.fillRect(px,py,pw,ph);
+  let shot=null;if(window.SCRAP_VIS&&ftGL()){try{SCRAP_VIS.setBot(b);shot=SCRAP_VIS.shot(pw,ph);}catch(e){shot=null;}visBot();}
+  if(shot)g.drawImage(shot,px,py,pw,ph);
+  else{g.strokeStyle="#ffffff10";g.lineWidth=2;for(let x=px;x<px+pw;x+=50){g.beginPath();g.moveTo(x,py);g.lineTo(x,py+ph);g.stroke();}for(let y=py;y<py+ph;y+=50){g.beginPath();g.moveTo(px,y);g.lineTo(px+pw,y);g.stroke();}
+    const S2=560,cv=document.createElement("canvas");cv.width=cv.height=S2;ftSil(cv,{b},{},S2);g.drawImage(cv,px+(pw-S2)/2,py+(ph-S2)/2);}
+  g.restore();
+  /* the name and the weapon */
+  const wp=SIM.part("weapon",cfg.weapon),wn=cfg.weapon==="none"?"No weapon":wp?wp.name:cfg.weapon;
+  g.fillStyle=CARD.ink;cardFit(g,name,P,py+ph+96,CARD.W-2*P,72,700);
+  g.fillStyle=CARD.lilac;cardFit(g,wn+(cfg.disc&&cfg.disc.name?` · “${cfg.disc.name}” disc`:""),P,py+ph+146,CARD.W-2*P,34,500);
+  /* the numbers, two columns of three */
+  const cells=[["Weight",`${fmtG(b.totalG)} of ${fmtG(b.limitG)}`],["Top speed",`${b.driveSpeed.toFixed(1)} m/s`],["Weapon",b.weapon&&b.weapon.energyJ?`${Math.round(b.weapon.energyJ)} J`:"none"],
+    ["Weakest side",FACE_LBL[b.weakestFace]||"—"],["Runs for",isFinite(b.runtimeS)?`${Math.floor(b.runtimeS/60)} min ${Math.round(b.runtimeS%60)} s`:"all fight"],["Record",bcRecord(cfg.cls)]];
+  const cw=(CARD.W-2*P-40)/2,y0=py+ph+196;g.strokeStyle=CARD.rule;g.lineWidth=2;g.beginPath();g.moveTo(P,y0);g.lineTo(CARD.W-P,y0);g.stroke();
+  cells.forEach(([k,v],i)=>{const x=P+(i%2)*(cw+40),y=y0+58+Math.floor(i/2)*92;g.fillStyle=CARD.muted;g.font=`500 24px ${CARD.f}`;g.fillText(k.toUpperCase(),x,y);
+    g.fillStyle=CARD.ink;cardFit(g,v,x,y+42,cw,34,500,CARD.m);});
+  return c;}
+async function bcOpen(){if(FT.on)return;const cfg=bcCfg();if(BC.name==null||BC.cls!==cfg.cls){BC.name=bcDefaultName(cfg);BC.cls=cfg.cls;}
+  openSheet("Bot card",`<div id="bcPic" class="cardpic"><p class="hint">Drawing the card…</p></div>
+    <div class="dname"><input id="bcName" maxlength="28" value="${esc(BC.name)}" aria-label="Bot name on the card" autocomplete="off"><button type="button" class="btn sm" data-bc="redraw">Rename</button></div>
+    <div class="row"><button type="button" class="btn pri" data-bc="share">Share</button><button type="button" class="btn" data-bc="save">Save picture</button></div>
+    <p class="hint">${bBot().cfg?"Your fitted bot":"Nothing is fitted in this class yet, so this is the draft"}. The name is only on the card.</p>`);
+  await bcPaint();}
+async function bcPaint(){BC.canvas=await bcDraw(BC.name);const el=$("bcPic");if(el)el.innerHTML=cardImg(BC.canvas,`Bot card for ${BC.name}`);}
+async function bcClick(a){const inp=$("bcName");if(inp){const n=inp.value.trim().slice(0,28);if(n&&n!==BC.name){BC.name=n;await bcPaint();}}
+  if(a==="redraw")return;if(!BC.canvas)return;await phoSave(BC.canvas,`scrapline-${phoSlug(BC.name)}.png`,`${BC.name} · Scrapline`,a==="share");}
+
+/* ---- trophy cards ---- */
+const TP_MAX=80;
+function tpAward(k,e,cls){const c=S.career;if(!c)return;if(!Array.isArray(c.trophies))c.trophies=[];const bot=cls?S.bots[cls]:null,wp=bot&&bot.cfg?SIM.part("weapon",bot.cfg.weapon):null;
+  c.trophies.unshift({k,ev:e.id,name:e.name,cls:cls||null,y:c.year,w:c.week,act:c.act,venue:e.venue||null,wpn:wp&&bot.cfg.weapon!=="none"?wp.name:null});
+  if(c.trophies.length>TP_MAX)c.trophies.length=TP_MAX;setTimeout(()=>toast(k==="promo"?"A gold trophy for the shelf":`Trophy: ${e.name}`),2800);}
+const tpGold=t=>t.k!=="win";
+const tpCup=gold=>`<svg viewBox="0 0 24 24" class="tpcup ${gold?"gold":""}" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/></svg>`;
+function tpWhat(t){return t.k==="promo"?"Promotion":t.k==="title"?"Champions":"Winners";}
+function tpShelf(){const c=S.career;if(!c)return"";const T=Array.isArray(c.trophies)?c.trophies:[];
+  return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${t.y}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
+    :`<p>Win an event and its trophy goes here. Championships and moving up an act are gold.</p>`}</div>`;}
+async function tpDraw(t){await cardFonts();const{c,g}=cardBase(),P=CARD.pad,gold=tpGold(t),cx=CARD.W/2;
+  g.fillStyle=CARD.muted;g.font=`600 26px ${CARD.f}`;g.textAlign="right";g.fillText(tpWhat(t).toUpperCase(),CARD.W-P,96);g.textAlign="center";
+  /* the cup: a bowl, two handles, a stem and a plinth, in gold or steel */
+  const top=210,gr=g.createLinearGradient(cx-200,0,cx+200,0);
+  if(gold){gr.addColorStop(0,"#8C6A22");gr.addColorStop(.35,"#F2D27A");gr.addColorStop(.6,"#C9A040");gr.addColorStop(1,"#7A5A1C");}
+  else{gr.addColorStop(0,"#6E737A");gr.addColorStop(.35,"#E3E6EA");gr.addColorStop(.6,"#A9AEB5");gr.addColorStop(1,"#5E636A");}
+  g.fillStyle=gr;g.strokeStyle=gr;g.lineWidth=26;g.lineCap="round";
+  g.beginPath();g.arc(cx-190,top+120,70,Math.PI*0.5,Math.PI*1.5);g.stroke();g.beginPath();g.arc(cx+190,top+120,70,-Math.PI*0.5,Math.PI*0.5);g.stroke();
+  g.beginPath();g.moveTo(cx-200,top);g.lineTo(cx+200,top);g.bezierCurveTo(cx+200,top+260,cx+90,top+330,cx+30,top+350);g.lineTo(cx-30,top+350);g.bezierCurveTo(cx-90,top+330,cx-200,top+260,cx-200,top);g.fill();
+  g.fillRect(cx-26,top+340,52,110);g.fillRect(cx-110,top+440,220,34);
+  g.fillStyle="#2A2925";g.fillRect(cx-170,top+474,340,96);g.fillStyle=gr;g.fillRect(cx-120,top+500,240,44);
+  g.fillStyle="#141413";g.font=`700 26px ${CARD.m}`;g.fillText(String(t.y),cx,top+532);
+  /* the words */
+  g.fillStyle=CARD.ink;cardFit(g,t.name,cx,890,CARD.W-2*P,66,700);   // centred: textAlign is still "center"
+  const ven=t.venue&&WORLD.venues[t.venue]?WORLD.venues[t.venue].name:null,act=TIME.acts[t.act]?TIME.acts[t.act].name:"";
+  g.fillStyle=CARD.lilac;cardFit(g,t.k==="promo"?`The end of the ${t.y} season`:`${ven?ven.replace(/^the /,"The ")+" · ":""}${t.y}, week ${t.w}`,cx,950,CARD.W-2*P,34,500);
+  g.fillStyle=CARD.muted;
+  cardFit(g,t.k==="promo"?`Into the ${act} act`:`${t.cls?SIM.CLASSES[t.cls].name:""}${t.wpn?" · with a "+t.wpn.toLowerCase():""}`,cx,1010,CARD.W-2*P,30,500);
+  if(t.k!=="promo")cardFit(g,`${act} act · ${t.k==="title"?"champions":"winners"}`,cx,1060,CARD.W-2*P,30,500);
+  g.textAlign="left";return c;}
+const TPC={canvas:null,t:null};
+async function tpOpen(i){const c=S.career,t=c&&c.trophies&&c.trophies[i];if(!t)return;TPC.t=t;TPC.canvas=null;
+  openSheet(t.name,`<div id="tpPic" class="cardpic"><p class="hint">Drawing the card…</p></div>
+    <div class="row"><button type="button" class="btn pri" data-tpc="share">Share</button><button type="button" class="btn" data-tpc="save">Save picture</button></div>`);
+  TPC.canvas=await tpDraw(t);const el=$("tpPic");if(el&&TPC.t===t)el.innerHTML=cardImg(TPC.canvas,`Trophy card: ${t.name}, ${t.y}`);}
+document.addEventListener("click",e=>{let x;
+  if((x=e.target.closest("[data-tp]"))){tpOpen(+x.dataset.tp);return;}
+  if((x=e.target.closest("[data-tpc]"))&&TPC.canvas){const t=TPC.t;phoSave(TPC.canvas,`scrapline-trophy-${phoSlug(t.name)}-${t.y}.png`,`${t.name} · Scrapline`,x.dataset.tpc==="share");return;}
+  if((x=e.target.closest("[data-bc]"))){bcClick(x.dataset.bc);return;}
+  if((x=e.target.closest("[data-tut]"))){const a=x.dataset.tut;closeSheet();if(a==="go")tutStart();else{ST().tutDone=true;save();}}});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.id==="bcName"){e.preventDefault();bcClick("redraw");}});
+$("cardOpen").addEventListener("click",bcOpen);
+
+/* ---- the tutorial ---- */
+const TUT={bak:null,ft:null,i:-1,timer:0,shown:-1,scrolled:-1};
+const tutWedge=()=>Object.assign({},SIM.TEST_BUILDS.find(t=>t.id==="wedge").cfg,{cls:"beetle"});
+const tutIsWedge=cfg=>!!cfg&&cfg.cls==="beetle"&&SIM.sameParts(SIM.normCfg(cfg),SIM.normCfg(tutWedge()));
+const TUT_OPP="feierabend";
+/* each step: the tab it lives on, the control it points at (sel), its words, and done() (it moves on by itself when that
+   turns true) or a Next button (n) */
+const TUT_STEPS=[
+  {tab:"build",t:"A loaner beetle",x:()=>"This is a borrowed beetleweight with nothing fitted yet. Nothing you do in the next few minutes touches your own workshop: it all goes back at the end.",n:"Start"},
+  {tab:"build",open:"designs",sel:'[data-load="t:wedge"]',t:"Load the starter wedge",x:()=>"Under Designs, the Starting points are proven builds. Load the Wedge into your draft: a steel box with a hardened front plate and a lot of push.",done:()=>tutIsWedge(draft())||tutIsWedge(bBot().cfg)},
+  {tab:"build",sel:'#fitBar [data-act="fit"]',t:"Fit it",x:()=>"A draft is only a plan until it's fitted. Tap Fit, then Fit again on the bill. In a career this is where you pay.",done:()=>tutIsWedge(bBot().cfg)},
+  {tab:"bench",sel:'[data-test="impact"] [data-run]',t:"Run the impact test",x:()=>"The bench hits each side of the bot with a test spinner and measures what gets through. Run the impact test.",done:()=>bnDone(bBot("beetle")).indexOf("impact")>=0},
+  {tab:"bench",sel:'[data-test="impact"]',t:"Read it",x:()=>"Each side shows how much it soaked up before something behind it broke. The weakest side is where a good opponent aims. A wedge's front is its strong side: keep it pointed at them.",n:"Next"},
+  {tab:"fight",pre:tutFightPrep,sel:'[data-ft="go"]',t:"Spar a club bot",x:()=>`${SIM.OPPONENTS.find(o=>o.id===TUT_OPP).name} is a careful club bot. Tap Fight and drive: ${ST().controls==="tactical"?"tap the floor to go there, tap them to attack":"the stick steers"}. The wedge has no weapon, so shove them into the wall and keep your front on them. Ninety seconds.`,done:()=>FT.rounds.length>0&&!FT.on},
+  {tab:"fight",sel:"#rpCard",t:"Read the post-mortem",x:()=>"Every fight ends with this: the hits on a timeline, the damage map, the chain of causes, and one change to try. In a career, the repair bill under it is real money.",n:"Next"},
+  {t:"That's the loop",x:()=>"Build it, prove it on the bench, fight, read why, build better. The loaner goes back now and your workshop is as you left it. The Career tab starts the real thing; Settings has this tutorial again.",n:"Back to my workshop",last:true}];
+function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";}
+function tutStart(){if(TUT_ON||FT.on)return;closeSheet();
+  TUT.bak=snapshot();TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
+  S.career=null;S.bots={};S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
+  B.open={designs:true};B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;if(typeof crReset==="function")crReset();
+  hud();tmPaint();tutCoach();tutGo(0);
+  TUT.timer=setInterval(tutTick,300);}
+/* end it: the snapshot comes back, with this phone's settings as they are now */
+function tutStop(){if(!TUT_ON)return;clearInterval(TUT.timer);TUT.timer=0;const keep=ST();
+  S=TUT.bak;S.settings=keep;ST().tutDone=true;TUT.bak=null;TUT_ON=false;TUT.i=-1;
+  Object.assign(FT,TUT.ft||{});FT.F=null;FT.rounds=[];FT.bout=null;B.open={stress:true};B.sel=null;B.delKey=null;if(typeof crReset==="function")crReset();
+  const el=$("coach");if(el)el.hidden=true;document.documentElement.classList.remove("tut");
+  if(sheetOn())closeSheet();save();applyAll();showTab("build");}
+function tutCoach(){if($("coach"))return;const el=document.createElement("div");el.id="coach";el.hidden=true;
+  el.innerHTML=`<div id="coachSpot"></div><div id="coachBox" role="dialog" aria-labelledby="coachT" aria-live="polite"><div class="step" id="coachStep"></div><h3 id="coachT"></h3><p id="coachX"></p>
+    <div class="row"><button type="button" class="btn sm ghost" id="coachSkip">Leave the tutorial</button><button type="button" class="btn sm pri" id="coachNext">Next</button></div></div>`;
+  $("app").appendChild(el);
+  $("coachNext").addEventListener("click",()=>{const st=TUT_STEPS[TUT.i];if(!st)return;if(st.last)tutStop();else tutGo(TUT.i+1);});
+  $("coachSkip").addEventListener("click",()=>{tutStop();toast("Tutorial closed. Your workshop is back.");});
+  $("panel").addEventListener("scroll",()=>{if(TUT_ON)tutPlace();},{passive:true});
+  window.addEventListener("resize",()=>{if(TUT_ON)tutPlace();});}
+function tutGo(i){TUT.i=i;const st=TUT_STEPS[i];if(!st){tutStop();return;}
+  if(st.pre)st.pre();if(st.open&&!B.open[st.open]){B.open[st.open]=true;}
+  if(st.tab&&curTab!==st.tab)showTab(st.tab);else if(st.tab&&TAB_RENDER[st.tab])TAB_RENDER[st.tab]();
+  document.documentElement.classList.add("tut");$("coach").hidden=false;
+  $("coachStep").textContent=`Tutorial · ${Math.min(i+1,TUT_STEPS.length)} of ${TUT_STEPS.length}`;$("coachT").textContent=st.t;$("coachX").textContent=st.x();
+  const nx=$("coachNext");nx.hidden=!st.n;nx.textContent=st.n||"";$("coachSkip").hidden=!!st.last;
+  TUT.scrolled=-1;tutPlace();}
+/* the control the step points at, when it's on screen */
+function tutTarget(){const st=TUT_STEPS[TUT.i];if(!st||!st.sel)return null;const el=document.querySelector(st.sel);if(!el||!el.getClientRects().length)return null;return el;}
+function tutTick(){if(!TUT_ON)return;const st=TUT_STEPS[TUT.i];if(!st)return;
+  if(st.done&&st.done()){tutGo(TUT.i+1);return;}
+  tutPlace();}
+function tutPlace(){const st=TUT_STEPS[TUT.i],spot=$("coachSpot"),box=$("coachBox");if(!st||!spot)return;
+  {const pr=$("panel").getBoundingClientRect();box.style.left=(pr.left+pr.width/2)+"px";box.style.width=Math.min(528,pr.width-24)+"px";}   // over the panel: on a phone on its side that's the right-hand column
+  $("coach").style.visibility=sheetOn()||FT.on?"hidden":"";
+  const off=st.tab&&curTab!==st.tab,tx=off?`This step is on the ${st.tab[0].toUpperCase()+st.tab.slice(1)} tab.`:st.x();if($("coachX").textContent!==tx)$("coachX").textContent=tx;
+  const el=off?null:tutTarget();
+  if(el&&TUT.scrolled!==TUT.i&&$("panel").contains(el)){TUT.scrolled=TUT.i;const pr=$("panel").getBoundingClientRect(),r=el.getBoundingClientRect();
+    if(r.top<pr.top+20||r.bottom>pr.bottom-20)$("panel").scrollTop+=(r.top-pr.top)-pr.height*0.3;}
+  const H=window.innerHeight;let r=el?el.getBoundingClientRect():null;
+  if(r&&$("panel").contains(el)){const pr=$("panel").getBoundingClientRect(),t=Math.max(r.top,pr.top),b=Math.min(r.bottom,pr.bottom,$("tabs").getBoundingClientRect().top-4);r=b-t>12?{left:r.left,right:r.right,top:t,bottom:b}:null;}
+  if(r){spot.style.display="";spot.style.left=(r.left-6)+"px";spot.style.top=(r.top-6)+"px";spot.style.width=(r.right-r.left+12)+"px";spot.style.height=(r.bottom-r.top+12)+"px";
+    const bh=box.offsetHeight||160;if(r.bottom+16+bh<H-8){box.style.top=(r.bottom+16)+"px";box.style.bottom="auto";}else{box.style.top="auto";box.style.bottom=Math.max(8,H-r.top+16)+"px";}}
+  else{spot.style.display="none";box.style.top="auto";box.style.bottom="calc(var(--tabh) + 16px + env(safe-area-inset-bottom,0px))";}}
+/* after the intro, once: the offer */
+function tutOffer(){if(ST().tutDone||TUT_ON)return;
+  openSheet("Your first fight",`<p>A coached first fight, about five minutes: fit a starter wedge, test it on the bench, spar a club bot and read why it went the way it did.</p>
+    <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Settings has it again any time.</p>
+    <div class="row"><button type="button" class="btn pri" data-tut="go">Show me</button><button type="button" class="btn" data-tut="skip">Not now</button></div>`);}
 </script>
 </body></html>

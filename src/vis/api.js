@@ -7,6 +7,7 @@ return{
   setBot(b){const k=b?JSON.stringify(b.cfg):null;if(k===V.botK)return;V.botK=k;V.botB=b||null;if(started&&V.mats)placeBot();},
   /* your sponsors' colours ({side, top}: "#rrggbb" or nothing), on your bot in the workshop and as bot 0 in a fight */
   setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
+  /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */
   setView(name){V.view=name==="arena"?"arena":"workshop";if(started)showView();},
@@ -18,6 +19,8 @@ return{
   damage(i,states){const B=AR.bots[i];if(B)botDamage(B.mesh,states);},
   /* a point on the canvas (CSS px) to the arena floor in sim metres, or null */
   pick(x,y){return arenaPick(x,y);},
+  /* the workshop's bot as a picture (a w x h canvas), for the bot card; null without a renderer */
+  shot(w,h){return started?shotBot(w,h):null;},
   fps(){return V.fpsObj;},
   get tier(){return V.tier;},
   get view(){return V.view;},

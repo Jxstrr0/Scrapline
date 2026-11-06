@@ -1,7 +1,7 @@
 /* ===================== app/boot.js: tabs, Settings, intro, start-up =====================
    showTab(t) switches the five tabs (Build, Bench, Fight, Shop, Career) and remembers the last one in S.settings.tab.
-   openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, saves, install, version. The control
-   scheme (direct / tactical) and handedness join it in PR 5.
+   openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, effects (PR 9), controls (direct /
+   tactical), hand, assists, sound, the tutorial again (PR 9), saves, install, version.
    start() runs once the whole app script has loaded (scheduled through __ldGo at the bottom of this file): it loads
    the save, starts the 3D view, draws the tabs and lifts the loading splash. */
 const TABS=["build","bench","fight","shop","career"];
@@ -30,12 +30,15 @@ function openSettings(){
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
 <div class="field"><span class="lbl">Theme</span>${segHtml("themeSeg","theme",[["dark","Dark","night shift"],["light","Light","daylight"],["auto","Auto","follow phone"]],ST().theme||"dark")}</div>
 <div class="field"><span class="lbl">Motion</span>${segHtml("reduceSeg","reduce",[["auto","Auto","follow phone"],["1","Reduced"],["0","Full"]],ST().reduce==null?"auto":ST().reduce?"1":"0")}</div>
+<div class="field"><span class="lbl">Effects</span>${segHtml("fxSeg","fxl",[["full","Full","sparks, smoke, flying parts"],["reduced","Reduced","a few sparks"]],fxLow()?"reduced":"full")}
+<p class="hint">Reduced keeps the fight readable with less going on: a few sparks, light smoke, no parts flying off, small steady hit rings in the 2D view. Motion covers camera shake and movement in the menus.</p></div>
 <div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
 <p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
 <div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
 <div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
 <div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Tutorial</span><div class="row"><button class="btn" id="tutAgain"${TUT_ON?" disabled":""}>Run the tutorial</button></div><p class="hint">A coached first fight on a loaner bot. Your workshop is put back as it was at the end.</p></div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
 ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
@@ -46,11 +49,13 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
+  pick("fxSeg","fxl",v=>{ST().effects=v==="reduced"?"reduced":"full";applyReduce();});
   pick("ctlSeg","ctl",v=>{ST().controls=v;});
   pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
   pick("asSeg","assist",v=>{ST().assists=v==="1";});
   pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();});
   buStoreLine();
+  $("tutAgain").addEventListener("click",()=>{closeSheet();tutStart();});
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
 }
 $("setOpen").addEventListener("click",openSettings);
@@ -59,7 +64,7 @@ $("scrim").addEventListener("click",closeSheet);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOn()){closeSheet();e.preventDefault();}});
 
 /* ---- intro (first visit only) ---- */
-$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});});
+$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
 
 /* ---- start-up ---- */
 function start(){

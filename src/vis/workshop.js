@@ -70,6 +70,25 @@ function bindOrbit(el){
   el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
   el.addEventListener("wheel",e=>{if(V.view!=="workshop")return;e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
 }
+/* the bot card's picture (app/help.js): the workshop's bot from a fixed three-quarter view, rendered off screen into a
+   w x h canvas (2x supersampled, then scaled down), so the screen never flickers. No bloom; shadows as the tier has them.
+   null when there is no renderer. */
+function shotBot(w,h){if(!V.r||!V.bot)return null;const ss=2,W=w*ss,H=h*ss,mx=V.r.capabilities.maxTextureSize||4096;if(W>mx||H>mx)return null;
+  const vis=[V.shop,V.lights,V.bot].map(o=>o&&o.visible),ag=AR.g&&AR.g.visible,al=AR.lights&&AR.lights.visible;
+  for(const o of [V.shop,V.lights,V.bot])if(o)o.visible=true;if(AR.g){AR.g.visible=false;AR.lights.visible=false;}
+  const cam=new THREE.PerspectiveCamera(30,w/h,.1,100),yaw=-.75,pitch=.42,dist=6.4,cp=Math.cos(pitch);
+  cam.position.set(Math.sin(yaw)*cp*dist,.3+Math.sin(pitch)*dist,Math.cos(yaw)*cp*dist);cam.lookAt(0,.3,0);
+  const fn=V.scene.fog.near,ff=V.scene.fog.far;V.scene.fog.near=12;V.scene.fog.far=28;
+  const rt=new THREE.WebGLRenderTarget(W,H,{depthBuffer:true});rt.texture.encoding=THREE.sRGBEncoding;
+  let out=null;
+  try{V.r.setRenderTarget(rt);V.r.render(V.scene,cam);const px=new Uint8Array(W*H*4);V.r.readRenderTargetPixels(rt,0,0,W,H,px);
+    const big=document.createElement("canvas");big.width=W;big.height=H;const bg=big.getContext("2d"),img=bg.createImageData(W,H),row=W*4;
+    for(let y=0;y<H;y++)img.data.set(px.subarray((H-1-y)*row,(H-y)*row),y*row);   // the GPU's rows run bottom up
+    bg.putImageData(img,0,0);out=document.createElement("canvas");out.width=w;out.height=h;const g=out.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(big,0,0,w,h);}
+  catch(e){out=null;}
+  finally{V.r.setRenderTarget(null);rt.dispose();V.scene.fog.near=fn;V.scene.fog.far=ff;
+    [V.shop,V.lights,V.bot].forEach((o,i)=>{if(o)o.visible=vis[i];});if(AR.g){AR.g.visible=ag;AR.lights.visible=al;}}
+  return out;}
 /* Lite renders at most 30 frames a second (plan section 16); Full and Ultra follow the display */
 function frame(now){
   requestAnimationFrame(frame);
