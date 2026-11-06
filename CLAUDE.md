@@ -20,7 +20,7 @@ node build.js --check    # exit 1 if either is stale, a script block does not co
 node check-savecode.js   # 16 save-code checks: round trip, empty save, damaged and cut-off codes, other games, storage full, backup files
 ```
 
-Run all three before every commit. From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
+Run all three before every commit, plus `node tools/sim-test.js` and `node tools/fight-test.js` (about half a minute; `-q` for a quick pass, `all` for every class, `-m` for the matchup matrix). From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
 
 ## Source and build
 
@@ -48,7 +48,7 @@ GitHub Pages serves the repo root from `main` (`.nojekyll` keeps Jekyll out). No
 - **The fight is simulated by `SCRAP_SIM` at a fixed 60 Hz step; the 3D view only renders it.** That is what makes fights testable and balanceable in node.
 - **Determinism is a hard rule.** `SCRAP_SIM` uses one seeded generator (`rng(seed)` in `sim/rng.js`, mulberry32) passed in as an argument. `Math.random`, `Date.now` and `performance.now` are banned anywhere in `src/sim/`.
 - **Units:** parts tables are in grams and millimetres; `evalBuild` is the one conversion point, and everything it returns and everything the fight uses is in kg, m, s, J, W.
-- Tuning numbers live in tables, not inline, under the names the plan gives them: `CLASSES`, `PARTS`, `DEFAULT_CFG` (`sim/parts.js`), `K` (`sim/build.js`), `COMBOS`, `WEDGE_GAUGES`, `BENCH`, `BENCH_TESTS` (`sim/bench.js`), `DAMAGE` (`sim/damage.js`), `WEDGE_RULES`, `AI_STYLES`, `ARENAS`, `JUDGE_WEIGHTS`, `OPPONENTS` in `src/sim/`; `WORLD`, `TIME`, `WORKSHOP_STAGES`, `TOOLS`, `SEASON_EVENTS`, `REPAIR_COST`, `REPAIR_HOURS`, `PIT_KITS`, `REPAIR_TIMES`, `ASSISTS`, `RIVALS`, `RND`, `STAFF`, `SPONSORS`, `META_WAVES`, `RULES_BY_SEASON` at the top of `src/app/state.js`.
+- Tuning numbers live in tables, not inline, under the names the plan gives them: `CLASSES`, `PARTS`, `DEFAULT_CFG` (`sim/parts.js`), `K` (`sim/build.js`), `COMBOS`, `WEDGE_GAUGES`, `BENCH`, `BENCH_TESTS` (`sim/bench.js`), `DAMAGE` (`sim/damage.js`), `WEDGE_RULES`, `FIGHT` (`sim/fight.js`), `AI_STYLES`, `AI_SKILL` (`sim/ai.js`), `ARENAS`, `JUDGE_WEIGHTS`, `OPPONENTS` in `src/sim/`; `WORLD`, `TIME`, `WORKSHOP_STAGES`, `TOOLS`, `SEASON_EVENTS`, `REPAIR_COST`, `REPAIR_HOURS`, `PIT_KITS`, `REPAIR_TIMES`, `ASSISTS`, `RIVALS`, `RND`, `STAFF`, `SPONSORS`, `META_WAVES`, `RULES_BY_SEASON` at the top of `src/app/state.js`.
 - Place names live in `WORLD` (`src/app/state.js`); money is shown with `fmt$` (`Th 4,850`).
 - Three graphics tiers, `lite`, `full`, `ultra` (`src/app/perf.js`). Lite is the phone default and must keep working after every change: 30 fps render cap, no shadows, no post. Every effect needs a Lite path that is cheaper, not just "off". Auto-adjust steps a tier down when the frame rate stays low; after any change, the "Graphics lowered" toast must not appear where it didn't before.
 - Colours in three.js are written as sRGB hex and converted with `.convertSRGBToLinear()` (the renderer outputs sRGB); skip that and everything washes out.
@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.3.0)
+## Current status (0.1.4.0)
 
 - PR 0 done: scaffold. Five tabs (Build, Bench, Fight, Shop, Career) with cards naming what each PR brings; the intro; the Settings sheet (graphics tier, auto-adjust, theme, motion, saves, install, version); PWA with the update bar; `SCR1:` save codes and PEW's save safety; `WORLD` and `fmt$`; the Longlight palette in both themes; a placeholder bot (plywood box, clay side panels, horizontal spinner idling) on a steel plate on a workbench in 3D (Lite / Full shadows / Ultra bloom).
 - 0.1.0.1: renamed Servo to Scrapline (namespaces `SCRAP_*`, keys and caches `scr-`, codes `SCR1:`); save safety and every doc rebased on PEW alone.
@@ -93,7 +93,23 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - 0.1.2.1: review fixes. `normCfg` swaps unknown ids for the defaults (`unknownIds(cfg)` lists them for `evalBuild`'s errors), so mass, bill and layout agree; `fitBill` returns `removed` too; `sameParts` ignores the material with no weapon; fitting clears damage only on changed parts; the custom shape's cut corners are armoured; a rule that throws in `stressReport` is skipped.
 - Files added beyond the plan's PR 0 manifest list: `app/pwa.js` (the service worker and update bar, as in PEW), `app/shop.js` (the Shop tab; the plan's list had no file for it) and `html/ld-vis.html` (a loading-bar step).
 - PR 3 done (0.1.3.0): bench tests. `sim/bench.js`: `BENCH`, `BENCH_TESTS`, `runBench(b, id)` and the six tests (drive, weapon, impact per face, wedge gauge, endurance, drop), measured by running the build (mostly at the 60 Hz step), deterministic. `sim/damage.js` gets the first half of the damage model: `damageState`, `hitOrder`, `hitFace` (absorb, plate hp, then the most exposed part behind the face). `WEDGE_RULES.tolMm` exists. `stressReport(b, m)` uses measured numbers (lines tagged `measured`). The Bench tab tests the **fitted** bot only, and the rig is safe: nothing it breaks is kept (Kelbo, PR 3). Drive and weapon tests are free; the rest cost workshop hours from PR 7. `SAVE_V` 3: `bots[cls].bench = {sig, done}`; results are worked out again, never stored. The Build tab's stress report shows Bench lines when the draft is the tested bot.
-- Next: PR 4a, the headless fight sim (`sim/fight.js`, `damage.js` effects, `ai.js` rush and keep-away), the debug view and `tools/fight-test.js`.
+- PR 4a done (0.1.4.0): the fight sim.
+  - **`sim/fight.js`:** `newFight` / `stepFight` / `runFight` / `replayFight` / `fightResult`.
+    - N bots at 60 Hz with teams.
+    - Tank-steer drive capped by grip; a height axis (air, landings, upside down, self-righting).
+    - `WEDGE_RULES` on any front contact.
+    - Weapon zones and hits: spinners, flippers, lifters, hammers, crushers, saws. Bent discs and sheared shafts.
+    - Collisions and walls, heat and battery.
+    - Knockout after 10 s immobile; a pit when an arena has one. A lift lets go after 10 s (`FIGHT.holdMaxS`).
+    - Time-up goes to the smaller damage share until PR 4b's judges.
+    - Tuning in `FIGHT`.
+  - **The log:** hits, failures, flips, landings, plus the player's inputs (30 Hz, 63 levels per axis, packed into base64url), capped at 20 KB. `replayFight(log)` reproduces it.
+  - **`sim/damage.js`:** effects (`damageEffects`), `landHit` (the bench's drop uses it), `damageState(b, dmg)` with carried damage, `damageTaken`, `partStates`, `damageShare`. Damage keys are part keys, `armour_<face>` and `chassis`.
+  - **`sim/ai.js`:** rush and keep-away with `AI_SKILL`.
+  - **`ARENAS.box`:** the plain test box.
+  - **The Fight tab:** the fitted bot against any test build, AI against AI, in the top-down debug view with readouts and the log in words. It pauses when hidden or when the tab is left, and saves nothing (no `SAVE_V` change).
+  - **`tools/fight-test.js`:** the harness, with checks (repeatability, replay, log size, step budget, carried damage, rumble, the phone-test moments). Balance targets are printed only.
+- Next: PR 4b, AI styles, arenas with hazards, judges, 15 opponents and the balance targets.
 - What to test on a phone after any change: the loading bar finishes and the workshop renders on Lite; every tab opens; Settings opens and the theme switches; Back up then Restore round trips; portrait and landscape; no console errors on desktop.
 
 ## Longlight brand (studio pieces only)

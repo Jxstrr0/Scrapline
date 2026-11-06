@@ -207,7 +207,7 @@ function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const bill=SIM.f
     <div class="row"><button type="button" class="btn pri" data-act="fit-ok">${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=S.career;
   if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}c.money-=bill.cost;}
-  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);if(curTab==="bench"&&TAB_RENDER.bench)TAB_RENDER.bench();}
+  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
 
 /* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
    are part keys (sim/build.js parts: drive0, wheel1, battery, weapon, selfright ...) or armour_<face> for a plate. */
