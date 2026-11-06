@@ -19,7 +19,12 @@ const BN_DESC={
   endurance:"Fight-pace bursts of drive and weapon until the battery is flat: runtime, heat, and when the motors back off.",
   drop:"Dropped from a big flipper throw, landing on its wheels and upside down: what breaks, and whether it can carry on."
 };
-const bnSig=cfg=>JSON.stringify(SIM.normCfg(cfg));
+/* a bot's signature: its parts and where they actually sit (autoLayout), so putting a part back where it was, or writing
+   down the automatic place, isn't a change */
+const bnSigMemo=new Map();
+function bnSig(cfg){const k=JSON.stringify(SIM.normCfg(cfg));let s=bnSigMemo.get(k);
+  if(s==null){const n=SIM.normCfg(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
+  return s;}
 let bnCache={sig:"",b:null,res:{}};
 function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:SIM.evalBuild(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
@@ -49,7 +54,7 @@ const BN_TEXT={
       straight?"Runs straight":`Pulls ${r.driftMm<0?"left":"right"} ${rd(bn0(Math.abs(r.driftMm))+" mm")} over the track`,
       r.spinS!=null?`Spins on the spot in ${rd(bn1(r.spinS)+" s")} (${bn0(r.turnDegS)}°/s)`:"Can't spin on the spot",
       `Push ${rd(bn0(r.pushN)+" N")}`];},
-  weapon:(r,b)=>{if(r.kind==="spin")return[`Full speed ${rd(bn0(r.rpm)+" rpm")} in ${rd(bn1(r.spinUpS)+" s")} <small>(predicted ${bn1(r.predicted)})</small>, 90% in ${bn1(r.t90)} s`,
+  weapon:(r,b)=>{if(r.kind==="spin")return[r.spinUpS!=null?`Full speed ${rd(bn0(r.rpm)+" rpm")} in ${rd(bn1(r.spinUpS)+" s")} <small>(predicted ${isFinite(r.predicted)?bn1(r.predicted):"–"})</small>, 90% in ${bn1(r.t90)} s`:`<span class="broke">Doesn't reach ${bn0(r.rpm)} rpm in a minute</span>${r.t90!=null?`, 90% in ${bn1(r.t90)} s`:""}`,
       `Stores ${rd(bn0(r.storedJ)+" J")}, tip speed ${bn0(r.tipSpeed)} m/s`,
       `Anvil hit: ${rd(bn0(r.hitJ)+" J")} lands, the disc drops to ${bn0(r.rpmAfter)} rpm and is back to 90% in ${bn1(r.recoverS)} s`,
       `Recoil throws you back ${rd(bn0(r.recoilMm)+" mm")}`,
@@ -77,7 +82,7 @@ const BN_TEXT={
 };
 const BN_ARIA={drive:r=>`Speed over time, reaching ${bn1(r.topSpeed)} m/s`,impact:r=>`Energy each face takes before a part breaks; weakest ${r.weakest?FACE_LBL[r.weakest].toLowerCase():"none"}`,
   gauge:r=>`${r.under} of ${r.rows.length} gauges get under the ${bn1(r.edgeMm)} mm edge`,endurance:r=>`Battery and motor heat over ${bn0(r.ranS)} seconds`,
-  drop:r=>`Damage from the drop, on its wheels and upside down`,weapon:r=>r.kind==="spin"?`Disc speed over time, full in ${bn1(r.spinUpS)} s`:`${r.name} test`};
+  drop:r=>`Damage from the drop, on its wheels and upside down`,weapon:r=>r.kind==="spin"?`Disc speed over time${r.spinUpS!=null?`, full in ${bn1(r.spinUpS)} s`:", never full"}`:`${r.name} test`};
 
 /* ---- canvas readouts ---- */
 const BN_KEY={   // the key under a chart: [colour token, words]

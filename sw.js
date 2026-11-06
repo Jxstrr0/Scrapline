@@ -7,7 +7,7 @@
    instead of waiting, because that page cannot boot to offer it. Every cache name starts "scr-": the activate step only ever
    deletes "scr-" caches, never another game's on the same host. */
 "use strict";
-const CACHE = "scr-shell-v0.1.3.0-85610f3744", MEDIA = "scr-media-v1-e3b0c442", LIBS = "scr-libs-v1";
+const CACHE = "scr-shell-v0.1.3.0-d31a270d4a", MEDIA = "scr-media-v1-e3b0c442", LIBS = "scr-libs-v1";
 const PRECACHE = ["index.html","manifest.webmanifest","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512-maskable.png","icons/icon-512.png"], CDN = ["https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
 const LIB_HOSTS = ["cdnjs.cloudflare.com", "cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
 const BASE = new URL("./", self.location).pathname;
