@@ -168,7 +168,8 @@ function normDisc(d){if(!d||typeof d!=="object")return null;const t=+d.teeth,r=d
   if(!DISC_PROFILES.teeth[t]||!DISC_PROFILES.rim[r])return null;
   const name=String(d.name==null?"":d.name).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,DISC_PROFILES.nameMax)||"Own disc";
   return{name,teeth:t,rim:r};}
-const sameDisc=(a,b)=>JSON.stringify(a||null)===JSON.stringify(b||null);
+/* the same disc to cut: teeth and rim (the name is paint, not metal) */
+const sameDisc=(a,b)=>!a===!b&&(!a||(a.teeth===b.teeth&&a.rim===b.rim));
 
 /* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
 function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;

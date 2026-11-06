@@ -231,7 +231,7 @@ const RULES_BY_SEASON=[
 /* the kit line (Legacy act, Kelbo PR 8): publish one design as a kit. At the end of each season it fights the class's
    test builds in the sim (seeds fights each, at skill); income = base x the class's prizeScale x its win rate x (1 + rep /
    repRef). You can change the kit once a season. */
-const KIT_LINE={act:3,base:400,repRef:200,seeds:2,skill:0.6};
+const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
 const SAVE_V=6;
