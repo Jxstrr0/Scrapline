@@ -1,0 +1,1062 @@
+<!doctype html><html lang="en"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel=manifest href=manifest.webmanifest><meta name=theme-color content="#141413"><meta name=description content="Servo: design a fighting robot under a weight limit, prove it on the bench, fight it, patch it in the pit, read the post-mortem and build better. From a plywood box in the Haldis to the Scrapline Open."><link rel=apple-touch-icon href=icons/apple-touch-icon.png><meta name=apple-mobile-web-app-capable content=yes><meta name=mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-title content="Servo"><meta name=apple-mobile-web-app-status-bar-style content=black><link rel=preconnect href=https://cdnjs.cloudflare.com><link rel=preload as=script crossorigin=anonymous href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><style>:root{color-scheme:dark;box-sizing:border-box}body{margin:0;padding:0;font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#141413;color:#F2EFE8}[hidden]:not([hidden=until-found i]){display:none!important}#boot{position:fixed;inset:0;z-index:99999;background:#141413;color:#F2EFE8;display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Space Grotesk",-apple-system,BlinkMacSystemFont,sans-serif;transition:opacity .35s ease}#boot.done{opacity:0;pointer-events:none}#boot .ldx{width:min(320px,100%)}#boot h1{margin:0 0 6px;font-size:36px;font-weight:700;letter-spacing:.01em;line-height:1}#boot .ldsub{margin:0 0 22px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#D97757}#boot .ldbar{height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}#boot .ldbar i{display:block;height:100%;background:#D97757;transform-origin:0 50%;transform:scaleX(.04);transition:transform .9s cubic-bezier(.2,.7,.2,1)}#boot.err .ldbar i{background:#E5484D}#boot .ldmsg{margin:12px 0 0;font-size:12px;letter-spacing:.04em;color:#ABA79E}#boot .ldrl{margin-top:14px;min-height:44px;padding:0 18px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit;font-weight:600}#boot .ldrl[hidden]{display:none}@media (prefers-reduced-motion:reduce){#boot,#boot .ldbar i{transition:none}}</style>
+<title>Servo</title>
+</head><body>
+<div id="boot" role="status" aria-live="polite"><div class="ldx"><h1>Servo</h1><p class="ldsub">Combat robot builder</p><div class="ldbar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="4"><i></i></div><p class="ldmsg">Loading…</p><button type="button" class="ldrl" hidden>Reload</button></div></div>
+<script>/* loading bar (same pattern as PEW): __ld(fraction, message, creepSeconds) between the big script blocks, __ldGo(fn) paints then runs fn, __ldDone() at the end of start() */
+(function(){var b=document.getElementById("boot"),bar=b.querySelector(".ldbar"),f=bar.querySelector("i"),m=b.querySelector(".ldmsg"),rl=b.querySelector(".ldrl"),fin=0,bad=0;
+window.__ld=function(p,s,secs){if(fin)return;f.style.transitionDuration=secs?secs+"s":"";f.style.transform="scaleX("+p+")";bar.setAttribute("aria-valuenow",Math.round(p*100));if(s&&!bad)m.textContent=s;};
+window.__ldGo=function(fn){var r=0,go=function(){if(!r){r=1;fn();}};window.__ld(.95,"Clearing the workbench…",3);requestAnimationFrame(function(){setTimeout(go,0);});setTimeout(go,300);};
+window.__ldDone=function(){if(fin)return;fin=1;f.style.transitionDuration=".2s";f.style.transform="scaleX(1)";bar.setAttribute("aria-valuenow",100);b.className="done";setTimeout(function(){b.remove();},500);};
+function fail(s){if(bad)return;bad=1;b.classList.add("err");m.textContent=s;rl.hidden=false;}
+/* Reload: if a newer worker is installed and waiting (it may carry the fix for whatever broke), let it take over first */
+rl.onclick=function(){var go=function(){location.reload();},sw=navigator.serviceWorker;if(!sw||!sw.getRegistration)return go();
+ sw.getRegistration().then(function(r){if(!r||!r.waiting)return go();sw.addEventListener("controllerchange",go);r.waiting.postMessage({type:"SKIP_WAITING"});setTimeout(go,3000);},go);};
+window.addEventListener("error",function(e){if(fin)return;var t=e.target;if(t&&t.tagName==="SCRIPT")fail("Couldn't load "+(/three/.test(t.src)?"the 3D library":"a game library")+". Check your connection and reload.");else if(e.message)fail("Something went wrong while loading. Reload to try again.");},true);
+setTimeout(function(){if(!fin&&!bad)m.textContent="Still loading… slow connection?";},9000);
+})();</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
+<style>
+/* ===================== Servo: base page CSS =====================
+   Theme tokens (the Longlight palette: near-black base with clay accents by default, an ivory workshop under
+   :root[data-theme=light]), the phone-first layout (3D view on top, scrolling tab panel under it, tab bar at the bottom),
+   shared controls (buttons, segmented pickers, cards, rows), the bottom sheet, toast, intro screen and the
+   "New version ready" bar. Fonts: Space Grotesk for everything, JetBrains Mono (--mono, tabular) for readouts.
+   Colour roles (plan section 2): clay is the accent (buttons, weight bar, active tab); lilac is for readouts (weapon J, rpm,
+   timers); damage uses green / amber / a cool red and never clay, so a hurt bot never looks like the accent.
+   Every text colour here is at least 4.5:1 on every surface it sits on, in both themes (crit text is lighter than the
+   crit fill in the dark theme for that reason). The 3D view stays dark in both themes: it is the workshop under cold light.
+   Reduced motion and reduced transparency are honoured at the bottom of this file. */
+:root{
+  --base:#141413; --surface:#1C1B19; --card:#1F1E1B; --card2:#2A2925; --rule:#34322D; --edge:rgba(255,255,255,.06);
+  --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189;
+  --clay:#D97757; --clay-t:#D97757; --clay-ink:#141413; --lilac:#B48CE8;
+  --good:#4CC38A; --warn:#E2A93B; --crit:#E5484D; --crit-t:#F06A6E;
+  --font:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --tabh:64px; --tabbg:#100F0E; --scrim:rgba(6,6,5,.6); --shadow:0 10px 30px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+:root[data-theme=light]{
+  --base:#FAF9F5; --surface:#F1EEE7; --card:#FFFFFF; --card2:#F1EEE7; --rule:#E2DED5; --edge:rgba(20,20,19,.08);
+  --ink:#1C1B19; --muted:#5F5C56; --dim:#66635C;
+  --clay-t:#A8482A; --lilac:#6A33AD;
+  --good:#1A6E44; --warn:#8A5A00; --crit:#C42B31; --crit-t:#C42B31;
+  --tabbg:#FFFFFF; --scrim:rgba(20,20,19,.35); --shadow:0 10px 30px rgba(40,34,20,.16);
+  color-scheme:light;
+}
+/* the 3D view and the intro keep the dark workshop colours in both themes */
+:root[data-theme=light] #view,:root[data-theme=light] #intro{--ink:#F2EFE8;--muted:#ABA79E;--dim:#959189;--clay-t:#D97757;--lilac:#B48CE8;--rule:#34322D;--card:#1F1E1B;--card2:#2A2925}
+:root[data-theme=light] #toast{background:#1C1B19;color:#F2EFE8}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:var(--base);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--clay);outline-offset:2px}
+h1,h2,h3{margin:0;font-weight:700;text-wrap:balance;letter-spacing:.005em}
+.mono,.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.readout{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac)}
+
+/* ---- layout: view on top, panel under it, tab bar at the bottom ---- */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:560px;margin:0 auto;background:var(--base);padding-top:env(safe-area-inset-top,0px)}
+#view{position:relative;flex:0 0 38%;min-height:200px;background:radial-gradient(120% 90% at 50% 30%,#262522 0%,#0E0E0D 70%);overflow:hidden}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:absolute;left:0;right:0;top:0;display:flex;align-items:flex-start;gap:10px;padding:10px 12px;pointer-events:none;background:linear-gradient(180deg,rgba(10,10,9,.7),rgba(10,10,9,0))}
+#hud>*{pointer-events:auto}
+#hud .brand{flex:1;min-width:0;font-weight:700;font-size:17px;letter-spacing:.01em;color:var(--ink)}
+#hud .brand small{display:block;font-weight:500;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
+#hud .money{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;line-height:1.25;color:var(--ink)}
+#hud .money span{display:block;font-size:11px;color:var(--muted)}
+.hudbtn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:rgba(20,20,19,.6);border:1px solid rgba(255,255,255,.08);color:var(--ink)}
+.hudbtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#tag{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--muted);font-family:var(--mono);pointer-events:none}
+#fpsHud{position:absolute;right:10px;bottom:10px;font:11px var(--mono);color:var(--dim);pointer-events:none}
+
+#panel{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px calc(var(--tabh) + 24px + env(safe-area-inset-bottom,0px))}
+.tabpage{display:none}
+.tabpage.on{display:block}
+.tabpage>h2{font-size:22px;margin:2px 0 4px}
+.lede{margin:0 0 14px;color:var(--muted);font-size:15px}
+
+/* ---- tab bar ---- */
+#tabs{position:absolute;left:0;right:0;bottom:0;display:flex;height:calc(var(--tabh) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--tabbg);border-top:1px solid var(--rule);z-index:20}
+#tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:500;color:var(--dim);min-height:44px;position:relative}
+#tabs button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#tabs button.on{color:var(--clay-t)}
+#tabs button.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:2px;border-radius:0 0 2px 2px;background:var(--clay)}
+
+/* ---- shared controls ---- */
+.card{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:14px;margin:0 0 12px}
+.card h3{font-size:16px;margin:0 0 6px}
+.card p{margin:0 0 8px;color:var(--muted);font-size:15px}
+.card p:last-child{margin-bottom:0}
+.soon{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t);border:1px solid currentColor;vertical-align:2px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:15px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:10px;font-weight:600;font-size:15px;background:var(--card2);border:1px solid var(--rule);color:var(--ink)}
+.btn.pri{background:var(--clay);border-color:var(--clay);color:var(--clay-ink)}
+.btn.ghost{background:transparent}
+.btn.sm{min-height:44px;padding:0 12px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>.btn{flex:1}
+.row+.row{margin-top:10px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;border-radius:12px;background:var(--card2);border:1px solid var(--rule)}
+.seg button{min-height:44px;border-radius:9px;font-size:14px;font-weight:500;color:var(--muted);line-height:1.15;padding:4px 6px}
+.seg button small{display:block;font-size:11px;font-weight:400;color:var(--dim)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay)}
+.field{margin:0 0 14px}
+.field>label,.field>.lbl{display:block;font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted);margin:0 0 6px}
+.hint{font-size:13px;color:var(--dim);margin:6px 0 0}
+textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:13px/1.4 var(--mono);word-break:break-all}
+.buerr{color:var(--crit-t);min-height:1em}
+/* damage states (green / amber / cool red), for the HUD silhouette, the post-mortem and the bench readouts */
+.ok{color:var(--good)}.worn{color:var(--warn)}.broke{color:var(--crit-t)}
+
+/* ---- the palette strip on the Build tab until PR 2 replaces it (shows both themes' colour roles at a glance) ---- */
+.swatches{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0}
+.swatches span{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.swatches i{width:16px;height:16px;border-radius:4px;border:1px solid var(--rule);display:inline-block}
+
+/* ---- bottom sheet, scrim, toast ---- */
+#scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+#scrim.on{opacity:1;pointer-events:auto}
+#sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;max-height:86%;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--rule);border-bottom:0;border-radius:18px 18px 0 0;box-shadow:var(--shadow);transform:translateY(105%);transition:transform .25s cubic-bezier(.2,.7,.2,1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
+#sheet.on{transform:none}
+#sheet header{display:flex;align-items:center;gap:10px;padding:10px 10px 6px 16px;border-bottom:1px solid var(--rule)}
+#sheet header h2{flex:1;font-size:18px}
+#sheet .body{overflow-y:auto;padding:14px 16px 18px;overscroll-behavior:contain}
+#toast{position:fixed;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,10px);max-width:calc(100% - 32px);width:max-content;padding:10px 14px;border-radius:10px;background:#F2EFE8;color:#141413;font-size:14px;font-weight:600;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:70}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---- intro ---- */
+#intro{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(120% 80% at 50% 20%,#262522 0%,#0E0E0D 75%);color:var(--ink)}
+#intro .box{width:min(420px,100%)}
+#intro h1{font-size:40px;line-height:1;margin:0 0 6px}
+#intro .sub{margin:0 0 18px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
+#intro p{color:var(--muted);margin:0 0 20px}
+#intro .btn{width:100%}
+#intro .credit{margin-top:22px;font-size:12px;color:var(--dim)}
+
+/* ---- "New version ready" bar (app/pwa.js) and the backup reminder bar (#buBar, app/savecode.js) ---- */
+#pwaBar,#buBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(16px);z-index:60;display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100% - 24px);padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#pwaBar.on,#buBar.on{opacity:1;transform:translateX(-50%);pointer-events:auto}
+#pwaBar .btn,#buBar .btn{flex:0 0 auto}
+#pwaBar .pwalater,#buBar .pwalater{min-height:44px;min-width:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
+
+/* ---- wider screens: centre the column, give the view a bit more room ---- */
+@media (min-width:700px){#app{border-left:1px solid var(--rule);border-right:1px solid var(--rule)}#view{flex-basis:42%}}
+@media (max-height:560px) and (orientation:landscape){#view{flex-basis:46%;min-height:160px}}
+
+/* ---- accessibility preferences ---- */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
+html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
+@media (prefers-reduced-transparency:reduce){#hud{background:rgba(10,10,9,.92)}.hudbtn{background:#1F1E1B}#scrim{background:rgba(6,6,5,.85)}}
+</style>
+
+<div id="app">
+  <div id="view">
+    <canvas id="gl" aria-label="Your robot on the workbench" role="img"></canvas>
+    <div id="hud">
+      <div class="brand">Servo<small id="weekLbl">The Haldis · Velmark</small></div>
+      <div class="money"><b id="cashLbl"></b><span id="repLbl"></span></div>
+      <button class="hudbtn" id="setOpen" aria-label="Settings" title="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
+    <div id="tag">Placeholder bot · horizontal spinner</div>
+    <div id="fpsHud" aria-hidden="true"></div>
+  </div>
+
+  <div id="panel">
+    <!-- BUILD: design the robot under the weight limit -->
+    <section class="tabpage on" id="tab-build" aria-labelledby="h-build">
+      <h2 id="h-build">Build</h2>
+      <p class="lede">Design a fighting robot under a weight limit. Every gram is a choice: armour you fit is speed or weapon you don't.</p>
+      <div class="card"><h3>Weight budget<span class="soon">PR 2</span></h3><p>A bar that fills as you add parts. Going over is impossible; coming in more than 5% under is armour you didn't fit.</p></div>
+      <div class="card"><h3>Parts<span class="soon">PR 2</span></h3><p>Class · Chassis · Armour · Drive &amp; wheels · Power · Weapon · Weapon material · Extras</p></div>
+      <div class="card"><h3>Layout and side profile<span class="soon">PR 2</span></h3><p>Place drive pods, battery and weapon on the chassis grid. Watch the centre of mass move and the front edge height change.</p></div>
+      <div class="card"><h3>Stress report<span class="soon">PR 1</span></h3><p>Plain English about what will break, and why: shafts that shear, faces left bare, a battery that won't last 90 seconds.</p></div>
+      <pre class="card mono" id="simOut" hidden></pre>
+    </section>
+
+    <!-- BENCH: prove the build before it fights -->
+    <section class="tabpage" id="tab-bench" aria-labelledby="h-bench">
+      <h2 id="h-bench">Bench</h2>
+      <p class="lede">Prove it before it fights. Drag the view to turn the bot; pinch to zoom.</p>
+      <div class="card"><h3>Bench tests<span class="soon">PR 3</span></h3><p>Drive · Weapon · Impact per face · Wedge gauge · Endurance · Drop</p>
+        <p>The impact test hits each face harder and harder until something breaks, and tells you which part inside dies first.</p></div>
+      <div class="card"><h3>Readouts</h3><p>Numbers read like this: <span class="readout">412 J</span> · <span class="readout">8,400 rpm</span> · <span class="readout">1:30</span>. Parts are <span class="ok">intact</span>, <span class="worn">damaged</span> or <span class="broke">destroyed</span>.</p></div>
+    </section>
+
+    <!-- FIGHT: sparring, the arena, the pit window, the post-mortem -->
+    <section class="tabpage" id="tab-fight" aria-labelledby="h-fight">
+      <h2 id="h-fight">Fight</h2>
+      <p class="lede">90-second rounds. Drive it against a bot whose build is just as considered, patch it in the pit, then read why you won or lost.</p>
+      <div class="card"><h3>Sparring<span class="soon">PR 4</span></h3><p>Pick any bot in your class and any arena. No stakes, no repair bill. A top-down view first, the 3D arena in PR 5.</p></div>
+      <div class="card"><h3>Pit window and post-mortem<span class="soon">PR 6</span></h3><p>60 seconds of repairs between rounds. Then every hit, what it broke and why, with a redesign hint and the repair bill.</p></div>
+    </section>
+
+    <!-- SHOP: tools, workshop, pit kits, saves -->
+    <section class="tabpage" id="tab-shop" aria-labelledby="h-shop">
+      <h2 id="h-shop">Shop</h2>
+      <p class="lede">Tools, the workshop, pit kits and the books.</p>
+      <div class="card"><h3>Tools and workshop<span class="soon">PR 7</span></h3><p>From hand tools in a rented corner of a Haldis machine shop to a CNC, a press brake and a team HQ with a trailer.</p></div>
+      <div class="card" id="savesCard"><h3>Saves</h3><p>A backup code holds your whole game. Keep it somewhere safe, or paste it into Restore on another phone.</p>
+        <div class="row"><button class="btn" id="exportSave">Back up</button><button class="btn" id="importSave">Restore</button></div>
+        <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div>
+        <p class="hint" data-bu-store hidden></p></div>
+    </section>
+
+    <!-- CAREER: the season calendar, the circuit, rivals -->
+    <section class="tabpage" id="tab-career" aria-labelledby="h-career">
+      <h2 id="h-career">Career</h2>
+      <p class="lede">Twenty seasons, from club meets at the Haldis Gemeindehalle to the televised Scrapline Open at the Eisenhalle.</p>
+      <div class="card"><h3>Season calendar<span class="soon">PR 7</span></h3><p>Club meets, tournaments in Stahlbrück, Eisenau and Grauwald, rumbles, tag team and a championship. Act, then close the week.</p></div>
+      <div class="card"><h3>Team, sponsors and R&amp;D<span class="soon">PR 8</span></h3><p>An engineer, a fabricator, a driver, a pit crew. Sponsors with paint and a placing target. Crushers, saws and your own disc profile.</p></div>
+    </section>
+  </div>
+
+  <nav id="tabs" aria-label="Main">
+    <button data-tab="build" class="on" aria-current="page"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.6 17.1a1.9 1.9 0 0 0 2.7 2.7l5.7-5.7a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.3-.4-.4-2.3z"/></svg>Build</button>
+    <button data-tab="bench"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M6 15l3-3 3 2 3-5 3 3"/></svg>Bench</button>
+    <button data-tab="fight"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2"/><path d="M12 3.5l2.5 3.2M20.5 12l-3.2 2.5M12 20.5l-2.5-3.2M3.5 12l3.2-2.5"/></svg>Fight</button>
+    <button data-tab="shop"><svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>Shop</button>
+    <button data-tab="career"><svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/></svg>Career</button>
+  </nav>
+
+  <div id="scrim"></div>
+  <div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><header><h2 id="sheetTitle">Options</h2><button class="btn sm ghost" id="sheetClose">Close</button></header><div class="body" id="sheetBody"></div></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div id="intro" hidden>
+    <div class="box">
+      <h1>Servo</h1>
+      <p class="sub">Combat robot builder · The Haldis, Velmark</p>
+      <p>Design a fighting robot under a weight limit, prove it on the bench and drive it in the arena. Patch it in the pit, read the post-mortem, and build better. From a plywood box in a rented corner of a machine shop to the Scrapline Open.</p>
+      <button class="btn pri" id="introGo">Open the workshop</button>
+      <div class="credit">A game by Longlight Interactive · <span id="verLbl"></span></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+<script>/* three.js post-processing addons (bloom on sparks) for the Ultra tier. A phone on Lite never loads them: they are written in here only
+   when the saved tier is Ultra, else SERVO_VIS.setQuality("ultra") loads them on demand through window.__srvPost. build.js reads SRV_LIBS
+   so the service worker precaches every URL (same pattern as PEW's PEW_LIBS). Order matters (Composer before the passes). */
+(function(){window.SRV_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"];
+var ready=function(){return !!(window.THREE&&THREE.EffectComposer&&THREE.RenderPass&&THREE.UnrealBloomPass);},p=null;
+window.__srvPost=function(cb){if(ready()){cb&&cb(true);return;}
+ if(!p)p=new Promise(function(res){var i=0;(function next(){if(i>=SRV_LIBS.length){res(ready());return;}var s=document.createElement("script");s.src=SRV_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=function(){p=null;res(false);};document.head.appendChild(s);})();});
+ p.then(function(ok){cb&&cb(ok);});};
+var sv=null;try{sv=JSON.parse(localStorage.getItem("srv-save")||"null");}catch(e){}
+if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SRV_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
+})();</script>
+<script>__ld(.3,"3D library loaded")</script>
+<script>
+/* ===================== Servo: robot sim core (SERVO_SIM) =====================
+   Parts maths, bench tests, the fight simulation and the AI drivers. Never touches the DOM or three.js, and runs in plain
+   node: cut this <script> block out of the built index.html (search for "Servo: robot sim core") and require it; it ends
+   with module.exports = SERVO_SIM. One IIFE spread over sim/rng.js, parts.js, build.js, combos.js, bench.js, fight.js,
+   damage.js, ai.js, arenas.js and opponents.js (in that order); the export object is at the end of opponents.js.
+
+   Determinism is a hard rule: everything random comes from one seeded generator passed in as an argument. Math.random,
+   Date.now and performance.now are banned anywhere in src/sim/ (tools/sim-test.js, from PR 1, fails if it finds them).
+   Units: parts tables are in grams and millimetres; evalBuild (sim/build.js) is the one conversion point, and everything
+   after it is kg, m, s, J, W.
+
+   This file: the seeded generator. rng(seed) returns a function giving floats in [0, 1) (mulberry32: 32-bit state, fast,
+   and the same sequence in every browser and in node). Helpers take that function as their first argument. */
+const SERVO_SIM=(function(){
+"use strict";
+function rng(seed){let a=(seed>>>0)||0x9E3779B9;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;
+  t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
+const rRange=(r,lo,hi)=>lo+(hi-lo)*r();            // float in [lo, hi)
+const rInt=(r,lo,hi)=>lo+Math.floor((hi-lo+1)*r()); // integer in [lo, hi]
+const rPick=(r,arr)=>arr[Math.floor(arr.length*r())];
+/* ---- parts.js: CLASSES (weight classes and their budgets) and PARTS (every slot's options in grams, millimetres and
+   thalers), DEFAULT_CFG. Filled in by PR 1 (docs/SERVO-PLAN.md section 4a-4c). The five classes are named here now so every
+   PR uses the same ids: ant 150 g, beetle 1.5 kg, hobby 5.5 kg, feather 14 kg, heavy 110 kg. ---- */
+const CLASSES={
+  ant:{id:"ant",name:"Antweight",limitG:150},
+  beetle:{id:"beetle",name:"Beetleweight",limitG:1500},
+  hobby:{id:"hobby",name:"Hobbyweight",limitG:5500},
+  feather:{id:"feather",name:"Featherweight",limitG:14000},
+  heavy:{id:"heavy",name:"Heavyweight",limitG:110000}
+};
+const PARTS={};
+const DEFAULT_CFG={cls:"beetle"};
+/* ---- sim/build.js: evalBuild(cfg), the one point where grams and millimetres become kg, m, s, J and W. Mass, budget,
+   centre of mass, yaw inertia, the chassis polygon, drive speed and turn rate, the height profile (clearance, front edge,
+   invertible), weapon energy, armour per face, runtime, heat, cost and build hours. PR 1 (plan 4d). ---- */
+const K={};
+function evalBuild(cfg){cfg=Object.assign({},DEFAULT_CFG,cfg||{});const c=CLASSES[cfg.cls]||CLASSES.beetle;
+  return{cfg,cls:c.id,limitKg:c.limitG/1000,ready:false,note:"The build maths arrive in PR 1."};}
+/* ---- combos.js: COMBOS, the stress-report rules ("spinner shaft will shear above 60 J on this material", "rear armour
+   none: drive pods exposed" ...). The same rules write the post-mortem's redesign hints in PR 6. PR 1 (plan 4d). ---- */
+const COMBOS=[];
+/* ---- sim/bench.js: the six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop) and WEDGE_GAUGES,
+   the front-edge heights common in each class. PR 3 (plan section 6). ---- */
+const WEDGE_GAUGES={};
+/* ---- fight.js: runFight({bots, arena, seed, rules}), the N-body fight at a fixed 60 Hz step. 2D rigid bodies with a
+   cheap height axis (z, vz, inverted), WEDGE_RULES, drive, weapon state, collisions and hits, round ends, the fight log
+   with the player's recorded inputs. Every bot reads {throttle, steer, weapon, selfRight} each step. PR 4a (plan 7a). ---- */
+const STEP_HZ=60;
+const WEDGE_RULES={};
+/* ---- damage.js: hits on faces (absorb, armour hp, then the most exposed part behind it), part failures and their
+   effects, self-damage to discs and shafts, and each part's end state: intact, damaged or destroyed. PR 4a (plan 7b). ---- */
+const PART_STATES=["intact","damaged","destroyed"];
+/* ---- ai.js: the AI drivers. PR 4a ships rush and keep-away; PR 4b adds AI_STYLES (aggressive, cautious, counter,
+   box-rush, hazard-pusher, opportunist). Each driver has a skill 0..1 and draws only from the fight's seeded generator. ---- */
+const AI_STYLES={};
+/* ---- arenas.js: ARENAS, walls, pit, pushers and floor spinner, each hazard with its impulse, damage J, vz kick and active
+   time; JUDGE_WEIGHTS for a time-up decision (damage, aggression, control). PR 4b (plan 8b, 8c). ---- */
+const ARENAS={};
+const JUDGE_WEIGHTS={damage:.5,aggression:.25,control:.25};
+/* ---- opponents.js: OPPONENTS, named bots across the classes, each with a build in the player's config format, a
+   driver skill, a style and a one-line personality. About 15 in PR 4b, growing as content. Then the SERVO_SIM export
+   object. ---- */
+const OPPONENTS=[];
+return{rng,rRange,rInt,rPick,CLASSES,PARTS,DEFAULT_CFG,K,evalBuild,COMBOS,WEDGE_GAUGES,STEP_HZ,WEDGE_RULES,PART_STATES,AI_STYLES,ARENAS,JUDGE_WEIGHTS,OPPONENTS};
+})();
+if(typeof module!=="undefined"&&module.exports)module.exports=SERVO_SIM;
+</script>
+<script>__ld(.5,"Parts maths loaded")</script>
+<script>
+/* ===================== Servo: sound (SERVO_SOUND) =====================
+   Web Audio, all synthesized: clangs scaled by hit energy, motor and weapon whine following rpm, the pit clock. CC0
+   samples layer on top on Full / Ultra in PR 10. Arrives with the arena in PR 5 (docs/SERVO-PLAN.md section 9). */
+const SERVO_SOUND={ready:false,hit(){},whine(){},stop(){}};
+</script>
+<script>
+/* ===================== Servo: 3D (SERVO_VIS) =====================
+   three.js r128. One IIFE spread over vis/core.js, bot.js, arena.js, fx.js, workshop.js and api.js; the public object is
+   in api.js. The vis never reads game state and never runs the fight: SERVO_SIM simulates, the app passes the result in.
+   The app calls SERVO_VIS.setBot(cfg), .setRun({spin}), .setView(name), .setQuality(tier) and reads .fps().
+   This file: module state, the renderer, the three graphics tiers and the materials.
+     lite   pixel ratio 1, Lambert / Phong materials, no shadows, no post. The phone default; it must always look finished.
+     full   device pixel ratio up to 2, PBR steel and aluminium with a generated workshop reflection, soft shadows.
+     ultra  as full, plus bloom (on sparks from PR 5; three.js addons loaded on demand, window.__srvPost).
+   Colours are written as sRGB hex and converted with .convertSRGBToLinear() (the renderer outputs sRGB). */
+const SERVO_VIS=(function(){
+"use strict";
+const V={r:null,scene:null,cam:null,canvas:null,tier:"lite",w:0,h:0,mats:null,env:null,comp:null,bloom:null,
+  bot:null,shop:null,lights:null,run:{spin:1},t0:performance.now(),last:0,ang:0,
+  frames:0,fpsAt:performance.now(),fpsObj:{fps:0,at:0},orbit:{yaw:-.7,pitch:.62,dist:7.5,tx:0,ty:.35,tz:0}};
+const TAU=Math.PI*2;
+
+function initRenderer(canvas){
+  V.canvas=canvas;
+  V.r=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
+  V.r.setClearColor(0x0e0e0d,1);
+  V.r.outputEncoding=THREE.sRGBEncoding;
+  V.scene=new THREE.Scene();
+  V.scene.fog=new THREE.Fog(0x0e0e0d,12,28);
+  V.cam=new THREE.PerspectiveCamera(36,1,.1,100);
+}
+/* a small equirect "workshop" painted on a canvas: cold strip lights and a dark room, so PBR metal has something to reflect (Full / Ultra) */
+function shopEnv(){
+  const c=document.createElement("canvas");c.width=256;c.height=128;const g=c.getContext("2d");
+  const bg=g.createLinearGradient(0,0,0,128);bg.addColorStop(0,"#34363a");bg.addColorStop(.5,"#1a1b1c");bg.addColorStop(1,"#0b0b0b");
+  g.fillStyle=bg;g.fillRect(0,0,256,128);
+  g.fillStyle="rgba(225,235,245,.95)";for(const x of [30,110,190])g.fillRect(x,14,44,5);   // strip lights on the ceiling
+  g.fillStyle="rgba(150,170,190,.3)";g.fillRect(150,34,60,26);                             // a high window
+  const tex=new THREE.CanvasTexture(c);tex.mapping=THREE.EquirectangularReflectionMapping;tex.encoding=THREE.sRGBEncoding;
+  const pm=new THREE.PMREMGenerator(V.r),rt=pm.fromEquirectangular(tex);pm.dispose();tex.dispose();
+  return rt.texture;
+}
+/* materials per tier: the same names, cheaper shading on Lite */
+function makeMats(tier){
+  const lite=tier==="lite";
+  if(V.mats)for(const k in V.mats)V.mats[k].dispose();
+  if(!lite&&!V.env)V.env=shopEnv();
+  const C=h=>new THREE.Color(h).convertSRGBToLinear();
+  /* Lite has no reflection to darken bare metal, so its Phong base colour runs at 55% with a soft highlight, or polished
+     steel under the overhead light reads as white plastic */
+  const metal=(color,rough)=>(color=C(color),lite)
+    ?new THREE.MeshPhongMaterial({color:color.multiplyScalar(.55),specular:C(0x5a5e64),shininess:Math.round(60*(1-rough))+12})
+    :new THREE.MeshStandardMaterial({color,roughness:rough,metalness:1,envMap:V.env,envMapIntensity:1.5});
+  const matte=(color,rough)=>(color=C(color),lite)
+    ?new THREE.MeshLambertMaterial({color})
+    :new THREE.MeshStandardMaterial({color,roughness:rough,metalness:0,envMap:V.env,envMapIntensity:.4});
+  V.mats={
+    steel:metal(0xb4b9bf,.3),
+    disc:metal(0xc9ced4,.3),
+    alu:metal(0xd0d4d8,.45),
+    ply:matte(0xb08a5a,.85),
+    hdpe:matte(0x2b2b2a,.7),
+    paint:matte(0xd97757,.5),      // clay: the starter bot wears the studio accent
+    rubber:matte(0x1a1a1a,.95),
+    bench:matte(0x55493c,.8),
+    plate:metal(0x6d7177,.55),
+    floor:matte(0x232322,1)
+  };
+  return V.mats;
+}
+/* ---- vis/bot.js: the robot mesh. For now a stand-in: a plywood box with clay side panels, four rubber wheels and a
+   steel horizontal spinner disc with two teeth. PR 5 makes it parametric from the build (chassis polygon and grid, armour
+   per face, wheels, weapon by type, dents and missing parts from the damage state), cached by build hash and disposed. ---- */
+function buildPlaceholderBot(){
+  const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?24:48;
+  /* chassis: plywood top and bottom, clay side panels, a darker HDPE front */
+  const W=1.6,L=2.0,H=.42,Y=.32;
+  const ply=new THREE.Mesh(new THREE.BoxGeometry(W,.05,L),M.ply);ply.position.y=Y+H/2;g.add(ply);
+  const base=new THREE.Mesh(new THREE.BoxGeometry(W,.05,L),M.ply);base.position.y=Y-H/2;g.add(base);
+  for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(.08,H,L),M.paint);p.position.set(s*(W/2-.04),Y,0);g.add(p);}
+  const back=new THREE.Mesh(new THREE.BoxGeometry(W,H,.08),M.hdpe);back.position.set(0,Y,-L/2+.04);g.add(back);
+  const front=new THREE.Mesh(new THREE.BoxGeometry(W,H,.1),M.hdpe);front.position.set(0,Y,L/2-.05);g.add(front);
+  /* wheels, set into the sides */
+  const wg=new THREE.CylinderGeometry(.24,.24,.14,seg);
+  for(const s of [-1,1])for(const z of [-.55,.55]){const w=new THREE.Mesh(wg,M.rubber);w.rotation.z=Math.PI/2;w.position.set(s*(W/2+.08),.24,z);g.add(w);}
+  /* the weapon: a horizontal disc on a short mast at the front, two teeth on the rim */
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.2,12),M.steel);mast.position.set(0,Y+H/2+.1,L/2-.25);g.add(mast);
+  const disc=new THREE.Group();
+  const plate=new THREE.Mesh(new THREE.CylinderGeometry(.62,.62,.05,seg*2),M.disc);disc.add(plate);
+  const tooth=new THREE.BoxGeometry(.22,.07,.12);
+  for(const a of [0,Math.PI]){const t=new THREE.Mesh(tooth,M.steel);t.position.set(Math.cos(a)*.62,0,Math.sin(a)*.62);t.rotation.y=-a;disc.add(t);}
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.09,16),M.alu);disc.add(hub);
+  disc.position.set(0,Y+H/2+.21,L/2-.25);g.add(disc);
+  if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  g.userData={disc};
+  return g;
+}
+/* ---- vis/arena.js: the arena scene. Floor, walls (see-through on the camera side), hazards from SERVO_SIM's ARENAS
+   table, a cheap crowd texture and hazard lights. Lite: flat materials, no shadows. Arrives in PR 5 (plan section 9). ---- */
+function buildArena(){return null;}
+/* ---- vis/fx.js: hit feedback. Sparks (capped particles), a part mesh flying off, dent decals, smoke on battery damage,
+   camera shake scaled by hit energy (none under reduced motion). Arrives in PR 5 (plan section 9). ---- */
+function fxTick(){}
+/* ---- vis/workshop.js: the workbench (a steel plate on a wooden bench in a dark corner of a machine shop, cold overhead
+   light), orbit and pinch controls, framing, and the frame loop that spins the placeholder bot's disc. ---- */
+function buildShop(){
+  const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite";
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.floor);floor.rotation.x=-Math.PI/2;floor.position.y=-1.4;g.add(floor);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(9,.3,5.5),M.bench);top.position.y=-.15;top.receiveShadow=!lite;g.add(top);
+  const plate=new THREE.Mesh(new THREE.BoxGeometry(4.6,.04,3.4),M.plate);plate.position.y=.02;plate.receiveShadow=!lite;g.add(plate);
+  return g;
+}
+function buildLights(){
+  const g=new THREE.Group(),lite=V.tier==="lite";
+  g.add(new THREE.HemisphereLight(0xb8c4d0,0x1a1816,lite?.8:.45));
+  const key=new THREE.DirectionalLight(0xe6eef8,lite?1.1:1.5);key.position.set(-2.5,8,3.5);
+  if(!lite){key.castShadow=true;key.shadow.mapSize.set(1024,1024);const c=key.shadow.camera;c.left=c.bottom=-4;c.right=c.top=4;c.near=1;c.far=20;key.shadow.bias=-.0006;key.shadow.radius=3;}
+  g.add(key);
+  const rim=new THREE.DirectionalLight(0xffd2b8,lite?.3:.45);rim.position.set(5,2.5,-6);g.add(rim);
+  return g;
+}
+/* rebuild everything that depends on the tier */
+function rebuild(){
+  for(const k of ["bot","shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry)o.geometry.dispose();});V[k]=null;}
+  makeMats(V.tier);
+  V.shop=buildShop();V.lights=buildLights();V.bot=buildPlaceholderBot();
+  V.scene.add(V.shop,V.lights,V.bot);
+  V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
+  V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
+  V.comp=null;V.bloom=null;
+  if(V.tier==="ultra"&&window.__srvPost)window.__srvPost(ok=>{if(!ok||V.tier!=="ultra")return;
+    V.comp=new THREE.EffectComposer(V.r);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
+    V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
+  resize(true);
+}
+function resize(force){
+  const c=V.canvas,w=c.clientWidth|0,h=c.clientHeight|0;
+  if(!w||!h||(!force&&w===V.w&&h===V.h))return;
+  V.w=w;V.h=h;V.r.setSize(w,h,false);V.cam.aspect=w/h;V.cam.updateProjectionMatrix();
+  if(V.comp){V.comp.setSize(w,h);V.comp.setPixelRatio&&V.comp.setPixelRatio(V.r.getPixelRatio());}
+}
+function placeCam(){
+  const o=V.orbit,cp=Math.cos(o.pitch);
+  V.cam.position.set(o.tx+Math.sin(o.yaw)*cp*o.dist,o.ty+Math.sin(o.pitch)*o.dist,o.tz+Math.cos(o.yaw)*cp*o.dist);
+  V.cam.lookAt(o.tx,o.ty,o.tz);
+}
+/* one finger turns, two fingers pinch to zoom, the mouse wheel zooms. Each finger is tracked by pointerId. */
+function bindOrbit(el){
+  const P=new Map();let pinch0=0,dist0=0;
+  el.addEventListener("pointerdown",e=>{el.setPointerCapture&&el.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(P.size===2){const [a,b]=[...P.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);dist0=V.orbit.dist;}});
+  el.addEventListener("pointermove",e=>{const p=P.get(e.pointerId);if(!p)return;
+    if(P.size===1){V.orbit.yaw-=(e.clientX-p.x)*.008;V.orbit.pitch=Math.max(.15,Math.min(1.4,V.orbit.pitch+(e.clientY-p.y)*.006));}
+    p.x=e.clientX;p.y=e.clientY;
+    if(P.size===2&&pinch0){const [a,b]=[...P.values()],d=Math.hypot(a.x-b.x,a.y-b.y);V.orbit.dist=Math.max(3.5,Math.min(14,dist0*pinch0/Math.max(d,1)));}});
+  const up=e=>{P.delete(e.pointerId);if(P.size<2)pinch0=0;};
+  el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
+  el.addEventListener("wheel",e=>{e.preventDefault();V.orbit.dist=Math.max(3.5,Math.min(14,V.orbit.dist*(1+Math.sign(e.deltaY)*.08)));},{passive:false});
+}
+/* Lite renders at most 30 frames a second (plan section 16); Full and Ultra follow the display */
+function frame(now){
+  requestAnimationFrame(frame);
+  if(document.hidden||!V.r)return;
+  if(V.tier==="lite"&&now-V.last<30){return;}
+  const dt=Math.min(.1,(now-(V.last||now))/1000);V.last=now;
+  resize(false);
+  const u=V.bot&&V.bot.userData;
+  if(u&&u.disc){V.ang+=dt*TAU*1.6*(V.run.spin||0);u.disc.rotation.y=V.ang;}   // a slow idle spin: the real rpm comes with the sim
+  fxTick(dt);
+  placeCam();
+  if(V.comp)V.comp.render();else V.r.render(V.scene,V.cam);
+  V.frames++;
+  if(now-V.fpsAt>=1000){V.fpsObj={fps:Math.round(V.frames*1000/(now-V.fpsAt)),at:now};V.frames=0;V.fpsAt=now;}
+}
+/* ---- vis/api.js: the SERVO_VIS public object. The app calls these; the vis never reads game state. ---- */
+let started=false;
+return{
+  init(canvas){if(started)return;started=true;initRenderer(canvas);rebuild();bindOrbit(canvas);requestAnimationFrame(frame);},
+  setQuality(tier){tier=tier==="ultra"||tier==="full"?tier:"lite";if(tier===V.tier&&V.bot)return;V.tier=tier;if(started)rebuild();},
+  setBot(cfg){/* PR 5: rebuild the parametric bot from the build, cached by build hash */},
+  setRun(o){Object.assign(V.run,o||{});},
+  setView(name){/* PR 5: "workshop", "arena", "replay" */},
+  fps(){return V.fpsObj;},
+  get tier(){return V.tier;},
+  _state:V
+};
+})();
+window.SERVO_VIS=SERVO_VIS;
+</script>
+<script>__ld(.75,"Workshop lights on")</script>
+<script>
+/* ===================== Servo: app state =====================
+   The app script is one top-level script spread over app/state.js … app/help.js (in manifest order); start() runs once the
+   whole block has loaded (app/boot.js schedules it through __ldGo).
+   This file: VERSION, WORLD (every place name in Velmark), the career tables (filled in by later PRs, named here so every
+   PR uses the same names), the S state object and its save shape, save / load / migrate / save slots, theme, graphics tier,
+   and the small UI helpers every tab uses ($, fmt$, toast, the sheet).
+   localStorage keys (every access wrapped in try/catch): "srv-save" (the current game, settings included) and
+   "srv-slot1" .. "srv-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
+   check-savecode.js; stop and ask before adding one. New fields inside srv-save are fine: bump SAVE_V and migrate. */
+const VERSION="0.1.0.0";
+const SIM=SERVO_SIM;
+const $=id=>document.getElementById(id);
+
+/* ---- the world (plan section 1): Velmark, the invented alpine country from Escapement ---- */
+const WORLD={
+  country:"Velmark",
+  region:"the Haldis",              // the northern watchmaking valley where the player starts
+  regionCap:"The Haldis",
+  home:"a rented corner of a Haldis machine shop",
+  bank:"the Haldis Savings Bank",   // lends once when you go broke (PR 7)
+  league:"the Scrapline",           // Velmark's robot-combat circuit
+  open:"the Scrapline Open",        // its televised heavyweight league
+  venues:{                          // travel distances and costs arrive with the calendar in PR 7
+    club:{name:"the Haldis Gemeindehalle",what:"club meets in the valley's community hall"},
+    stahl:{name:"Stahlbrück",what:"regional tournaments in the steel-mill city"},
+    eisenau:{name:"Eisenau",what:"regional tournaments at the river port"},
+    grauwald:{name:"Grauwald",what:"regional tournaments in the forest rail town"},
+    eisenhalle:{name:"the Eisenhalle",what:"home arena of the televised Scrapline Open"}
+  },
+  startYear:2026,                   // present day; the year advances per season, 20-year career
+  seasons:20
+};
+
+/* ---- career tables (plan sections 10-12). Empty until the PR that fills them; keep these names. ---- */
+const TIME={};              // weeks a season, hoursPerWeek (PR 7)
+const WORKSHOP_STAGES=[];   // rented corner -> own unit -> shop -> team HQ (PR 7)
+const TOOLS={};             // hand tools, 3D printer, bandsaw, drill press, welder, mill, lathe, CNC, press brake (PR 7)
+const SEASON_EVENTS=[];     // club meets, tournaments, rumbles, tag team, championship (PR 7)
+const REPAIR_COST={},REPAIR_HOURS={};   // after-fight repair bills (PR 7)
+const PIT_KITS={};          // basic, full, pro (PR 6)
+const REPAIR_TIMES={};      // pit-window repair seconds (PR 6)
+const ASSISTS={};           // auto-straighten, turn damping, weapon auto-spin by driver skill (PR 5)
+const RIVALS=[];            // named builders who remember fights (PR 7)
+const RND={};               // R&D projects (PR 8)
+const STAFF={};             // engineer, fabricator, driver, pit crew (PR 8)
+const SPONSORS=[];          // paint and a placing target (PR 8)
+const META_WAVES=[],RULES_BY_SEASON=[];   // the opponent field and rule changes by season (PR 8)
+
+/* ---- state: the srv-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
+const SAVE_V=1;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build"};}
+function freshState(){return{v:SAVE_V,settings:freshSettings(),
+  career:null,                    // {year, week, act, money, loan, hours, driverXp, rep, events, results} from PR 7
+  bots:{},                        // {<classId>: {cfg, damage}}: one fitted bot per class (PR 2)
+  designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
+  unlocks:{tools:{},rnd:{}},
+  staff:[],sponsors:[],rivals:{}, // PR 7 / PR 8
+  lastFight:null,                 // the latest fight log, for replay (PR 6)
+  lastBackup:0};}
+let S=freshState();
+const ST=()=>S.settings;
+
+const buObjS=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
+/* bring an older save up to SAVE_V. Each step takes a save at version n and returns it at n+1; add one per bump. */
+const MIGRATE={};
+function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
+function save(){try{localStorage.setItem("srv-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
+function snapshot(){return JSON.parse(JSON.stringify(S));}
+/* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
+function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
+  o=migrate(JSON.parse(JSON.stringify(o)));if(!o)return false;
+  const n=freshState();Object.assign(n,o);
+  n.settings=Object.assign(freshSettings(),o.settings);
+  n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
+  for(const k of ["designs","rivals"])if(!buObjS(n[k]))n[k]={};
+  for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
+  S=n;return true;}
+function loadSaved(){try{const j=localStorage.getItem("srv-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
+const SLOTS=3,slotKey=i=>"srv-slot"+i;
+/* a restored game: take it, store it, redraw everything */
+function applyLoaded(o,msg){if(!hydrate(o)){toast("That save didn't read right.");return;}save();applyAll();showTab(ST().tab||"build");toast(msg);}
+/* loading a save slot keeps this phone's settings (plan section 15) */
+function loadSlot(o,msg){const keep=ST();if(!hydrate(o)){toast("That save didn't read right.");return;}S.settings=keep;save();applyAll();showTab(keep.tab||"build");toast(msg);}
+
+/* ---- settings that change the page ---- */
+const mqLight=window.matchMedia?matchMedia("(prefers-color-scheme: light)"):null;
+const mqReduce=window.matchMedia?matchMedia("(prefers-reduced-motion: reduce)"):null;
+function applyTheme(){const t=ST().theme||"dark",eff=t==="auto"?(mqLight&&mqLight.matches?"light":"dark"):t;
+  document.documentElement.setAttribute("data-theme",eff);
+  const m=document.querySelector("meta[name=theme-color]");if(m)m.content=eff==="light"?"#FAF9F5":"#141413";}
+function reduced(){const r=ST().reduce;return r==null?!!(mqReduce&&mqReduce.matches):!!r;}
+function applyReduce(){document.documentElement.classList.toggle("reduce",reduced());}
+const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
+function applyGfx(){const q=gfxTier();if(window.SERVO_VIS)SERVO_VIS.setQuality(q);document.documentElement.dataset.gfx=q;}
+function applyAll(){applyTheme();applyReduce();applyGfx();hud();}
+if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
+if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
+
+/* ---- formatting ---- */
+const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler (100 pfennig), copied from Escapement
+const fmtN=(n,d)=>Number(n).toFixed(d||0);
+
+/* ---- the header over the 3D view ---- */
+function hud(){const c=S.career;
+  $("weekLbl").textContent=c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;
+  $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent="";}
+
+/* ---- toast ---- */
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2600);}
+
+/* ---- the bottom sheet (Settings, Back up, Restore …) ---- */
+let sheetBack=null;
+function openSheet(title,html){sheetBack=document.activeElement;$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;
+  $("sheet").classList.add("on");$("scrim").classList.add("on");$("sheetBody").scrollTop=0;$("sheetClose").focus({preventScroll:true});}
+function closeSheet(){$("sheet").classList.remove("on");$("scrim").classList.remove("on");if(sheetBack&&sheetBack.focus)sheetBack.focus({preventScroll:true});sheetBack=null;}
+const sheetOn=()=>$("sheet").classList.contains("on");
+/* ===================== app/perf.js: graphics tiers and auto-adjust =====================
+   Three tiers, lite / full / ultra (settings.gfx; null means the default: Lite on a phone, Full elsewhere).
+   Auto-adjust (settings.gfxAuto, on unless false), same rules as PEW: once the scene has settled, watch the frame rate SERVO_VIS
+   measures. If it stays under ~27 fps for ~8 s, step ONE tier down (ultra > full > lite) and say so in a toast. It never steps
+   up, and a manual tier pick after an auto-drop is respected for the rest of the session.
+   Skipped while the page is hidden, for the first ~6 s, for 3 s after a tier or tab change, and whenever the view isn't
+   drawing. Automated browsers (navigator.webdriver) are left alone unless PERF.force is set (test hook: PERF.force=12). */
+const PERF={T:["lite","full","ultra"],LOW:27,NEED:8000,SETTLE:6000,HOLD:3000,boot:performance.now(),f:null,fAt:0,sAt:0,low:0,tier:null,tab:null,holdTo:0,dropped:false,manual:false,force:null};
+function perfReset(hold){PERF.low=0;PERF.sAt=0;if(hold)PERF.holdTo=performance.now()+PERF.HOLD;}
+/* the player picked a tier or flipped auto-adjust in Settings */
+function perfManual(){PERF.manual=true;perfReset(true);}
+function perfPoll(){
+  if(!window.SERVO_VIS)return;
+  const now=performance.now();
+  if(ST().gfxAuto===false||(PERF.dropped&&PERF.manual)||document.hidden||now-PERF.boot<PERF.SETTLE){perfReset(true);return;}
+  if(navigator.webdriver&&PERF.force==null)return;
+  const tier=gfxTier();if(tier!==PERF.tier){PERF.tier=tier;perfReset(true);}
+  if(curTab!==PERF.tab){PERF.tab=curTab;perfReset(true);}
+  if(now<PERF.holdTo)return;
+  const f=SERVO_VIS.fps();let fps;
+  if(PERF.force!=null){fps=PERF.force;if(!PERF.sAt){PERF.sAt=now;return;}}
+  else if(f!==PERF.f){PERF.f=f;PERF.fAt=now;fps=f.fps;if(!PERF.sAt){PERF.sAt=now;return;}}
+  else{if(now-PERF.fAt>1500)perfReset(false);return;}          // nothing drawn lately: start over
+  const el=Math.min(now-PERF.sAt,1000);PERF.sAt=now;
+  if(fps>0&&fps<PERF.LOW)PERF.low+=el;else PERF.low=Math.max(0,PERF.low-2*el);
+  if(PERF.low<PERF.NEED)return;
+  PERF.low=0;const i=PERF.T.indexOf(tier);
+  if(i<1)return;   // already Lite: nothing left to give
+  const n=PERF.T[i-1];PERF.dropped=true;ST().gfx=n;applyGfx();save();perfReset(true);
+  toast(`Graphics lowered to ${n[0].toUpperCase()+n.slice(1)} to keep things smooth. Change it in Settings.`);}
+setInterval(perfPoll,500);
+/* ?fps=1 shows the frame rate in the corner of the view */
+if(/[?&]fps=1(&|$)/.test(location.search))setInterval(()=>{const f=window.SERVO_VIS&&SERVO_VIS.fps();if(f)$("fpsHud").textContent=f.fps+" fps · "+gfxTier();},1000);
+/* ===================== app/savecode.js: SAVE CODES, Back up / Restore =====================
+   One code holds everything this game keeps in the browser, so a player can move to another phone or browser, or keep a
+   copy somewhere safe. All of it lives in localStorage on this device; nothing is ever sent anywhere.
+     save    the current game ("srv-save"), taken live with snapshot(). Settings (theme, graphics, sound) ride in it, under save.settings.
+     slots   the 3 save slots ("srv-slot1" .. "srv-slot3"), null for an empty one
+   Code = "SRV1:" + body + a 6-character checksum. body = that object as JSON -> UTF-8 bytes -> LZW (9..16-bit codes) ->
+   base64url (A-Z a-z 0-9 - _ only), so it survives notes apps, email and chat. Same shape as PEW's PEW1: codes.
+   Restore checks everything before it writes anything: checksum, unpack, JSON, the shape of every save and a trial
+   hydrate() of each one. Then buWrite() writes all four keys and puts the old values back if any write fails, so a bad
+   paste can never leave a half-restored game. The next version of this format is SRV2:.
+   A new localStorage key must be added to buMake and buWrite (and to check-savecode.js), or backups won't carry it.
+   UI: Shop tab -> Saves, and Settings -> Saves (buttons call buBackupOpen / buRestoreOpen; the two file buttons carry
+   data-bu="file" / data-bu="load" and are picked up by one click listener at the bottom of this file).
+   Save safety (bottom of this file): backup files, asking the browser to keep our storage, and the backup reminder.
+   The last backup time is S.lastBackup (milliseconds), a field inside the srv-save object, so no new key.
+   Tests: `node check-savecode.js` in the repo root. */
+const BU_V=1,BU_PREFIX="SRV"+BU_V+":";
+const BU_B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",BU_MAXCODES=65536;
+const BU_KEY="srv-save";
+const BU_MSG={
+  empty:"Paste a backup code into the box first.",
+  damaged:"That code is damaged or cut off. Copy the whole code again, from SRV1: right to the end, and paste it here.",
+  newer:"That code was made by a newer version of the game. Reload the page to update, then try again.",
+  other:"That's a save code from a different game. Servo backup codes start with \"SRV1:\".",
+  notcode:"That doesn't look like a save code. Backup codes start with \"SRV1:\".",
+  bad:"That code opened, but the save inside doesn't look right, so nothing was changed.",
+  store:"This browser wouldn't let the game save (storage may be full or blocked), so nothing was changed."
+};
+const buFail=k=>{const e=new Error(BU_MSG[k]);e.bu=k;return e;};   // an error with a message that's fine to show the player
+
+/* ---- packing: bytes <-> base64url text ---- */
+function buBits(n){let b=1;while(n>=2){n>>>=1;b++;}return b;}   // how many bits it takes to write n
+/* LZW over bytes. Bits go MSB-first into 6-bit base64url characters and the tail is zero-padded. A code's width is the
+   bit length of the largest code the reader could see next, so both sides always agree on it. */
+function buZip(bytes){
+  const out=[];let acc=0,nacc=0;
+  const put=(v,w)=>{for(let i=w-1;i>=0;i--){acc=acc<<1|(v>>>i&1);if(++nacc===6){out.push(BU_B64[acc]);acc=0;nacc=0;}}};
+  if(!bytes.length)return"";
+  const dict=new Map();let next=256,cur=bytes[0];
+  for(let i=1;i<bytes.length;i++){
+    const key=cur*256+bytes[i],hit=dict.get(key);
+    if(hit!==undefined){cur=hit;continue;}
+    put(cur,buBits(next-1));
+    if(next<BU_MAXCODES)dict.set(key,next++);
+    cur=bytes[i];}
+  put(cur,buBits(next-1));
+  if(nacc)out.push(BU_B64[acc<<(6-nacc)]);
+  return out.join("");}
+function buUnzip(str){
+  let pos=0;const total=str.length*6,out=[];
+  const read=w=>{let v=0;for(let i=0;i<w;i++,pos++){const d=BU_B64.indexOf(str[pos/6|0]);if(d<0)throw buFail("damaged");v=v*2+(d>>(5-pos%6)&1);}return v;};
+  if(total<8)return out;
+  const prefix=[],suffix=[],first=[];for(let i=0;i<256;i++){prefix.push(-1);suffix.push(i);first.push(i);}
+  let size=256;
+  const emit=code=>{const at=out.length;while(code>=0){out.push(suffix[code]);code=prefix[code];}   // the bytes come out backwards
+    for(let a=at,b=out.length-1;a<b;a++,b--){const t=out[a];out[a]=out[b];out[b]=t;}};
+  let prev=read(8);emit(prev);
+  for(;;){
+    const w=buBits(Math.min(size,BU_MAXCODES-1));
+    if(total-pos<w)break;   // what's left is padding
+    const code=read(w);let fb;
+    if(code<size)fb=first[code];
+    else if(code===size)fb=first[prev];   // the code being defined right now (the classic LZW "KwKwK" case)
+    else throw buFail("damaged");
+    if(size<BU_MAXCODES){prefix.push(prev);suffix.push(fb);first.push(first[prev]);size++;}
+    emit(code);prev=code;}
+  return out;}
+/* FNV-1a of the body, as 6 base64url characters: a missing, extra or changed character almost surely won't match */
+function buSum(body){let h=2166136261;for(let i=0;i<body.length;i++){h^=body.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+  let s="";for(let i=0;i<6;i++){s+=BU_B64[h&63];h=Math.floor(h/64);}return s;}
+
+/* ---- making a code ---- */
+function buStored(k){try{const j=localStorage.getItem(k);if(!j)return null;const o=JSON.parse(j);return o&&typeof o==="object"&&!Array.isArray(o)?o:null;}catch(e){return null;}}
+function buMake(){const slots=[];for(let i=1;i<=SLOTS;i++)slots.push(buStored(slotKey(i)));
+  return{v:BU_V,at:Date.now(),ver:VERSION,save:snapshot(),slots};}
+function buCode(d){const body=buZip(new TextEncoder().encode(JSON.stringify(d||buMake())));return BU_PREFIX+body+buSum(body);}
+
+/* ---- checking a save before anything is written ---- */
+const buObj=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
+const buNum=v=>typeof v==="number"&&isFinite(v);
+function buSaveOk(o){
+  if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
+  for(const k of ["designs","unlocks","rivals"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
+  if("career" in o&&o.career!=null){const c=o.career;if(!buObj(c))return false;
+    for(const k of ["events","results"])if(k in c&&!Array.isArray(c[k]))return false;
+    for(const k of ["rep"])if(k in c&&!buObj(c[k]))return false;
+    for(const k of ["money","year","week","hours","loan","driverXp"])if(k in c&&!buNum(c[k]))return false;}
+  return buTry(o);}
+/* load a copy the way the game would (hydrate), then put the running game back exactly as it was */
+function buTry(o){const keep=S;let ok=false;
+  try{ok=hydrate(JSON.parse(JSON.stringify(o)))===true;}catch(e){ok=false;}
+  finally{S=keep;}
+  return ok;}
+function buFullOk(d){return buObj(d)&&d.v===BU_V&&buSaveOk(d.save)&&Array.isArray(d.slots)&&d.slots.length<=SLOTS
+  &&d.slots.every(o=>o===null||buSaveOk(o));}
+
+/* ---- reading a code: {kind:"full",data}. Spaces, line breaks and text around the code are fine.
+   Throws buFail(...) with a message for the player. ---- */
+function buRead(text){
+  const s=String(text==null?"":text).replace(/[\s​-‍⁠﻿]+/g,"");
+  if(!s)throw buFail("empty");
+  const m=/SRV(\d+):/.exec(s);
+  if(!m){
+    if(/(^|[^A-Za-z0-9])[A-Za-z]{2,8}\d+:[A-Za-z0-9_-]/.test(s))throw buFail("other");   // e.g. PEW1:... from another game
+    throw buFail("notcode");}
+  const n=+m[1];
+  if(n!==BU_V)throw buFail(n>BU_V?"newer":"notcode");
+  const c=s.slice(m.index+m[0].length).replace(/[^A-Za-z0-9_-].*$/,"");   // drop quotes or punctuation pasted after it
+  if(c.length<7)throw buFail("damaged");
+  const body=c.slice(0,-6);
+  if(buSum(body)!==c.slice(-6))throw buFail("damaged");
+  let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw buFail("damaged");}
+  if(!buFullOk(d))throw buFail("bad");
+  return{kind:"full",data:d};}
+
+/* ---- writing a checked backup: all four keys, or none of them ---- */
+function buWrite(d){
+  const keys=[[BU_KEY,d.save]];for(let i=1;i<=SLOTS;i++)keys.push([slotKey(i),d.slots[i-1]||null]);
+  const old=[];
+  try{for(const [k] of keys)old.push([k,localStorage.getItem(k)]);}catch(e){return false;}
+  try{for(const [k,v] of keys){if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v));}return true;}
+  catch(e){   // put the old values back: clear all four first, so a full storage has room for what fitted before
+    try{for(const [k] of old)localStorage.removeItem(k);for(const [k,v] of old)if(v!=null)localStorage.setItem(k,v);}catch(_){}
+    return false;}}
+
+/* ---- the two sheets ---- */
+function buSelect(ta){try{ta.select();ta.setSelectionRange(0,ta.value.length);}catch(e){}}
+async function buCopy(ta){
+  try{await navigator.clipboard.writeText(ta.value);buMarked();toast("Copied. Paste it somewhere safe.");return;}catch(e){}   // no clipboard access: select it instead
+  ta.focus();buSelect(ta);let ok=false;try{ok=document.execCommand("copy");}catch(e){}
+  if(ok)buMarked();
+  toast(ok?"Copied. Paste it somewhere safe.":"Code selected. Long-press it and tap Copy.");}
+function buBackupOpen(){let code="";try{code=buCode();}catch(e){}
+  if(!code){toast("Couldn't make a backup code on this device");return;}
+  openSheet("Back up",`<p class="hint" style="margin-top:0">This code is your whole game: the current game, all 3 save slots and your settings. Keep it in your notes, then paste it into <b>Restore</b> on any phone or browser.</p>
+<textarea class="code" id="codeOut" readonly spellcheck="false" aria-label="Your backup code"></textarea>
+<p class="hint">${code.length.toLocaleString("en-GB")} characters, starting with ${BU_PREFIX}</p>
+<div class="row"><button class="btn pri" id="copyCode">Copy code</button></div>`);
+  const ta=$("codeOut");ta.value=code;ta.addEventListener("focus",()=>buSelect(ta));
+  $("copyCode").addEventListener("click",()=>buCopy(ta));}
+function buRestoreOpen(){
+  openSheet("Restore",`<p class="hint" style="margin-top:0">Paste a backup code (it starts with ${BU_PREFIX}). Restoring replaces your current game and all 3 save slots on this device.</p>
+<textarea class="code" id="codeIn" placeholder="${BU_PREFIX}…" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Backup code to restore" aria-describedby="codeErr"></textarea>
+<p class="hint buerr" id="codeErr" role="alert"></p>
+<div class="row"><button class="btn pri" id="doImport">Restore</button></div>`);
+  const ta=$("codeIn"),err=$("codeErr");
+  ta.addEventListener("input",()=>{err.textContent="";});
+  $("doImport").addEventListener("click",()=>buRestore(ta.value,err));
+  if(window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches)ta.focus({preventScroll:true});}   // no surprise keyboard on phones
+function buWhat(o){const c=o.career;return c?`Career, ${c.year||WORLD.startYear} week ${c.week||1}, ${fmt$(c.money||0)}`:"No career started yet";}
+function buAsk(d){const when=buNum(d.at)?new Date(d.at).toLocaleString("en-GB",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"";
+  const n=d.slots.filter(Boolean).length;
+  return `Restore this backup?\n\n${when?"Made "+when+"\n":""}${buWhat(d.save)}\n${n} of ${SLOTS} save slots used\n\nIt replaces your current game and all ${SLOTS} save slots on this device.`;}
+function buRestore(text,err){
+  const say=k=>{err.textContent=BU_MSG[k]||BU_MSG.damaged;err.scrollIntoView&&err.scrollIntoView({block:"nearest"});};
+  err.textContent="";
+  let r;try{r=buRead(text);}catch(e){say(e&&e.bu||"damaged");return;}
+  if(!confirm(buAsk(r.data)))return;
+  r.data.save.lastBackup=Date.now();   // restoring means a copy of this game exists: no reminder for a while
+  if(!buWrite(r.data)){say("store");return;}
+  closeSheet();applyLoaded(r.data.save,"Backup restored");buPersist();}
+
+/* ===================== save safety =====================
+   Every Kelbo game shares the jxstrr0.github.io origin, so one storage quota: if the phone runs low, the browser may
+   clear the whole origin, and every game's saves with it. Three things make that less likely to hurt:
+   1. buPersist() asks the browser to keep our storage (navigator.storage.persist). Once per page load, and only once the
+      player has something worth keeping (a save write with progress, a backup or a restore), because Firefox shows a
+      prompt for it. Chrome and Safari decide quietly. buStoreLine() fills the "Storage: ..." line in both Saves spots.
+   2. Backup files: the same SRV1: code, as servo-backup-YYYY-MM-DD.txt. Shared through the share sheet where files
+      can be shared (iPhone: Save to Files, also from the Home Screen app), else downloaded. Loading a file puts its text
+      into the Restore sheet and runs the same checks and the same confirm as a pasted code.
+   3. buRemind(): with progress and no backup yet (or none for 14 days), one quiet bar per visit, at a calm moment (after
+      start-up or on a tab switch, never over a sheet or the intro). Later PRs: skip it while a fight or a pit window is running.
+   Nothing here touches anything outside srv-. */
+const BU_REMIND_DAYS=14,BU_FILE_MAX=16e6;
+function buFileName(d){d=d||new Date();const p=n=>String(n).padStart(2,"0");
+  return `servo-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.txt`;}   // local date
+/* something worth keeping: a career started, a bot fitted, a design saved, or a save slot used */
+function buHasProgress(){if(S&&(S.career||Object.keys(S.bots||{}).length||Object.keys(S.designs||{}).length))return true;
+  for(let i=1;i<=SLOTS;i++){try{if(localStorage.getItem(slotKey(i))!=null)return true;}catch(e){}}return false;}
+let buAsked=false;
+async function buPersist(){if(buAsked)return;buAsked=true;
+  try{const st=navigator.storage;if(!st||!st.persist||!st.persisted)return;if(!(await st.persisted()))await st.persist();}catch(e){}
+  buStoreLine();}
+function buSaved(){if(!buAsked&&buHasProgress())buPersist();}   // save() calls this after each good write
+async function buStoreLine(){const els=document.querySelectorAll("[data-bu-store]");if(!els.length)return;
+  let on=null;try{const st=navigator.storage;if(st&&st.persisted)on=await st.persisted();}catch(e){on=null;}
+  els.forEach(el=>{el.hidden=on===null;
+    el.textContent=on?"Storage: kept safe on this device.":"Storage: your browser may clear saves if the phone runs low. Keep a backup file.";});}
+function buMarked(){S.lastBackup=Date.now();save();buPersist();buBarHide();}   // a backup was made: copied code or saved file
+async function buSaveFile(){let code="";try{code=buCode();}catch(e){}
+  if(!code){toast("Couldn't make a backup code on this device");return;}
+  const name=buFileName(),text=code+"\n";
+  try{const f=new File([text],name,{type:"text/plain"});
+    if(navigator.canShare&&navigator.share&&navigator.canShare({files:[f]})){
+      try{await navigator.share({files:[f]});buMarked();toast("Backup file saved.");}
+      catch(e){if(!e||e.name!=="AbortError")buDownload(text,name);}   // cancelled: not saved, say nothing
+      return;}}catch(e){}
+  buDownload(text,name);}
+function buDownload(text,name){
+  try{const url=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");
+    a.href=url;a.download=name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);buMarked();toast("Backup file saved: "+name);}
+  catch(e){toast("Couldn't save a file here. Use Back up and copy the code instead.");}}
+let buInput=null;
+function buLoadFile(){
+  if(!buInput){buInput=document.createElement("input");buInput.type="file";buInput.accept=".txt,text/plain";buInput.hidden=true;
+    buInput.addEventListener("change",()=>{const f=buInput.files&&buInput.files[0];buInput.value="";if(!f)return;
+      if(f.size>BU_FILE_MAX){buRestoreFile("");return;}
+      const r=new FileReader();r.onload=()=>buRestoreFile(String(r.result||""));r.onerror=()=>buRestoreFile("");r.readAsText(f);});
+    document.body.appendChild(buInput);}
+  buInput.click();}
+/* the file's text goes through the Restore sheet: same checks, same errors, same confirm as a pasted code */
+function buRestoreFile(text){buRestoreOpen();const ta=$("codeIn"),err=$("codeErr");text=String(text).trim();ta.value=text;
+  if(!text){err.textContent=BU_MSG.notcode;return;}
+  buRestore(text,err);}
+/* the reminder bar (same look as the "New version ready" bar) */
+let buBar=null,buReminded=false;
+function buBarHide(){if(buBar)buBar.classList.remove("on");}
+function buRemind(){
+  if(buReminded||$("boot")||sheetOn()||!$("intro").hidden||!buHasProgress())return;
+  const pb=$("pwaBar");if(pb&&pb.classList.contains("on"))return;   // not now: the next calm moment tries again
+  const last=buNum(S.lastBackup)?S.lastBackup:0,days=last?Math.floor((Date.now()-last)/864e5):Infinity;
+  if(days<BU_REMIND_DAYS)return;
+  buReminded=true;
+  if(!buBar){buBar=document.createElement("div");buBar.id="buBar";buBar.setAttribute("role","status");
+    buBar.innerHTML='<span id="buBarMsg"></span><button type="button" class="btn sm pri" id="buBarGo">Saves</button><button type="button" class="pwalater" id="buBarLater" aria-label="Dismiss until next visit">Later</button>';
+    ($("app")||document.body).appendChild(buBar);
+    $("buBarLater").addEventListener("click",buBarHide);
+    $("buBarGo").addEventListener("click",()=>{buBarHide();showTab("shop");
+      const c=$("savesCard");if(c)c.scrollIntoView({block:"center",behavior:reduced()?"auto":"smooth"});});}
+  $("buBarMsg").textContent=last?`Last backup ${days} days ago.`:"No backup of this game yet.";
+  buBar.classList.add("on");}
+if(typeof document!=="undefined"){   // (check-savecode.js loads this file in node, with no page)
+  document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-bu]");if(!b)return;
+    if(b.dataset.bu==="file")buSaveFile();else if(b.dataset.bu==="load")buLoadFile();});
+  $("tabs").addEventListener("click",()=>setTimeout(buRemind,700));
+  window.addEventListener("load",()=>setTimeout(buRemind,4000));
+  buStoreLine();}
+/* ===================== app/pwa.js: service worker, "New version ready" bar, Install app =====================
+   Same as PEW. Registers sw.js (generated by build.js) on a real host, or anywhere over http(s) with ?sw=1, never on
+   localhost or file://, so local testing is never cached. When a new worker is installed and waiting, the bar offers
+   Reload; tapping it sends SKIP_WAITING and the page reloads once the new worker has taken over.
+   PWA.canInstall() / PWA.install() / PWA.iosTip() feed the App row in Settings (app/boot.js). */
+const PWA=(()=>{
+  const bar=document.createElement("div");bar.id="pwaBar";bar.setAttribute("role","status");
+  bar.innerHTML='<span>New version ready</span><button type="button" class="btn sm pri" id="pwaReload">Reload</button><button type="button" class="pwalater" id="pwaLater" aria-label="Dismiss until next visit">Later</button>';
+  ($("app")||document.body).appendChild(bar);
+  let waiting=null,reloading=false,deferred=null;
+  const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  const ios=()=>/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;});
+  window.addEventListener("appinstalled",()=>{deferred=null;});
+  function offer(w){waiting=w;bar.classList.add("on");}
+  $("pwaLater").addEventListener("click",()=>bar.classList.remove("on"));
+  $("pwaReload").addEventListener("click",()=>{if(waiting)waiting.postMessage({type:"SKIP_WAITING"});else location.reload();});
+  const api={canInstall:()=>!!deferred&&!standalone(),iosTip:()=>ios()&&!standalone(),
+    async install(){if(!deferred)return;const p=deferred;deferred=null;try{p.prompt();const r=await p.userChoice;if(r&&r.outcome==="accepted")toast("Installed");}catch(_){}}};
+  const host=location.hostname,web=/^https?:$/.test(location.protocol),local=/^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/.test(host);
+  if(!("serviceWorker" in navigator)||!web||(local&&!/[?&]sw=1(&|$)/.test(location.search)))return api;
+  const sw=navigator.serviceWorker;
+  sw.addEventListener("controllerchange",()=>{if(reloading||!waiting)return;reloading=true;location.reload();});
+  sw.register("sw.js").then(reg=>{
+    const watch=w=>w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&sw.controller)offer(w);});
+    if(reg.waiting&&sw.controller)offer(reg.waiting);
+    watch(reg.installing);reg.addEventListener("updatefound",()=>watch(reg.installing));
+    /* an installed app can stay open for days: look for a new version when it comes back to the front and every few hours */
+    const chk=()=>{try{reg.update().catch(()=>{});}catch(_){}};
+    document.addEventListener("visibilitychange",()=>{if(!document.hidden)chk();});setInterval(chk,4*3600*1000);
+  }).catch(()=>{});
+  return api;
+})();
+/* ===================== app/boot.js: tabs, Settings, intro, start-up =====================
+   showTab(t) switches the five tabs (Build, Bench, Fight, Shop, Career) and remembers the last one in S.settings.tab.
+   openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, saves, install, version. The control
+   scheme (direct / tactical) and handedness join it in PR 5.
+   start() runs once the whole app script has loaded (scheduled through __ldGo at the bottom of this file): it loads
+   the save, starts the 3D view, draws the tabs and lifts the loading splash. */
+const TABS=["build","bench","fight","shop","career"];
+const TAB_RENDER={};   // tab name -> render function; each tab file adds its own (app/build.js, bench.js, fight.js, shop.js, career.js)
+let curTab="build";
+const tabScroll={};
+function showTab(t){
+  if(!TABS.includes(t))t="build";
+  tabScroll[curTab]=$("panel").scrollTop;curTab=t;ST().tab=t;
+  document.documentElement.setAttribute("data-tab",t);
+  document.querySelectorAll("#tabs button").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
+  document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+t));
+  if(TAB_RENDER[t])TAB_RENDER[t]();
+  $("panel").scrollTop=tabScroll[t]||0;
+  save();}
+$("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(b)showTab(b.dataset.tab);});
+
+/* ---- Settings ---- */
+function segHtml(id,attr,opts,cur){return `<div class="seg" id="${id}" role="group">${opts.map(([v,l,s])=>`<button type="button" data-${attr}="${v}" class="${String(v)===String(cur)?"on":""}" aria-pressed="${String(v)===String(cur)}">${l}${s?`<small>${s}</small>`:""}</button>`).join("")}</div>`;}
+function openSettings(){
+  const ap=PWA.canInstall(),tip=PWA.iosTip();
+  openSheet("Settings",`
+<div class="field"><span class="lbl">Graphics</span>${segHtml("gfxSeg","gfx",[["lite","Lite","phones"],["full","Full","shadows"],["ultra","Ultra","bloom"]],gfxTier())}
+<p class="hint">Lite is the phone default and always looks finished. Full and Ultra add shadows, metal reflections and glow on sparks.</p></div>
+<div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Theme</span>${segHtml("themeSeg","theme",[["dark","Dark","night shift"],["light","Light","daylight"],["auto","Auto","follow phone"]],ST().theme||"dark")}</div>
+<div class="field"><span class="lbl">Motion</span>${segHtml("reduceSeg","reduce",[["auto","Auto","follow phone"],["1","Reduced"],["0","Full"]],ST().reduce==null?"auto":ST().reduce?"1":"0")}</div>
+<div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" id="setBackup">Back up</button><button class="btn" id="setRestore">Restore</button></div>
+<div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bu-store hidden></p></div>
+${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Servo to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
+<p class="hint">Servo ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
+  const pick=(id,attr,fn)=>$(id).addEventListener("click",e=>{const b=e.target.closest(`[data-${attr}]`);if(!b)return;
+    fn(b.dataset[attr]);$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});save();});
+  pick("gfxSeg","gfx",v=>{ST().gfx=v;perfManual();applyGfx();});
+  pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
+  pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
+  pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
+  $("setBackup").addEventListener("click",buBackupOpen);
+  $("setRestore").addEventListener("click",buRestoreOpen);
+  buStoreLine();
+  if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
+}
+$("setOpen").addEventListener("click",openSettings);
+$("sheetClose").addEventListener("click",closeSheet);
+$("scrim").addEventListener("click",closeSheet);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOn()){closeSheet();e.preventDefault();}});
+
+/* ---- intro (first visit only) ---- */
+$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});});
+
+/* ---- start-up ---- */
+function start(){
+  loadSaved();
+  applyAll();   // sets the tier before the 3D view builds, so it builds once
+  try{SERVO_VIS.init($("gl"));}catch(e){$("tag").textContent="3D view unavailable on this device";}
+  $("verLbl").textContent="v"+VERSION;
+  $("intro").hidden=!!ST().seen;
+  showTab(ST().tab||"build");
+  __ldDone();}
+__ldGo(start);
+/* ===================== app/build.js: the Build tab =====================
+   The weight bar (always visible), section rows (Class, Chassis, Armour, Drive & Wheels, Power, Weapon, Weapon material,
+   Extras) with PEW-style delta lines, the layout editor on the chassis grid, the side profile strip, the docked summary
+   capsule, the stress report, and named designs. Arrives in PR 2 (docs/SERVO-PLAN.md section 5). PR 1 shows the raw
+   evalBuild() result here as text; until then ?sim=1 shows the stub's. */
+TAB_RENDER.build=function(){
+  if(!/[?&]sim=1(&|$)/.test(location.search))return;
+  const o=$("simOut");o.hidden=false;o.textContent=JSON.stringify(SIM.evalBuild(SIM.DEFAULT_CFG),null,2);};
+/* ===================== app/bench.js: the Bench tab =====================
+   The six bench tests (drive, weapon, impact per face, wedge gauge, endurance, drop), each with a small canvas readout;
+   the full suite costs workshop hours, drive and weapon tests are free. Results feed the stress report. Arrives in PR 3
+   (plan section 6). */
+TAB_RENDER.bench=function(){};
+/* ===================== app/debugview.js: the 2D fight view =====================
+   A plain top-down canvas: arena outline, bot polygons with heading lines, weapon arcs, hit flashes sized by energy, a
+   lift / inverted marker, the text log underneath. The Fight tab's first view (PR 4a), then the replay thumbnail and the
+   emergency Lite fallback. */
+const DEBUGVIEW={draw(){}};
+/* ===================== app/controls.js: driving =====================
+   Two schemes, picked in Settings: direct (left-thumb stick, right-thumb weapon button, swapped when left-handed) and
+   tactical (tap where to go, tap the opponent to attack, tap your bot to back off). Both produce the same per-step
+   {throttle, steer, weapon, selfRight}. Multi-touch by pointerId with setPointerCapture; keyboard WASD + space + R;
+   gamepad. ASSISTS by driver skill. Arrives in PR 5 (plan section 9). */
+const CONTROLS={read(){return{throttle:0,steer:0,weapon:0,selfRight:0};}};
+/* ===================== app/fight.js: the Fight tab =====================
+   Sparring (any opponent in your class, any unlocked arena, no stakes), the frame loop that steps SERVO_SIM at 60 Hz
+   (accumulator clamped to 5 steps a frame, paused on visibilitychange), the HUD (clock, damage silhouettes, rpm, battery,
+   heat). The debug view in PR 4a, the 3D arena in PR 5. */
+TAB_RENDER.fight=function(){};
+/* ===================== app/pit.js: the pit window =====================
+   60 real seconds between rounds and between fights on an event day. The pit kit (PIT_KITS) decides which repairs are
+   allowed; REPAIR_TIMES says how long each takes; the clock pauses if the page is hidden. Arrives in PR 6 (plan section 10). */
+const PIT={};
+/* ===================== app/report.js: the post-mortem =====================
+   The hit timeline, the damage map (intact / damaged / destroyed), the cause chain for each failure, the judges' scores
+   after a time-up, a redesign hint from COMBOS, the repair bill, the opponent's revealed build with Copy to designs, and
+   replay from the fight log. Arrives in PR 6 (plan section 10). */
+const REPORT={};
+/* ===================== app/shop.js: the Shop tab =====================
+   Tools, the workshop stages, pit kits and the books arrive with the career in PR 7 (plan section 11). For now: the Saves
+   card (Back up / Restore, app/savecode.js). */
+TAB_RENDER.shop=function(){};
+$("exportSave").addEventListener("click",buBackupOpen);
+$("importSave").addEventListener("click",buRestoreOpen);
+/* ===================== app/career.js: the Career tab =====================
+   The time model (act, then Close week; 52 weeks a season), the four acts (Garage, Circuit, Heavyweight, Legacy), the
+   season calendar with brackets, money in thalers, repair bills, tools, the workshop, driver skill, rivals and the save
+   slots. Arrives in PR 7 (plan section 11). */
+TAB_RENDER.career=function(){};
+/* ===================== app/team.js: R&D, team, sponsors, meta =====================
+   R&D projects, staff (engineer, fabricator, driver, pit crew), sponsor offers with paint and a placing target, the meta
+   waves and rule changes by season, and the kit line. Arrives in PR 8 (plan section 12). */
+const TEAM={};
+/* ===================== app/help.js: help and the tutorial =====================
+   The first-run tutorial (build the starter wedge, run the impact test, spar one club bot, read the post-mortem) in PEW's
+   help card pattern, and the bot card share image. Arrives in PR 9 (plan section 13). Last file of the app script block. */
+const HELP={};
+</script>
+</body></html>
