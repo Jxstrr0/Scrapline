@@ -419,6 +419,14 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fpitopts .btn.off{opacity:.5}
 .frp{position:absolute;z-index:2;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:#0A0A09cc;pointer-events:auto}
 .frp input{flex:1;min-width:0;accent-color:var(--clay)}
+/* captions (0.1.16, app/fight.js): the announcer's and commentator's calls as text when sound or voices are off; the
+   fight view is dark in both themes. Taps go through to the controls. */
+.fcap{position:absolute;z-index:2;left:50%;bottom:calc(136px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:min(420px,calc(100% - 32px));margin:0;padding:6px 12px;border-radius:10px;background:#0A0A09d9;color:#F2EFE8;font-size:14px;line-height:1.35;text-align:center;pointer-events:none;animation:fcapIn .18s ease-out}
+.fcap.fcom{color:#D9C6F5}
+@keyframes fcapIn{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translateX(-50%)}}
+html.reduce .fcap{animation:none}
+@media (prefers-reduced-motion:reduce){.fcap{animation:none}}
+@media (prefers-reduced-transparency:reduce){.fcap{background:#0A0A09}}
 .frp .readout{min-width:3em;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac);font-size:14px}
 @media (prefers-reduced-transparency:reduce){.fpit{background:#1F1E1B}.frp{background:#0A0A09}}
 /* direct controls: a floating stick on the left half, the weapon on the right (swapped when left-handed) */
@@ -2310,6 +2318,10 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
      whine(i, w, d)      bot i's motors: w the weapon's share of full speed (a rising saw whine), d the drive's share of
                          top speed (a low hum). Smoothed, so the app can call it a few times a second.
      stop()              fade everything out (a fight ends, the tab is left, Settings turns sound off), then suspend
+     voiceBus()          for SCRAP_VOICE (sound/voice.js): {ctx, out}, out a gain straight to the speakers (the voices skip the
+                         clangs' compressor), waking a suspended context; null before the first tap
+     talk(until)         a voice line plays until ctx time `until`: the clangs and motors duck under it, and stop() won't
+                         suspend the context before it ends (the result call outlives the fight)
      samples(on)         the graphics tier says Full or Ultra (app/state.js applyGfx): recorded one-shots from sounds/ (CC0, credited
                          in sounds/CREDITS.md) are fetched and decoded once, after the first tap, and each hit plays one variant over
                          a quieter synth clang. Kinds: hit, big (a hit over 0.6), wall, land, haz, part (a part torn off; recorded
@@ -2317,7 +2329,7 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
                          fails to load is skipped and the synth plays alone. */
 const SCRAP_SOUND=(function(){
 "use strict";
-let ctx=null,master=null,noise=null,lastHit=0,hits=0,sleepT=0;const motors=[];
+let ctx=null,master=null,noise=null,lastHit=0,hits=0,sleepT=0,vbus=null,vUntil=0;const motors=[];
 /* recorded one-shots: kind -> clip ids in sounds/ (file id + ".mp3"); buf holds the decoded ones */
 const SAMP={on:false,started:false,buf:{},sets:{hit:["hit1","hit2","hit3","hit4"],big:["big1","big2","big3","big4"],wall:["wall1","wall2","wall3"],
   land:["land1","land2","land3"],haz:["haz1","haz2"],part:["part1","part2"]}};
@@ -2361,11 +2373,414 @@ function whine(i,ws,ds){if(!awake())return;const m=motor(i),t=ctx.currentTime,k=
   m.w.frequency.setTargetAtTime(90+ws*820+i*23,t,0.15);m.wg.gain.setTargetAtTime(ws>0.02?0.035*k*(0.3+0.7*ws):0,t,0.12);
   m.d.frequency.setTargetAtTime(55+ds*90+i*7,t,0.1);m.dg.gain.setTargetAtTime(ds>0.05?0.05*k*ds:0,t,0.1);}
 function stop(){if(!ctx)return;const t=ctx.currentTime;for(const m of motors)if(m){m.wg.gain.setTargetAtTime(0,t,0.08);m.dg.gain.setTargetAtTime(0,t,0.08);}
-  if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(()=>{sleepT=0;if(ctx&&ctx.state==="running")ctx.suspend().catch(()=>{});},600);}
+  if(sleepT)clearTimeout(sleepT);const nap=()=>{sleepT=0;if(!ctx||ctx.state!=="running")return;const w=vUntil-ctx.currentTime;   // a voice still talking: wait for it
+    if(w>0){sleepT=setTimeout(nap,w*1000+300);return;}ctx.suspend().catch(()=>{});};sleepT=setTimeout(nap,600);}
+function voiceBus(){if(!ctx)return null;if(ctx.state==="suspended")ctx.resume().catch(()=>{});
+  if(!vbus){vbus=ctx.createGain();vbus.gain.value=0.9;vbus.connect(ctx.destination);}return{ctx,out:vbus};}
+function talk(until){if(!ctx)return;const t=ctx.currentTime;vUntil=Math.max(vUntil,until);
+  master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(0.32,t,0.04);master.gain.setTargetAtTime(0.55,vUntil,0.25);}
 const gesture=()=>unlock();
 for(const ev of ["pointerdown","touchend","click","keydown"])window.addEventListener(ev,gesture,{passive:true});
 function samples(on){SAMP.on=!!on;sampLoad();}
-return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples};
+return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples,voiceBus,talk};
+})();
+</script>
+<script>
+/* ===================== Scrapline: the voice pack's lines (VOICE_LINES) =====================
+   Generated by tools/make-voicelines.js from docs/voice/scrapline_commentary_script_sheet.csv: do not edit by hand, run
+   the tool again. 214 lines, one take each, in sounds/voice/ (ElevenLabs eleven_v4, November 2026; sounds/CREDITS.md).
+   line_id -> {f file, c "a" announcer Duncan Steiner / "c" commentator Jess Moser, q the cue the game asks for (the tool
+   turns the sheet's trigger into it), p 1 when the cue is a pool of variants, d seconds, t the caption}. Played by
+   SCRAP_VOICE (sound/voice.js). */
+const VOICE_LINES={
+"SCRAP-ANN-0001":{f:"scrap_announcer_scrap-ann-0001.mp3",c:"a",q:"intro",p:0,d:5.02,t:"Good evening, folks! Duncan Steiner here, and welcome to fight night!"},
+"SCRAP-ANN-0002":{f:"scrap_announcer_scrap-ann-0002.mp3",c:"a",q:"venue:club",p:1,d:5.02,t:"Welcome to the Haldis Gemeindehalle! The club is packed tonight!"},
+"SCRAP-ANN-0003":{f:"scrap_announcer_scrap-ann-0003.mp3",c:"a",q:"venue:club",p:1,d:4.15,t:"Haldis, make some noise! Club fight night is on!"},
+"SCRAP-ANN-0004":{f:"scrap_announcer_scrap-ann-0004.mp3",c:"a",q:"venue:stahl",p:1,d:4.15,t:"Stahlbrück, are you READY? Steel meets steel tonight!"},
+"SCRAP-ANN-0005":{f:"scrap_announcer_scrap-ann-0005.mp3",c:"a",q:"venue:stahl",p:1,d:4,t:"Welcome to Stahlbrück! Steel town, steel bots."},
+"SCRAP-ANN-0006":{f:"scrap_announcer_scrap-ann-0006.mp3",c:"a",q:"venue:eisenau",p:1,d:5.59,t:"Welcome to Eisenau! Tonight, somebody goes home in pieces."},
+"SCRAP-ANN-0007":{f:"scrap_announcer_scrap-ann-0007.mp3",c:"a",q:"venue:eisenau",p:1,d:4.31,t:"Eisenau, you're loud already. Good. You'll need it."},
+"SCRAP-ANN-0008":{f:"scrap_announcer_scrap-ann-0008.mp3",c:"a",q:"venue:grauwald",p:1,d:3.58,t:"Grauwald, let's hear you! The arena is live!"},
+"SCRAP-ANN-0009":{f:"scrap_announcer_scrap-ann-0009.mp3",c:"a",q:"venue:grauwald",p:1,d:4.86,t:"Out of the forest and onto the fight floor… welcome to Grauwald!"},
+"SCRAP-ANN-0010":{f:"scrap_announcer_scrap-ann-0010.mp3",c:"a",q:"venue:eisenhalle",p:1,d:7.5,t:"Ladies and gentlemen… welcome to the Eisenhalle. This is the big stage."},
+"SCRAP-ANN-0011":{f:"scrap_announcer_scrap-ann-0011.mp3",c:"a",q:"venue:eisenhalle",p:1,d:8.23,t:"We are LIVE on television from the Eisenhalle. Biggest room in Velmark. Only the best fight here."},
+"SCRAP-ANN-0012":{f:"scrap_announcer_scrap-ann-0012.mp3",c:"a",q:"class:ant",p:0,d:5.28,t:"Up first, the antweights! A hundred and fifty grams of pure trouble."},
+"SCRAP-ANN-0013":{f:"scrap_announcer_scrap-ann-0013.mp3",c:"a",q:"class:beetle",p:0,d:4.47,t:"Beetleweights to the box! Small, fast, and very angry."},
+"SCRAP-ANN-0014":{f:"scrap_announcer_scrap-ann-0014.mp3",c:"a",q:"class:hobby",p:0,d:4.47,t:"Next up, the hobbyweights! This is where it gets serious."},
+"SCRAP-ANN-0015":{f:"scrap_announcer_scrap-ann-0015.mp3",c:"a",q:"class:feather",p:0,d:4,t:"Featherweights! Fourteen kilos of spinning steel."},
+"SCRAP-ANN-0016":{f:"scrap_announcer_scrap-ann-0016.mp3",c:"a",q:"class:heavy",p:0,d:6.06,t:"And now… the heavyweights. A hundred and ten kilos. Clear the front row."},
+"SCRAP-ANN-0017":{f:"scrap_announcer_scrap-ann-0017.mp3",c:"a",q:"kind:club",p:0,d:4.15,t:"Club meet tonight. Three fights each, and the table decides it."},
+"SCRAP-ANN-0018":{f:"scrap_announcer_scrap-ann-0018.mp3",c:"a",q:"kind:tournament",p:0,d:4.62,t:"Eight bots, one bracket, no second chances. Tournament night!"},
+"SCRAP-ANN-0019":{f:"scrap_announcer_scrap-ann-0019.mp3",c:"a",q:"kind:champ",p:0,d:5.59,t:"Championship night. Everything this season comes down to this bracket."},
+"SCRAP-ANN-0020":{f:"scrap_announcer_scrap-ann-0020.mp3",c:"a",q:"kind:rumble",p:0,d:4.47,t:"It's a RUMBLE! Four bots in the box, last one moving wins!"},
+"SCRAP-ANN-0021":{f:"scrap_announcer_scrap-ann-0021.mp3",c:"a",q:"kind:tag",p:0,d:6.22,t:"Tag team! Two on two, all four in the box at the same time. Watch your partner's back!"},
+"SCRAP-ANN-0022":{f:"scrap_announcer_scrap-ann-0022.mp3",c:"a",q:"round:quarter-final",p:0,d:4.7,t:"Quarter-final. Win and you're through, lose and you're packing up."},
+"SCRAP-ANN-0023":{f:"scrap_announcer_scrap-ann-0023.mp3",c:"a",q:"round:semi-final",p:0,d:3.27,t:"Semi-final! One fight from the big one."},
+"SCRAP-ANN-0024":{f:"scrap_announcer_scrap-ann-0024.mp3",c:"a",q:"round:final",p:0,d:5.83,t:"The FINAL. Best of three, with a pit window between rounds. Let's go."},
+"SCRAP-ANN-0025":{f:"scrap_announcer_scrap-ann-0025.mp3",c:"a",q:"rival:ottilie",p:0,d:5.59,t:"In the far corner, a driver who never backs down… Kayla Rauch!"},
+"SCRAP-ANN-0026":{f:"scrap_announcer_scrap-ann-0026.mp3",c:"a",q:"rival:rudi",p:0,d:4,t:"He builds them heavy and drives them hard… Mitch Gerber!"},
+"SCRAP-ANN-0027":{f:"scrap_announcer_scrap-ann-0027.mp3",c:"a",q:"rival:mira",p:0,d:3.42,t:"Fast hands, faster bots… Mira Vogt!"},
+"SCRAP-ANN-0028":{f:"scrap_announcer_scrap-ann-0028.mp3",c:"a",q:"rival:anselm",p:0,d:4.94,t:"The old master of the Haldis arena… Anselm Huber!"},
+"SCRAP-ANN-0029":{f:"scrap_announcer_scrap-ann-0029.mp3",c:"a",q:"countdown",p:1,d:3.58,t:"Three… two… one… FIGHT!"},
+"SCRAP-ANN-0030":{f:"scrap_announcer_scrap-ann-0030.mp3",c:"a",q:"countdown",p:1,d:4.47,t:"Robots ready? Three, two, one… GO!"},
+"SCRAP-ANN-0031":{f:"scrap_announcer_scrap-ann-0031.mp3",c:"a",q:"countdown",p:1,d:6.22,t:"Box sealed. Lights on. Three… two… one… FIGHT!"},
+"SCRAP-ANN-0032":{f:"scrap_announcer_scrap-ann-0032.mp3",c:"a",q:"countdown",p:1,d:4.62,t:"Drivers ready? Let's go! Three, two, one!"},
+"SCRAP-ANN-0033":{f:"scrap_announcer_scrap-ann-0033.mp3",c:"a",q:"pitopen",p:1,d:3.03,t:"The PIT is open! Mind the hole, drivers!"},
+"SCRAP-ANN-0034":{f:"scrap_announcer_scrap-ann-0034.mp3",c:"a",q:"pitopen",p:1,d:3.66,t:"The pit's open. One wrong turn and it's over."},
+"SCRAP-ANN-0035":{f:"scrap_announcer_scrap-ann-0035.mp3",c:"a",q:"pitwin",p:1,d:4.31,t:"Pit window is open! Sixty seconds, crews. Go, go, go!"},
+"SCRAP-ANN-0036":{f:"scrap_announcer_scrap-ann-0036.mp3",c:"a",q:"pitwin",p:1,d:3.42,t:"Pit window! You've got one minute. Fix what you can."},
+"SCRAP-ANN-0037":{f:"scrap_announcer_scrap-ann-0037.mp3",c:"a",q:"pit10",p:0,d:2.06,t:"Ten seconds left in the pit!"},
+"SCRAP-ANN-0038":{f:"scrap_announcer_scrap-ann-0038.mp3",c:"a",q:"pitclose",p:1,d:2.87,t:"Pit's closed! Bots back in the box!"},
+"SCRAP-ANN-0039":{f:"scrap_announcer_scrap-ann-0039.mp3",c:"a",q:"pitclose",p:1,d:2.8,t:"Time's up in the pit! Back to battle!"},
+"SCRAP-ANN-0040":{f:"scrap_announcer_scrap-ann-0040.mp3",c:"a",q:"count",p:1,d:3.58,t:"That bot is NOT moving… the count is on!"},
+"SCRAP-ANN-0041":{f:"scrap_announcer_scrap-ann-0041.mp3",c:"a",q:"count",p:1,d:2.95,t:"Counting! Ten seconds to get it moving!"},
+"SCRAP-ANN-0042":{f:"scrap_announcer_scrap-ann-0042.mp3",c:"a",q:"end:ko",p:1,d:2.22,t:"It's over! Knockout!"},
+"SCRAP-ANN-0043":{f:"scrap_announcer_scrap-ann-0043.mp3",c:"a",q:"end:ko",p:1,d:2.46,t:"Counted out! That's the fight!"},
+"SCRAP-ANN-0044":{f:"scrap_announcer_scrap-ann-0044.mp3",c:"a",q:"end:ko",p:1,d:2.38,t:"Down and out! Knockout!"},
+"SCRAP-ANN-0045":{f:"scrap_announcer_scrap-ann-0045.mp3",c:"a",q:"end:pit",p:1,d:2.61,t:"Into the PIT! That's the fight!"},
+"SCRAP-ANN-0046":{f:"scrap_announcer_scrap-ann-0046.mp3",c:"a",q:"end:pit",p:1,d:3.27,t:"Oh! Right down the hole! It's over!"},
+"SCRAP-ANN-0047":{f:"scrap_announcer_scrap-ann-0047.mp3",c:"a",q:"end:judges",p:1,d:3.5,t:"That's time! Both bots go the distance!"},
+"SCRAP-ANN-0048":{f:"scrap_announcer_scrap-ann-0048.mp3",c:"a",q:"end:judges",p:1,d:4.47,t:"It goes to the judges… aggression, damage, control."},
+"SCRAP-ANN-0049":{f:"scrap_announcer_scrap-ann-0049.mp3",c:"a",q:"reveal",p:0,d:3.58,t:"The judges have decided… and your winner is…"},
+"SCRAP-ANN-0050":{f:"scrap_announcer_scrap-ann-0050.mp3",c:"a",q:"draw",p:0,d:4.78,t:"Would you believe it… the judges can't split them. It's a draw!"},
+"SCRAP-ANN-0051":{f:"scrap_announcer_scrap-ann-0051.mp3",c:"a",q:"win",p:1,d:3.5,t:"Winner, winner! Take a bow, pit crew!"},
+"SCRAP-ANN-0052":{f:"scrap_announcer_scrap-ann-0052.mp3",c:"a",q:"win",p:1,d:3.03,t:"And THAT is a win for the home workshop!"},
+"SCRAP-ANN-0053":{f:"scrap_announcer_scrap-ann-0053.mp3",c:"a",q:"win",p:1,d:3.42,t:"What a performance! The home crew takes it!"},
+"SCRAP-ANN-0054":{f:"scrap_announcer_scrap-ann-0054.mp3",c:"a",q:"lose",p:1,d:3.27,t:"Not tonight. The win goes to the other corner."},
+"SCRAP-ANN-0055":{f:"scrap_announcer_scrap-ann-0055.mp3",c:"a",q:"lose",p:1,d:3.58,t:"That's a loss, folks. Back to the workshop for this crew."},
+"SCRAP-ANN-0056":{f:"scrap_announcer_scrap-ann-0056.mp3",c:"a",q:"lose",p:1,d:4,t:"A brave fight. But tonight, it wasn't enough."},
+"SCRAP-ANN-0057":{f:"scrap_announcer_scrap-ann-0057.mp3",c:"a",q:"rumble:won",p:0,d:4,t:"Last bot moving! We have a rumble champion!"},
+"SCRAP-ANN-0058":{f:"scrap_announcer_scrap-ann-0058.mp3",c:"a",q:"tag:won",p:0,d:3.5,t:"Both of them are out! The tag team takes it!"},
+"SCRAP-ANN-0059":{f:"scrap_announcer_scrap-ann-0059.mp3",c:"a",q:"bo3:lead",p:0,d:3.42,t:"Round one to the home crew! One more wins it."},
+"SCRAP-ANN-0060":{f:"scrap_announcer_scrap-ann-0060.mp3",c:"a",q:"bo3:trail",p:0,d:4.39,t:"Round one goes the other way. The home crew needs the next two."},
+"SCRAP-ANN-0061":{f:"scrap_announcer_scrap-ann-0061.mp3",c:"a",q:"bo3:decider",p:0,d:3.89,t:"One round each. This is the decider."},
+"SCRAP-ANN-0062":{f:"scrap_announcer_scrap-ann-0062.mp3",c:"a",q:"career:first",p:0,d:4.08,t:"Remember this one, folks. That's their very first win!"},
+"SCRAP-ANN-0063":{f:"scrap_announcer_scrap-ann-0063.mp3",c:"a",q:"career:season",p:0,d:4.62,t:"A brand new season starts tonight! Every crew starts from zero."},
+"SCRAP-ANN-0064":{f:"scrap_announcer_scrap-ann-0064.mp3",c:"a",q:"career:act1",p:0,d:6.37,t:"This crew is on the Circuit now! Stahlbrück, Eisenau, Grauwald… the road's calling."},
+"SCRAP-ANN-0065":{f:"scrap_announcer_scrap-ann-0065.mp3",c:"a",q:"career:act2",p:0,d:7.34,t:"Heavyweights. Television. The Scrapline Open. This crew has earned the big stage."},
+"SCRAP-ANN-0066":{f:"scrap_announcer_scrap-ann-0066.mp3",c:"a",q:"career:open",p:0,d:5.28,t:"CHAMPIONS of the Scrapline Open! The title comes home to the Haldis!"},
+"SCRAP-ANN-0067":{f:"scrap_announcer_scrap-ann-0067.mp3",c:"a",q:"career:defend",p:0,d:3.66,t:"The defending Open champions are in the building."},
+"SCRAP-NAME-0001":{f:"scrap_announcer_scrap-name-0001.mp3",c:"a",q:"name:Zahnrad",p:0,d:1.52,t:"Zahnrad!"},
+"SCRAP-NAME-0002":{f:"scrap_announcer_scrap-name-0002.mp3",c:"a",q:"name:Kiesel",p:0,d:1.18,t:"Kiesel!"},
+"SCRAP-NAME-0003":{f:"scrap_announcer_scrap-name-0003.mp3",c:"a",q:"name:Feierabend",p:0,d:1.44,t:"Feierabend!"},
+"SCRAP-NAME-0004":{f:"scrap_announcer_scrap-name-0004.mp3",c:"a",q:"name:Holzwurm",p:0,d:1.52,t:"Holzwurm!"},
+"SCRAP-NAME-0005":{f:"scrap_announcer_scrap-name-0005.mp3",c:"a",q:"name:Glockenschlag",p:0,d:1.59,t:"Glockenschlag!"},
+"SCRAP-NAME-0006":{f:"scrap_announcer_scrap-name-0006.mp3",c:"a",q:"name:Zange",p:0,d:1.33,t:"Zange!"},
+"SCRAP-NAME-0007":{f:"scrap_announcer_scrap-name-0007.mp3",c:"a",q:"name:Uhrwerk",p:0,d:1.25,t:"Uhrwerk!"},
+"SCRAP-NAME-0008":{f:"scrap_announcer_scrap-name-0008.mp3",c:"a",q:"name:Lawine",p:0,d:1.44,t:"Lawine!"},
+"SCRAP-NAME-0009":{f:"scrap_announcer_scrap-name-0009.mp3",c:"a",q:"name:Hochofen",p:0,d:1.33,t:"Hochofen!"},
+"SCRAP-NAME-0010":{f:"scrap_announcer_scrap-name-0010.mp3",c:"a",q:"name:Walzwerk",p:0,d:1.52,t:"Walzwerk!"},
+"SCRAP-NAME-0011":{f:"scrap_announcer_scrap-name-0011.mp3",c:"a",q:"name:rv:ottilie",p:0,d:1.52,t:"Kayla Rauch!"},
+"SCRAP-NAME-0012":{f:"scrap_announcer_scrap-name-0012.mp3",c:"a",q:"name:rv:rudi",p:0,d:1.59,t:"Mitch Gerber!"},
+"SCRAP-NAME-0013":{f:"scrap_announcer_scrap-name-0013.mp3",c:"a",q:"name:rv:mira",p:0,d:1.59,t:"Mira Vogt!"},
+"SCRAP-NAME-0014":{f:"scrap_announcer_scrap-name-0014.mp3",c:"a",q:"name:rv:anselm",p:0,d:1.67,t:"Anselm Huber!"},
+"SCRAP-NAME-0015":{f:"scrap_announcer_scrap-name-0015.mp3",c:"a",q:"name:you",p:1,d:1.59,t:"The challenger!"},
+"SCRAP-NAME-0016":{f:"scrap_announcer_scrap-name-0016.mp3",c:"a",q:"name:you",p:1,d:1.75,t:"The home workshop!"},
+"SCRAP-NAME-0017":{f:"scrap_announcer_scrap-name-0017.mp3",c:"a",q:"name:champ",p:1,d:2.06,t:"The defending champion!"},
+"SCRAP-NAME-0018":{f:"scrap_announcer_scrap-name-0018.mp3",c:"a",q:"name:tag",p:1,d:1.59,t:"The underdog!"},
+"SCRAP-NAME-0019":{f:"scrap_announcer_scrap-name-0019.mp3",c:"a",q:"name:tag",p:1,d:1.33,t:"The rookie!"},
+"SCRAP-NAME-0020":{f:"scrap_announcer_scrap-name-0020.mp3",c:"a",q:"name:tag",p:1,d:1.52,t:"The veteran!"},
+"SCRAP-NAME-0021":{f:"scrap_announcer_scrap-name-0021.mp3",c:"a",q:"event:Haldis Spring Cup",p:0,d:2.06,t:"The Haldis Spring Cup!"},
+"SCRAP-NAME-0022":{f:"scrap_announcer_scrap-name-0022.mp3",c:"a",q:"event:Stahlbrück Beetle Cup",p:0,d:2.22,t:"The Stahlbrück Beetle Cup!"},
+"SCRAP-NAME-0023":{f:"scrap_announcer_scrap-name-0023.mp3",c:"a",q:"event:Haldis Club Championship",p:0,d:2.46,t:"The Haldis Club Championship!"},
+"SCRAP-NAME-0024":{f:"scrap_announcer_scrap-name-0024.mp3",c:"a",q:"event:Stahlbrück Hobby Open",p:0,d:2.3,t:"The Stahlbrück Hobby Open!"},
+"SCRAP-NAME-0025":{f:"scrap_announcer_scrap-name-0025.mp3",c:"a",q:"event:Eisenau Feather Cup",p:0,d:2.14,t:"The Eisenau Feather Cup!"},
+"SCRAP-NAME-0026":{f:"scrap_announcer_scrap-name-0026.mp3",c:"a",q:"event:Grauwald Rumble",p:0,d:2.38,t:"The Grauwald Rumble!"},
+"SCRAP-NAME-0027":{f:"scrap_announcer_scrap-name-0027.mp3",c:"a",q:"event:Eisenau Tag Team",p:0,d:2.3,t:"The Eisenau Tag Team!"},
+"SCRAP-NAME-0028":{f:"scrap_announcer_scrap-name-0028.mp3",c:"a",q:"event:Grauwald Hobby Cup",p:0,d:2.22,t:"The Grauwald Hobby Cup!"},
+"SCRAP-NAME-0029":{f:"scrap_announcer_scrap-name-0029.mp3",c:"a",q:"event:Stahlbrück Feather Open",p:0,d:2.46,t:"The Stahlbrück Feather Open!"},
+"SCRAP-NAME-0030":{f:"scrap_announcer_scrap-name-0030.mp3",c:"a",q:"event:Eisenau Rumble",p:0,d:2.14,t:"The Eisenau Rumble!"},
+"SCRAP-NAME-0031":{f:"scrap_announcer_scrap-name-0031.mp3",c:"a",q:"event:Eisenau Hobby Cup",p:0,d:2.22,t:"The Eisenau Hobby Cup!"},
+"SCRAP-NAME-0032":{f:"scrap_announcer_scrap-name-0032.mp3",c:"a",q:"event:Regional Final",p:0,d:1.99,t:"The Regional Final!"},
+"SCRAP-NAME-0033":{f:"scrap_announcer_scrap-name-0033.mp3",c:"a",q:"event:Scrapline Open",p:0,d:1.83,t:"The Scrapline Open!"},
+"SCRAP-NAME-0034":{f:"scrap_announcer_scrap-name-0034.mp3",c:"a",q:"event:Open Rumble",p:0,d:1.91,t:"The Open Rumble!"},
+"SCRAP-NAME-0035":{f:"scrap_announcer_scrap-name-0035.mp3",c:"a",q:"event:Open Tag Team",p:0,d:1.99,t:"The Open Tag Team!"},
+"SCRAP-NAME-0036":{f:"scrap_announcer_scrap-name-0036.mp3",c:"a",q:"event:Scrapline Open Final",p:0,d:2.3,t:"The Scrapline Open Final!"},
+"SCRAP-COMM-0001":{f:"scrap_commentator_scrap-comm-0001.mp3",c:"c",q:"c:intro",p:1,d:4.31,t:"Jess Moser here, with you on Radio Velmark. Let's get into it."},
+"SCRAP-COMM-0002":{f:"scrap_commentator_scrap-comm-0002.mp3",c:"c",q:"c:intro",p:1,d:4.23,t:"You're with Radio Velmark, live from the arena. Here we go."},
+"SCRAP-COMM-0003":{f:"scrap_commentator_scrap-comm-0003.mp3",c:"c",q:"c:tv",p:0,d:5.43,t:"Jess Moser, live from the Eisenhalle, and tonight the whole country is watching."},
+"SCRAP-COMM-0004":{f:"scrap_commentator_scrap-comm-0004.mp3",c:"c",q:"c:start",p:1,d:3.58,t:"And they're off. Both drivers testing the floor early."},
+"SCRAP-COMM-0005":{f:"scrap_commentator_scrap-comm-0005.mp3",c:"c",q:"c:start",p:1,d:3.58,t:"Cautious start. Nobody wants to commit first."},
+"SCRAP-COMM-0006":{f:"scrap_commentator_scrap-comm-0006.mp3",c:"c",q:"c:start",p:1,d:3.58,t:"Straight in! No feeling-out period at all!"},
+"SCRAP-COMM-0007":{f:"scrap_commentator_scrap-comm-0007.mp3",c:"c",q:"c:start",p:1,d:4,t:"Slow circle to start. Both drivers reading each other."},
+"SCRAP-COMM-0008":{f:"scrap_commentator_scrap-comm-0008.mp3",c:"c",q:"c:start",p:1,d:3.74,t:"Weapon's already up to speed. This won't be quiet."},
+"SCRAP-COMM-0009":{f:"scrap_commentator_scrap-comm-0009.mp3",c:"c",q:"c:hit",p:1,d:1.83,t:"Oh, BIG hit!"},
+"SCRAP-COMM-0010":{f:"scrap_commentator_scrap-comm-0010.mp3",c:"c",q:"c:hit",p:1,d:2.53,t:"That one rattled the whole box!"},
+"SCRAP-COMM-0011":{f:"scrap_commentator_scrap-comm-0011.mp3",c:"c",q:"c:hit",p:1,d:3.03,t:"Huge impact! Parts everywhere!"},
+"SCRAP-COMM-0012":{f:"scrap_commentator_scrap-comm-0012.mp3",c:"c",q:"c:hit:side",p:1,d:2.61,t:"Clean shot, right on the side armour."},
+"SCRAP-COMM-0013":{f:"scrap_commentator_scrap-comm-0013.mp3",c:"c",q:"c:hit",p:1,d:2.61,t:"Ooh, that's going to leave a dent."},
+"SCRAP-COMM-0014":{f:"scrap_commentator_scrap-comm-0014.mp3",c:"c",q:"c:hit",p:1,d:3.19,t:"They'll be hearing that one in the cheap seats."},
+"SCRAP-COMM-0015":{f:"scrap_commentator_scrap-comm-0015.mp3",c:"c",q:"c:hit",p:1,d:2.46,t:"OH, that's a monster hit!"},
+"SCRAP-COMM-0016":{f:"scrap_commentator_scrap-comm-0016.mp3",c:"c",q:"c:hit:wheels",p:1,d:3.27,t:"Right into the wheels! That'll hurt the drive."},
+"SCRAP-COMM-0017":{f:"scrap_commentator_scrap-comm-0017.mp3",c:"c",q:"c:gl",p:1,d:2.46,t:"Glanced off the wedge. No harm done."},
+"SCRAP-COMM-0018":{f:"scrap_commentator_scrap-comm-0018.mp3",c:"c",q:"c:gl",p:1,d:3.58,t:"Deflected! That sloped front is doing its job."},
+"SCRAP-COMM-0019":{f:"scrap_commentator_scrap-comm-0019.mp3",c:"c",q:"c:ram:wall",p:1,d:2.46,t:"Rammed straight into the wall!"},
+"SCRAP-COMM-0020":{f:"scrap_commentator_scrap-comm-0020.mp3",c:"c",q:"c:ram",p:1,d:3.42,t:"Shoved right across the floor. No grip at all."},
+"SCRAP-COMM-0021":{f:"scrap_commentator_scrap-comm-0021.mp3",c:"c",q:"c:ram",p:1,d:3.27,t:"That's a heavy collision. Both of them felt that."},
+"SCRAP-COMM-0022":{f:"scrap_commentator_scrap-comm-0022.mp3",c:"c",q:"c:ram:wall",p:1,d:3.42,t:"Into the wall! The whole arena shook!"},
+"SCRAP-COMM-0023":{f:"scrap_commentator_scrap-comm-0023.mp3",c:"c",q:"c:under",p:1,d:2.87,t:"Wedge underneath, and now it's in control."},
+"SCRAP-COMM-0024":{f:"scrap_commentator_scrap-comm-0024.mp3",c:"c",q:"c:under",p:1,d:3.19,t:"Got under it! That's exactly what you want!"},
+"SCRAP-COMM-0025":{f:"scrap_commentator_scrap-comm-0025.mp3",c:"c",q:"c:under",p:1,d:3.81,t:"Under again. The front edge is just too low to beat."},
+"SCRAP-COMM-0026":{f:"scrap_commentator_scrap-comm-0026.mp3",c:"c",q:"c:lift",p:1,d:2.3,t:"Lifted clean off the floor!"},
+"SCRAP-COMM-0027":{f:"scrap_commentator_scrap-comm-0027.mp3",c:"c",q:"c:lift",p:1,d:3.42,t:"Holding it up. The wheels are spinning on nothing."},
+"SCRAP-COMM-0028":{f:"scrap_commentator_scrap-comm-0028.mp3",c:"c",q:"c:lift",p:1,d:2.53,t:"Scooped up! Can it get free?"},
+"SCRAP-COMM-0029":{f:"scrap_commentator_scrap-comm-0029.mp3",c:"c",q:"c:release",p:1,d:4.31,t:"Ten seconds is up, the league says let go. Back on the floor."},
+"SCRAP-COMM-0030":{f:"scrap_commentator_scrap-comm-0030.mp3",c:"c",q:"c:release",p:1,d:3.34,t:"Pin's over, they have to back off. Reset."},
+"SCRAP-COMM-0031":{f:"scrap_commentator_scrap-comm-0031.mp3",c:"c",q:"c:flip",p:1,d:2.14,t:"Flipped! Right over!"},
+"SCRAP-COMM-0032":{f:"scrap_commentator_scrap-comm-0032.mp3",c:"c",q:"c:flip",p:1,d:2.53,t:"Up and over! Can it self-right?"},
+"SCRAP-COMM-0033":{f:"scrap_commentator_scrap-comm-0033.mp3",c:"c",q:"c:flip",p:1,d:3.03,t:"Into the air! What a launch!"},
+"SCRAP-COMM-0034":{f:"scrap_commentator_scrap-comm-0034.mp3",c:"c",q:"c:flip",p:1,d:1.91,t:"Tossed like a pancake!"},
+"SCRAP-COMM-0035":{f:"scrap_commentator_scrap-comm-0035.mp3",c:"c",q:"c:flip",p:1,d:3.11,t:"It's flying! It's actually flying!"},
+"SCRAP-COMM-0036":{f:"scrap_commentator_scrap-comm-0036.mp3",c:"c",q:"c:heavy",p:0,d:3.58,t:"Flipper fires… too heavy. Couldn't budge it."},
+"SCRAP-COMM-0037":{f:"scrap_commentator_scrap-comm-0037.mp3",c:"c",q:"c:self",p:1,d:3.34,t:"It threw ITSELF over! Too much power!"},
+"SCRAP-COMM-0038":{f:"scrap_commentator_scrap-comm-0038.mp3",c:"c",q:"c:self",p:1,d:4.62,t:"Flipped by its own weapon. That's a first for this crowd."},
+"SCRAP-COMM-0039":{f:"scrap_commentator_scrap-comm-0039.mp3",c:"c",q:"c:inv",p:1,d:3.74,t:"Upside down and struggling. This could be trouble."},
+"SCRAP-COMM-0040":{f:"scrap_commentator_scrap-comm-0040.mp3",c:"c",q:"c:inv",p:1,d:2.87,t:"On its back. Does it drive inverted?"},
+"SCRAP-COMM-0041":{f:"scrap_commentator_scrap-comm-0041.mp3",c:"c",q:"c:right",p:1,d:2.72,t:"It's back on its wheels. Good recovery."},
+"SCRAP-COMM-0042":{f:"scrap_commentator_scrap-comm-0042.mp3",c:"c",q:"c:right",p:1,d:2.61,t:"Righted itself! Back in the fight!"},
+"SCRAP-COMM-0043":{f:"scrap_commentator_scrap-comm-0043.mp3",c:"c",q:"c:fail:shock",p:0,d:3.89,t:"Electronics gone! One hit and the lights went out."},
+"SCRAP-COMM-0044":{f:"scrap_commentator_scrap-comm-0044.mp3",c:"c",q:"c:fail:esc",p:0,d:3.34,t:"One side's dead. It's going round in circles."},
+"SCRAP-COMM-0045":{f:"scrap_commentator_scrap-comm-0045.mp3",c:"c",q:"c:fail:flat",p:1,d:3.11,t:"Battery's flat. It's coasting on nothing."},
+"SCRAP-COMM-0046":{f:"scrap_commentator_scrap-comm-0046.mp3",c:"c",q:"c:fail:flat",p:1,d:4.7,t:"Out of power. That's a fight that ran too long."},
+"SCRAP-COMM-0047":{f:"scrap_commentator_scrap-comm-0047.mp3",c:"c",q:"c:fail:wheel",p:1,d:2.14,t:"A whole wheel just came off!"},
+"SCRAP-COMM-0048":{f:"scrap_commentator_scrap-comm-0048.mp3",c:"c",q:"c:fail:weapon",p:1,d:3.42,t:"Weapon's stopped spinning. That changes everything."},
+"SCRAP-COMM-0049":{f:"scrap_commentator_scrap-comm-0049.mp3",c:"c",q:"c:fail:armour",p:1,d:3.81,t:"Armour panel hanging off. One more hit could finish it."},
+"SCRAP-COMM-0050":{f:"scrap_commentator_scrap-comm-0050.mp3",c:"c",q:"c:fail:cell",p:0,d:3.58,t:"Failsafe kicked in. Lost a cell, kept the fight."},
+"SCRAP-COMM-0051":{f:"scrap_commentator_scrap-comm-0051.mp3",c:"c",q:"c:heat:drive",p:1,d:2.87,t:"Drive motor's cooking. It's slowing down."},
+"SCRAP-COMM-0052":{f:"scrap_commentator_scrap-comm-0052.mp3",c:"c",q:"c:heat:weapon",p:1,d:3.19,t:"Weapon motor's too hot. Watch the spin-up drop off."},
+"SCRAP-COMM-0053":{f:"scrap_commentator_scrap-comm-0053.mp3",c:"c",q:"c:haz:spinner",p:1,d:3.19,t:"Into the floor spinner! That's arena damage!"},
+"SCRAP-COMM-0054":{f:"scrap_commentator_scrap-comm-0054.mp3",c:"c",q:"c:haz",p:1,d:4.39,t:"Shoved onto the hazard! The judges count that as control."},
+"SCRAP-COMM-0055":{f:"scrap_commentator_scrap-comm-0055.mp3",c:"c",q:"c:haz:pusher",p:1,d:3.42,t:"The pusher got it! Thrown right across the box!"},
+"SCRAP-COMM-0056":{f:"scrap_commentator_scrap-comm-0056.mp3",c:"c",q:"c:pitopen",p:1,d:2.8,t:"Pit's open. Stay away from that edge."},
+"SCRAP-COMM-0057":{f:"scrap_commentator_scrap-comm-0057.mp3",c:"c",q:"c:pitopen",p:1,d:4.15,t:"The hole's live now. Every turn near it is a gamble."},
+"SCRAP-COMM-0058":{f:"scrap_commentator_scrap-comm-0058.mp3",c:"c",q:"c:pit",p:1,d:2.3,t:"Into the pit! Gone!"},
+"SCRAP-COMM-0059":{f:"scrap_commentator_scrap-comm-0059.mp3",c:"c",q:"c:pit",p:1,d:3.42,t:"Down the hole! That's the fight, right there."},
+"SCRAP-COMM-0060":{f:"scrap_commentator_scrap-comm-0060.mp3",c:"c",q:"c:still",p:1,d:3.66,t:"That bot's slowing down… something's wrong."},
+"SCRAP-COMM-0061":{f:"scrap_commentator_scrap-comm-0061.mp3",c:"c",q:"c:still",p:1,d:3.03,t:"Not moving. Is that a dead drive?"},
+"SCRAP-COMM-0062":{f:"scrap_commentator_scrap-comm-0062.mp3",c:"c",q:"c:still",p:1,d:4.08,t:"Twitching… still alive, just barely."},
+"SCRAP-COMM-0063":{f:"scrap_commentator_scrap-comm-0063.mp3",c:"c",q:"c:still",p:1,d:3.42,t:"Stuck on the arena floor. Can it wriggle free?"},
+"SCRAP-COMM-0064":{f:"scrap_commentator_scrap-comm-0064.mp3",c:"c",q:"c:final",p:1,d:2.87,t:"Ten seconds left. Everything they've got."},
+"SCRAP-COMM-0065":{f:"scrap_commentator_scrap-comm-0065.mp3",c:"c",q:"c:final",p:1,d:3.74,t:"Final moments! One more big hit could decide it!"},
+"SCRAP-COMM-0066":{f:"scrap_commentator_scrap-comm-0066.mp3",c:"c",q:"c:final",p:1,d:3.34,t:"Clock's running down. This one's going the distance."},
+"SCRAP-COMM-0067":{f:"scrap_commentator_scrap-comm-0067.mp3",c:"c",q:"c:judges",p:1,d:4.55,t:"Aggression, damage, control. That's what the judges are scoring."},
+"SCRAP-COMM-0068":{f:"scrap_commentator_scrap-comm-0068.mp3",c:"c",q:"c:judges:split",p:1,d:3.74,t:"Lots of pushing, but the damage card goes the other way."},
+"SCRAP-COMM-0069":{f:"scrap_commentator_scrap-comm-0069.mp3",c:"c",q:"c:judges:control",p:1,d:3.66,t:"They've had control for most of this. The judges will like that."},
+"SCRAP-COMM-0070":{f:"scrap_commentator_scrap-comm-0070.mp3",c:"c",q:"c:swing",p:1,d:2.3,t:"And the momentum swings!"},
+"SCRAP-COMM-0071":{f:"scrap_commentator_scrap-comm-0071.mp3",c:"c",q:"c:swing",p:1,d:3.27,t:"Written off a minute ago, and look at it now!"},
+"SCRAP-COMM-0072":{f:"scrap_commentator_scrap-comm-0072.mp3",c:"c",q:"c:swing",p:1,d:1.99,t:"Don't count this one out yet!"},
+"SCRAP-COMM-0073":{f:"scrap_commentator_scrap-comm-0073.mp3",c:"c",q:"c:swing:run",p:1,d:3.74,t:"That's three clean hits in a row. Total control."},
+"SCRAP-COMM-0074":{f:"scrap_commentator_scrap-comm-0074.mp3",c:"c",q:"c:win",p:1,d:3.19,t:"What a fight! That's a deserved win."},
+"SCRAP-COMM-0075":{f:"scrap_commentator_scrap-comm-0075.mp3",c:"c",q:"c:win",p:1,d:2.95,t:"Clinical. Never really in danger."},
+"SCRAP-COMM-0076":{f:"scrap_commentator_scrap-comm-0076.mp3",c:"c",q:"c:win",p:1,d:4.31,t:"Scrappy, ugly, and a win all the same."},
+"SCRAP-COMM-0077":{f:"scrap_commentator_scrap-comm-0077.mp3",c:"c",q:"c:win",p:1,d:2.87,t:"That's all that work in the workshop paying off."},
+"SCRAP-COMM-0078":{f:"scrap_commentator_scrap-comm-0078.mp3",c:"c",q:"c:win",p:1,d:3.58,t:"Unbelievable! That's a win to remember!"},
+"SCRAP-COMM-0079":{f:"scrap_commentator_scrap-comm-0079.mp3",c:"c",q:"c:lose",p:1,d:3.03,t:"Tough one. They'll learn from that."},
+"SCRAP-COMM-0080":{f:"scrap_commentator_scrap-comm-0080.mp3",c:"c",q:"c:lose",p:1,d:2.46,t:"Outdriven tonight, plain and simple."},
+"SCRAP-COMM-0081":{f:"scrap_commentator_scrap-comm-0081.mp3",c:"c",q:"c:lose",p:1,d:2.61,t:"Lots of damage to fix before the next one."},
+"SCRAP-COMM-0082":{f:"scrap_commentator_scrap-comm-0082.mp3",c:"c",q:"c:lose",p:1,d:3.27,t:"No shame in that. They gave it everything."},
+"SCRAP-COMM-0083":{f:"scrap_commentator_scrap-comm-0083.mp3",c:"c",q:"c:rumble",p:1,d:2.46,t:"Total chaos in the rumble!"},
+"SCRAP-COMM-0084":{f:"scrap_commentator_scrap-comm-0084.mp3",c:"c",q:"c:rumble",p:1,d:3.19,t:"Everybody's hitting everybody. Pick a target!"},
+"SCRAP-COMM-0085":{f:"scrap_commentator_scrap-comm-0085.mp3",c:"c",q:"c:rumble:half",p:1,d:2.14,t:"Two out, two still swinging."},
+"SCRAP-COMM-0086":{f:"scrap_commentator_scrap-comm-0086.mp3",c:"c",q:"c:rumble:late",p:1,d:3.81,t:"Smart move, staying out of the scrum and picking off the wounded."},
+"SCRAP-COMM-0087":{f:"scrap_commentator_scrap-comm-0087.mp3",c:"c",q:"c:tag",p:1,d:2.87,t:"Two on two and it's a brawl already!"},
+"SCRAP-COMM-0088":{f:"scrap_commentator_scrap-comm-0088.mp3",c:"c",q:"c:tag:help",p:1,d:2.8,t:"Partner's in trouble. Somebody needs to cover."},
+"SCRAP-COMM-0089":{f:"scrap_commentator_scrap-comm-0089.mp3",c:"c",q:"c:tag",p:1,d:3.27,t:"Double-teamed in the corner! That's the tag game."},
+"SCRAP-COMM-0090":{f:"scrap_commentator_scrap-comm-0090.mp3",c:"c",q:"c:mini",p:1,d:4.08,t:"Minibot's off and running. Annoying, and effective."},
+"SCRAP-COMM-0091":{f:"scrap_commentator_scrap-comm-0091.mp3",c:"c",q:"c:mini",p:1,d:2.8,t:"Don't ignore the little one!"},
+"SCRAP-COMM-0092":{f:"scrap_commentator_scrap-comm-0092.mp3",c:"c",q:"c:mini:under",p:1,d:3.42,t:"The minibot's got under it! What a nuisance!"},
+"SCRAP-COMM-0093":{f:"scrap_commentator_scrap-comm-0093.mp3",c:"c",q:"c:pitwin",p:1,d:3.42,t:"Pit window. This is where fights are won."},
+"SCRAP-COMM-0094":{f:"scrap_commentator_scrap-comm-0094.mp3",c:"c",q:"c:pitwin",p:1,d:3.58,t:"Watch the crew. A good minute here can save the bot."},
+"SCRAP-COMM-0095":{f:"scrap_commentator_scrap-comm-0095.mp3",c:"c",q:"c:pitwin",p:1,d:3.81,t:"Big repair job there. Will a minute be enough?"},
+"SCRAP-PM-0001":{f:"scrap_commentator_scrap-pm-0001.mp3",c:"c",q:"pm:replay",p:1,d:4.31,t:"Let's look at that again, slowed right down."},
+"SCRAP-PM-0002":{f:"scrap_commentator_scrap-pm-0002.mp3",c:"c",q:"pm:replay",p:1,d:4.39,t:"Slow it down… there. That's the moment."},
+"SCRAP-PM-0003":{f:"scrap_commentator_scrap-pm-0003.mp3",c:"c",q:"pm:replay",p:1,d:2.8,t:"Let's rewind that, frame by frame."},
+"SCRAP-PM-0004":{f:"scrap_commentator_scrap-pm-0004.mp3",c:"c",q:"pm:pit",p:0,d:5.59,t:"Drove too close to the edge. More push and grippier wheels keep you away from the hole."},
+"SCRAP-PM-0005":{f:"scrap_commentator_scrap-pm-0005.mp3",c:"c",q:"pm:inv",p:0,d:4.47,t:"Ended on its back and couldn't drive inverted. That's a self-righter job."},
+"SCRAP-PM-0006":{f:"scrap_commentator_scrap-pm-0006.mp3",c:"c",q:"pm:under",p:0,d:5.17,t:"Look at the front edge. It never got low enough. The other bot owned the floor."},
+"SCRAP-PM-0007":{f:"scrap_commentator_scrap-pm-0007.mp3",c:"c",q:"pm:face",p:1,d:3.66,t:"There's the weak point. Right where the armour meets the frame."},
+"SCRAP-PM-0008":{f:"scrap_commentator_scrap-pm-0008.mp3",c:"c",q:"pm:face",p:1,d:3.19,t:"The armour held… until it didn't."},
+"SCRAP-PM-0009":{f:"scrap_commentator_scrap-pm-0009.mp3",c:"c",q:"pm:held",p:1,d:4.62,t:"Nothing broke. That's a solid build. Now go find a tougher opponent."},
+"SCRAP-PM-0010":{f:"scrap_commentator_scrap-pm-0010.mp3",c:"c",q:"pm:held",p:1,d:4.47,t:"Held together the whole fight. The loss was driving, not the bot."},
+"SCRAP-PM-0011":{f:"scrap_commentator_scrap-pm-0011.mp3",c:"c",q:"pm:gen",p:1,d:3.58,t:"Watch the angle on the approach. That's where it was won."},
+"SCRAP-PM-0012":{f:"scrap_commentator_scrap-pm-0012.mp3",c:"c",q:"pm:weapon",p:1,d:2.87,t:"Lost the weapon early, and the plan went with it."},
+"SCRAP-PM-0013":{f:"scrap_commentator_scrap-pm-0013.mp3",c:"c",q:"pm:pinned",p:1,d:3.66,t:"Too much time pinned on the wall. That's what cost the fight."},
+"SCRAP-PM-0014":{f:"scrap_commentator_scrap-pm-0014.mp3",c:"c",q:"pm:spin",p:1,d:2.87,t:"Weapon spun up early. Big advantage."},
+"SCRAP-PM-0015":{f:"scrap_commentator_scrap-pm-0015.mp3",c:"c",q:"pm:gen",p:1,d:4.31,t:"They held the centre the whole fight. That's how you control a match."},
+"SCRAP-PM-0016":{f:"scrap_commentator_scrap-pm-0016.mp3",c:"c",q:"pm:gen",p:1,d:2.87,t:"Back to the bench. Plenty to work with."}};
+</script>
+<script>
+/* ===================== Scrapline: the voices (SCRAP_VOICE) =====================
+   The commentary pack (0.1.16): Duncan Steiner on the PA (the announcer) and Jess Moser on Radio Velmark (the commentator),
+   one ElevenLabs take per line in sounds/voice/, listed in VOICE_LINES (sound/voicelines.js, built from the sheet by
+   tools/make-voicelines.js). Voice reads the fight; it never writes to it, and nothing here is in SCRAP_SIM.
+     load()            the first time the Fight tab opens (app/fight.js ftRender): fetch the clips, the announcer's core calls
+                       first (countdowns, result calls), four at a time. Kept as MP3 bytes and decoded when needed (the last
+                       ~20 decoded stay), so a phone holds ~6 MB, not ~60. A clip that fails is skipped. Every tier.
+     set(o)            the app's settings: {sound, voice, comm, captions} (Settings: Sound, Voices, Commentary, Captions)
+     intro(cues, done) before a fight: the announcer's calls back to back (venue, event, class, names, the countdown);
+                       done() when the last ends or skip() is pressed. false (and no wait) when nothing can play: muted, or
+                       nothing decoded yet. The app holds the fight until done (the clock reads full and nothing moves).
+     begin(F, o)       a fight (or a replay) starts: o {speed, replay, rivals: {bot index: RIVALS id}, kind: "duel" | "rumble" | "tag"}
+     tick(F, speed)    after the app's sim steps: new F.log entries and the bots' state become calls (below)
+     end(F, o)         the bell: the result calls (see endCues); o {kind, bout: {me, them, over} | null, extra: [cues]}
+     seq(cues, o)      calls back to back now (o.queue: after what's playing) — the pit window, the post-mortem
+     say(cue)          one call now
+     stop(), skip()    silence (a pause, leaving the tab); skip ends an intro early and calls its done()
+     onCap             set by the app: (text, who) for a caption, shown when sound or voices are off (Settings → Captions)
+   The director (tick) runs on fight time: a clip of d seconds at replay speed s fills d x s seconds of the fight, the
+   commentator speaks at most once every 3 s (of real time), never over the announcer, and the announcer's mid-fight
+   calls (the count, the pit opening) wait for the commentator to finish. Pools pick with SCRAP_SIM.rng streams seeded
+   from the fight's seed, never Math.random, and skip the last few lines said: the same fight at the same speed says the
+   same lines, so two replays match. Captions run off the same calls, so a muted phone gets the same commentary. */
+const SCRAP_VOICE=(function(){
+"use strict";
+const L=typeof VOICE_LINES!=="undefined"?VOICE_LINES:{},POOL={};
+for(const id of Object.keys(L).sort()){const q=L[id].q;(POOL[q]||(POOL[q]=[])).push(id);}
+const COOL=3,GAP=0.25;   // seconds between commentator barks; a little air after any line (both in real time)
+/* the announcer's core calls load first */
+const CORE=["countdown","end:ko","end:pit","end:judges","reveal","draw","win","lose","name:you","count","pitopen","pitwin","pit10","pitclose","bo3:lead","bo3:trail","bo3:decider","rumble:won","tag:won"];
+const O={sound:true,voice:true,comm:true,captions:"muted"};
+const P={started:false,bytes:{},buf:new Map(),src:[],queue:[],qT:0,introDone:null,introT:0};
+let D=null;   // the director's fight
+
+/* ---- the player ---- */
+function audioOn(){return O.sound!==false&&O.voice!==false;}
+function load(){if(P.started||typeof fetch!=="function"||!Object.keys(L).length)return;P.started=true;
+  const ids=Object.keys(L),core=new Set();for(const q of CORE)for(const id of POOL[q]||[])core.add(id);
+  const list=[...core].concat(ids.filter(id=>!core.has(id)&&L[id].c==="c"&&!/^pm:/.test(L[id].q)),ids.filter(id=>!core.has(id)&&(L[id].c==="a"||/^pm:/.test(L[id].q))));
+  const seen=new Set(),order=list.filter(id=>!seen.has(id)&&seen.add(id));let at=0;
+  const next=()=>{if(at>=order.length)return;const id=order[at++];
+    fetch("sounds/voice/"+L[id].f).then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status)).then(a=>{P.bytes[id]=a;}).catch(()=>{}).then(next);};
+  for(let k=0;k<4;k++)next();}
+/* a decoded clip: cb(AudioBuffer) at once when it's decoded, else after decoding (the callback form of decodeAudioData:
+   older Safari returns no promise), or cb(null) */
+function decoded(id,cb){const b=P.buf.get(id);if(b){P.buf.delete(id);P.buf.set(id,b);cb(b);return;}
+  const io=typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus?SCRAP_SOUND.voiceBus():null,raw=P.bytes[id];
+  if(!io||!raw){cb(null);return;}
+  try{io.ctx.decodeAudioData(raw.slice(0),buf=>{P.buf.set(id,buf);while(P.buf.size>20)P.buf.delete(P.buf.keys().next().value);cb(buf);},()=>cb(null));}catch(e){cb(null);}}
+function cap(id){const x=L[id];if(!x||O.captions==="off"||audioOn()||!P.onCap)return;P.onCap(x.t,x.c);}
+/* play one line now; false when it can't (muted, not loaded yet). The caption shows instead when muted. */
+function play(id,at){const x=L[id];if(!x)return false;if(x.c==="c"&&O.comm===false)return false;
+  if(!audioOn()){cap(id);return false;}
+  const t0=typeof performance!=="undefined"?performance.now():0;
+  decoded(id,buf=>{if(!buf)return;const now=typeof performance!=="undefined"?performance.now():0;if(at==null&&now-t0>600)return;   // a late decode: the moment has passed
+    const io=SCRAP_SOUND.voiceBus();if(!io)return;const s=io.ctx.createBufferSource(),g=io.ctx.createGain();s.buffer=buf;
+    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(io.ctx.currentTime,at||0);s.start(when);
+    SCRAP_SOUND.talk(when+buf.duration);P.src.push(s);s.onended=()=>{const i=P.src.indexOf(s);if(i>=0)P.src.splice(i,1);};});
+  return true;}
+function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
+
+/* ---- picks: a seeded stream per fight, skipping the last few lines said ---- */
+function pickFrom(R,recent,cues){for(const q of cues){const ids=POOL[q];if(!ids||!ids.length)continue;
+    const fresh=ids.filter(id=>recent.indexOf(id)<0);if(!fresh.length&&q!==cues[cues.length-1])continue;   // a narrow line just said: fall back to the wider pool
+    const from=fresh.length?fresh:ids,id=from[Math.floor(R()*from.length)%from.length];recent.push(id);if(recent.length>6)recent.shift();return id;}
+  return null;}
+const RNG=s=>typeof SCRAP_SIM!=="undefined"?SCRAP_SIM.rng(s>>>0):(()=>{let a=s>>>0;return()=>((a=(a*16807)%2147483647)/2147483647);})();
+let SQ={R:RNG(0x5EC0),recent:[]};   // sequences (intros, results, the pit): reseeded per fight
+
+/* ---- sequences: lines back to back, in real time ---- */
+function seqIds(cues){const out=[];for(const c of cues){const id=Array.isArray(c)?pickFrom(SQ.R,SQ.recent,c):pickFrom(SQ.R,SQ.recent,[c]);if(id)out.push(id);}return out;}
+function runQueue(){P.qTimer=0;const id=P.queue.shift();if(!id){if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
+  const x=L[id],ok=x.c==="c"&&O.comm===false?false:audioOn()&&(P.bytes[id]||P.buf.has(id));
+  if(ok){play(id,0);P.qTimer=setTimeout(runQueue,(x.d+GAP)*1000);}
+  else{if(!(x.c==="c"&&O.comm===false))cap(id);P.qTimer=setTimeout(runQueue,audioOn()?0:Math.min(1500,x.d*500));}}
+function seq(cues,o){const ids=seqIds(cues);if(!ids.length)return 0;if(!(o&&o.queue)){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
+  P.queue.push(...ids);if(!P.qTimer)runQueue();return ids.reduce((a,id)=>a+L[id].d+GAP,0);}
+function say(cue){return seq([cue],{queue:true});}
+/* before a fight: hold only when at least one of the calls is decoded and can be heard */
+function intro(cues,done){stopAll();P.introDone=null;const ids=seqIds(cues).filter(id=>audioOn()&&P.bytes[id]&&!(L[id].c==="c"&&O.comm===false));
+  if(!ids.length||!(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus&&SCRAP_SOUND.voiceBus()))return false;
+  let n=ids.length,go=false;const start=()=>{if(go)return;go=true;P.introDone=done;P.queue=ids.slice();runQueue();};
+  for(const id of ids)decoded(id,()=>{if(--n<=0)start();});setTimeout(start,1200);   // decode first (a smooth countdown), but never wait long
+  return true;}
+function skip(){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
+function stop(){skip();}
+
+/* ---- the director: the live calls ---- */
+const N=v=>v==null?null:v;
+function begin(F,o){o=o||{};SQ={R:RNG((F.seed^0x5EC0)>>>0),recent:[]};
+  D={F,R:RNG((F.seed^0x701CE)>>>0),recent:[],n:0,annUntil:0,commUntil:0,lastBark:-99,speed:o.speed||1,kind:o.kind||"duel",rivals:o.rivals||{},
+    still:{},stillBark:{},finalSaid:false,startSaid:false,half:false,late:false,help:false,dealt:{},run:{a:-1,n:0,t:0},lead:null,behind:false,pend:null,replay:!!o.replay};
+  if(o.replay)D.lastBark=0;}
+/* a seek in a replay: carry on from here without calling what's already happened */
+function seek(F){if(!D)return;D.F=F;D.n=F.log.length;D.annUntil=D.commUntil=F.t;D.lastBark=F.t;D.pend=null;}
+const mainOf=F=>F.bots.filter(o=>!o.mini);
+function liveCands(F,e,mm){const out=[],En=(e.E||0)/mm,a=e.a!=null?F.bots[e.a]:null,v=e.v!=null&&e.v>=0?F.bots[e.v]:null;
+  const C=(pri,...cues)=>out.push({who:"c",pri,cues});
+  switch(e.k){
+    case"hit":case"grind":if(e.gl){if(En>=15)C(3,"c:gl");break;}
+      if(e.pb&&e.k==="hit")C(6,"c:fail:armour","c:hit");
+      else if(En>=40){const wh=(e.x||[]).some(p=>/^wheel/.test(p[0]));C(6,...(wh?["c:hit:wheels"]:(e.f==="left"||e.f==="right")&&D.R()<0.5?["c:hit:side"]:[]),"c:hit");}break;
+    case"ram":case"wall":if(En>=30)C(3,e.k==="wall"?"c:ram:wall":"c:ram","c:ram");break;
+    case"under":C(4,...(a&&a.mini?["c:mini:under"]:[]),"c:under");break;
+    case"lift":C(4,"c:lift");break;
+    case"drop":case"release":C(4,"c:release");break;
+    case"flip":if(e.v>=0)C(e.heavy?5:7,e.heavy?"c:heavy":"c:flip");break;
+    case"tip":if(e.inv)C(6,"c:flip");break;
+    case"self":if(e.what==="flip")C(8,"c:self");else if(e.what==="shear")C(8,"c:fail:weapon");break;
+    case"inv":C(e.inv?6:5,e.inv?"c:inv":"c:right");break;
+    case"right":C(5,"c:right");break;
+    case"heat":C(3,e.what==="drive"?"c:heat:drive":"c:heat:weapon");break;
+    case"haz":C(5,e.what==="pusher"?"c:haz:pusher":"c:haz:spinner","c:haz");break;
+    case"pitopen":out.push({who:"a",pri:7,cues:["pitopen"],alt:["c:pitopen"]});break;
+    case"pit":if(!F.over)C(8,"c:pit");break;
+    case"fail":switch(e.what){
+      case"shock":C(9,"c:fail:shock");break;case"esc":C(8,"c:fail:esc");break;case"flat":C(7,"c:fail:flat");break;case"cell":C(7,"c:fail:cell");break;
+      case"weapon":C(8,"c:fail:weapon");break;
+      case"part":if(e.key&&/^wheel/.test(e.key))C(7,"c:fail:wheel");else if(e.key==="weapon")C(8,"c:fail:weapon");break;}break;}
+  /* momentum: the hits each side lands */
+  if((e.k==="hit"||e.k==="grind")&&a&&v&&a.team!==v.team&&!e.gl){D.dealt[a.team]=(D.dealt[a.team]||0)+(e.E||0);
+    if(En>=25){if(D.run.a===a.team&&e.t-D.run.t<15)D.run.n++;else D.run={a:a.team,n:1,t:e.t};D.run.t=e.t;if(D.run.n===3)C(6,"c:swing:run");}}
+  return out;}
+function tick(F,speed){if(!D||D.F!==F)return;const t=F.t,s=speed||D.speed||1,mm=Math.max(F.M.mass,1e-6),cands=[];D.speed=s;
+  for(;D.n<F.log.length;D.n++)cands.push(...liveCands(F,F.log[D.n],mm));
+  if(F.over){D.pend=null;return;}
+  const M=mainOf(F),alive=M.filter(o=>!o.out);
+  /* the count: once per bot per 15 s; Jess wonders aloud at 5 s */
+  for(const o of M){if(o.out)continue;if(o.immobileS>=1&&!(D.still[o.i]>t-15)){D.still[o.i]=t;cands.push({who:"a",pri:8,cues:["count"]});}
+    if(o.immobileS>=5&&!(D.stillBark[o.i]>t-15)){D.stillBark[o.i]=t;cands.push({who:"c",pri:4,cues:["c:still"]});}}
+  if(!D.startSaid&&t>=2.5&&!D.replay){D.startSaid=true;const mini=F.bots.some(o=>o.mini);
+    cands.push({who:"c",pri:2,cues:mini?["c:mini"]:D.kind==="rumble"?["c:rumble"]:D.kind==="tag"?["c:tag"]:["c:start"]});}
+  if(!D.finalSaid&&F.rules.roundS-t<=10&&alive.length>1){D.finalSaid=true;cands.push({who:"c",pri:5,cues:["c:final"]});}
+  if(D.kind==="rumble"){if(!D.half&&M.length>=4&&M.length-alive.length===2){D.half=true;cands.push({who:"c",pri:6,cues:["c:rumble:half"]});}
+    if(!D.late&&t>=45){D.late=true;cands.push({who:"c",pri:2,cues:["c:rumble:late","c:rumble"]});}}
+  if(D.kind==="tag"&&!D.help){const me=F.bots[0],mate=M.find(o=>o!==me&&o.team===me.team);if(mate&&(mate.out||mate.immobileS>=2)){D.help=true;cands.push({who:"c",pri:5,cues:["c:tag:help","c:tag"]});}}
+  /* a swing: the side that was well behind on damage dealt takes the lead, after the first 20 s */
+  const tm=Object.keys(D.dealt);if(tm.length>=2&&t>20){const top=tm.sort((x,y)=>D.dealt[y]-D.dealt[x]),lead=top[0],r=D.dealt[top[0]]/Math.max(1,D.dealt[top[1]]);
+    if(D.lead!=null&&lead!==D.lead&&D.behind){D.behind=false;cands.push({who:"c",pri:5,cues:["c:swing"]});}
+    if(r>1.6)D.behind=true;D.lead=lead;}
+  /* the announcer first (a call waits up to 2 s for the commentator to finish), then one bark */
+  let ann=null,com=null;for(const c of cands){if(c.who==="a"){if(!ann||c.pri>ann.pri)ann=c;}else if(!com||c.pri>com.pri)com=c;}
+  if(ann&&(!D.pend||ann.pri>=D.pend.pri))D.pend=Object.assign({at:t},ann);
+  const comOn=O.comm!==false;
+  if(D.pend){if(t-D.pend.at>2*s){if(D.pend.alt&&!com)com={who:"c",pri:D.pend.pri,cues:D.pend.alt};D.pend=null;}
+    else if(t>=D.annUntil&&(!comOn||t>=D.commUntil)){const id=pickFrom(D.R,D.recent,D.pend.cues);D.pend=null;if(id){play(id);D.annUntil=t+(L[id].d+GAP)*s;return;}}}
+  if(com&&t>=D.annUntil&&t>=D.commUntil&&t-D.lastBark>=COOL*s&&!D.pend){const id=pickFrom(D.R,D.recent,com.cues);if(id){play(id);D.lastBark=t;if(comOn)D.commUntil=t+(L[id].d+GAP)*s;}}}
+
+/* ---- the bell ---- */
+function nameCue(F,i){const o=F.bots[i];if(!o)return null;if(o.i===0)return"name:you";const rv=D&&D.rivals[i];if(rv&&POOL["name:rv:"+rv])return"name:rv:"+rv;
+  return POOL["name:"+o.name]?"name:"+o.name:"name:tag";}
+function endCues(F,o){o=o||{};const kind=o.kind||(D&&D.kind)||"duel",me=F.bots[0],won=F.winner!=null&&F.winner===me.team,why=F.reason,out=[];
+  if(why==="stopped")return out;
+  if(why==="judges"){out.push("end:judges");const sc=F.judge&&F.judge.scores,ks=sc?Object.keys(sc):[];
+    if(ks.length===2){const [x,y]=ks,ag=sc[x].aggression>sc[y].aggression?x:y,dm=sc[x].damage>sc[y].damage?x:y,ct=sc[x].control>sc[y].control?x:y,ctrlBig=Math.abs(sc[x].control-sc[y].control)>=8;
+      out.push(ag!==dm?["c:judges:split","c:judges"]:ctrlBig&&ct===String(F.winner)?["c:judges:control","c:judges"]:["c:judges"]);}
+    out.push("reveal");const wi=F.bots.findIndex(b=>!b.mini&&b.team===F.winner);const nc=nameCue(F,wi);if(nc)out.push(nc);}
+  else if(why==="draw"){if(F.judge)out.push("draw");}
+  else if(kind==="rumble"&&F.winner!=null)out.push("rumble:won");
+  else if(kind==="tag"&&F.winner!=null)out.push("tag:won");
+  else out.push(why==="pit"?"end:pit":"end:ko");
+  if(why!=="judges"&&why!=="draw"&&F.winner!=null&&kind==="duel")out.push(won?"win":"lose");
+  const B=o.bout;if(B&&!B.over&&B.me+B.them===1)out.push(B.me?"bo3:lead":"bo3:trail");
+  for(const x of o.extra||[])out.push(x);
+  if(F.winner!=null&&(!B||B.over))out.push(won?"c:win":"c:lose");
+  return out;}
+function end(F,o){if(D)D.pend=null;const cues=endCues(F,o);return cues.length?seq(cues):0;}
+
+return{load,set(o){Object.assign(O,o||{});if(!audioOn()){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];}},intro,skip,stop,begin,seek,tick,end,endCues,seq,say,
+  get onCap(){return P.onCap;},set onCap(f){P.onCap=f;},
+  get loaded(){return Object.keys(P.bytes).length;},get total(){return Object.keys(L).length;},pool:q=>(POOL[q]||[]).slice(),
+  _d:()=>D,_pick:(cues)=>D?pickFrom(D.R,D.recent,cues):null};
 })();
 </script>
 <script>
@@ -3367,7 +3782,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.15.4";
+const VERSION="0.1.16.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -3476,12 +3891,12 @@ const SEASON_EVENTS=[
    season, and one more for every two times you beat them (a step that won't fit the weight limit is skipped). skill:
    their driving, + 0.03 a step. talk: before a fight, by how the last one went. */
 const RIVALS=[
-  {id:"ottilie",name:"Ottilie Brandt",from:"club",skill:0.55,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
+  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.55,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
     bots:{beetle:{name:"Unruh",base:"tb:flipper"},hobby:{name:"Unruh II",base:"tb:flipper"},feather:{name:"Hemmung",base:"tb:flipper"},heavy:{name:"Grande Complication",base:"tb:flipper"}},
     steps:[{wheels:"pu"},{armour:{front:"ar500"}},{extras:["skid"]},{battery:"hd"},{armour:{left:"ar500",right:"ar500"}}],
     talk:{first:"I've seen your bot. Interesting tolerances. By which I mean there aren't any.",won:"Same again? I brought a spare. You'll want two.",
       lost:"Lucky. I've re-timed the flipper since. To the millisecond.",streak:"Fine. You're good. Don't tell anyone I said so."}},
-  {id:"rudi",name:"Rudi Kessler",from:"stahl",skill:0.5,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
+  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.5,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
     bots:{beetle:{name:"Amboss",base:"tb:brick"},hobby:{name:"Amboss II",base:"tb:brick"},feather:{name:"Walzblock",base:"tb:brick"},heavy:{name:"Hochofen Nord",base:"tb:brick"}},
     steps:[{armour:{top:"steel"}},{wheels:"tracks"},{armour:{back:"ar500"}},{drive:"gearbox"},{electronics:"failsafe"}],
     talk:{first:"Spinner? Wedge? Doesn't matter. It all bounces off.",won:"Told you. It all bounces off.",
@@ -3593,10 +4008,10 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=7;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false};}   // effects, tutDone: PR 9
+const SAVE_V=8;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
-  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit, trophies} (rnd, offers, kit: PR 8; trophies: PR 9, app/help.js)
+  career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit, trophies, fw, actSaid} (rnd, offers, kit: PR 8; trophies: PR 9, app/help.js; fw, actSaid: 0.1.16, the announcer's first-win and new-act calls)
   bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
@@ -3616,7 +4031,9 @@ const MIGRATE={
   5:o=>{const c=o.career;if(c&&typeof c==="object"){c.rnd={cur:null,put:{}};c.offers=[];c.kit=null;}   // 0.1.9.0: R&D, sponsor offers, the kit line (PR 8)
     if(!Array.isArray(o.staff))o.staff=[];if(!Array.isArray(o.sponsors))o.sponsors=[];return o;},
   6:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){if(s.effects!=="reduced")s.effects="full";s.tutDone=!!s.seen;}   // 0.1.10.0: Effects, the tutorial (offered only to a new player), trophies (PR 9)
-    if(c&&typeof c==="object"&&!Array.isArray(c.trophies))c.trophies=[];return o;}
+    if(c&&typeof c==="object"&&!Array.isArray(c.trophies))c.trophies=[];return o;},
+  7:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){s.voice=s.voice!==false;s.comm=s.comm!==false;if(s.captions!=="off")s.captions="muted";}   // 0.1.16.0: the voices (sound/voice.js)
+    if(c&&typeof c==="object"){c.fw=Array.isArray(c.results)&&c.results.some(r=>r&&Array.isArray(r.fights)&&r.fights.some(f=>f&&f.won));c.actSaid=c.act|0;}return o;}   // fw: a fight already won at an event (the announcer won't call a first win); actSaid: the act he last welcomed you to
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -3654,7 +4071,9 @@ const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;
   if(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.samples)SCRAP_SOUND.samples(q!=="lite");}   // recorded clangs on Full / Ultra (sound/synth.js)
-function applyAll(){applyTheme();applyReduce();applyGfx();hud();if(typeof tmPaint==="function")tmPaint();}
+/* the voices (sound/voice.js) follow Sound, Voices, Commentary and Captions */
+function applyVoice(){if(typeof SCRAP_VOICE==="undefined")return;const s=ST();SCRAP_VOICE.set({sound:s.sound!==false,voice:s.voice!==false,comm:s.comm!==false,captions:s.captions==="off"?"off":"muted"});}
+function applyAll(){applyTheme();applyReduce();applyGfx();applyVoice();hud();if(typeof tmPaint==="function")tmPaint();}
 if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(ST().theme==="auto")applyTheme();});
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 
@@ -3992,7 +4411,7 @@ const PWA=(()=>{
 /* ===================== app/boot.js: tabs, Settings, intro, start-up =====================
    showTab(t) switches the five tabs (Build, Bench, Fight, Shop, Career) and remembers the last one in S.settings.tab.
    openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, effects (PR 9), controls (direct /
-   tactical), hand, assists, sound, the tutorial again (PR 9), saves, install, version.
+   tactical), hand, assists, sound, voices, commentary and captions (0.1.16), the tutorial again (PR 9), saves, install, version.
    start() runs once the whole app script has loaded (scheduled through __ldGo at the bottom of this file): it loads
    the save, starts the 3D view, draws the tabs and lifts the loading splash. */
 const TABS=["build","bench","fight","shop","career"];
@@ -4005,6 +4424,7 @@ function showTab(t){
   document.documentElement.setAttribute("data-tab",t);
   document.querySelectorAll("#tabs button").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
   document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+t));
+  if(t!=="fight"&&typeof SCRAP_VOICE!=="undefined")SCRAP_VOICE.stop();   // the voices belong to the Fight tab
   if(TAB_RENDER[t])TAB_RENDER[t]();
   visBot();
   $("panel").scrollTop=tabScroll[t]||0;
@@ -4029,6 +4449,10 @@ function openSettings(){
 <div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
 <div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Voices</span>${segHtml("vocSeg","voc",[["1","On","announcer and commentator"],["0","Off"]],ST().voice===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Commentary</span>${segHtml("comSeg","com",[["1","On","Jess Moser on the radio"],["0","Off","announcer only"]],ST().comm===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Captions</span>${segHtml("capSeg","capt",[["muted","When muted","sound or voices off"],["off","Off"]],ST().captions==="off"?"off":"muted")}
+<p class="hint">The calls as text at the bottom of a fight, when you can't hear them.</p></div>
 <div class="field"><span class="lbl">Tutorial</span><div class="row"><button class="btn" id="tutAgain"${TUT_ON?" disabled":""}>Run the tutorial</button></div><p class="hint">A coached first fight on a loaner bot. Your workshop is put back as it was at the end.</p></div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
@@ -4044,7 +4468,10 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("ctlSeg","ctl",v=>{ST().controls=v;});
   pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
   pick("asSeg","assist",v=>{ST().assists=v==="1";});
-  pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();});
+  pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();applyVoice();ftVoiceLoad();});
+  pick("vocSeg","voc",v=>{ST().voice=v==="1";applyVoice();ftVoiceLoad();});
+  pick("comSeg","com",v=>{ST().comm=v==="1";applyVoice();});
+  pick("capSeg","capt",v=>{ST().captions=v==="off"?"off":"muted";applyVoice();});
   buStoreLine();
   $("tutAgain").addEventListener("click",()=>{closeSheet();tutStart();});
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
@@ -4777,7 +5204,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
 /* a fight (a round, or a replay) into fight mode */
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};ftFrame.done=null;
-  ftEnter();ftLoop();}
+  ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
@@ -4825,18 +5252,58 @@ function ftReplay(i){const R=FT.rounds[i];if(!R||!ftReplayOk(R.F))return;
   FT.rp={i,log:R.log,steps:R.log.steps,speed:1};FT.you=false;ftGo(ftRpFight(R.log,0));}
 function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(0,Math.min(rp.steps,n|0)));
   FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
+  SCRAP_VOICE.stop();if(F.n===0)ftVoiceBegin(F,true);else SCRAP_VOICE.seek(F);
   const e=$("fEnd");if(e)e.hidden=true;
   if(ftGL())SCRAP_VIS.setFight(F,true);if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());
   ftOverlay();ftLoop();}
+/* ---- the voices (sound/voice.js): the announcer's intro, the live calls, the bell, the post-mortem line, captions ----
+   Voice reads the fight log and the app's state, never the sim. The intro holds the fight (FT.hold) until it ends or
+   Skip is pressed; muted, the same calls come up as captions (#fCap) and nothing waits. */
+const ftVoiceOn=()=>ST().sound!==false&&ST().voice!==false;
+function ftVoiceLoad(){if(curTab==="fight"&&ftVoiceOn())SCRAP_VOICE.load();}
+const ftVKind=F=>{const M=F.bots.filter(o=>!o.mini);if(M.length<=2)return"duel";return new Set(M.map(o=>o.team)).size===M.length?"rumble":"tag";};
+const ftVName=F=>F.bots.filter(o=>!o.mini&&o.team!==F.bots[0].team).length===1?F.bots.find(o=>!o.mini&&o.team!==F.bots[0].team):null;
+function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden=true;
+  const rp=!!FT.rp,B=FT.bout,vc=!rp&&B&&B.ev?B.ev.voice||null:null,src=rp&&FT.rounds[FT.rp.i]?FT.rounds[FT.rp.i].F:null;
+  const rivals=rp?(src&&src.vRiv)||{}:vc?vc.rivals||{}:{};F.vRiv=rivals;const kind=ftVKind(F);
+  SCRAP_VOICE.begin(F,{speed:rp?FT.rp.speed:FT.you?1:FT.speed,replay:rp,rivals,kind});
+  if(rp){if(!again)SCRAP_VOICE.say("pm:replay");return;}
+  /* the intro: the day's welcome (first bout of an event day), the round, the two corners, the countdown */
+  const cues=[],round=B?B.n:0,opp=ftVName(F),rv=opp?rivals[opp.i]:null;
+  if(vc&&vc.first&&!round){const c=S.career;cues.push("intro");if(vc.season)cues.push("career:season");
+    if(c&&c.act>(c.actSaid|0)){if(c.act===1)cues.push("career:act1");else if(c.act===2)cues.push("career:act2");c.actSaid=c.act;}
+    if(c&&c.act===3)cues.push("career:defend");
+    cues.push("venue:"+vc.venue,"event:"+vc.event,vc.venue==="eisenhalle"?"c:tv":"c:intro","class:"+vc.cls,"kind:"+vc.kind);}
+  else if(!vc&&!round&&kind!=="duel")cues.push("kind:"+kind);
+  if(!round){if(vc&&vc.fmt==="bracket")cues.push("round:"+vc.label);
+    if(kind==="duel"){cues.push("name:you");if(rv)cues.push("rival:"+rv);else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
+  else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
+  cues.push("countdown");
+  if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
+  else SCRAP_VOICE.seq(cues);}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
+/* the bell: the result calls, then (in a career) a first win or the Open title */
+function ftVoiceEnd(F){if(F.reason==="stopped")return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
+  const bout=!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
+  if(!rp&&B&&B.ev&&B.over&&!B.stopped&&crOn()){const c=S.career,vc=B.ev.voice||{},won=(B.wins[me]||0)>=(B.need||1);
+    if(won&&!c.fw){c.fw=true;extra.push("career:first");}
+    if(won&&vc.event==="Scrapline Open Final"&&vc.label==="final")extra.push("career:open");save();}
+  SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra});}
+/* the post-mortem line for the round on the results card, once (after the bell's calls) */
+function ftVoicePm(F){if(F.pmSaid||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true});}
+/* a caption: the line at the bottom of the fight for a few seconds (only when sound or voices are off) */
+SCRAP_VOICE.onCap=(text,who)=>{const el=$("fCap");if(!el||!FT.on)return;el.textContent=(who==="a"?"Duncan: ":"Jess: ")+text;el.hidden=false;el.classList.toggle("fcom",who!=="a");
+  clearTimeout(ftVoicePm.t);ftVoicePm.t=setTimeout(()=>{el.hidden=true;},Math.max(2200,text.length*70));};
 function ftLoop(){if(!FT.raf)FT.raf=requestAnimationFrame(ftFrame);}
-function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on)SCRAP_SOUND.stop();else{FT.last=performance.now();FT.acc=0;ftLoop();}
+function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on){SCRAP_SOUND.stop();SCRAP_VOICE.stop();}else{FT.last=performance.now();FT.acc=0;ftLoop();}
   const p=$("fPause");if(p){p.hidden=!on||!!FT.rp;if(on){const r=p.querySelector("[data-fv=resume]");if(r)r.focus({preventScroll:true});}}const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);if(FT.on)ftOverlay();}
 function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
   if(curTab!=="fight"||document.hidden){if(!F.over&&!FT.paused)ftPause(true);return;}
-  if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;FT.acc+=Math.min(dt,0.25)*(FT.rp?FT.rp.speed:FT.you?1:FT.speed);
+  if(FT.hold&&!FT.paused&&!F.over)FT.last=now;   // the announcer's intro: the clock waits
+  else if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;const sp=FT.rp?FT.rp.speed:FT.you?1:FT.speed;FT.acc+=Math.min(dt,0.25)*sp;
     let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,FT.you&&FT.on&&!FT.rp?{0:CONTROLS.read(F,F.bots[0])}:null);FT.acc-=1/60;k++;
       if(FT.rp&&F.n>=FT.rp.steps&&!F.over){F.over=true;F.endT=F.t;if(!F.reason)F.reason="stopped";}}   // a stopped fight's replay ends where it was stopped
     if(k===5)FT.acc=Math.min(FT.acc,1/60);   // clamped: a slow frame loses time instead of catching up
+    if(k&&!F.over)SCRAP_VOICE.tick(F,sp);
     ftFeedback(now);}
   FT.flashes=FT.flashes.filter(f=>now-f.t0<500);
   if(FT.on&&FT.view2d&&(gfxTier()!=="lite"||now-FT.lastDraw>=31||F.over)){DEBUGVIEW.draw($("fCv"),F,FT.flashes,now);FT.lastDraw=now;}
@@ -4868,12 +5335,13 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
-      ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
+      ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
     <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${esc(o.name)}</b>
       ${ftArmed(o)?'<span class="fbl">Weapon</span><span class="fbar"><i data-b="w"></i></span>':'<span class="fbl" data-nil="1">Weapon</span><span class="fnil">none</span>'}<span class="fbl">Drive</span><span class="fbar"><i data-b="dr"></i></span><span class="fbl">Battery</span><span class="fbar"><i data-b="bat"></i></span>
       <small data-b="worst"></small><small class="fbst" data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
     <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">${FT.bout&&FT.bout.ev?"Forfeit":"Stop the fight"}</button></div></div>
+    <p class="fcap" id="fCap" aria-live="polite" hidden></p>
     <div class="fend" id="fEnd" hidden role="alertdialog" aria-labelledby="fEndT"><b id="fEndT"></b><p id="fEndS"></p><div class="row" id="fEndBtns"></div></div>
     ${FT.rp?`<div class="frp" id="fRp"><button type="button" class="fbtn" data-fv="rpplay" aria-pressed="false">Pause</button>
       <input type="range" id="fRpPos" min="0" max="${FT.rp.steps}" step="15" value="0" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(FT.F.rules.roundS)}</span>
@@ -4906,11 +5374,12 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   const wheel=e=>{if(!FT.on||skip(e))return;e.preventDefault();set((FT.zoom||1)*(1+Math.sign(e.deltaY)*0.08));};
   v.addEventListener("pointerdown",down);v.addEventListener("pointermove",move);v.addEventListener("pointerup",up);v.addEventListener("pointercancel",up);v.addEventListener("wheel",wheel,{passive:false});
   FT.pinch=()=>{v.removeEventListener("pointerdown",down);v.removeEventListener("pointermove",move);v.removeEventListener("pointerup",up);v.removeEventListener("pointercancel",up);v.removeEventListener("wheel",wheel);P.clear();};}
-function ftExit(){FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
+function ftExit(){if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
   if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
   ftRender();const r=$("ftResCard");if(r)r.scrollIntoView({block:"start"});}
 function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
   if(a==="pause")ftPause(!FT.paused);
+  else if(a==="skip")SCRAP_VOICE.skip();
   else if(a==="resume")ftPause(false);
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
@@ -5011,7 +5480,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     g.fillStyle=FT_MC[st];g.strokeStyle="#141413";g.lineWidth=Math.max(1,W/100);g.beginPath();if(g.roundRect)g.roundRect(x-tw*s/2,y-tl*s/2,tw*s,tl*s,tw*s*0.35);else g.rect(x-tw*s/2,y-tl*s/2,tw*s,tl*s);g.fill();g.stroke();
     if(st==="destroyed"){g.beginPath();g.moveTo(x-tw*s/2,y-tl*s/2);g.lineTo(x+tw*s/2,y+tl*s/2);g.stroke();}}
 }
-function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);
+function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
@@ -5095,7 +5564,7 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
   el.innerHTML=html;FT.logN=L.length;}
 
 /* ---- the tab ---- */
-function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
+function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg){FT.F=null;FT.rounds=[];FT.bout=null;el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`;return;}
@@ -5116,7 +5585,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;const bot=bBot(),cls=bCls
     ${R?`<div class="card" id="ftResCard"><h3>${FT.bout?"The bout":"Last fight"}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
     ${rpHtml(R)}
     <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`:""}`;
-  if(R){ftHud(R);ftLog(R);rpDraw(R);}}
+  if(R){ftHud(R);ftLog(R);rpDraw(R);ftVoicePm(R);}}
 /* while a career event is on: the way back to it */
 function ftEvCard(){const c=S.career;if(!crOn()||!(c.day||CR.end))return"";const nm=c.day?crEv(c.day.ev).name:CR.end.name;
   return`<div class="card crback"><h3>${esc(nm)}</h3><p>${c.day?"You're at an event.":"The event is over."} Sparring here is free practice and changes nothing.</p><div class="row"><button type="button" class="btn pri" data-ft="career">Back to the event</button></div></div>`;}
@@ -5176,7 +5645,8 @@ TAB_RENDER.fight=function(){
                                      [{key, kind}]. Deterministic, no clock.
      PIT.open({host, b, dmg, flags, kit, left, title, onDone})   the pit panel in the fight overlay. dmg, flags and left
                                      are changed in place; onDone({done:[{key, kind}], lost}) once you're ready or the
-                                     clock runs out. PIT.close() takes it down without calling onDone. */
+                                     clock runs out. PIT.close() takes it down without calling onDone.
+   The voices (0.1.16): the window opening and ten seconds left here; "pit's closed" starts the next round's intro (app/fight.js). */
 const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon"};
 /* hp of a damage key on a build */
 function pitHp(b,key){if(key.indexOf("armour_")===0){const a=b.armourMapJ[key.slice(7)];return a?a.hpJ:0;}
@@ -5221,6 +5691,7 @@ function pitAuto(b,dmg,flags,left,mine){let t=PIT_S;const done=[],T=k=>mine?tmPi
 
 const PIT={on:false,kit:null};
 PIT.open=function(o){PIT.close();Object.assign(PIT,{on:true,o,kit:o.kit,t:PIT_S,job:null,done:[],last:performance.now(),raf:0});
+  SCRAP_VOICE.seq(["pitwin","c:pitwin"]);   // the announcer opens the window, the commentator watches the crew (sound/voice.js)
   const el=document.createElement("div");el.className="fpit";el.id="fPit";el.setAttribute("role","dialog");el.setAttribute("aria-labelledby","fPitT");
   el.innerHTML=`<div class="fpithd"><b id="fPitT">${esc(o.title||"Pit window")}</b><span class="fpitclock readout" id="fPitClock" role="timer" aria-label="Pit clock">1:00</span></div>
     <p class="fpitkit"><b>${esc(PIT_KITS[o.kit].name)}</b> · <span id="fPitLeft"></span></p>
@@ -5237,7 +5708,7 @@ function pitFrame(now){PIT.raf=0;if(!PIT.on)return;const dt=Math.min(0.25,Math.m
   if(!document.hidden&&curTab==="fight"){const t0=PIT.t;PIT.t-=dt;
     const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);
         pitRender();pitSay(`${PIT_NAMES[j.kind]} done: ${j.name}`);}}   // done in time (even in the frame the clock runs out)
-    if(Math.ceil(t0)>10&&Math.ceil(PIT.t)<=10)pitSay("Ten seconds left");
+    if(Math.ceil(t0)>10&&Math.ceil(PIT.t)<=10){pitSay("Ten seconds left");SCRAP_VOICE.say("pit10");}
     if(PIT.t<=0){pitEnd(PIT.job?PIT.job:null);return;}}
   pitTick();PIT.raf=requestAnimationFrame(pitFrame);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
@@ -5263,7 +5734,8 @@ function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x|
                      wheel lost at 0:42: undercutter hit on your left side, 85 J; the left plate had given at 0:30"),
                      and the failures that aren't a part (a speed controller, the battery smoking or going flat); a hit
                      that came down into the open weapon bay says so (0.1.15.3)
-     rpHint(F)       one redesign hint: the biggest reason you lost or got hurt, told by the stress report's own COMBOS
+     rpHint(F)       one redesign hint: the biggest reason you lost or got hurt, told by the stress report's own COMBOS;
+                     its kind picks the commentator's post-mortem line (pit, inv, weapon, under, face, pinned, held, gen)
                      rule when one fits (the same words as the Build tab), else in plain words
      rpBill(o)       the repair bill: each damaged part's fee and each destroyed part's price (REPAIR_COST), plus the
                      workshop hours (REPAIR_HOURS). Shown only while sparring; charged from PR 7.
@@ -5323,22 +5795,22 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
   for(const e of L){if((e.k==="hit"||e.k==="grind"||e.k==="haz"||e.k==="ram")&&e.f)faceJ[e.f]=(faceJ[e.f]||0)+(e.E||0);
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
   const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true}:null;
-  let h=null;
-  if(me.out==="pit")h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
-  if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
-  if(!h&&shear)h=ret(rule("shear"),"Your weapon shaft sheared.");
+  let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
+  if(me.out==="pit")kind="pit",h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
+  if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))kind="inv",h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
+  if(!h&&shear)kind="weapon",h=ret(rule("shear"),"Your weapon shaft sheared.");
   /* wedged: only worth a hint when it cost you, or kept happening, and there's an edge to win */
   if(!h&&(unders>=3||unders>=1&&lost)){const best=F.bots.filter(o=>o.i!==0).reduce((m,o)=>Math.min(m,o.b.height.frontEdgeMm),1e9),why=`They got under you ${unders===1?"once":unders+" times"}.`;
-    h=ret(rule("edgeHigh"),why)||(best<b.height.frontEdgeMm-0.05?{why,text:`Your front edge is ${ftMm(b.height.frontEdgeMm)} mm and theirs ${ftMm(best)} mm: a lower wedge or front plate, or a nose-heavy layout, keeps you on top.`}:null);}
+    h=ret(rule("edgeHigh"),why)||(best<b.height.frontEdgeMm-0.05?{why,text:`Your front edge is ${ftMm(b.height.frontEdgeMm)} mm and theirs ${ftMm(best)} mm: a lower wedge or front plate, or a nose-heavy layout, keeps you on top.`}:null);if(h)kind="under";}
   if(!h&&bent)h=ret(rule("bend"),"Your disc bent.");
   if(!h&&flat)h=ret(rule("runtime"),"Your battery went flat.");
   if(!h&&hot)h=ret(rule("heat"),"Your motors overheated.");
   if(!h){const f=Object.keys(faceJ).sort((x,y)=>faceJ[y]-faceJ[x])[0];
     if(f&&faceJ[f]>0){const a=b.armourMapJ[f],why=`Your ${RP_FACE[f]} took ${Math.round(faceJ[f])} J.`,pl=a&&a.id!=="none"?SIM.part("armour",a.id):null;
       const st=SIM.partStates(b,me.st),gone=st["armour_"+f]==="destroyed"||!pl;
-      if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};}}
-  if(!h){const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
-  return h;}
+      if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};if(h)kind="face";}}
+  if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
+  h.kind=kind;return h;}
 
 /* ---- the repair bill ---- */
 function rpPrice(b,key){const cfg=b.cfg,M=SIM.classMult(b.cls),c=(slot,id)=>{const p=SIM.part(slot,id);return p?p.cost*M.cost:0;};
@@ -5522,7 +5994,7 @@ function crEarn(amt,what){const c=S.career;amt=Math.round(amt);if(!amt)return;c.
 /* ---- start ---- */
 function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffffff)^0x5C1A)>>>0,year:WORLD.startYear,week:1,season:0,act:0,
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
-  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0,trophies:[]};}
+  events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0,trophies:[],fw:false,actSaid:0};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
 const CR_START={chassis:"hdpe",body:"plain",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
@@ -5676,11 +6148,18 @@ function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
 function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const e=crEv(day.ev),T=nx.teams||[0,1];
   ST().buildCls=day.cls;day.live=nx.label;save();showTab("fight");
   ftEvent({arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
-    kit:day.kit,left:nx.idx.map(i=>day.field[i].left||{}),label:nx.label,title:e.name,
+    kit:day.kit,left:nx.idx.map(i=>day.field[i].left||{}),label:nx.label,title:e.name,voice:crVoice(day,nx,e),
     onDone:(B,F)=>{CR.seen=true;delete day.live;const res={wt:B.stopped?T.find(t=>t!==T[0]):crBoutWinner(B.wins,F,Array.from(new Set(T))),wins:B.wins,Fs:FT.rounds.map(r=>r.F),teams:T};
       nx.idx.forEach((i,k)=>{if(B.dmg[k]){day.field[i].dmg=B.dmg[k];day.field[i].flags=crFlags(B.flags[k]||{});}});
       crAfterMine(day,nx,res,true,!!B.stopped);return crBanner(day,nx,res);},
     pit:()=>{const n2=crNext(S.career.day);return n2&&day.kit!=="none"?{dmg:day.field[0].dmg,flags:day.field[0].flags,kit:day.kit,left:day.field[0].left,title:`Pit window · ${n2.label} next`}:null;}});}
+/* what the announcer needs for a driven bout (app/fight.js ftVoiceIntro): the venue, event, class and format, the round,
+   rivals in the field (by the fight's bot index), and whether this is the day's first driven bout (the full welcome)
+   and the season's first event (day.said marks the welcome as given) */
+function crVoice(day,nx,e){const c=S.career,rv={},first=!day.said;day.said=1;
+  nx.idx.forEach((i,k)=>{const f=day.field[i];if(f&&f.rival)rv[k]=f.rival;});
+  return{venue:e.venue,cls:day.cls,kind:day.kind,fmt:EVENT_KINDS[day.kind].format,event:e.name.replace(/,.*$/,""),label:nx.label,first,
+    season:first&&!day.fights.length&&!c.results.some(r=>r.y===c.year),rivals:rv};}
 /* a driven fight the app closed on (reload, the phone killed it): it counts as a forfeit, so a losing fight can't be
    fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
 function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
