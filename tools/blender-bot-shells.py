@@ -22,6 +22,25 @@ like bolt heads are drawn pre-squashed by REF so they come out round on a typica
   invert_plate  the same plate top and bottom (y 0..0.09, the game mirrors it underneath); invert_bolts
   scrap_tube    one frame tube, unit radius and unit length along y (the game scales it like its coded tubes);
   scrap_weld    a lumpy weld blob, unit radius, for the joints
+
+Weapon bays (0.1.15.3): slotted copies of wedge_top, dome_shell, pancake_lid and invert_plate, and of their bolts, named
+<piece>__<variant>_<set>, e.g. dome_shell__slot_A, dome_bolts__slot_A, invert_plate__under_B. The plain pieces above are
+unchanged. Variants slot, pocket, well, hammer, flip, lift and crush on all four shells; under on invert_plate only. Set A
+and set B are the two sizes the game picks between. The openings, in unit-body x and z (rect: x0, z0, x1, z1; ellipse:
+centre and radii), all open at the front edge and clipped to the body:
+  variant  kind     set A                              set B
+  slot     rect     -0.058 -0.5  0.058 -0.139          -0.058 -0.5  0.058 -0.194
+  pocket   rect     -0.267 -0.5  0.267 -0.289          -0.267 -0.5  0.267 -0.317
+  well     ellipse  c(0, -0.333) rx 0.442 rz 0.294     c(0, -0.389) rx 0.442 rz 0.294
+  hammer   rect     -0.25  -0.5  0.25   0.187          -0.167 -0.5  0.167  0.187
+  flip     rect     -0.47  -0.5  0.47   0.08           as set A (one shared mesh)
+  lift     rect     -0.25  -0.5  0.25  -0.167          -0.167 -0.5  0.167 -0.278
+  crush    rect     -0.25  -0.5  0.25   0.0            -0.167 -0.5  0.167 -0.167
+  under    ellipse  c(0, -0.417) rx 0.353 rz 0.236     c(0, -0.444) rx 0.353 rz 0.236
+Each opening is a vertical prism cut through the piece. A sleeve wall stands round its edge from the shell's surface down
+to the floor (wedge y -0.6, the others y 0; no wall where the surface is at or below the floor), topped by a raised lip
+about 0.012 wide and 0.02 chassis heights proud, bevelled, following the main skin's slope. A bolts variant leaves out every
+bolt whose centre is inside the opening grown by 0.03. Identical openings and identical bolt sets share one mesh.
 Nothing random: the weld lumps are laid out from a fixed seed.
 """
 import math, random, sys
@@ -449,10 +468,11 @@ def sleeve(op, H, floor):
         rec = {"x": x, "z": z, "n": n, "ok": h0 is not None and h0 > floor + 1e-3}
         if rec["ok"]:
             hs = []
+            # the lip follows the main skin's slope from the wall's top, so a rib or hatch beside the edge does not lift it
+            m0 = H.skin(x, z)
             for o in (LIP_B, LIP_W - LIP_B, LIP_W):
-                h = H(x + o * n[0] / rx, z + o * n[1] / rz)
-                h = h0 if h is None else h0 + max(-2.5 * o, min(2.5 * o, h - h0))   # a step beside the edge is ramped, not followed
-                hs.append(h)
+                m = H.skin(x + o * n[0] / rx, z + o * n[1] / rz)
+                hs.append(h0 if m is None or m0 is None else h0 + max(-2.5 * o, min(2.5 * o, m - m0)))   # steep: ramped
             rec["h"] = [h0] + hs
         return rec
 
@@ -518,6 +538,17 @@ def sleeve(op, H, floor):
         dp(i, j)
         i = j
     S = [r for r, k in zip(S, keep) if k]
+    # a run that stops at a shell's edge would end in that edge's own plane: push its end a hair past it, so the end cap
+    # stands just proud of the shell's face instead of fighting it
+    for i, r in enumerate(S):
+        if not r["ok"]:
+            continue
+        for j, o in ((i - 1, i + 1), (i + 1, i - 1)):
+            if 0 <= j < len(S) and not S[j]["ok"] and 0 <= o < len(S):
+                dx, dz = (r["x"] - S[o]["x"]) * rx, (r["z"] - S[o]["z"]) * rz
+                L = math.hypot(dx, dz) or 1.0
+                r["x"] += 5e-4 * dx / L / rx
+                r["z"] += 5e-4 * dz / L / rz
 
     verts, faces = [], []
 
@@ -630,6 +661,10 @@ def shell_variant(name, parts_fn, floor, op, H):
 made = {}                                                   # identical openings share one mesh
 for shell, parts_fn, floor, bolts, specs in SHELLS:
     H = height_fn(bpy.data.objects[shell])
+    prts = parts_fn()                                       # the main skin alone (the first part): the slope the lip follows
+    H.skin = height_fn(prts[0])
+    for prt in prts:
+        remove(prt)
     plain_bolts = bpy.data.objects[bolts]
     for var, (kind, pa, pb) in OPENINGS.items():
         if var == "under" and shell != "invert_plate":
