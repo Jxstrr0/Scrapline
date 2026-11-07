@@ -383,6 +383,26 @@ Every other build is unchanged. The ant and beetle moves are noise: an ant hamme
 
 **Drawn** (`vis/bot.js`, every tier): the chassis is extruded in layers round the bay, with a notch or a hole cut by `polyMinus`. A slot goes through the body for a vertical disc; a saw gets a recess in the top. A drum gets a pocket, and a horizontal disc sits low in its well (an undercutter in a recess from below). The front armour plate parts round any bay that reaches the front, and the top plate is cut over it. A deck is a flat plate on the box top where a raised top is cut away: a wedge lid, a dome (redrawn as a height field round the cut) or a shell. Arms and flipper plates lie on the deck. Walls under a raised top hide the hollow, and the team stripe stops short of the bay. On Full and Ultra, `models/bot-shells.glb` has slotted variants of the wedge, dome, pancake and invertible shells and their bolts (`<piece>__<variant>_<A|B>`, 116 of them, each with a sleeve wall and a bevelled lip; 95 KB to 660 KB). `shellVariant` picks one by matching the bay's unit-body rect: A is for the ant, beetle and heavy proportions, B for hobby and feather. A weapon moved off its default place in the layout finds no variant, so that bot falls back to the coded shapes, which cut any bay.
 
+## 0.1.15.4: the battle screen
+
+Kelbo asked for a fight screen where the bots and their parts are easy to see. The four picks (plan section 1): a camera that frames both bots, a bot map on each card, a team ring, a hit flash with a damage number, and name tags.
+
+**Camera** (`arenaTick` in `vis/arena.js`). It frames the box round the bots still in the arena (minibots and bots out don't count). Each bot counts as a circle of 1.25x its body's half diagonal, not `o.rad`, which reaches out to the weapon. The span never drops below 2.2 scene units (or 4.6 bot radii), so a clinch doesn't fill the screen, and never grows past the arena plus a margin. It pulls out quickly when the bots split (rate 4/s) and closes in gently (1.6/s), and follows at 4/s. The centre stays within 95% of the arena's half width, so a bot by the wall is still in shot.
+- The app tells the vis where the HUD covers the view (`SCRAP_VIS.setRun({inset:{t,b}})`, from `ftInsets` in `app/fight.js`). The top is the bottom of the cards, or 55% of that on a wide screen where the cards sit in the corners. The bottom is the replay bar (72 px), the direct controls (up to 130 px, or a fifth of the height) or 16 px. The camera fits the bots in the clear band and aims past the middle so they sit in it.
+- **Pinch** on the view (two fingers) or the mouse wheel nudges the zoom from 0.55x to 1.8x (`FT.zoom`, `setRun({zoom})`). It stays for the session. A second finger never counts as a tactical tap (`ctlTap`).
+
+**Cards** (`ftEnter` / `ftOverlay`). One per main bot, yours on the left, theirs on the right (two rows in a rumble, smaller). Each card has a top edge in the bot's team colour and a 62 px **bot map** (`ftMap`): the top-down outline from `b.polygon`, every part's grid cells filled in its state colour (green, amber, red; a broken part crossed out), W, B and E letters on the weapon, battery and electronics when they are big enough, each armour face stroked along its edge in its state (dashed grey where there is none), and the wheels as rounded tabs. The map is redrawn only when a state changes.
+- **Bars:** Weapon (spin-up or shots left; amber when worn, red when broken or bent, "none" for a wedge or pusher), Drive (the mean of what each side has left, zero if a side is out) and Battery (charge; red on smoke, amber under 20% or damaged).
+- **Worst part** in words, ranked weapon, electronics, battery, drive, wheels, then plates and chassis: "Left front motor worn", "Weapon broken", "Front plate gone", or "No damage".
+- **Status** in lilac: upside down, lifted, under a wedge, overheating, immobile with the count, counted out, in the pit.
+- Landscape (height under 560 px) uses a 52 px map, thinner bars and no status line.
+
+**On the arena floor** (`botRing`, `botTag`, `botMarks` in `vis/arena.js`; every tier). A **team ring** under each bot in its team colour, thicker under yours, with a chevron on yours that turns with its heading; it dims when the bot is dead. A **name tag** over each main bot: a dark pill with a team dot, the same size on screen at any zoom (22 px, 18 px with more than two bots), drawn over everything. Lite uses fewer ring segments and a smaller tag canvas.
+
+**Hit flash and damage numbers** (`vis/fx.js`). A hit, flip or hazard flashes the parts it damaged white-hot: the sim's fx event carries `keys` (the parts hurt, the plate of the face, the chassis) and `d` (the share of the bot's health it took), from `damageBot` through `F.fxHit`. Only with fx on, so tests and replays without fx are untouched. A hit that damaged nothing, or only parts that aren't drawn, flashes the whole bot. At most four flashes a second, three and softer under reduced motion. The ring flashes too. Each hit or hazard that took at least half a percent floats "-4%" up from the name tag for a second (a light cool red from 8%). Lite uses a smaller canvas and shows three at a time; reduced motion fades it in place. Effects Reduced keeps the numbers: they are information.
+
+No sim numbers change (the fx fields don't touch the fight), and nothing new is saved (no `SAVE_V` change).
+
 ## Known loose ends
 
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.
@@ -391,7 +411,8 @@ Every other build is unchanged. The ant and beetle moves are noise: an ant hamme
 - The pin limit takes over the player's drive for 1.2 s; the fight screen's note says so.
 - The HUD shows the weapon's speed as a bar, not rpm.
 - The 3D view doesn't interpolate between sim steps; Lite draws at 30 fps, so this hasn't mattered.
-- The HUD's damage % still includes carried-in damage (the judges don't).
+- The results card's damage % still includes carried-in damage (the judges don't).
+- The fight camera frames bots on the floor; a bot flipped high in the air can leave the top of the shot for a moment.
 - Airborne bots skip collisions, so a tipped bot can land overlapping the other for a step or two before they push apart.
 - Replays moved between phones: the sim uses `Math.sin`, `cos`, `atan2` and `hypot`, which browsers don't promise to round identically, so a replay could drift on another engine. Replays are only kept for the session on the same phone for now (nothing is saved), so it hasn't mattered; decide before a replay is ever shared or saved.
 - Spinner disc against spinner disc (weapon clashes) isn't modelled yet: a hit is a hit on the face it lands on.
