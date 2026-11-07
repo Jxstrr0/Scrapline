@@ -840,7 +840,7 @@ const TEST_BUILDS=[
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
-     bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, u} the weapon bay (bayOf, below)
+     bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, belowFrac, u} the weapon bay (bayOf, below)
      armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
@@ -1063,12 +1063,6 @@ function evalBuild(cfgIn,opts){
   b.verdict=!b.valid?(totalG>c.limitG?"over":"invalid"):b.stress.some(s=>s.sev==="bad"||s.sev==="warn")?"flaws":"valid";
   return b;}
 
-/* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
-   part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
-   material, so it pays for the material too. fitted null (or another class) means the whole bot.
-   Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
-   replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
-   fitBill(null, cfg).cost. ---- */
 /* ---- the weapon bay (0.1.15.3, Kelbo: real weapon bays): the opening the body leaves round the weapon. The 3D bot cuts
    it (vis/bot.js, and the slotted Blender shells), and the fight treats an open one as a weak spot (sim/fight.js).
      kind       "slot" (vertical disc, saw: a slot through the top), "pocket" (drum: open at the front and top), "well"
@@ -1077,7 +1071,9 @@ function evalBuild(cfgIn,opts){
      rect       [x0, y0, x1, y1] m in build coords (+y forward), clipped to the body; circle {x, y, r} m for a well
      depthM     how far a well is cut into the body
      openTop    a hit from above can land in it; openBelow the same from underneath (so from above when upside down)
-     topFrac    its share of the top's area (0 when it isn't open)
+     topFrac    its share of the top's area (0 when it isn't open from above); belowFrac the same from underneath. A hit
+                from above lands in the bay this often (x DAMAGE.bayMul; belowFrac when the bot is upside down) and skips
+                the top plate (sim/fight.js, hitFace's bay)
      u          the same in a unit body (x -0.5..0.5 the width, z -0.5..0.5 the length with the front at -z, depth in
                 chassis heights), the Blender shells' coordinates
    The sizes follow the 3D bot's weapon (a vertical disc is about 0.18 of its radius thick, a drum about half the width). */
@@ -1093,9 +1089,15 @@ function bayOf(wp,w,pos,fp,at,g){const hw=g.W/2,hl=g.L/2,len=g.M.len,bodyH=Math.
   else if(T==="flipper"){kind="deck";rect=clip(-0.47*g.W,hl-0.58*g.L,0.47*g.W,hl);}
   else if((T==="lifter"||T==="crusher")&&fr){kind="deck";rect=clip(fr[0],T==="crusher"?Math.min(fr[1],hl-0.32*g.L):fr[1],fr[2],hl);}
   const area=rect?Math.max(0,rect[2]-rect[0])*Math.max(0,rect[3]-rect[1])*(circle?Math.PI/4:1):0;
-  const topFrac=openTop?clamp(area/(g.W*g.L*g.cellFrac),0,1):0;
+  const frac=clamp(area/(g.W*g.L*g.cellFrac),0,1),topFrac=openTop?frac:0,belowFrac=openBelow?frac:0;
   const u=rect?{rect:[rect[0]/g.W,-rect[3]/g.L,rect[2]/g.W,-rect[1]/g.L],circle:circle?{x:circle.x/g.W,z:-circle.y/g.L,rx:circle.r/g.W,rz:circle.r/g.L}:null,depth:depthM/bodyH}:null;
-  return{kind,rect,circle,depthM,openTop,openBelow,topFrac,u};}
+  return{kind,rect,circle,depthM,openTop,openBelow,topFrac,belowFrac,u};}
+/* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
+   part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
+   material, so it pays for the material too. fitted null (or another class) means the whole bot.
+   Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
+   replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
+   fitBill(null, cfg).cost. ---- */
 function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.cls?normCfg(fitted):null,M=classMult(b.cls),lines=[];
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
@@ -1354,6 +1356,7 @@ function runBench(x,id){const b=asBuild(x);if(id)return BENCH_RUN[id]?BENCH_RUN[
    lifts, flips and landings. Drive is tank steering: each side's wheels push F0/2 x (command - wheel speed / v0), capped
    by grip, less per wheel or pod lost. Bots collide as convex polygons with impulses; a weapon hits when its working
    zone touches another bot (spinners, flippers, lifters, hammers, crushers), and WEDGE_RULES decides who gets under whom.
+   A hit from above (hammer, crusher, saw) can come down into an open weapon bay (b.bay, inBay) and skip the top plate.
    Damage goes through sim/damage.js; every hit, failure, flip and landing goes in the fight log, which is also the
    replay (the player's inputs are stored one byte per axis, run-length coded; AI inputs come back from the seed).
    Coordinates: the arena is a square centred on the origin; a bot's heading h points its front along (cos h, sin h),
@@ -1557,15 +1560,15 @@ function fxPush(F,e){if(!F.fxq)return;F.fxq.push(e);if(F.fxq.length>64)F.fxq.shi
 function carryFlags(f){if(!f||typeof f!=="object")return null;const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;
   if(f.esc==="left"||f.esc==="right")o.esc=f.esc;return Object.keys(o).length?o:null;}
 function logIt(F,e){e.t=r2(F.t);F.log.push(e);return e;}
-/* a hit: merged into the last entry when it is small and the same pair, face and kind within half a second */
 /* a hit (or a landing): a small one that destroys nothing is merged into a matching entry from the last half second
-   (same kind, attacker, victim and face), so grinding contact and little bounces stay one line */
-function logHit(F,k,a,v,face,E,res){const small=E<FIGHT.microJ*F.M.mass&&!(res&&res.parts.some(p=>p.destroyed));
+   (same kind, attacker, victim and face, and both in the weapon bay or both not), so grinding contact and little
+   bounces stay one line. bay:1 marks a hit that came down into the open weapon bay (0.1.15.3) */
+function logHit(F,k,a,v,face,E,res,bay){const small=E<FIGHT.microJ*F.M.mass&&!(res&&res.parts.some(p=>p.destroyed));
   if(small)for(let i=F.log.length-1,n=0;i>=0&&n<6;i--,n++){const L=F.log[i];if(F.t-L.t>=0.5)break;
-    if(L.k===k&&L.a===a&&L.v===v&&L.f===face&&!(L.x&&L.x.some(q=>q[2]))){L.E=r2(L.E+E);L.n=(L.n||1)+1;
+    if(L.k===k&&L.a===a&&L.v===v&&L.f===face&&!L.bay===!bay&&!(L.x&&L.x.some(q=>q[2]))){L.E=r2(L.E+E);L.n=(L.n||1)+1;
       if(res){L.p=r2((L.p||0)+(res.plate||0));for(const p of res.parts){const q=L.x&&L.x.find(z=>z[0]===p.key);if(q)q[1]=r2(q[1]+p.dmg);else(L.x=L.x||[]).push([p.key,r2(p.dmg),0]);}}
       return L;}}
-  const e={k,a,v,f:face,E:r2(E)};if(res){e.p=r2(res.plate||0);if(res.plateBroken)e.pb=1;if(res.parts.length)e.x=res.parts.map(p=>[p.key,r2(p.dmg),p.destroyed?1:0]);}
+  const e={k,a,v,f:face,E:r2(E)};if(bay)e.bay=1;if(res){e.p=r2(res.plate||0);if(res.plateBroken)e.pb=1;if(res.parts.length)e.x=res.parts.map(p=>[p.key,r2(p.dmg),p.destroyed?1:0]);}
   return logIt(F,e);}
 
 /* ---- damage to a bot, and the failures it sets off ---- */
@@ -1578,9 +1581,13 @@ function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>l
   if(a.righter&&!b.righter)L("righter");
   if(!a.flexing&&b.flexing)L("flex");
   return F.log.length-n0;}
+/* does a hit from above on bot t come down into its open weapon bay? The bay's share of the top (its share of the
+   underside when t is upside down) x DAMAGE.bayMul. Draws from the fight's generator only when there is a share, so a
+   bot with no open bay leaves the fight's sequence exactly as it was. Never for a landing (damageBot's caller decides). */
+function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAGE.bayMul:0;return p>0&&F.rng()<p;}
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
-  const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics;
-  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1));
+  const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=!!opts.bay&&kind!=="land"&&!opts.below;
+  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
@@ -1594,7 +1601,7 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
     const ep=(o.b.parts.find(p=>p.key==="electronics")||{}).pos||[0,0];o.flags.esc=ep[0]<-1e-6?"left":ep[0]>1e-6?"right":F.rng()<0.5?"left":"right";
     logIt(F,{k:"fail",v:o.i,what:"esc",side:o.flags.esc});}
   o.fx=damageEffects(o.b,st,o.flags);
-  const e=logHit(F,kind,kind==="land"?-1:att,o.i,kind==="land"?(opts.inverted?"top":"under"):face,opts.logE!=null?opts.logE:E,res);
+  const e=logHit(F,kind,kind==="land"?-1:att,o.i,kind==="land"?(opts.inverted?"top":"under"):face,opts.logE!=null?opts.logE:E,res,bay);
   if(kind==="land")e.inv=opts.inverted?1:0;if(!e.x)delete e.x;if(opts.gl)e.gl=1;if(!e.p)delete e.p;if(opts.tag)Object.assign(e,opts.tag);
   let broke=0;for(const p of res.parts)if(p.destroyed){broke++;logIt(F,{k:"fail",v:o.i,what:"part",key:p.key});}
   if(fxDiff(F,o,before)+broke>0)o.stats.failHits++;   // a hit that broke something (lethality: tools/fight-test.js)
@@ -1658,23 +1665,23 @@ function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;
     let E=w.energyJ*(w.bite||1)*(1+FIGHT.biteJitter*(2*F.rng()-1))*(isC?1:FIGHT.hammerShare)*(o.under?WEDGE_RULES.underBite:1)*lethalOf(F);
-    const dfl=!isC&&!(t.under&&t.under.by===o.i)&&F.rng()<t.b.armourMapJ.top.deflect;if(dfl)E*=FIGHT.glance;
-    damageBot(F,t,"top",E,"hit",o.i,{absorbMul:isC?FIGHT.crushAbsorb:1,gl:dfl});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});o.stats.hits++;o.wp.last[t.i]=F.t;return;}}
+    const bay=inBay(F,t),dfl=!bay&&!isC&&!(t.under&&t.under.by===o.i)&&F.rng()<t.b.armourMapJ.top.deflect;if(dfl)E*=FIGHT.glance;   // into the bay: no plate to glance off
+    damageBot(F,t,"top",E,"hit",o.i,{absorbMul:isC?FIGHT.crushAbsorb:1,gl:dfl,bay});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});o.stats.hits++;o.wp.last[t.i]=F.t;return;}}
 /* spinner hits: whenever the disc's zone touches another bot and the disc is up to speed */
 function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.type==="saw")||!(w.inertia>0)||!o.fx.weaponOk||o.air)return;
   if(o.inverted&&!o.b.height.drivesInverted)return;
   for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.air)continue;const c=zoneTouch(o,t);if(!c)continue;
     const face=o.zone.top?"top":faceAt(t,c.px,c.py);
-    if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0)damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i);
+    if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0)damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i,{bay:inBay(F,t)});
     if(wp.om<FIGHT.minSpin*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS))continue;
     const stored=0.5*w.inertia*wp.om*wp.om,full=wp.om>=0.98*w.omega;
     let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?(WEDGE_RULES.underBiteBy[w.id]||WEDGE_RULES.underBite):1);
     const slope=face==="front"&&FIGHT.horizontal[w.id]&&!t.inverted?FIGHT.slope[t.b.weapon.type]||0:0;
     const lip=face==="front"&&!t.inverted&&FIGHT.slope[t.b.weapon.type]&&FIGHT.lip[w.id]||1;
-    const dfl=lip===1&&!(t.under&&t.under.by===o.i)&&F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+slope);if(dfl)bite*=FIGHT.glance;
+    const bay=face==="top"&&inBay(F,t),dfl=lip===1&&!bay&&!(t.under&&t.under.by===o.i)&&F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+slope);if(dfl)bite*=FIGHT.glance;
     const E=stored*Math.min(0.98,bite*lip)*(o.flags.bent?DAMAGE.bentMul:1);wp.om*=Math.sqrt(Math.max(0,1-bite));wp.last[t.i]=F.t;o.stats.hits++;
     const shock=E>=FIGHT.shock.minShare*0.5*w.inertia*w.omega*w.omega?FIGHT.shock.p[F.cls]||0:0;
-    damageBot(F,t,face,E*FIGHT.damageShare*lethalOf(F),"hit",o.i,{logE:E,gl:dfl,shock});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});
+    damageBot(F,t,face,E*FIGHT.damageShare*lethalOf(F),"hit",o.i,{logE:E,gl:dfl,shock,bay});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});
     /* the throw: away from the disc (hsp: round the rim), part of it upward; the attacker takes recoil */
     const J=Math.sqrt(2*t.m*E*FIGHT.throwShare);let dx,dy;
     if(o.zone.circle){const cc=toWorld(o,o.zone.x,o.zone.y),rx=c.px-cc[0],ry=c.py-cc[1],l=Math.hypot(rx,ry)||1;dx=0.3*rx/l-0.7*ry/l;dy=0.3*ry/l+0.7*rx/l;}
@@ -1930,7 +1937,8 @@ function replayFight(log){if(!log||log.noReplay)return null;const play={};for(co
      damageState(b, dmg)        hp left on every plate, part and the chassis: fresh, or after dmg ({key: J taken}, the shape
                                 S.bots[cls].damage keeps: part keys, armour_<face>, chassis)
      hitOrder(b, face)          the parts behind a face, most exposed first
-     hitFace(b, face, E, st, absorbMul)   one square hit (the bench's impact test and every hit in a fight)
+     hitFace(b, face, E, st, absorbMul, bay)   one square hit (the bench's impact test and every hit in a fight); bay:
+                                          it came down into the open weapon bay (0.1.15.3), past the plate
      landHit(b, st, E, inverted)          a landing: on its wheels, into the wheels and drive pods; upside down, the top
      damageEffects(b, st, flags)          what the damage does to the bot: each side's push and grip, power, the weapon,
                                           the self-righter, chassis flex (armour absorbs less), and whether it is dead
@@ -1952,7 +1960,9 @@ const DAMAGE={
   flexAt:0.5,      // a chassis below this share of hp is logged as flexing
   bentMul:0.5,     // a bent disc hits with half its energy ...
   bentPower:0.8,   // ... and spins up on this share of power (it shakes)
-  damagedAt:0.999  // a part under this share of its hp is "damaged" (a repair fee); 0 hp is "destroyed" (re-buy)
+  damagedAt:0.999, // a part under this share of its hp is "damaged" (a repair fee); 0 hp is "destroyed" (re-buy)
+  bayMul:0.2       // a hit from above lands in an open weapon bay this x the bay's share of the top (b.bay.topFrac, or
+                   // belowFrac upside down; 0.1.15.3): it skips the plate and lands on the weapon, then what's behind
 };
 const bodyOf=b=>part("body",b.cfg.body)||PARTS.body[0];
 const chassisHp=b=>{const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0];return ch.hp*bodyOf(b).hpMul*classMult(b.cls).mass;};
@@ -1983,13 +1993,17 @@ function hitOrder(b,face){const c=CLASSES[b.cls],fp=c.fp,out=[];
    most exposed part behind it, and a part that is destroyed passes DAMAGE.passOn of what is left on to the next. st
    (damageState) is changed in place; leave it out for a fresh bot. Returns {face, E, absorbed, plate, plateBroken,
    parts:[{key, slot, dmg, left, destroyed}], through} (through: what nothing stopped, into the chassis; the fight
-   takes it off st.chassis). */
-function hitFace(b,face,E,st,absorbMul){st=st||damageState(b);const A=b.armourMapJ[face];
-  const out={face,E,absorbed:0,plate:0,plateBroken:false,parts:[],through:0};let rest=E;
-  if(st.armour[face]>0){const ab=Math.min(rest,A.absorbJ*(absorbMul==null?1:absorbMul));rest-=ab;out.absorbed=ab;
+   takes it off st.chassis). bay (0.1.15.3): the hit came down into the open weapon bay, so the plate neither absorbs
+   nor takes any of it: it goes straight to the weapon (its disc, motor and belt are the one part, "weapon"), then the
+   parts behind that face in their usual order; out.bay is set. */
+function hitFace(b,face,E,st,absorbMul,bay){st=st||damageState(b);const A=b.armourMapJ[face];
+  const out={face,E,absorbed:0,plate:0,plateBroken:false,parts:[],through:0};let rest=E;if(bay)out.bay=true;
+  if(!bay&&st.armour[face]>0){const ab=Math.min(rest,A.absorbJ*(absorbMul==null?1:absorbMul));rest-=ab;out.absorbed=ab;
     const d=Math.min(rest,st.armour[face]);st.armour[face]-=d;rest-=d;out.plate=d;
     if(st.armour[face]<=1e-9){st.armour[face]=0;out.plateBroken=rest>0||d>0;}}
-  if(rest>1e-9)for(const h of hitOrder(b,face)){const left=st.parts[h.key];if(!(left>0))continue;
+  let order=hitOrder(b,face);
+  if(bay){const w=b.parts.find(p=>p.key==="weapon");order=order.filter(h=>h.key!=="weapon");if(w&&w.hpJ>0)order.unshift({key:w.key,slot:w.slot});}
+  if(rest>1e-9)for(const h of order){const left=st.parts[h.key];if(!(left>0))continue;
     const d=Math.min(rest,left);st.parts[h.key]=left-d;rest-=d;const dead=st.parts[h.key]<=1e-9;if(dead)st.parts[h.key]=0;
     out.parts.push({key:h.key,slot:h.slot,dmg:d,left:st.parts[h.key],destroyed:dead});
     if(!dead||rest<=1e-9){rest=dead?rest:0;break;}rest*=DAMAGE.passOn;}
@@ -4854,7 +4868,7 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
     V=(i,three,two)=>i===0?two:three;   // "you hit", "Wedge hits"
   switch(e.k){
     case"hit":case"grind":{const plate=e.pb?` · ${N(v,1)} ${FT_FACE[e.f]} plate gives`:e.p>0.5?` · plate −${Math.round(e.p)} J`:"";
-      return`${ftCap(N(a))} ${e.k==="grind"?V(a,"grinds","grind"):V(a,"hits","hit")} ${N(v,1)} ${FT_FACE[e.f]||e.f}: ${J(e.E)}${e.n>1?` <small>(${e.n} small hits)</small>`:""}${e.gl?" <small>(glancing)</small>":""}${plate}${e.x?" · "+ftParts(F,v,e.x):""}`;}
+      return`${ftCap(N(a))} ${e.k==="grind"?V(a,"grinds","grind"):V(a,"hits","hit")} ${N(v,1)} ${FT_FACE[e.f]||e.f}: ${J(e.E)}${e.n>1?` <small>(${e.n} small hits)</small>`:""}${e.gl?" <small>(glancing)</small>":""}${e.bay?" <small>(into the open weapon bay)</small>":""}${plate}${e.x?" · "+ftParts(F,v,e.x):""}`;}
     case"ram":case"wall":return e.x||e.pb?`${e.k==="wall"?ftCap(N(v))+" "+V(v,"slams","slam")+" into the wall":"Hard knock on "+N(v,1)+" "+FT_FACE[e.f]}: ${J(e.E)}${e.x?" · "+ftParts(F,v,e.x):""}`:null;
     case"under":return`${ftCap(N(a))} ${V(a,"gets","get")} under ${N(v)}`;
     case"flip":return v<0?`${ftCap(N(a))} ${V(a,"fires and misses","fire and miss")}`:e.heavy?`${ftCap(N(a))} can't lift ${N(v)}: too heavy`:`${ftCap(N(a))} ${V(a,"flips","flip")} ${N(v)} ${Math.round(e.h*100)} cm up`;
@@ -5060,7 +5074,8 @@ function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x|
      rpTimeline(F)   the hits along the round: yours above the line, theirs on you below, bar height by energy
      rpCauses(F)     what went wrong, in order: every plate or part of yours destroyed, with the cause chain ("left front
                      wheel lost at 0:42: undercutter hit on your left side, 85 J; the left plate had given at 0:30"),
-                     and the failures that aren't a part (a speed controller, the battery smoking or going flat)
+                     and the failures that aren't a part (a speed controller, the battery smoking or going flat); a hit
+                     that came down into the open weapon bay says so (0.1.15.3)
      rpHint(F)       one redesign hint: the biggest reason you lost or got hurt, told by the stress report's own COMBOS
                      rule when one fits (the same words as the Build tab), else in plain words
      rpBill(o)       the repair bill: each damaged part's fee and each destroyed part's price (REPAIR_COST), plus the
@@ -5089,7 +5104,7 @@ function rpBefore(F,k,a,v,t,win){let best=null;for(const e of F.log){if(e.t>t+1e
 function rpPlateGone(F,v,f,t){for(const e of F.log){if(e.t>t+1e-6)break;if(e.v===v&&e.pb&&e.f===f)return e;}return null;}
 function rpHow(F,e,f){const me=F.bots[0],mm=Math.max(F.M.mass,1e-6),J=`<span class="readout">${Math.round(e.E||0)} J</span>`;
   switch(e.k){
-    case"hit":case"grind":{let s=`${rpWeapon(F,e.a)} ${e.k==="grind"?"grinding":"hit"} on your ${RP_FACE[e.f]||e.f}, ${J}`;
+    case"hit":case"grind":{let s=`${rpWeapon(F,e.a)} ${e.k==="grind"?"grinding":"hit"} ${e.bay?"straight into your open weapon bay, past the top plate":"on your "+(RP_FACE[e.f]||e.f)}, ${J}`;
       const u=rpBefore(F,"under",e.a,0,e.t,3);
       if(u||e.f==="front"&&F.bots[e.a]&&F.bots[e.a].b.weapon.type!=="none"&&rpBefore(F,"lift",e.a,0,e.t,3)){const mine=me.b.height.frontEdgeMm,th=F.bots[e.a].b.height.frontEdgeMm;
         s+=`; ${rpWho(F,e.a)} got under you first: your front edge ${ftMm(mine)} mm, theirs ${ftMm(th)} mm`;}
