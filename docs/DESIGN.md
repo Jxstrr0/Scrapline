@@ -318,6 +318,15 @@ Balance (beetle, each body on a test build against the other eleven, 6 seeds x s
 
 The 3D bot draws each body in code on every tier: a sloped top with side cheeks, a half-ellipsoid dome, steel corner guards, bare tubes, a wider flat lid, a plate underneath. Blender shells for Full and Ultra are still to come.
 
+## 0.1.15.0: Blender shells for the body styles
+
+- `models/bot-shells.glb` (94 KB) is original, built in Blender from `tools/blender-bot-shells.py` (bpy; steps at its top) and packed with `tools/pack-model.py`. Pieces: `wedge_top` (sloped lid with two ribs, a hinge strip and a sharpened lip), `wedge_cheek_l` / `_r`, `dome_shell` (a rim flange and a crown seam), `slab_skirt_l` / `_r` (thick bevelled side skirts), `slab_guard` (an angle-iron corner guard with a cap), `pancake_lid` (chamfered, with an access panel), `invert_plate` (two skid rails; drawn top and mirrored underneath), `scrap_tube`, `scrap_weld`, and each body's bolt heads.
+- Each piece is modelled in a unit body (x the width, z the length with the front at -z, y in chassis heights from the top of the box) and `shellBody` in `vis/bot.js` stretches it to the bot. Bolt heads are pre-squashed for a typical beetle's proportions so they come out round.
+- The game puts its own materials on (the armour or chassis of the face each piece covers, steel for fasteners), and each piece carries that face's part key, so damage greys a shell as it does the coded shape.
+- Full and Ultra only. `botShells` (`vis/props.js`) starts the load the first time a bot is drawn; until it lands, or if it fails, the coded shapes stand in, and when it lands the workshop's bot is drawn again. A bot already in a fight keeps its shape. The bot cache key carries whether the shells were in (`botHash`).
+- Wedge, Dome, Pancake and Invertible shells replace the top; Slab and Scrap frame keep the flat top plate and add skirts, guards, tubes and welds to it. The scrap frame gains a cross brace on Full.
+- Lite is unchanged (no load, the coded shapes). The sim is untouched.
+
 ## Known loose ends
 
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.
