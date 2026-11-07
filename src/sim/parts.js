@@ -2,7 +2,7 @@
    chassis-grid helpers (footprints, where a part may sit, the automatic layout), DEFAULT_CFG and TEST_BUILDS.
    Plan sections 4a-4c. First-pass numbers are guesses, tuned in node (tools/sim-test.js, later tools/fight-test.js).
 
-   Units: every part is written at BEETLE scale (1.5 kg) in grams, millimetres, watts, joules and thalers. classMult(cls)
+   Units: every part is written at BEETLE scale (1.5 kg) in grams, millimetres, watts, joules and euros. classMult(cls)
    scales it to the class: masses by mass (limitG / 1500), lengths by len (chassis width / 180 mm; every chassis is 2:3), armour thickness by
    thick (= mass / len^2, so armour weight grows with the budget, not with the cube of size), spinner rpm by 1 / len (the
    same tip speed in every class), motor power and heat by power (mass^0.85 above a beetle: heavies spin up slower), edges by edge
@@ -29,7 +29,7 @@ const BASE={limitG:1500,widthMm:180,cells:24};   // the beetle every part is wri
 function classMult(id){const c=CLASSES[id]||CLASSES.beetle,mass=c.limitG/BASE.limitG,len=c.gridW*c.cellMm/BASE.widthMm;
   return{mass,len,thick:mass/(len*len),power:mass<1?mass:Math.pow(mass,0.85),edge:Math.sqrt(len),cost:c.prizeScale,hours:c.hoursScale,fp:c.fp};}
 
-/* Every option: id, name, massG, cost (thalers), hours (workshop hours to fit), unlock ("start" | "tool:<id>" | "rnd:<id>",
+/* Every option: id, name, massG, cost (euros), hours (workshop hours to fit), unlock ("start" | "tool:<id>" | "rnd:<id>",
    enforced from PR 7), hp (J of damage it takes before it is destroyed), plus the slot's own stats.
    fp:[w,h] is a footprint in chassis cells (beetle grid); null takes no cells. */
 const PARTS={

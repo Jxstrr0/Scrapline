@@ -1,6 +1,6 @@
 /* ===================== app/career.js: the career and the Career tab =====================
    The career (plan section 11) lives in S.career (null until Start career; crFresh() gives its shape). Starting one is a
-   fresh start (Kelbo, PR 7): Th 1,500 (TIME.startMoney), nothing fitted, hand tools only; saved designs stay as
+   fresh start (Kelbo, PR 7): €1,500 (TIME.startMoney), nothing fitted, hand tools only; saved designs stay as
    blueprints and the Beetle draft is the starter bot.
    Time: you act (fit, bench, repair, enter the week's event and fight it), then Close week: rent comes out, the week's
    workshop hours come in (WORKSHOP_STAGES; unused hours carry over up to TIME.bankWeeks weeks' worth). 52 weeks a
