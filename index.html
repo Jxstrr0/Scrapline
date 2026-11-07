@@ -598,7 +598,7 @@ const rPick=(r,arr)=>arr[Math.floor(arr.length*r())];
    chassis-grid helpers (footprints, where a part may sit, the automatic layout), DEFAULT_CFG and TEST_BUILDS.
    Plan sections 4a-4c. First-pass numbers are guesses, tuned in node (tools/sim-test.js, later tools/fight-test.js).
 
-   Units: every part is written at BEETLE scale (1.5 kg) in grams, millimetres, watts, joules and thalers. classMult(cls)
+   Units: every part is written at BEETLE scale (1.5 kg) in grams, millimetres, watts, joules and euros. classMult(cls)
    scales it to the class: masses by mass (limitG / 1500), lengths by len (chassis width / 180 mm; every chassis is 2:3), armour thickness by
    thick (= mass / len^2, so armour weight grows with the budget, not with the cube of size), spinner rpm by 1 / len (the
    same tip speed in every class), motor power and heat by power (mass^0.85 above a beetle: heavies spin up slower), edges by edge
@@ -625,7 +625,7 @@ const BASE={limitG:1500,widthMm:180,cells:24};   // the beetle every part is wri
 function classMult(id){const c=CLASSES[id]||CLASSES.beetle,mass=c.limitG/BASE.limitG,len=c.gridW*c.cellMm/BASE.widthMm;
   return{mass,len,thick:mass/(len*len),power:mass<1?mass:Math.pow(mass,0.85),edge:Math.sqrt(len),cost:c.prizeScale,hours:c.hoursScale,fp:c.fp};}
 
-/* Every option: id, name, massG, cost (thalers), hours (workshop hours to fit), unlock ("start" | "tool:<id>" | "rnd:<id>",
+/* Every option: id, name, massG, cost (euros), hours (workshop hours to fit), unlock ("start" | "tool:<id>" | "rnd:<id>",
    enforced from PR 7), hp (J of damage it takes before it is destroyed), plus the slot's own stats.
    fp:[w,h] is a footprint in chassis cells (beetle grid); null takes no cells. */
 const PARTS={
@@ -874,7 +874,7 @@ const TEST_BUILDS=[
      armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
-     cost (thalers), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
+     cost (euros), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
    Coordinates: chassis centre is the origin, +x right, +y forward (the front face is +y). ---- */
 const K={
   g:9.81,
@@ -3774,7 +3774,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.16.1";
+const VERSION="0.1.16.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -3946,7 +3946,7 @@ const RND={
   titanium:  {name:"Exotic armour",         price:1800,hours:28,act:1,needs:"mill",     line:"Titanium plate, chassis and weapon stock. Light, tough and dear."},
   custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."}};
 const RND_IDS=Object.keys(RND);
-/* the team (Shop tab): one person per role, hired from these. salary: thalers a season, paid a week at a time at Close
+/* the team (Shop tab): one person per role, hired from these. salary: euros a season, paid a week at a time at Close
    week (salary / 52). act: from which act they'll talk to you.
    engineer: cut (build and repair hours x (1 - cut), on top of the tools'), and an engineer's note: the impact and drop
              lines of the stress report work out for the draft without the bench
@@ -4070,7 +4070,7 @@ if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(S
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 
 /* ---- formatting ---- */
-const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler, 100 pfennig: Th 4,850
+const fmt$=n=>(n<0?"−":"")+"€"+Math.round(Math.abs(n)).toLocaleString("en-GB");   // euros, whole amounts: €4,850
 const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
@@ -5829,7 +5829,7 @@ function rpBillHtml(o,ev){const bill=rpBill(o);
   if(!bill.lines.length)return`<p class="ok">Nothing to pay: it came out without a scratch.</p>`;
   return`<table class="rpbill"><tbody>${bill.lines.map(l=>`<tr><th scope="row">${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></th><td class="readout">${fmt$(l.cost)}</td><td class="readout">${l.hours} h</td></tr>`).join("")}</tbody>
     <tfoot><tr><th scope="row">Total</th><td class="readout">${fmt$(bill.cost)}</td><td class="readout">${bill.hours} h</td></tr></tfoot></table>
-    <p class="hint">Everything still broken after this round. ${ev?"An event's damage goes home with the bot: fix it in the workshop on the Career tab, for thalers and workshop hours, or take it to the next event as it is.":"Sparring is free: nothing is charged. At a career event, this comes out of your thalers and your workshop week."}</p>`;}
+    <p class="hint">Everything still broken after this round. ${ev?"An event's damage goes home with the bot: fix it in the workshop on the Career tab, for euros and workshop hours, or take it to the next event as it is.":"Sparring is free: nothing is charged. At a career event, this comes out of your money and your workshop week."}</p>`;}
 
 /* ---- the opponent's build, revealed ---- */
 function rpReveal(F,i){const o=F.bots[i],b=o.b,cfg=o.cfg,P=(s,id)=>{const p=SIM.part(s,id);return p?esc(p.name):"none";},w=b.weapon;
@@ -5908,7 +5908,7 @@ function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage
 TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;TM.ask=null;shRender();};
 /* ===================== app/career.js: the career and the Career tab =====================
    The career (plan section 11) lives in S.career (null until Start career; crFresh() gives its shape). Starting one is a
-   fresh start (Kelbo, PR 7): Th 1,500 (TIME.startMoney), nothing fitted, hand tools only; saved designs stay as
+   fresh start (Kelbo, PR 7): €1,500 (TIME.startMoney), nothing fitted, hand tools only; saved designs stay as
    blueprints and the Beetle draft is the starter bot.
    Time: you act (fit, bench, repair, enter the week's event and fight it), then Close week: rent comes out, the week's
    workshop hours come in (WORKSHOP_STAGES; unused hours carry over up to TIME.bankWeeks weeks' worth). 52 weeks a

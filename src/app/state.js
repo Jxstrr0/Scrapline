@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.16.1";
+const VERSION="0.1.16.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -180,7 +180,7 @@ const RND={
   titanium:  {name:"Exotic armour",         price:1800,hours:28,act:1,needs:"mill",     line:"Titanium plate, chassis and weapon stock. Light, tough and dear."},
   custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."}};
 const RND_IDS=Object.keys(RND);
-/* the team (Shop tab): one person per role, hired from these. salary: thalers a season, paid a week at a time at Close
+/* the team (Shop tab): one person per role, hired from these. salary: euros a season, paid a week at a time at Close
    week (salary / 52). act: from which act they'll talk to you.
    engineer: cut (build and repair hours x (1 - cut), on top of the tools'), and an engineer's note: the impact and drop
              lines of the stress report work out for the draft without the bench
@@ -304,7 +304,7 @@ if(mqLight&&mqLight.addEventListener)mqLight.addEventListener("change",()=>{if(S
 if(mqReduce&&mqReduce.addEventListener)mqReduce.addEventListener("change",applyReduce);
 
 /* ---- formatting ---- */
-const fmt$=n=>(n<0?"−":"")+"Th "+Math.round(Math.abs(n)).toLocaleString("en-GB");   // Velmark thaler, 100 pfennig: Th 4,850
+const fmt$=n=>(n<0?"−":"")+"€"+Math.round(Math.abs(n)).toLocaleString("en-GB");   // euros, whole amounts: €4,850
 const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
