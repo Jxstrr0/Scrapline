@@ -119,7 +119,7 @@ for (const cls of SIM.CLASS_IDS) {
   if (!SIM.sameParts(a, Object.assign({}, a, { layout: { battery: [0, 3] } })) || SIM.sameParts(a, b)) fail("sameParts");
   const w = SIM.fitBill(a, Object.assign({}, a, { weapon: "drum" }));
   if (!w.lines.some((l) => l.slot === "weaponMaterial")) fail("a new weapon should pay for its material");
-  /* taking things off: listed as removed, never as a Th 0 line; with no weapon the material doesn't matter */
+  /* taking things off: listed as removed, never as a €0 line; with no weapon the material doesn't matter */
   const off = SIM.fitBill(a, Object.assign({}, a, { weapon: "none", armour: Object.assign({}, a.armour, { back: "none" }) }));
   if (off.lines.length || off.removed.map((l) => l.slot).sort().join() !== "armour,weapon") fail("taking the weapon and a plate off: " + JSON.stringify(off));
   const pusher = Object.assign({}, a, { weapon: "none" });

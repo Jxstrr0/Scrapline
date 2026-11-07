@@ -38,7 +38,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Title / repo | **Scrapline** / `Jxstrr0/Scrapline`. The game shares its name with its league, the Scrapline. Live at https://jxstrr0.github.io/Scrapline/. (Earlier working title Servo, dropped.) |
 | References | **PEW (`Jxstrr0/350Chev`) is the only code and design reference.** The Escapement repo supplied the setting's names only (Velmark, the Haldis); nothing else from it is used, in code, docs or design |
 | Prefixes | Namespaces `SCRAP_SIM`, `SCRAP_VIS`, `SCRAP_SOUND`; localStorage keys and caches start `scr-`; save codes start `SCR1:`; backup files `scrapline-backup-YYYY-MM-DD.txt` |
-| World | **Velmark**, an invented alpine country. The player starts in **the Haldis**, its northern watchmaking valley. Money is the **Velmark thaler** (`Th 4,850`, 100 pfennig), formatted by `fmt$`. Place names live in one `WORLD` table in `state.js` |
+| World | **Velmark**, an invented alpine country. The player starts in **the Haldis**, its northern watchmaking valley. Money is **euros** (`€4,850`, whole amounts), formatted by `fmt$`. Place names live in one `WORLD` table in `state.js` |
 | Venues | Club meets at the **Haldis Gemeindehalle**; regional tournaments in **Stahlbrück** (steel-mill city), **Eisenau** (river port) and **Grauwald** (forest rail town); the Scrapline Open's home arena is **the Eisenhalle** |
 | League | **The Scrapline** is Velmark's robot-combat circuit; **the Scrapline Open** is its televised heavyweight league. No real league or TV brand is named |
 | Weight classes | Ant 150 g · Beetle 1.5 kg · Hobby 5.5 kg · Feather 14 kg · Heavy 110 kg |
@@ -61,7 +61,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Pit kits when sparring | **Free to pick when sparring**; the price (x the class's `prizeScale`) applies from the career on (Kelbo, PR 6) |
 | Best of three when sparring | Sparring gets a **Best of three** format, so the pit window can be tried before the career (PR 6 default) |
 | Replay scrubbing | **A jump re-runs the sim from the start** to that moment instead of keyframes (a round is a few milliseconds of sim), so **every tier scrubs**, Lite included (PR 6 default) |
-| Career start | **A fresh start** (Kelbo, PR 7): Th 1,500, hand tools, nothing fitted; bots fitted while sparring are cleared, saved designs stay as blueprints |
+| Career start | **A fresh start** (Kelbo, PR 7): €1,500, hand tools, nothing fitted; bots fitted while sparring are cleared, saved designs stay as blueprints |
 | Event fights | **You drive it, or Quick sim** (Kelbo, PR 7): before each fight; a quick sim has the AI drive your bot at your driver skill and your crew does the pit work, for less driver xp |
 | Sparring in the career | **Stays free practice** (Kelbo, PR 7): fresh bots, no money, hours, damage or xp |
 | Garage calendar | **About ten event days a season** (Kelbo, PR 7): six club meets (four-bot round robins), two one-day tournaments (eight-bot brackets), a rumble night and the club championship |
@@ -147,7 +147,7 @@ All in `src/sim/`. No DOM.
 
 ### 4b. Parts tables
 
-`PARTS` is an object of slots; each option has `id`, `name`, `massG` (scaled per class via `classMult`), `cost` (thalers, scaled by `prizeScale`), `unlock` (`start` | `tool:<id>` | `rnd:<id>`), and the stats below. First-pass values are guesses; tune in node.
+`PARTS` is an object of slots; each option has `id`, `name`, `massG` (scaled per class via `classMult`), `cost` (euros, scaled by `prizeScale`), `unlock` (`start` | `tool:<id>` | `rnd:<id>`), and the stats below. First-pass values are guesses; tune in node.
 
 | Slot | Options (first pass) | Stats |
 |---|---|---|
@@ -350,7 +350,7 @@ The post-mortem shows the three scores, so a judges' loss is still a lesson.
 - **Time model (`TIME`):** 52 weeks a season; act, then Close week. Each week gives workshop hours (`hoursPerWeek` grows with `WORKSHOP_STAGES` and staff). Building, repairs, the full bench suite and R&D spend hours. Events are pinned to weeks; travel takes days and money.
 - **Acts:** Garage (Ant/Beetle, club meets at the Haldis Gemeindehalle), Circuit (Hobby/Feather, regional tournaments in Stahlbrück, Eisenau and Grauwald, brackets), Heavyweight (the Scrapline Open at the Eisenhalle, televised, team), Legacy (multi-bot team, kit line, mentoring).
 - **Calendar (`SEASON_EVENTS`):** club meets, tournaments (single-elimination brackets, several fights in one day, pit windows between), rumbles, tag team, a championship. Entry fees, travel costs (further from the Haldis = dearer and longer), pit kit purchase before each event. Venue names from `WORLD`.
-- **Money (thalers):** prizes (`prizeScale` by class), sponsors later, kit sales later. Spending: fitting parts, repair bills, pit kits, tools, workshop, travel, entry fees. Going broke: the Haldis Savings Bank lends once; broke a second time ends the run with a restart offer.
+- **Money (euros):** prizes (`prizeScale` by class), sponsors later, kit sales later. Spending: fitting parts, repair bills, pit kits, tools, workshop, travel, entry fees. Going broke: the Haldis Savings Bank lends once; broke a second time ends the run with a restart offer.
 - **Repair after a fight (`REPAIR_COST`, `REPAIR_HOURS`):** damaged parts cost a fee scaled by damage taken (first pass: 10% to 60% of the part's price, by hp lost); destroyed parts are re-bought at full price. A badly damaged bot may not be ready for the next event if you lack the hours.
 - **Tools (`TOOLS`):** hand tools, 3D printer, bandsaw, drill press, welder, mill, lathe, CNC, press brake. Tools gate parts (`unlock: tool:<id>`) and cut build hours.
 - **Workshop (`WORKSHOP_STAGES`):** a rented corner of a Haldis machine shop → own unit → shop → team HQ, with a trailer for travel.
@@ -364,7 +364,7 @@ The post-mortem shows the three scores, so a judges' loss is still a lesson.
 
 ## 12. PR 8: Research, team, sponsors, meta
 
-- **R&D (`RND`):** custom chassis shapes, crusher, overhead saw, exotic armour, custom motor winding, pneumatics upgrade, minibots, your own weapon disc profile (name it). R&D costs hours and thalers.
+- **R&D (`RND`):** custom chassis shapes, crusher, overhead saw, exotic armour, custom motor winding, pneumatics upgrade, minibots, your own weapon disc profile (name it). R&D costs hours and euros.
 - **Team (`STAFF`):** engineer (cuts build hours, better stress reports), fabricator (unlocks custom parts), driver (fixed skill), pit crew (faster pit repairs). Salaries per season.
 - **Sponsors (`SPONSORS`):** offers after placings. Each wants its colour on the bot (a paint slot) and sets a **placing target** for the season; pay per season, and they drop you if you miss it.
 - **Meta evolution (`META_WAVES`):** the opponent field shifts per season (spinner era → wedge era → undercutter era → armour era). **Rule changes (`RULES_BY_SEASON`):** a weapon energy cap, a new hazard, a class limit tweak, announced a season ahead.
