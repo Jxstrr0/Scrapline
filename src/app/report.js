@@ -5,7 +5,8 @@
                      wheel lost at 0:42: undercutter hit on your left side, 85 J; the left plate had given at 0:30"),
                      and the failures that aren't a part (a speed controller, the battery smoking or going flat); a hit
                      that came down into the open weapon bay says so (0.1.15.3)
-     rpHint(F)       one redesign hint: the biggest reason you lost or got hurt, told by the stress report's own COMBOS
+     rpHint(F)       one redesign hint: the biggest reason you lost or got hurt, told by the stress report's own COMBOS;
+                     its kind picks the commentator's post-mortem line (pit, inv, weapon, under, face, pinned, held, gen)
                      rule when one fits (the same words as the Build tab), else in plain words
      rpBill(o)       the repair bill: each damaged part's fee and each destroyed part's price (REPAIR_COST), plus the
                      workshop hours (REPAIR_HOURS). Shown only while sparring; charged from PR 7.
@@ -65,22 +66,22 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
   for(const e of L){if((e.k==="hit"||e.k==="grind"||e.k==="haz"||e.k==="ram")&&e.f)faceJ[e.f]=(faceJ[e.f]||0)+(e.E||0);
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
   const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true}:null;
-  let h=null;
-  if(me.out==="pit")h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
-  if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
-  if(!h&&shear)h=ret(rule("shear"),"Your weapon shaft sheared.");
+  let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
+  if(me.out==="pit")kind="pit",h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
+  if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))kind="inv",h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
+  if(!h&&shear)kind="weapon",h=ret(rule("shear"),"Your weapon shaft sheared.");
   /* wedged: only worth a hint when it cost you, or kept happening, and there's an edge to win */
   if(!h&&(unders>=3||unders>=1&&lost)){const best=F.bots.filter(o=>o.i!==0).reduce((m,o)=>Math.min(m,o.b.height.frontEdgeMm),1e9),why=`They got under you ${unders===1?"once":unders+" times"}.`;
-    h=ret(rule("edgeHigh"),why)||(best<b.height.frontEdgeMm-0.05?{why,text:`Your front edge is ${ftMm(b.height.frontEdgeMm)} mm and theirs ${ftMm(best)} mm: a lower wedge or front plate, or a nose-heavy layout, keeps you on top.`}:null);}
+    h=ret(rule("edgeHigh"),why)||(best<b.height.frontEdgeMm-0.05?{why,text:`Your front edge is ${ftMm(b.height.frontEdgeMm)} mm and theirs ${ftMm(best)} mm: a lower wedge or front plate, or a nose-heavy layout, keeps you on top.`}:null);if(h)kind="under";}
   if(!h&&bent)h=ret(rule("bend"),"Your disc bent.");
   if(!h&&flat)h=ret(rule("runtime"),"Your battery went flat.");
   if(!h&&hot)h=ret(rule("heat"),"Your motors overheated.");
   if(!h){const f=Object.keys(faceJ).sort((x,y)=>faceJ[y]-faceJ[x])[0];
     if(f&&faceJ[f]>0){const a=b.armourMapJ[f],why=`Your ${RP_FACE[f]} took ${Math.round(faceJ[f])} J.`,pl=a&&a.id!=="none"?SIM.part("armour",a.id):null;
       const st=SIM.partStates(b,me.st),gone=st["armour_"+f]==="destroyed"||!pl;
-      if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};}}
-  if(!h){const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
-  return h;}
+      if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};if(h)kind="face";}}
+  if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
+  h.kind=kind;return h;}
 
 /* ---- the repair bill ---- */
 function rpPrice(b,key){const cfg=b.cfg,M=SIM.classMult(b.cls),c=(slot,id)=>{const p=SIM.part(slot,id);return p?p.cost*M.cost:0;};

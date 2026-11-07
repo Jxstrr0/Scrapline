@@ -30,3 +30,7 @@ Changes: each clip was trimmed, peak-normalised, given a 40 ms fade-out and enco
 | part2.mp3 | rapid_clangs_01 | 27 Metal Audio Samples | blacklodgegames | CC0 1.0 |
 | haz1.mp3 | dull_metal_collision_07 | 27 Metal Audio Samples | blacklodgegames | CC0 1.0 |
 | haz2.mp3 | dull_metal_collision_13 | 27 Metal Audio Samples | blacklodgegames | CC0 1.0 |
+
+## Voices (`voice/`)
+
+The announcer (Duncan Steiner) and commentator (Jess Moser), 214 lines: voices generated with ElevenLabs (eleven_v4), announcer and commentator, generated November 2026, for Kelbo / Longlight Interactive. The script is Kelbo's (`docs/voice/scrapline_commentary_script_sheet.csv`); the clips were re-encoded to 64 kbps mono MP3 for the page. Listed in `src/sound/voicelines.js` (built by `tools/make-voicelines.js`).

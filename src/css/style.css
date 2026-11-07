@@ -400,6 +400,14 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fpitopts .btn.off{opacity:.5}
 .frp{position:absolute;z-index:2;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:#0A0A09cc;pointer-events:auto}
 .frp input{flex:1;min-width:0;accent-color:var(--clay)}
+/* captions (0.1.16, app/fight.js): the announcer's and commentator's calls as text when sound or voices are off; the
+   fight view is dark in both themes. Taps go through to the controls. */
+.fcap{position:absolute;z-index:2;left:50%;bottom:calc(136px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:min(420px,calc(100% - 32px));margin:0;padding:6px 12px;border-radius:10px;background:#0A0A09d9;color:#F2EFE8;font-size:14px;line-height:1.35;text-align:center;pointer-events:none;animation:fcapIn .18s ease-out}
+.fcap.fcom{color:#D9C6F5}
+@keyframes fcapIn{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translateX(-50%)}}
+html.reduce .fcap{animation:none}
+@media (prefers-reduced-motion:reduce){.fcap{animation:none}}
+@media (prefers-reduced-transparency:reduce){.fcap{background:#0A0A09}}
 .frp .readout{min-width:3em;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--lilac);font-size:14px}
 @media (prefers-reduced-transparency:reduce){.fpit{background:#1F1E1B}.frp{background:#0A0A09}}
 /* direct controls: a floating stick on the left half, the weapon on the right (swapped when left-handed) */
