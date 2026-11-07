@@ -11,6 +11,9 @@
                 screen uprights, corner posts with beacons, striped wall rams, toothed floor spinners, a striped pit edge and
                 well, and stands with a crowd. arenaKit swaps it in for the coded pieces vis/arena.js listed in AR.kit, merging
                 the many kerb and stand clones into one mesh per material so it costs a few draw calls.
+     shells     models/bot-shells.glb, original work built in Blender from tools/blender-bot-shells.py: the body styles' shells
+                (wedge lid and cheeks, dome, slab skirts and corner guards, pancake lid, invertible plates, scrap tubes and
+                welds). botShells loads it the first time a bot is drawn on Full or Ultra; vis/bot.js shellBody uses it.
    More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
    tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
@@ -21,7 +24,7 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
   meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
-  kit:"models/arena-kit.glb"};
+  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
    [key, x, y, z, turn] in scene units; y 0 is the bench top, -1.4 the floor. The camera starts at -x +z, so the room reads
@@ -155,3 +158,11 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
         o.position.set(ax?ax*off:a,0,az?az*off:a);o.rotation.y=ry;st.push(o);}}
     kitBake(G,st,false);
     for(const c of K.crowd){c.position.y=2.9;c.position.x*=(H+5)/(H+3);c.position.z*=(H+5)/(H+3);}}}
+/* ---- the body shells ---- */
+/* the loaded shells scene on Full and Ultra, or null (and the load starts): when it lands, the workshop's bot is drawn again
+   with them (a bot already in a fight keeps its coded shape) */
+function shellsReady(){const c=PROPS.models.shells;return V.tier!=="lite"&&!!(c&&c.scene);}
+function botShells(){if(V.tier==="lite")return null;const c=PROPS.models.shells;if(c&&c.scene)return c.scene;if(c||PROPS.shellAsk||PROPS.shellTries>=2)return null;   // two tries a visit, then the coded shapes
+  const go=()=>{PROPS.shellAsk=false;PROPS.shellTries=(PROPS.shellTries||0)+1;propModel("shells",()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
+  if(THREE.GLTFLoader)go();else if(window.__scrPost){PROPS.shellAsk=true;window.__scrPost(()=>{if(THREE.GLTFLoader&&V.tier!=="lite")go();else PROPS.shellAsk=false;});}
+  return null;}
