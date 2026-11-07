@@ -15,10 +15,10 @@
    they fill the screen, in the band the app leaves clear between its bot cards and the controls (V.run.inset {t, b} in
    CSS px); a pinch or the mouse wheel nudges it (V.run.zoom, a multiplier on the distance). It shakes on hits (fx.js),
    never under reduced motion.
-     marks      (0.1.15.4) under each bot a ring on the floor in its team colour (yours thicker, with a chevron at the
-                front); over it a name tag that stays the same size on screen; a hit flashes the bot's parts white-hot
-                for a moment (at most four times a second, softer under reduced motion). Lite: the same, with fewer ring
-                segments and a smaller tag texture.
+     marks      (0.1.15.4) over each bot a name tag in its team colour that stays the same size on screen; a hit
+                flashes the bot's parts white-hot for a moment (at most four times a second, softer under reduced motion).
+                Lite: the same, with a smaller tag texture. (The floor ring under each bot went in 0.1.16.1, Kelbo: it hid
+                the contact between the bots.)
    Lite: flat materials, no shadows. ---- */
 const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
@@ -70,7 +70,7 @@ function buildArena(F){
   /* bots */
   AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
     const B={o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
-    B.ring=botRing(o,team,U,lite);g.add(B.ring);if(!o.mini){B.tag=botTag(o.name,team,lite);g.add(B.tag);}
+    if(!o.mini){B.tag=botTag(o.name,team,lite);g.add(B.tag);}
     return B;});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
   const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.5));
@@ -81,15 +81,7 @@ function buildArena(F){
   AR.cam={x:0,z:0,d:H*3,shake:0};
   V.scene.add(g,L);propArena(F);return g;}
 
-/* the ring on the floor under a bot, in its team colour: yours (bot 0) thicker with a chevron at the front that turns
-   with it; a minibot's thin */
 const botR=o=>0.5*Math.hypot(o.b.widthM,o.b.lengthM);   // the body's half diagonal (o.rad reaches out to the weapon)
-function botRing(o,team,U,lite){const r=botR(o)*U*1.12,w=o.mini?r*0.07:o.i===0?r*0.11:r*0.075,col=new THREE.Color(BOT_TEAM[team%BOT_TEAM.length]).convertSRGBToLinear();
-  const g=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.85,depthWrite:false});
-  const ring=new THREE.Mesh(new THREE.RingGeometry(r,r+w,lite?28:56),mat);ring.rotation.x=-Math.PI/2;ring.userData.own=true;ring.renderOrder=1;g.add(ring);
-  if(o.i===0&&!o.mini){const sh=new THREE.Shape(),a=r+w*0.5,c=r*0.13;sh.moveTo(a+c*1.1,0);sh.lineTo(a,c*0.75);sh.lineTo(a,-c*0.75);sh.closePath();
-    const ch=new THREE.Mesh(new THREE.ShapeGeometry(sh),mat);ch.rotation.x=-Math.PI/2;ch.renderOrder=1;g.add(ch);g.userData.chev=ch;}
-  g.position.y=0.012;g.userData.mat=mat;g.userData.col=col.clone();return g;}
 /* a name tag over a bot: a sprite with the name on a dark pill and a team-coloured dot; it keeps its size on screen */
 function botTag(name,team,lite){const W=lite?192:256,Hh=W/4,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/256;
   const fam=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif";x.font=`600 ${30*k}px ${fam}`;
@@ -170,10 +162,8 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   const tagPx=AR.bots.filter(B=>B.tag).length>2?18:22,tagS=tagPx/vh*2*tH;for(const B of AR.bots)if(B.tag)B.tag.scale.set(tagS*B.tag.userData.asp,tagS,1);
   V.cam.position.set(c.x+sx,Math.sin(pitch)*d+sy,c.z+Math.cos(pitch)*d);V.cam.lookAt(c.x+sx*0.5,0,c.z);}
 
-/* a bot's ring, tag and hit flash, each frame */
+/* a bot's tag and hit flash, each frame */
 function botMarks(B,dt){const o=B.o,U=AR.U,m=B.mesh,gone=!!o.out;
-  if(B.ring){const r=B.ring;r.visible=!gone;if(!gone){r.position.x=o.x*U;r.position.z=-o.y*U;if(r.userData.chev)r.userData.chev.rotation.z=o.h;
-      const mat=r.userData.mat;mat.color.copy(r.userData.col);if(B.flash>0)mat.color.lerp(FLASH_COL,B.flash*0.6);mat.opacity=o.fx&&o.fx.dead?0.4:0.85;}}
   if(B.tag){B.tag.visible=!gone;if(!gone)B.tag.position.set(o.x*U,((o.z||0)+(m.userData.H||0.05)*1.3)*U+0.3,-o.y*U);}
   if(B.flash>0||B.flashOn){B.flash=Math.max(0,B.flash-dt*6);B.flashOn=B.flash>0;const parts=m.userData.parts||{};
     const ks=B.flashKeys;
