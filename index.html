@@ -54,7 +54,7 @@ setTimeout(function(){if(!fin&&!bad)m.textContent="Still loading… slow connect
 }
 :root[data-theme=light] #view,:root[data-theme=light] #intro{
   --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189; --clay-t:#D97757; --lilac:#B48CE8; --rule:#34322D; --card:#1F1E1B; --card2:#2A2925;
-  --warn:#E2A93B; --good:#4CC38A; --crit-t:#F06A6E;
+  --warn:#E2A93B; --good:#4CC38A; --crit:#E5484D; --crit-t:#F06A6E;
 }
 
 /* ---- 2. layout ---- */
@@ -388,6 +388,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fbots.many .fbinfo b{font-size:13px}
 .fbots.many .fbar{height:5px}
 .fbots.many .fbst{display:none}
+.fbinfo small.stw{color:var(--lilac)}
 /* a phone on its side: short cards so the arena keeps its height */
 @media (max-height:560px) and (orientation:landscape){.fbots{top:52px}.fmap{width:52px;height:52px}.fbots.many .fmap{width:40px;height:40px}.fbinfo small.fbst{display:none}.fbar{height:5px}}
 .fcv{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94%,calc(100% - 150px));aspect-ratio:1/1;max-height:calc(100% - 150px);border-radius:10px;background:#1A1917}
@@ -1608,7 +1609,7 @@ function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>l
    underside when t is upside down) x DAMAGE.bayMul. Draws from the fight's generator only when there is a share, so a
    bot with no open bay leaves the fight's sequence exactly as it was. Never for a landing (damageBot's caller decides). */
 function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAGE.bayMul:0;return p>0&&F.rng()<p;}
-function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
+function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};F.fxHit=null;if(E<=0||o.out==="pit")return null;const before=o.fx;
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
   const s0=F.fxq&&(kind==="hit"||kind==="haz")?damageShare(o.b,st):-1;   // fx only: the damage number over the bot
   const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
@@ -1684,8 +1685,8 @@ function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;hit=true;
     if(t.m>w.canLiftKg){logIt(F,{k:"flip",a:o.i,v:t.i,h:0,heavy:1});continue;}
     const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);
-    launch(F,t,Math.sqrt(2*K.g*h),flip,o);logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});
-    damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);o.stats.hits++;}
+    launch(F,t,Math.sqrt(2*K.g*h),flip,o);logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
+    damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
   if(!hit)logIt(F,{k:"flip",a:o.i,v:-1});}
 function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
@@ -2879,7 +2880,7 @@ function botTag(name,team,lite){const W=lite?192:256,Hh=W/4,c=document.createEle
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true}));
   sp.center.set(0.5,0);sp.renderOrder=6;sp.userData.own=true;sp.userData.asp=W/Hh;return sp;}
-const FLASH_COL=new THREE.Color(0xfff1d6);
+const FLASH_COL=new THREE.Color(0xfff1d6).convertSRGBToLinear();
 /* the floor grid every 30 cm (beetle scale) across the arena; with a hole [x0, z0, x1, z1] (the kit's open pit) the lines
    stop at its edge instead of crossing the void */
 function arenaGrid(H,hole){const step=0.3*4,pts=[],y=0.002;
@@ -2894,7 +2895,8 @@ function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
   AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;});
-  for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];return true;}
+  for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
+  for(const n of FX.nums)fxNumDrop(n);FX.nums=[];return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
 function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
@@ -3007,7 +3009,7 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
 /* a damage number: a sprite that keeps its size on screen (like the name tags), above the bot */
 function fxNum(B,d){const lite=V.tier==="lite",max=lite?3:6;while(FX.nums.length>=max)fxNumDrop(FX.nums.shift());
   const W=lite?96:128,Hh=W/2,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/128;
-  const fam=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif",t="\u2212"+Math.max(1,Math.round(d*100))+"%";
+  const fam=FX.font||(FX.font=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif"),t="\u2212"+Math.max(1,Math.round(d*100))+"%";
   x.font=`700 ${40*k}px ${fam}`;x.textAlign="center";x.textBaseline="middle";x.lineJoin="round";
   x.lineWidth=8*k;x.strokeStyle="rgba(20,20,19,0.9)";x.strokeText(t,W/2,Hh/2+2*k);
   x.fillStyle=d>=0.08?"#FF8F93":"#F2EFE8";x.fillText(t,W/2,Hh/2+2*k);   // a big bite in a light cool red (damage colours never go clay)
@@ -4677,7 +4679,7 @@ function ctlFloor(F,e){const cv=FT.view2d&&$("fCv");
     return Math.abs(x)<=H*1.05&&Math.abs(y)<=H*1.05?{x,y}:null;}
   if(!window.SCRAP_VIS||SCRAP_VIS.view!=="arena")return null;
   const r=CTL.el.getBoundingClientRect();return SCRAP_VIS.pick(e.clientX-r.left,e.clientY-r.top);}
-function ctlTap(e){const F=FT.F;if(!F||FT.ptrs&&FT.ptrs.size)return;   // a second finger down is a pinch (app/fight.js), not an order
+function ctlTap(e){const F=FT.F;if(!F||e.isPrimary===false)return;   // a second finger down is a pinch (app/fight.js), not an order
   const r=CTL.el.getBoundingClientRect(),p=ctlFloor(F,e);if(!p)return;
   const me=F.bots[0];let hit=null,best=1e9;
   for(const o of F.bots){if(o.out)continue;const d=Math.hypot(o.x-p.x,o.y-p.y);if(d<o.rad*1.6+0.03*F.M.len&&d<best){best=d;hit=o;}}
@@ -4885,7 +4887,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
   if(FT.you)CONTROLS.mount(el);
-  ftInsets();ftOverlay();}
+  ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
 function ftInsets(){if(!FT.on||!window.SCRAP_VIS)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
   const q=b&&b.getBoundingClientRect(),c=b&&b.querySelector(".fbot"),cw=c?c.getBoundingClientRect().width:0;
@@ -4898,7 +4900,7 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   const skip=e=>!!e.target.closest("button,input,[data-c=pad],.fbot,.fpit,.fend,.fpause");
   const dist=()=>{const [a,b]=[...P.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
   const set=z=>{FT.zoom=Math.max(0.55,Math.min(1.8,z));SCRAP_VIS.setRun({zoom:FT.zoom});};
-  const down=e=>{if(!FT.on||skip(e))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});if(P.size===2){d0=dist();z0=FT.zoom||1;}};
+  const down=e=>{if(e.isPrimary)P.clear();if(!FT.on||skip(e))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});if(P.size===2){d0=dist();z0=FT.zoom||1;}};
   const move=e=>{const p=P.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;if(P.size===2&&d0>0)set(z0*d0/Math.max(dist(),1));};
   const up=e=>{P.delete(e.pointerId);if(P.size<2)d0=0;};
   const wheel=e=>{if(!FT.on||skip(e))return;e.preventDefault();set((FT.zoom||1)*(1+Math.sign(e.deltaY)*0.08));};
@@ -4925,6 +4927,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
   const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
+  const many=F.bots.filter(o=>!o.mini).length>2;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
@@ -4934,9 +4937,10 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};
     const dr=ftDrive(o,states),bs=o.flags.smoke||states.battery==="destroyed"?"broke":states.battery==="damaged"||bat<0.2?"worn":"ok";
     set("w",ftArmed(o)?ws:0,!o.fx.weaponOk?"broke":FT_ST[states.weapon]||"ok");set("dr",dr.v,dr.cls);set("bat",bat,bs);
-    const wo=ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}
     const st=o.out?(o.out==="ko"?"Counted out":"In the pit"):o.fx.dead?"Dead":o.flat?"Battery flat":o.immobileS>0?`Immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"Upside down":o.held!=null?"Lifted":o.under?"Under a wedge":heat>0.85?"Overheating":"";
-    const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;el.classList.toggle("out",!!o.out);
+    const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;
+    /* where the status line is hidden (a rumble, a phone on its side), the status takes the worst part's place */
+    const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
     ftMap(el.querySelector(".fmap"),o,states);
     if(FT.on&&!FT.view2d)SCRAP_VIS.damage(i,states);
     if(snd&&i<4)SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));});
@@ -4953,6 +4957,7 @@ function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),
   for(const p of b.parts){if(!p.pos)continue;g.fillStyle=FT_SC[states[p.key]||"intact"];g.beginPath();g.arc(cx+p.pos[0]*s,cy-p.pos[1]*s,(p.key==="weapon"?3:2.2)*k,0,7);g.fill();}}
 /* ---- the bot cards (0.1.15.4): a bot map per bot, three labelled bars, the worst part named ---- */
 const FT_ST={intact:"ok",damaged:"worn",destroyed:"broke"};
+const FT_SHORT=window.matchMedia?matchMedia("(max-height:560px) and (orientation:landscape)"):{matches:false};   // the status line is hidden there (style.css)
 const ftArmed=o=>o.b.weapon.type!=="none"&&o.b.weapon.type!=="wedge";   // a wedge or a pusher has no weapon bar
 function ftTeamCol(o){return DV_COL.bots[(o.team!=null?o.team:o.i)%DV_COL.bots.length];}   // the colour of its ring and stripe in the arena
 /* drive: what is left of the motors and wheels on each side (a side whose controller is dead counts as none) */
@@ -4992,7 +4997,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     for(const q of p.cells){const a=X(cx(q[0])-cell/2)+gap,bb=Y(cy(q[1])+cell/2)+gap,sz=cell*s-2*gap;g.fillRect(a,bb,sz,sz);x0=Math.min(x0,a);y0=Math.min(y0,bb);x1=Math.max(x1,a+sz);y1=Math.max(y1,bb+sz);}
     g.globalAlpha=1;
     if(st==="destroyed"){g.strokeStyle="#141413";g.lineWidth=Math.max(1.5,W/40);g.beginPath();g.moveTo(x0+2,y0+2);g.lineTo(x1-2,y1-2);g.moveTo(x1-2,y0+2);g.lineTo(x0+2,y1-2);g.stroke();}
-    const lab={weapon:"W",battery:"B",electronics:"E"}[p.slot];if(lab&&Math.min(x1-x0,y1-y0)>=W/9){g.fillStyle="#141413";g.font=`700 ${Math.round(Math.min(x1-x0,y1-y0)*0.6)}px ${getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif"}`;g.textAlign="center";g.textBaseline="middle";g.fillText(lab,(x0+x1)/2,(y0+y1)/2+1);}}
+    const lab={weapon:"W",battery:"B",electronics:"E"}[p.slot];if(lab&&Math.min(x1-x0,y1-y0)>=W/9){g.fillStyle="#141413";g.font=`700 ${Math.round(Math.min(x1-x0,y1-y0)*0.6)}px ${FT.font||(FT.font=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif")}`;g.textAlign="center";g.textBaseline="middle";g.fillText(lab,(x0+x1)/2,(y0+y1)/2+1);}}
   /* the armour, one stroke per edge of the outline, coloured by the face it belongs to */
   g.lineCap="round";g.lineWidth=lw;
   /* each edge's outward normal (away from the middle, whichever way the outline winds) picks its face */

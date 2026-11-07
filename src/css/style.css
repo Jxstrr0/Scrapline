@@ -35,7 +35,7 @@
 }
 :root[data-theme=light] #view,:root[data-theme=light] #intro{
   --ink:#F2EFE8; --muted:#ABA79E; --dim:#959189; --clay-t:#D97757; --lilac:#B48CE8; --rule:#34322D; --card:#1F1E1B; --card2:#2A2925;
-  --warn:#E2A93B; --good:#4CC38A; --crit-t:#F06A6E;
+  --warn:#E2A93B; --good:#4CC38A; --crit:#E5484D; --crit-t:#F06A6E;
 }
 
 /* ---- 2. layout ---- */
@@ -369,6 +369,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fbots.many .fbinfo b{font-size:13px}
 .fbots.many .fbar{height:5px}
 .fbots.many .fbst{display:none}
+.fbinfo small.stw{color:var(--lilac)}
 /* a phone on its side: short cards so the arena keeps its height */
 @media (max-height:560px) and (orientation:landscape){.fbots{top:52px}.fmap{width:52px;height:52px}.fbots.many .fmap{width:40px;height:40px}.fbinfo small.fbst{display:none}.fbar{height:5px}}
 .fcv{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94%,calc(100% - 150px));aspect-ratio:1/1;max-height:calc(100% - 150px);border-radius:10px;background:#1A1917}

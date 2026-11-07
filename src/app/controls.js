@@ -61,7 +61,7 @@ function ctlFloor(F,e){const cv=FT.view2d&&$("fCv");
     return Math.abs(x)<=H*1.05&&Math.abs(y)<=H*1.05?{x,y}:null;}
   if(!window.SCRAP_VIS||SCRAP_VIS.view!=="arena")return null;
   const r=CTL.el.getBoundingClientRect();return SCRAP_VIS.pick(e.clientX-r.left,e.clientY-r.top);}
-function ctlTap(e){const F=FT.F;if(!F||FT.ptrs&&FT.ptrs.size)return;   // a second finger down is a pinch (app/fight.js), not an order
+function ctlTap(e){const F=FT.F;if(!F||e.isPrimary===false)return;   // a second finger down is a pinch (app/fight.js), not an order
   const r=CTL.el.getBoundingClientRect(),p=ctlFloor(F,e);if(!p)return;
   const me=F.bots[0];let hit=null,best=1e9;
   for(const o of F.bots){if(o.out)continue;const d=Math.hypot(o.x-p.x,o.y-p.y);if(d<o.rad*1.6+0.03*F.M.len&&d<best){best=d;hit=o;}}

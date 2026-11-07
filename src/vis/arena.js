@@ -101,7 +101,7 @@ function botTag(name,team,lite){const W=lite?192:256,Hh=W/4,c=document.createEle
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true}));
   sp.center.set(0.5,0);sp.renderOrder=6;sp.userData.own=true;sp.userData.asp=W/Hh;return sp;}
-const FLASH_COL=new THREE.Color(0xfff1d6);
+const FLASH_COL=new THREE.Color(0xfff1d6).convertSRGBToLinear();
 /* the floor grid every 30 cm (beetle scale) across the arena; with a hole [x0, z0, x1, z1] (the kit's open pit) the lines
    stop at its edge instead of crossing the void */
 function arenaGrid(H,hole){const step=0.3*4,pts=[],y=0.002;
@@ -116,7 +116,8 @@ function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
   AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;});
-  for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];return true;}
+  for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
+  for(const n of FX.nums)fxNumDrop(n);FX.nums=[];return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
 function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
