@@ -2668,7 +2668,7 @@ function play(id,at){const x=L[id];if(!x)return false;if(x.c==="c"&&O.comm===fal
     g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(io.ctx.currentTime,at||0);s.start(when);
     SCRAP_SOUND.talk(when+buf.duration);P.src.push(s);s.onended=()=>{const i=P.src.indexOf(s);if(i>=0)P.src.splice(i,1);};});
   return true;}
-function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
+function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];P.introTok=null;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
 
 /* ---- picks: a seeded stream per fight, skipping the last few lines said ---- */
 function pickFrom(R,recent,cues){for(const q of cues){const ids=POOL[q];if(!ids||!ids.length)continue;
@@ -2690,7 +2690,8 @@ function say(cue){return seq([cue],{queue:true});}
 /* before a fight: hold only when at least one of the calls is decoded and can be heard */
 function intro(cues,done){stopAll();P.introDone=null;const ids=seqIds(cues).filter(id=>audioOn()&&P.bytes[id]&&!(L[id].c==="c"&&O.comm===false));
   if(!ids.length||!(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus&&SCRAP_SOUND.voiceBus()))return false;
-  let n=ids.length,go=false;const start=()=>{if(go)return;go=true;P.introDone=done;P.queue=ids.slice();runQueue();};
+  P.introDone=done;const tok={};P.introTok=tok;   // set now, so Skip, Pause or a newer intro cancels a start still waiting on decodes
+  let n=ids.length,go=false;const start=()=>{if(go||P.introTok!==tok||P.introDone!==done)return;go=true;P.queue=ids.slice();runQueue();};
   for(const id of ids)decoded(id,()=>{if(--n<=0)start();});setTimeout(start,1200);   // decode first (a smooth countdown), but never wait long
   return true;}
 function skip(){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
@@ -2773,7 +2774,8 @@ function endCues(F,o){o=o||{};const kind=o.kind||(D&&D.kind)||"duel",me=F.bots[0
   if(why!=="judges"&&why!=="draw"&&F.winner!=null&&kind==="duel")out.push(won?"win":"lose");
   const B=o.bout;if(B&&!B.over&&B.me+B.them===1)out.push(B.me?"bo3:lead":"bo3:trail");
   for(const x of o.extra||[])out.push(x);
-  if(F.winner!=null&&(!B||B.over))out.push(won?"c:win":"c:lose");
+  if(B&&B.over){if(B.me!==B.them)out.push(B.me>B.them?"c:win":"c:lose");}   // a best of three: the bout's result, and nothing for a drawn bout
+  else if(F.winner!=null&&!B)out.push(won?"c:win":"c:lose");
   return out;}
 function end(F,o){if(D)D.pend=null;const cues=endCues(F,o);return cues.length?seq(cues):0;}
 

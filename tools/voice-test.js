@@ -60,6 +60,12 @@ for (let n = 0; n < 9; n++) {
 /* a stopped fight says nothing at the bell */
 { const F = SIM.newFight({ seed: 5, arena: "box", bots: [{ cfg: tb[0].cfg, name: "You" }, { cfg: tb[1].cfg, name: "X" }] });
   F.over = true; F.reason = "stopped"; if (V.endCues(F, {}).length) fail("a stopped fight got result calls"); }
+/* a best of three that ends level gets no win or loss call; an over bout takes its result from the bout, not the round */
+{ const F = SIM.newFight({ seed: 6, arena: "box", bots: [{ cfg: tb[0].cfg, name: "You" }, { cfg: tb[1].cfg, name: "X" }] });
+  F.over = true; F.reason = "ko"; F.winner = F.bots[1].team;
+  const lvl = V.endCues(F, { kind: "duel", bout: { me: 1, them: 1, over: true } });
+  if (lvl.indexOf("c:win") >= 0 || lvl.indexOf("c:lose") >= 0) fail("a drawn best of three got a win or loss call");
+  if (V.endCues(F, { kind: "duel", bout: { me: 2, them: 1, over: true } }).indexOf("c:win") < 0) fail("a won best of three lost on its last round got no win call"); }
 
 /* every cue the app asks for has at least one line */
 const need = ["intro", "countdown", "pitwin", "c:pitwin", "pit10", "pitclose", "pm:replay", "pm:gen", "pm:pit", "pm:inv", "pm:under", "pm:face",
