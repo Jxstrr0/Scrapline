@@ -162,7 +162,7 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
 /* the loaded shells scene on Full and Ultra, or null (and the load starts): when it lands, the workshop's bot is drawn again
    with them (a bot already in a fight keeps its coded shape) */
 function shellsReady(){const c=PROPS.models.shells;return V.tier!=="lite"&&!!(c&&c.scene);}
-function botShells(){if(V.tier==="lite")return null;const c=PROPS.models.shells;if(c&&c.scene)return c.scene;if(c||PROPS.shellAsk)return null;
-  const go=()=>{PROPS.shellAsk=false;propModel("shells",()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
-  if(THREE.GLTFLoader)go();else if(window.__scrPost){PROPS.shellAsk=true;window.__scrPost(()=>{if(THREE.GLTFLoader)go();else PROPS.shellAsk=false;});}
+function botShells(){if(V.tier==="lite")return null;const c=PROPS.models.shells;if(c&&c.scene)return c.scene;if(c||PROPS.shellAsk||PROPS.shellTries>=2)return null;   // two tries a visit, then the coded shapes
+  const go=()=>{PROPS.shellAsk=false;PROPS.shellTries=(PROPS.shellTries||0)+1;propModel("shells",()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
+  if(THREE.GLTFLoader)go();else if(window.__scrPost){PROPS.shellAsk=true;window.__scrPost(()=>{if(THREE.GLTFLoader&&V.tier!=="lite")go();else PROPS.shellAsk=false;});}
   return null;}

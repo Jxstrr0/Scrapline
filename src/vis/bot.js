@@ -78,11 +78,13 @@ function buildBot(b,team,sp){
       for(const sz of [-1,1])add(pg,M.steel,sx*(hw+r)-cx,clr+bodyH/2,cy+sz*(hl+r),"chassis");}
     for(const sz of [-1,1]){const t=add(cg2,M.steel,-cx,H+tt+r,cy+sz*(hl+r),"chassis");t.rotation.z=Math.PI/2;}}
   /* team paint: a stripe down the top, so you can tell the bots apart from above */
-  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top");paint.position.set(-cx,H+lid+0.0008*len,cy+L*0.05);if(body==="wedge"){paint.position.y=H-drop/2+tt+0.0008*len;paint.rotation.x=-Math.atan2(drop,L*0.98);}else if(body==="dome"){paint.position.y=H+bodyH*0.5;paint.scale.z=0.6;}g.add(paint);
+  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy+L*0.05);if(body==="wedge"){paint.position.y=H-drop/2+wt+0.0008*len;paint.rotation.x=-Math.atan2(drop,L*0.98);}else if(body==="dome"){paint.position.y=H+bodyH*0.5;paint.scale.z=0.6;}g.add(paint);
   /* sponsors: a panel on each side, a patch at the back of the top plate */
   if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bh*0.5,L*0.5),spMat(sp.side));
     m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*0.5,cy);g.add(m);}
-  if(sp&&sp.top){const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.6,0.0015*len,L*0.18),spMat(sp.top));m.position.set(-cx,(body==="dome"?H+bodyH*0.27:H-drop*0.13+(S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH*0.9:th("top")))+0.0009*len,cy+L*0.36);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
+  if(sp&&sp.top){const sw=S&&body==="invert"?0.34:0.6,pz=S&&(body==="wedge"||body==="pancake")?0.3:0.36;   /* over a shell: between the invertible's rails, clear of the bolts */
+    const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*sw,0.0015*len,L*0.18),spMat(sp.top));
+    m.position.set(-cx,(body==="dome"?H+bodyH*0.27:S&&body==="wedge"?H-drop*(0.5-pz)+wt:H-drop*0.13+lid)+0.0009*len,cy+L*pz);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
   const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
@@ -103,7 +105,7 @@ function buildBot(b,team,sp){
    them; until they arrive (or if they fail) the coded shapes stand in. ---- */
 const SHELL_TOPS={wedge:1,dome:1,pancake:1,invert:1};   // bodies whose shell is the top (the rest add to the flat top)
 /* how far a shell's lid stands above the box top, in chassis heights, for the stripe and the sponsor patch */
-const SHELL_LID={pancake:.165,invert:.145};
+const SHELL_LID={pancake:.12,invert:.09};   // the wedge lid's plate is .07 thick over its slope
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
   o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;m.userData.keep=1;if(part)m.userData.part=part;}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
@@ -113,7 +115,8 @@ function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topK
   else if(body==="dome"){U("dome_shell",topMat,topKey);U("dome_bolts",M.steel,topKey);}
   else if(body==="pancake"){U("pancake_lid",topMat,topKey);U("pancake_bolts",M.steel,topKey);}
   else if(body==="invert"){U("invert_plate",topMat,topKey);U("invert_bolts",M.steel,topKey);   /* and the same plate mirrored underneath */
-    shellAdd(g,S,"invert_plate",topMat,"chassis",-cx,clr,cy,Wd,-bodyH,L);shellAdd(g,S,"invert_bolts",M.steel,"chassis",-cx,clr,cy,Wd,-bodyH,L);}
+    const dn=-Math.min(bodyH,clr*0.8/0.14);   // no deeper than most of the clearance, so it never shows through the floor
+    shellAdd(g,S,"invert_plate",topMat,"chassis",-cx,clr,cy,Wd,dn,L);shellAdd(g,S,"invert_bolts",M.steel,"chassis",-cx,clr,cy,Wd,dn,L);}
   else if(body==="slab"){for(const s of ["left","right"]){const n=s==="left"?"l":"r";U("slab_skirt_"+n,sideMat(s),sideKey(s));U("slab_bolts_"+n,M.steel,sideKey(s));}
     const gs=0.024*len;for(const mx of [-1,1])for(const mz of [-1,1])shellAdd(g,S,"slab_guard",M.steel,"chassis",mx*hw-cx,clr,cy+mz*hl,mx*gs,bodyH,mz*gs);}
   else if(body==="scrap"){   /* the frame: rails along the top edges, posts up the corners, a cross brace over the top, welds at the joints */

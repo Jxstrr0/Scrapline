@@ -18,7 +18,7 @@ like bolt heads are drawn pre-squashed by REF so they come out round on a typica
   dome_shell    the dome: a half ellipsoid from y -0.3 to y 0.5 with a rim flange and a ridge; dome_bolts round the rim
   slab_skirt_l / _r   thick side skirts with a bevelled top; slab_bolts_l / _r; slab_guard a corner guard (its own unit:
                 the corner at the origin, the bot in -x -z, scaled by the guard's size in x and z and the chassis height in y)
-  pancake_lid   a wide flat lid (y 0..0.12) with chamfered edges and an access panel; pancake_bolts
+  pancake_lid   a wide flat lid (y 0..0.12) with chamfered edges and two side hatches; pancake_bolts
   invert_plate  the same plate top and bottom (y 0..0.09, the game mirrors it underneath); invert_bolts
   scrap_tube    one frame tube, unit radius and unit length along y (the game scales it like its coded tubes);
   scrap_weld    a lumpy weld blob, unit radius, for the joints
@@ -177,9 +177,10 @@ def slope(z):
 
 
 top = [prism_x("w", [(0.5, 0), (-0.5, -0.6), (-0.47, -0.6 + T), (0.5, T)], -0.49, 0.49, PLATE)]
-for zc in (0.18, -0.16):                      # two stiffening ribs across the slope
+for zc in (0.12, -0.16):                      # two stiffening ribs across the slope, parted in the middle for the team stripe
     a, b = zc - 0.035, zc + 0.035
-    top.append(prism_x("w", [(b, slope(b) + T), (a, slope(a) + T), (a, slope(a) + T + 0.06), (b, slope(b) + T + 0.06)], -0.42, 0.42, PLATE))
+    for x0, x1 in ((-0.42, -0.18), (0.18, 0.42)):
+        top.append(prism_x("w", [(b, slope(b) + T), (a, slope(a) + T), (a, slope(a) + T + 0.06), (b, slope(b) + T + 0.06)], x0, x1, PLATE))
 top.append(prism_x("w", [(0.5, T), (0.44, T), (0.44, T + 0.05), (0.5, T + 0.05)], -0.49, 0.49, PLATE))   # a hinge strip at the back
 join("wedge_top", top, PLATE)
 bl = []
@@ -187,7 +188,7 @@ for x in (-0.43, 0.43):
     for zc in (0.38, 0.05, -0.28):
         bl.append(bolt(0.02, 0.05, x, slope(zc) + T, zc))
 for x in (-0.25, 0, 0.25):
-    bl.append(bolt(0.018, 0.05, x, T + 0.05, 0.47))
+    bl.append(bolt(0.018, 0.05, x, T + 0.05, 0.47))   # on the hinge strip, behind the sponsor patch
 join("wedge_bolts", bl, STEEL)
 for s, nm in ((-1, "wedge_cheek_l"), (1, "wedge_cheek_r")):
     x0, x1 = (-0.5, -0.47) if s < 0 else (0.47, 0.5)
@@ -252,17 +253,22 @@ bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
 join("slab_guard", g, STEEL)
 
 # ---- the pancake: a wide flat lid ----
-lid = [frustum("p", 0.52, 0.51, 0.47, 0.46, 0.0, 0.12, 0.05, PLATE),
-       frustum("p", 0.2, 0.25, 0.18, 0.23, 0.12, 0.16, 0.14, PLATE)]          # an access panel
+lid = [frustum("p", 0.52, 0.51, 0.47, 0.46, 0.0, 0.12, 0.05, PLATE)]
+for x in (-0.33, 0.33):                                                       # two access hatches, clear of the stripe and the patch
+    h = frustum("p", 0.06, 0.15, 0.05, 0.14, 0.12, 0.16, 0.14, PLATE)
+    for v in h.data.vertices:
+        v.co.x += x
+    lid.append(h)
 join("pancake_lid", lid, PLATE)
 bl = []
 for i in range(5):
     x = -0.4 + i * 0.2
-    bl += [bolt(0.018, 0.05, x, 0.12, -0.43), bolt(0.018, 0.05, x, 0.12, 0.43)]
+    bl += [bolt(0.018, 0.05, x, 0.12, -0.43)] + ([] if abs(x) < 0.35 else [bolt(0.018, 0.05, x, 0.12, 0.43)])   # the back middle is the sponsor patch's
 for z in (-0.2, 0, 0.2):
     bl += [bolt(0.018, 0.05, -0.44, 0.12, z), bolt(0.018, 0.05, 0.44, 0.12, z)]
-for x, z in ((-0.16, -0.21), (0.16, -0.21), (-0.16, 0.21), (0.16, 0.21)):
-    bl.append(bolt(0.014, 0.04, x, 0.16, z))
+for x in (-0.33, 0.33):
+    for z in (-0.11, 0.11):
+        bl.append(bolt(0.012, 0.04, x, 0.16, z))
 join("pancake_bolts", bl, STEEL)
 
 # ---- the invertible: one plate, the game mirrors it underneath ----

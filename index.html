@@ -2457,11 +2457,13 @@ function buildBot(b,team,sp){
       for(const sz of [-1,1])add(pg,M.steel,sx*(hw+r)-cx,clr+bodyH/2,cy+sz*(hl+r),"chassis");}
     for(const sz of [-1,1]){const t=add(cg2,M.steel,-cx,H+tt+r,cy+sz*(hl+r),"chassis");t.rotation.z=Math.PI/2;}}
   /* team paint: a stripe down the top, so you can tell the bots apart from above */
-  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top");paint.position.set(-cx,H+lid+0.0008*len,cy+L*0.05);if(body==="wedge"){paint.position.y=H-drop/2+tt+0.0008*len;paint.rotation.x=-Math.atan2(drop,L*0.98);}else if(body==="dome"){paint.position.y=H+bodyH*0.5;paint.scale.z=0.6;}g.add(paint);
+  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy+L*0.05);if(body==="wedge"){paint.position.y=H-drop/2+wt+0.0008*len;paint.rotation.x=-Math.atan2(drop,L*0.98);}else if(body==="dome"){paint.position.y=H+bodyH*0.5;paint.scale.z=0.6;}g.add(paint);
   /* sponsors: a panel on each side, a patch at the back of the top plate */
   if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bh*0.5,L*0.5),spMat(sp.side));
     m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*0.5,cy);g.add(m);}
-  if(sp&&sp.top){const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.6,0.0015*len,L*0.18),spMat(sp.top));m.position.set(-cx,(body==="dome"?H+bodyH*0.27:H-drop*0.13+(S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH*0.9:th("top")))+0.0009*len,cy+L*0.36);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
+  if(sp&&sp.top){const sw=S&&body==="invert"?0.34:0.6,pz=S&&(body==="wedge"||body==="pancake")?0.3:0.36;   /* over a shell: between the invertible's rails, clear of the bolts */
+    const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*sw,0.0015*len,L*0.18),spMat(sp.top));
+    m.position.set(-cx,(body==="dome"?H+bodyH*0.27:S&&body==="wedge"?H-drop*(0.5-pz)+wt:H-drop*0.13+lid)+0.0009*len,cy+L*pz);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
   const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
@@ -2482,7 +2484,7 @@ function buildBot(b,team,sp){
    them; until they arrive (or if they fail) the coded shapes stand in. ---- */
 const SHELL_TOPS={wedge:1,dome:1,pancake:1,invert:1};   // bodies whose shell is the top (the rest add to the flat top)
 /* how far a shell's lid stands above the box top, in chassis heights, for the stripe and the sponsor patch */
-const SHELL_LID={pancake:.165,invert:.145};
+const SHELL_LID={pancake:.12,invert:.09};   // the wedge lid's plate is .07 thick over its slope
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
   o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;m.userData.keep=1;if(part)m.userData.part=part;}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
@@ -2492,7 +2494,8 @@ function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topK
   else if(body==="dome"){U("dome_shell",topMat,topKey);U("dome_bolts",M.steel,topKey);}
   else if(body==="pancake"){U("pancake_lid",topMat,topKey);U("pancake_bolts",M.steel,topKey);}
   else if(body==="invert"){U("invert_plate",topMat,topKey);U("invert_bolts",M.steel,topKey);   /* and the same plate mirrored underneath */
-    shellAdd(g,S,"invert_plate",topMat,"chassis",-cx,clr,cy,Wd,-bodyH,L);shellAdd(g,S,"invert_bolts",M.steel,"chassis",-cx,clr,cy,Wd,-bodyH,L);}
+    const dn=-Math.min(bodyH,clr*0.8/0.14);   // no deeper than most of the clearance, so it never shows through the floor
+    shellAdd(g,S,"invert_plate",topMat,"chassis",-cx,clr,cy,Wd,dn,L);shellAdd(g,S,"invert_bolts",M.steel,"chassis",-cx,clr,cy,Wd,dn,L);}
   else if(body==="slab"){for(const s of ["left","right"]){const n=s==="left"?"l":"r";U("slab_skirt_"+n,sideMat(s),sideKey(s));U("slab_bolts_"+n,M.steel,sideKey(s));}
     const gs=0.024*len;for(const mx of [-1,1])for(const mz of [-1,1])shellAdd(g,S,"slab_guard",M.steel,"chassis",mx*hw-cx,clr,cy+mz*hl,mx*gs,bodyH,mz*gs);}
   else if(body==="scrap"){   /* the frame: rails along the top edges, posts up the corners, a cross brace over the top, welds at the joints */
@@ -2760,7 +2763,7 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
 function fxChunk(i,key){const B=AR.bots[i];if(!B||V.run.fxLow)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
   if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}
   const src=ms[0],m=src.clone();m.material=src.material.clone();m.material.transparent=true;m.userData={own:true};
-  B.mesh.updateMatrixWorld(true);src.getWorldPosition(m.position);src.getWorldQuaternion(m.quaternion);m.scale.setScalar(AR.U);
+  B.mesh.updateMatrixWorld(true);src.matrixWorld.decompose(m.position,m.quaternion,m.scale);   // its world size: a Blender shell is stretched to the bot
   AR.g.add(m);const a=fxR()*Math.PI*2;FX.chunks.push({m,v:[Math.cos(a)*2.5,3+fxR()*2,Math.sin(a)*2.5],w:[fxR()*12-6,fxR()*12-6,fxR()*12-6],t:0});
   fxSpark(m.position.x,m.position.y,m.position.z,12,3);}
 function fxTick(dt){if(!FX.pts&&!FX.chunks.length)return;const g=-9;
@@ -3052,9 +3055,9 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
 /* the loaded shells scene on Full and Ultra, or null (and the load starts): when it lands, the workshop's bot is drawn again
    with them (a bot already in a fight keeps its coded shape) */
 function shellsReady(){const c=PROPS.models.shells;return V.tier!=="lite"&&!!(c&&c.scene);}
-function botShells(){if(V.tier==="lite")return null;const c=PROPS.models.shells;if(c&&c.scene)return c.scene;if(c||PROPS.shellAsk)return null;
-  const go=()=>{PROPS.shellAsk=false;propModel("shells",()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
-  if(THREE.GLTFLoader)go();else if(window.__scrPost){PROPS.shellAsk=true;window.__scrPost(()=>{if(THREE.GLTFLoader)go();else PROPS.shellAsk=false;});}
+function botShells(){if(V.tier==="lite")return null;const c=PROPS.models.shells;if(c&&c.scene)return c.scene;if(c||PROPS.shellAsk||PROPS.shellTries>=2)return null;   // two tries a visit, then the coded shapes
+  const go=()=>{PROPS.shellAsk=false;PROPS.shellTries=(PROPS.shellTries||0)+1;propModel("shells",()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
+  if(THREE.GLTFLoader)go();else if(window.__scrPost){PROPS.shellAsk=true;window.__scrPost(()=>{if(THREE.GLTFLoader&&V.tier!=="lite")go();else PROPS.shellAsk=false;});}
   return null;}
 /* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
