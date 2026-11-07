@@ -47,7 +47,7 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
 /* a damage number: a sprite that keeps its size on screen (like the name tags), above the bot */
 function fxNum(B,d){const lite=V.tier==="lite",max=lite?3:6;while(FX.nums.length>=max)fxNumDrop(FX.nums.shift());
   const W=lite?96:128,Hh=W/2,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/128;
-  const fam=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif",t="\u2212"+Math.max(1,Math.round(d*100))+"%";
+  const fam=FX.font||(FX.font=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif"),t="\u2212"+Math.max(1,Math.round(d*100))+"%";
   x.font=`700 ${40*k}px ${fam}`;x.textAlign="center";x.textBaseline="middle";x.lineJoin="round";
   x.lineWidth=8*k;x.strokeStyle="rgba(20,20,19,0.9)";x.strokeText(t,W/2,Hh/2+2*k);
   x.fillStyle=d>=0.08?"#FF8F93":"#F2EFE8";x.fillText(t,W/2,Hh/2+2*k);   // a big bite in a light cool red (damage colours never go clay)

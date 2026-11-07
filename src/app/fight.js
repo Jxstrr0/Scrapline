@@ -151,7 +151,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
   if(FT.you)CONTROLS.mount(el);
-  ftInsets();ftOverlay();}
+  ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
 function ftInsets(){if(!FT.on||!window.SCRAP_VIS)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
   const q=b&&b.getBoundingClientRect(),c=b&&b.querySelector(".fbot"),cw=c?c.getBoundingClientRect().width:0;
@@ -164,7 +164,7 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   const skip=e=>!!e.target.closest("button,input,[data-c=pad],.fbot,.fpit,.fend,.fpause");
   const dist=()=>{const [a,b]=[...P.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
   const set=z=>{FT.zoom=Math.max(0.55,Math.min(1.8,z));SCRAP_VIS.setRun({zoom:FT.zoom});};
-  const down=e=>{if(!FT.on||skip(e))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});if(P.size===2){d0=dist();z0=FT.zoom||1;}};
+  const down=e=>{if(e.isPrimary)P.clear();if(!FT.on||skip(e))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});if(P.size===2){d0=dist();z0=FT.zoom||1;}};
   const move=e=>{const p=P.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;if(P.size===2&&d0>0)set(z0*d0/Math.max(dist(),1));};
   const up=e=>{P.delete(e.pointerId);if(P.size<2)d0=0;};
   const wheel=e=>{if(!FT.on||skip(e))return;e.preventDefault();set((FT.zoom||1)*(1+Math.sign(e.deltaY)*0.08));};
@@ -191,6 +191,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
   const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
+  const many=F.bots.filter(o=>!o.mini).length>2;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
@@ -200,9 +201,10 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};
     const dr=ftDrive(o,states),bs=o.flags.smoke||states.battery==="destroyed"?"broke":states.battery==="damaged"||bat<0.2?"worn":"ok";
     set("w",ftArmed(o)?ws:0,!o.fx.weaponOk?"broke":FT_ST[states.weapon]||"ok");set("dr",dr.v,dr.cls);set("bat",bat,bs);
-    const wo=ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}
     const st=o.out?(o.out==="ko"?"Counted out":"In the pit"):o.fx.dead?"Dead":o.flat?"Battery flat":o.immobileS>0?`Immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"Upside down":o.held!=null?"Lifted":o.under?"Under a wedge":heat>0.85?"Overheating":"";
-    const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;el.classList.toggle("out",!!o.out);
+    const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;
+    /* where the status line is hidden (a rumble, a phone on its side), the status takes the worst part's place */
+    const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
     ftMap(el.querySelector(".fmap"),o,states);
     if(FT.on&&!FT.view2d)SCRAP_VIS.damage(i,states);
     if(snd&&i<4)SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));});
@@ -219,6 +221,7 @@ function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),
   for(const p of b.parts){if(!p.pos)continue;g.fillStyle=FT_SC[states[p.key]||"intact"];g.beginPath();g.arc(cx+p.pos[0]*s,cy-p.pos[1]*s,(p.key==="weapon"?3:2.2)*k,0,7);g.fill();}}
 /* ---- the bot cards (0.1.15.4): a bot map per bot, three labelled bars, the worst part named ---- */
 const FT_ST={intact:"ok",damaged:"worn",destroyed:"broke"};
+const FT_SHORT=window.matchMedia?matchMedia("(max-height:560px) and (orientation:landscape)"):{matches:false};   // the status line is hidden there (style.css)
 const ftArmed=o=>o.b.weapon.type!=="none"&&o.b.weapon.type!=="wedge";   // a wedge or a pusher has no weapon bar
 function ftTeamCol(o){return DV_COL.bots[(o.team!=null?o.team:o.i)%DV_COL.bots.length];}   // the colour of its ring and stripe in the arena
 /* drive: what is left of the motors and wheels on each side (a side whose controller is dead counts as none) */
@@ -258,7 +261,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     for(const q of p.cells){const a=X(cx(q[0])-cell/2)+gap,bb=Y(cy(q[1])+cell/2)+gap,sz=cell*s-2*gap;g.fillRect(a,bb,sz,sz);x0=Math.min(x0,a);y0=Math.min(y0,bb);x1=Math.max(x1,a+sz);y1=Math.max(y1,bb+sz);}
     g.globalAlpha=1;
     if(st==="destroyed"){g.strokeStyle="#141413";g.lineWidth=Math.max(1.5,W/40);g.beginPath();g.moveTo(x0+2,y0+2);g.lineTo(x1-2,y1-2);g.moveTo(x1-2,y0+2);g.lineTo(x0+2,y1-2);g.stroke();}
-    const lab={weapon:"W",battery:"B",electronics:"E"}[p.slot];if(lab&&Math.min(x1-x0,y1-y0)>=W/9){g.fillStyle="#141413";g.font=`700 ${Math.round(Math.min(x1-x0,y1-y0)*0.6)}px ${getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif"}`;g.textAlign="center";g.textBaseline="middle";g.fillText(lab,(x0+x1)/2,(y0+y1)/2+1);}}
+    const lab={weapon:"W",battery:"B",electronics:"E"}[p.slot];if(lab&&Math.min(x1-x0,y1-y0)>=W/9){g.fillStyle="#141413";g.font=`700 ${Math.round(Math.min(x1-x0,y1-y0)*0.6)}px ${FT.font||(FT.font=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif")}`;g.textAlign="center";g.textBaseline="middle";g.fillText(lab,(x0+x1)/2,(y0+y1)/2+1);}}
   /* the armour, one stroke per edge of the outline, coloured by the face it belongs to */
   g.lineCap="round";g.lineWidth=lw;
   /* each edge's outward normal (away from the middle, whichever way the outline winds) picks its face */
