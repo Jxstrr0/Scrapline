@@ -212,7 +212,8 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
 /* ---- the log ---- */
 const r2=v=>Math.round(v*100)/100;
 /* where things happened, for a view to flash (newFight({fx:true}) only; the view drains it; never in the log) */
-function fxPush(F,e){if(!F.fxq)return;F.fxq.push(e);if(F.fxq.length>64)F.fxq.shift();}
+/* the vis's events (only with fx on); a hit or hazard carries what it damaged from damageBot (F.fxHit): keys, the parts it hurt, and d, the share of the bot's health it took */
+function fxPush(F,e){if(!F.fxq)return;const h=F.fxHit;F.fxHit=null;if(h&&e.v===h.v){e.keys=h.keys;e.d=h.d;}F.fxq.push(e);if(F.fxq.length>64)F.fxq.shift();}
 /* failure flags carried in from an earlier round (a best of three): a bent disc, a smoking battery, a failsafe cell
    keeping a dead battery going, a dead speed-controller side. Only the ones set, or null */
 function carryFlags(f){if(!f||typeof f!=="object")return null;const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;
@@ -244,8 +245,9 @@ function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>l
    underside when t is upside down) x DAMAGE.bayMul. Draws from the fight's generator only when there is a share, so a
    bot with no open bay leaves the fight's sequence exactly as it was. Never for a landing (damageBot's caller decides). */
 function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAGE.bayMul:0;return p>0&&F.rng()<p;}
-function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
+function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};F.fxHit=null;if(E<=0||o.out==="pit")return null;const before=o.fx;
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
+  const s0=F.fxq&&(kind==="hit"||kind==="haz")?damageShare(o.b,st):-1;   // fx only: the damage number over the bot
   const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
@@ -260,6 +262,8 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
     const ep=(o.b.parts.find(p=>p.key==="electronics")||{}).pos||[0,0];o.flags.esc=ep[0]<-1e-6?"left":ep[0]>1e-6?"right":F.rng()<0.5?"left":"right";
     logIt(F,{k:"fail",v:o.i,what:"esc",side:o.flags.esc});}
   o.fx=damageEffects(o.b,st,o.flags);
+  if(s0>=0){const keys=res.parts.filter(p=>p.dmg>0).map(p=>p.key);if(res.plate>0&&FACES.includes(face))keys.push("armour_"+face);if(res.through>0)keys.push("chassis");
+    F.fxHit={v:o.i,keys,d:damageShare(o.b,st)-s0};}
   const e=logHit(F,kind,kind==="land"?-1:att,o.i,kind==="land"?(opts.inverted?"top":"under"):face,opts.logE!=null?opts.logE:E,res,bay);
   if(kind==="land")e.inv=opts.inverted?1:0;if(!e.x)delete e.x;if(opts.gl)e.gl=1;if(!e.p)delete e.p;if(opts.tag)Object.assign(e,opts.tag);
   let broke=0;for(const p of res.parts)if(p.destroyed){broke++;logIt(F,{k:"fail",v:o.i,what:"part",key:p.key});}
@@ -317,8 +321,8 @@ function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;hit=true;
     if(t.m>w.canLiftKg){logIt(F,{k:"flip",a:o.i,v:t.i,h:0,heavy:1});continue;}
     const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);
-    launch(F,t,Math.sqrt(2*K.g*h),flip,o);logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});
-    damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);o.stats.hits++;}
+    launch(F,t,Math.sqrt(2*K.g*h),flip,o);logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
+    damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
   if(!hit)logIt(F,{k:"flip",a:o.i,v:-1});}
 function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
