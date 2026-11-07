@@ -185,5 +185,42 @@ for (const cls of SIM.CLASS_IDS) {
   console.log("PR 8 checks: disc profiles, the high-pressure flipper, minibots, season rules");
 }
 
+/* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
+{
+  const KIND = { vsp: "slot", saw: "slot", drum: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
+    lifter: "deck", crusher: "deck", wedge: "none", none: "none" }, eps = 1e-9;
+  for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
+    const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
+    if (!y) { fail(`${lbl}: no bay`); continue; }
+    if (y.kind !== (KIND[w.id] || "?")) fail(`${lbl}: bay ${y.kind}, should be ${KIND[w.id]}`);
+    const W = b.widthM, L = b.lengthM;
+    for (const k of ["topFrac", "belowFrac"]) if (!(y[k] >= 0 && y[k] <= 1)) fail(`${lbl}: ${k} ${y[k]} outside 0..1`);
+    if (!y.openTop && y.topFrac !== 0) fail(`${lbl}: topFrac ${y.topFrac} on a bay that isn't open from above`);
+    if (!y.openBelow && y.belowFrac !== 0) fail(`${lbl}: belowFrac ${y.belowFrac} on a bay that isn't open from below`);
+    if (y.kind === "none") { if (y.rect || y.u || y.openTop || y.openBelow) fail(`${lbl}: no bay, but a rect or an opening`); continue; }
+    const r = y.rect;
+    if (!r || r[0] < -W / 2 - eps || r[2] > W / 2 + eps || r[1] < -L / 2 - eps || r[3] > L / 2 + eps || !(r[2] > r[0]) || !(r[3] > r[1])) fail(`${lbl}: bay rect ${r} outside the body ${W} x ${L}`);
+    const u = y.u && y.u.rect, want = r && [r[0] / W, -r[3] / L, r[2] / W, -r[1] / L];
+    if (!u || u.some((v, i) => Math.abs(v - want[i]) > eps)) fail(`${lbl}: bay u ${u} should be ${want}`);
+    if ((y.kind === "slot" || y.kind === "pocket" || y.kind === "well") !== y.openTop) fail(`${lbl}: a ${y.kind} should${y.openTop ? " not" : ""} be open from above`);
+    if ((w.id === "vsp" || w.id === "drum" || w.id === "under") !== y.openBelow) fail(`${lbl}: openBelow ${y.openBelow}`);
+    if (y.openTop && !(y.topFrac > 0)) fail(`${lbl}: an open bay with no share of the top`);
+  }
+  /* a hit from above into the bay skips the plate and lands on the weapon first */
+  const b = SIM.evalBuild(Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === "hsp").cfg, { cls: "beetle" })), A = b.armourMapJ.top, E = A.absorbJ + A.hpJ * 0.5;
+  const onPlate = SIM.hitFace(b, "top", E), intoBay = SIM.hitFace(b, "top", E, null, 1, true), wd = (h) => h.parts.filter((p) => p.key === "weapon").reduce((a, p) => a + p.dmg, 0);
+  if (!(A.absorbJ > 0) || onPlate.parts.length || !(onPlate.plate > 0)) fail("a hit the top plate holds should do no damage behind it");
+  if (intoBay.plate || intoBay.absorbed || !intoBay.bay || !intoBay.parts.length || intoBay.parts[0].key !== "weapon" || !(wd(intoBay) > wd(onPlate))) fail("a hit into the open bay should skip the plate and land on the weapon first");
+  /* in a fight: no open bay, no draws (the fight is the same whatever bayMul is); a hammer finds a horizontal disc's well */
+  const T = (id) => SIM.TEST_BUILDS.find((t) => t.id === id).cfg, run = (a, d, seed) => SIM.runFight({ seed, arena: "box", bots: [{ cfg: T(a), driver: { style: "auto", skill: 0.85 } }, { cfg: T(d), driver: { style: "auto", skill: 0.85 } }] });
+  const mul = SIM.DAMAGE.bayMul, logOf = (a, d, seed) => JSON.stringify(run(a, d, seed).log);
+  SIM.DAMAGE.bayMul = 1; const flat1 = logOf("hammer", "flipper", 5); SIM.DAMAGE.bayMul = 3; const flat3 = logOf("hammer", "flipper", 5);
+  let bayHits = 0; for (let s = 1; s <= 12 && !bayHits; s++) bayHits += run("hammer", "hsp", s).log.entries.filter((e) => e.bay && e.v === 1).length;
+  SIM.DAMAGE.bayMul = mul;
+  if (flat1 !== flat3) fail("a fight with no open bay should not change with DAMAGE.bayMul");
+  if (!bayHits) fail("a hammer should land in a horizontal disc's well now and then");
+  console.log("0.1.15.3 checks: weapon bays in every class, hits into the bay");
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");

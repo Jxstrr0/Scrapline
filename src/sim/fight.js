@@ -14,6 +14,7 @@
    lifts, flips and landings. Drive is tank steering: each side's wheels push F0/2 x (command - wheel speed / v0), capped
    by grip, less per wheel or pod lost. Bots collide as convex polygons with impulses; a weapon hits when its working
    zone touches another bot (spinners, flippers, lifters, hammers, crushers), and WEDGE_RULES decides who gets under whom.
+   A hit from above (hammer, crusher, saw) can come down into an open weapon bay (b.bay, inBay) and skip the top plate.
    Damage goes through sim/damage.js; every hit, failure, flip and landing goes in the fight log, which is also the
    replay (the player's inputs are stored one byte per axis, run-length coded; AI inputs come back from the seed).
    Coordinates: the arena is a square centred on the origin; a bot's heading h points its front along (cos h, sin h),
@@ -217,15 +218,16 @@ function fxPush(F,e){if(!F.fxq)return;F.fxq.push(e);if(F.fxq.length>64)F.fxq.shi
 function carryFlags(f){if(!f||typeof f!=="object")return null;const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;
   if(f.esc==="left"||f.esc==="right")o.esc=f.esc;return Object.keys(o).length?o:null;}
 function logIt(F,e){e.t=r2(F.t);F.log.push(e);return e;}
-/* a hit: merged into the last entry when it is small and the same pair, face and kind within half a second */
 /* a hit (or a landing): a small one that destroys nothing is merged into a matching entry from the last half second
-   (same kind, attacker, victim and face), so grinding contact and little bounces stay one line */
-function logHit(F,k,a,v,face,E,res){const small=E<FIGHT.microJ*F.M.mass&&!(res&&res.parts.some(p=>p.destroyed));
+   (same kind, attacker, victim and face, and both in the weapon bay or both not), so grinding contact and little
+   bounces stay one line. bay:1 marks a hit that came down into the open weapon bay (0.1.15.3); bay:2, into the bay underneath a bot
+   upside down */
+function logHit(F,k,a,v,face,E,res,bay){const small=E<FIGHT.microJ*F.M.mass&&!(res&&res.parts.some(p=>p.destroyed));
   if(small)for(let i=F.log.length-1,n=0;i>=0&&n<6;i--,n++){const L=F.log[i];if(F.t-L.t>=0.5)break;
-    if(L.k===k&&L.a===a&&L.v===v&&L.f===face&&!(L.x&&L.x.some(q=>q[2]))){L.E=r2(L.E+E);L.n=(L.n||1)+1;
+    if(L.k===k&&L.a===a&&L.v===v&&L.f===face&&(L.bay||0)===(bay||0)&&!(L.x&&L.x.some(q=>q[2]))){L.E=r2(L.E+E);L.n=(L.n||1)+1;
       if(res){L.p=r2((L.p||0)+(res.plate||0));for(const p of res.parts){const q=L.x&&L.x.find(z=>z[0]===p.key);if(q)q[1]=r2(q[1]+p.dmg);else(L.x=L.x||[]).push([p.key,r2(p.dmg),0]);}}
       return L;}}
-  const e={k,a,v,f:face,E:r2(E)};if(res){e.p=r2(res.plate||0);if(res.plateBroken)e.pb=1;if(res.parts.length)e.x=res.parts.map(p=>[p.key,r2(p.dmg),p.destroyed?1:0]);}
+  const e={k,a,v,f:face,E:r2(E)};if(bay)e.bay=bay;if(res){e.p=r2(res.plate||0);if(res.plateBroken)e.pb=1;if(res.parts.length)e.x=res.parts.map(p=>[p.key,r2(p.dmg),p.destroyed?1:0]);}
   return logIt(F,e);}
 
 /* ---- damage to a bot, and the failures it sets off ---- */
@@ -238,9 +240,13 @@ function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>l
   if(a.righter&&!b.righter)L("righter");
   if(!a.flexing&&b.flexing)L("flex");
   return F.log.length-n0;}
+/* does a hit from above on bot t come down into its open weapon bay? The bay's share of the top (its share of the
+   underside when t is upside down) x DAMAGE.bayMul. Draws from the fight's generator only when there is a share, so a
+   bot with no open bay leaves the fight's sequence exactly as it was. Never for a landing (damageBot's caller decides). */
+function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAGE.bayMul:0;return p>0&&F.rng()<p;}
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
-  const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics;
-  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1));
+  const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
+  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
@@ -254,7 +260,7 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit
     const ep=(o.b.parts.find(p=>p.key==="electronics")||{}).pos||[0,0];o.flags.esc=ep[0]<-1e-6?"left":ep[0]>1e-6?"right":F.rng()<0.5?"left":"right";
     logIt(F,{k:"fail",v:o.i,what:"esc",side:o.flags.esc});}
   o.fx=damageEffects(o.b,st,o.flags);
-  const e=logHit(F,kind,kind==="land"?-1:att,o.i,kind==="land"?(opts.inverted?"top":"under"):face,opts.logE!=null?opts.logE:E,res);
+  const e=logHit(F,kind,kind==="land"?-1:att,o.i,kind==="land"?(opts.inverted?"top":"under"):face,opts.logE!=null?opts.logE:E,res,bay);
   if(kind==="land")e.inv=opts.inverted?1:0;if(!e.x)delete e.x;if(opts.gl)e.gl=1;if(!e.p)delete e.p;if(opts.tag)Object.assign(e,opts.tag);
   let broke=0;for(const p of res.parts)if(p.destroyed){broke++;logIt(F,{k:"fail",v:o.i,what:"part",key:p.key});}
   if(fxDiff(F,o,before)+broke>0)o.stats.failHits++;   // a hit that broke something (lethality: tools/fight-test.js)
@@ -318,23 +324,24 @@ function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;
     let E=w.energyJ*(w.bite||1)*(1+FIGHT.biteJitter*(2*F.rng()-1))*(isC?1:FIGHT.hammerShare)*(o.under?WEDGE_RULES.underBite:1)*lethalOf(F);
-    const dfl=!isC&&!(t.under&&t.under.by===o.i)&&F.rng()<t.b.armourMapJ.top.deflect;if(dfl)E*=FIGHT.glance;
-    damageBot(F,t,"top",E,"hit",o.i,{absorbMul:isC?FIGHT.crushAbsorb:1,gl:dfl});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});o.stats.hits++;o.wp.last[t.i]=F.t;return;}}
+    const bay=inBay(F,t),dfl=!bay&&!isC&&!(t.under&&t.under.by===o.i)&&F.rng()<t.b.armourMapJ.top.deflect;if(dfl)E*=FIGHT.glance;   // into the bay: no plate to glance off
+    damageBot(F,t,"top",E,"hit",o.i,{absorbMul:isC?FIGHT.crushAbsorb:1,gl:dfl,bay});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});o.stats.hits++;o.wp.last[t.i]=F.t;return;}}
 /* spinner hits: whenever the disc's zone touches another bot and the disc is up to speed */
 function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.type==="saw")||!(w.inertia>0)||!o.fx.weaponOk||o.air)return;
   if(o.inverted&&!o.b.height.drivesInverted)return;
   for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.air)continue;const c=zoneTouch(o,t);if(!c)continue;
     const face=o.zone.top?"top":faceAt(t,c.px,c.py);
-    if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0)damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i);
+    if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0){const gb=wp.grBay||(wp.grBay={}),q=gb[t.i];   /* the grind rolls for the bay once a half second, so its log lines merge */
+      const bay=q&&F.t-q.t<0.5?q.b:(gb[t.i]={t:F.t,b:inBay(F,t)}).b;damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i,{bay});}
     if(wp.om<FIGHT.minSpin*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS))continue;
     const stored=0.5*w.inertia*wp.om*wp.om,full=wp.om>=0.98*w.omega;
     let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?(WEDGE_RULES.underBiteBy[w.id]||WEDGE_RULES.underBite):1);
     const slope=face==="front"&&FIGHT.horizontal[w.id]&&!t.inverted?FIGHT.slope[t.b.weapon.type]||0:0;
     const lip=face==="front"&&!t.inverted&&FIGHT.slope[t.b.weapon.type]&&FIGHT.lip[w.id]||1;
-    const dfl=lip===1&&!(t.under&&t.under.by===o.i)&&F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+slope);if(dfl)bite*=FIGHT.glance;
+    const bay=face==="top"&&inBay(F,t),dfl=lip===1&&!bay&&!(t.under&&t.under.by===o.i)&&F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+slope);if(dfl)bite*=FIGHT.glance;
     const E=stored*Math.min(0.98,bite*lip)*(o.flags.bent?DAMAGE.bentMul:1);wp.om*=Math.sqrt(Math.max(0,1-bite));wp.last[t.i]=F.t;o.stats.hits++;
     const shock=E>=FIGHT.shock.minShare*0.5*w.inertia*w.omega*w.omega?FIGHT.shock.p[F.cls]||0:0;
-    damageBot(F,t,face,E*FIGHT.damageShare*lethalOf(F),"hit",o.i,{logE:E,gl:dfl,shock});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});
+    damageBot(F,t,face,E*FIGHT.damageShare*lethalOf(F),"hit",o.i,{logE:E,gl:dfl,shock,bay});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});
     /* the throw: away from the disc (hsp: round the rim), part of it upward; the attacker takes recoil */
     const J=Math.sqrt(2*t.m*E*FIGHT.throwShare);let dx,dy;
     if(o.zone.circle){const cc=toWorld(o,o.zone.x,o.zone.y),rx=c.px-cc[0],ry=c.py-cc[1],l=Math.hypot(rx,ry)||1;dx=0.3*rx/l-0.7*ry/l;dy=0.3*ry/l+0.7*rx/l;}
