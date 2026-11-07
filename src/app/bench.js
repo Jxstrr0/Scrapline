@@ -22,8 +22,9 @@ const BN_DESC={
 /* a bot's signature: its parts and where they actually sit (autoLayout), so putting a part back where it was, or writing
    down the automatic place, isn't a change */
 const bnSigMemo=new Map();
-function bnSig(cfg){const k=JSON.stringify(SIM.normCfg(cfg));let s=bnSigMemo.get(k);
-  if(s==null){const n=SIM.normCfg(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
+function bnNorm(cfg){const n=SIM.normCfg(cfg);if(n.body==="plain")delete n.body;return n;}   /* a plain body stays out, so 0.1.13 bench results still match */
+function bnSig(cfg){const k=JSON.stringify(bnNorm(cfg));let s=bnSigMemo.get(k);
+  if(s==null){const n=bnNorm(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
   return s;}
 let bnCache={sig:"",b:null,res:{}};
 function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:bEv(cfg),res:{}};return bnCache;}
