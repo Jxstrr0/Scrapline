@@ -300,6 +300,24 @@ Measured with `node tools/fight-test.js all -m` (12 seeds at driver skill 0.5 an
 - **Saves:** nothing new (no `SAVE_V` change).
 - **Still to come from Blender:** the workshop's room for each stage, the trailer, trophies and hero shells. Each is a script like the kit's, or Kelbo's own export, dropped in through `vis/props.js`.
 
+## 0.1.14.0: body styles
+
+A new Build row, **Body**, between Chassis and Armour. The body is the chassis's shape, separate from its material, and it changes the numbers (`PARTS.body` in `sim/parts.js`; Plain is neutral, so old builds and saves play the same):
+
+| Body | Mass | Chassis hp | Height | Other | Unlock |
+|---|---|---|---|---|---|
+| Plain box | x1 | x1 | x1 | | start |
+| Scrap frame | x0.8 | x0.7 | x1 | +0.15 flex | start |
+| Slab | x1.1 | x1.1 | x1 | sides deflect +0.1 | start |
+| Wedge shell | x1.1 | x1 | x0.85 | lower front edge, top deflects +0.15 | welder |
+| Dome | x1.12 | x1.05 | x1.15 | top deflects +0.3; too tall to drive upside down on small wheels | press |
+| Pancake | x0.95 | x1 | x0.7 | wheels stand proud, so it drives either way up but rides higher | mill |
+| Invertible | x1.2 | x1 | x1 | always drives upside down | CNC |
+
+Balance (beetle, each body on a test build against the other eleven, 6 seeds x skills .5 / .85): every body is within about 10 points of the plain box on the same build. Pancake runs 5 to 14 points under (a wedge gets under the higher ride), and pays for it with the weight it saves. The heavy bodies don't fit on the near-limit test builds as they are: a player trades armour for them.
+
+The 3D bot draws each body in code on every tier: a sloped top with side cheeks, a half-ellipsoid dome, steel corner guards, bare tubes, a wider flat lid, a plate underneath. Blender shells for Full and Ultra are still to come.
+
 ## Known loose ends
 
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.

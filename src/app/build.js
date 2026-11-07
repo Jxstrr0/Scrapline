@@ -99,6 +99,8 @@ const B_SECS=[
       <p>One bot per class. Each class keeps its own bot, draft and designs.</p>`},
   {id:"chassis",t:"Chassis",sum:()=>bName("chassis",draft().chassis),
     body:()=>bOpts("chassis",draft().chassis,bFit("chassis"),(c,id)=>{c.chassis=id;})},
+  {id:"body",t:"Body",sum:()=>bName("body",draft().body),
+    body:()=>{const p=SIM.part("body",draft().body);return(p&&p.line?`<p>${esc(p.line)}</p>`:"")+bOpts("body",draft().body,bFit("body"),(c,id)=>{c.body=id;});}},
   {id:"armour",t:"Armour",sum:()=>{const r=bEval();return"weakest: "+FACE_LBL[r.weakestFace].toLowerCase();},
     body:()=>{const d=draft(),f=B.face;
       return bArmourMap()+`<div class="seg faces" role="group" aria-label="Face">${["front","back","left","right","top"].map(x=>`<button type="button" data-face="${x}" class="${x===f?"on":""}" aria-pressed="${x===f}">${FACE_LBL[x]}<small>${esc(bName("armour",d.armour[x]).replace("HDPE, ","HDPE "))}</small></button>`).join("")}</div>`

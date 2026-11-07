@@ -51,7 +51,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap; recorded clangs from `sounds/` layered under it on Full / Ultra (`samples`) |
 | **SCRAP_VIS** (three.js) | |
 | `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, the painted workshop reflection, materials (`makeMats`) |
-| `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
+| `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis and its body style, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
 | `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights), the per-frame draw of the bots, the follow camera, `arenaPick()` |
 | `vis/fx.js` | sparks, flying parts, smoke and camera shake from the sim's fx events |
 | `vis/workshop.js` | the workbench, lights, `rebuild()` per tier, resize, orbit / pinch controls, the frame loop (30 fps cap on Lite) and the fps meter |

@@ -45,22 +45,40 @@ function buildBot(b,team,sp){
   const add=(geo,mat,x,y,z,part)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(part)m.userData.part=part;g.add(m);return m;};
   /* chassis: the polygon extruded, a little inset so the armour panels sit on it */
   const sh=new THREE.Shape();b.polygon.forEach((p,i)=>{const q=P(p[0],p[1]);i?sh.lineTo(q[0],-q[1]):sh.moveTo(q[0],-q[1]);});
-  const cg=new THREE.ExtrudeGeometry(sh,{depth:bodyH,bevelEnabled:false});cg.rotateX(-Math.PI/2);cg.translate(0,clr,0);
+  const body=cfg.body||"plain",drop=body==="wedge"?bodyH*0.6:0,bh=bodyH-drop;   /* bh: the box height under a wedge shell's slope */
+  const cg=new THREE.ExtrudeGeometry(sh,{depth:bh,bevelEnabled:false});cg.rotateX(-Math.PI/2);cg.translate(0,clr,0);
   add(cg,chassisMat(cfg.chassis),0,0,0,"chassis");
   /* armour panels, per face; thickness drawn at least 2 mm (x class) so a plate reads on a phone */
   const A=b.armourMapJ||{},th=f=>A[f]&&A[f].id!=="none"?Math.max(0.002*len,(A[f].thickMm||0)/1000):0;
   const front=P(0,hl),back=P(0,-hl),sloped=["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0;
-  if(th("front")&&!sloped)add(new THREE.BoxGeometry(Wd,bodyH*0.92,th("front")),armourMat(A.front.id),front[0],clr+bodyH*0.48,front[1]-th("front")/2,"armour_front");
+  if(th("front")&&!sloped)add(new THREE.BoxGeometry(Wd,bh*0.92,th("front")),armourMat(A.front.id),front[0],clr+bh*0.48,front[1]-th("front")/2,"armour_front");
   if(th("back"))add(new THREE.BoxGeometry(Wd,bodyH*0.92,th("back")),armourMat(A.back.id),back[0],clr+bodyH*0.48,back[1]+th("back")/2,"armour_back");
   for(const s of ["left","right"])if(th(s)){const x=(s==="left"?-hw:hw)-cx,t=th(s);
-    add(new THREE.BoxGeometry(t,bodyH*0.92,L*0.96),armourMat(A[s].id),x+(s==="left"?t/2:-t/2),clr+bodyH*0.48,cy,"armour_"+s);}
-  if(th("top"))add(new THREE.BoxGeometry(Wd*0.98,th("top"),L*0.98),armourMat(A.top.id),-cx,H+th("top")/2,cy,"armour_top");
+    add(new THREE.BoxGeometry(t,bh*0.92,L*0.96),armourMat(A[s].id),x+(s==="left"?t/2:-t/2),clr+bh*0.48,cy,"armour_"+s);}
+  const topKey=th("top")?"armour_top":"chassis",tt=Math.max(th("top"),0.0015*len),topMat=th("top")?armourMat(A.top.id):chassisMat(cfg.chassis);
+  if(body==="wedge"){   /* wedge shell: the top plate slopes from the back edge down to the front */
+    const run=L*0.98,tilt=Math.atan2(drop,run),m=add(new THREE.BoxGeometry(Wd*0.98,tt,Math.hypot(run,drop)),topMat,-cx,H-drop/2+tt/2,cy,topKey);m.rotation.x=-tilt;
+    for(const s of [-1,1]){const sg=new THREE.Shape();sg.moveTo(-run/2,0);sg.lineTo(run/2,0);sg.lineTo(run/2,drop);sg.closePath();   /* side cheeks filling the slope */
+      const d=Math.max(th(s<0?"left":"right"),0.002*len),e=new THREE.ExtrudeGeometry(sg,{depth:d,bevelEnabled:false});e.rotateY(-Math.PI/2);
+      add(e,th(s<0?"left":"right")?armourMat(A[s<0?"left":"right"].id):chassisMat(cfg.chassis),(s<0?-hw+d:hw)-cx,H-drop,cy,th(s<0?"left":"right")?(s<0?"armour_left":"armour_right"):"chassis");}}
+  else if(body==="dome"){   /* dome: a low half-ellipsoid clamshell over the box */
+    const dg=new THREE.SphereGeometry(0.5,lite?14:28,lite?5:10,0,Math.PI*2,0,Math.PI/2);dg.scale(Wd*1.02,bodyH*1.6,L*1.0);
+    add(dg,topMat,-cx,H-bodyH*0.3,cy,topKey);}
+  else if(th("top")||body==="invert")add(new THREE.BoxGeometry(Wd*(body==="pancake"?1.04:0.98),tt,L*(body==="pancake"?1.02:0.98)),topMat,-cx,H+tt/2,cy,topKey);
+  if(body==="invert")add(new THREE.BoxGeometry(Wd*0.98,tt,L*0.98),topMat,-cx,clr-tt/2,cy,"chassis");   /* the same plate underneath */
+  if(body==="slab")for(const sx of [-1,1])for(const sz of [-1,1]){   /* corner guards */
+    const c=add(new THREE.BoxGeometry(0.016*len,bodyH*1.02,0.016*len),M.steel,sx*hw-cx,clr+bodyH*0.51,cy+sz*hl,"chassis");c.rotation.y=Math.PI/4;}
+  if(body==="scrap"){   /* scrap frame: bare tubes along the top edges and up the corners */
+    const r=0.0035*len,tg=new THREE.CylinderGeometry(r,r,L*0.98,lite?5:8),pg=new THREE.CylinderGeometry(r,r,bodyH,lite?5:8),cg2=new THREE.CylinderGeometry(r,r,Wd*0.98,lite?5:8);
+    for(const sx of [-1,1]){const t=add(tg,M.steel,sx*(hw+r)-cx,H+tt+r,cy,"chassis");t.rotation.x=Math.PI/2;
+      for(const sz of [-1,1])add(pg,M.steel,sx*(hw+r)-cx,clr+bodyH/2,cy+sz*(hl+r),"chassis");}
+    for(const sz of [-1,1]){const t=add(cg2,M.steel,-cx,H+tt+r,cy+sz*(hl+r),"chassis");t.rotation.z=Math.PI/2;}}
   /* team paint: a stripe down the top, so you can tell the bots apart from above */
-  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);paint.position.set(-cx,H+th("top")+0.0008*len,cy+L*0.05);g.add(paint);
+  const paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,L*0.7),M.team[team%BOT_TEAM.length]);paint.position.set(-cx,H+th("top")+0.0008*len,cy+L*0.05);if(body==="wedge"){paint.position.y=H-drop/2+tt+0.0008*len;paint.rotation.x=-Math.atan2(drop,L*0.98);}else if(body==="dome"){paint.position.y=H+bodyH*0.5;paint.scale.z=0.6;}g.add(paint);
   /* sponsors: a panel on each side, a patch at the back of the top plate */
-  if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bodyH*0.5,L*0.5),spMat(sp.side));
-    m.position.set(s*hw-cx+s*0.0009*len,clr+bodyH*0.5,cy);g.add(m);}
-  if(sp&&sp.top){const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.6,0.0015*len,L*0.18),spMat(sp.top));m.position.set(-cx,H+th("top")+0.0009*len,cy+L*0.36);g.add(m);}
+  if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bh*0.5,L*0.5),spMat(sp.side));
+    m.position.set(s*hw-cx+s*0.0009*len,clr+bh*0.5,cy);g.add(m);}
+  if(sp&&sp.top){const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.6,0.0015*len,L*0.18),spMat(sp.top));m.position.set(-cx,(body==="dome"?H+bodyH*0.27:H-drop*0.13+th("top"))+0.0009*len,cy+L*0.36);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
   const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
@@ -69,12 +87,12 @@ function buildBot(b,team,sp){
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;}}
   /* the weapon */
-  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th});
+  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,lift:body==="dome"?bodyH*0.5:-drop/2});
   if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
 
-function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw,hl,H,clr,bodyH,len,seg,front}=k;
+function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw,hl,H,clr,bodyH,len,seg,front,bh,lift}=k;
   const mount=w.mountM?P(w.mountM[0],w.mountM[1]):front,r=Math.max(0.01*len,w.radiusM||0.04),mat=M.disc;
   const teeth=(grp,R,n,thick,axis)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(R*0.32,thick*1.4,R*0.18),M.steel);
     t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.rotation.y=-a;grp.add(t);}};
@@ -102,7 +120,7 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     return;}
   if(T==="wedge"||T==="lifter"||T==="flipper"){
     /* a ramp from the front edge to the floor ahead of the bot */
-    const reach=Math.max(0.01*len,(w.reachM||0.04)),top=clr+bodyH*0.95,run=reach+0.004*len,slope=Math.atan2(top,run);
+    const reach=Math.max(0.01*len,(w.reachM||0.04)),top=clr+bh*0.95,run=reach+0.004*len,slope=Math.atan2(top,run);
     const ramp=new THREE.Mesh(new THREE.BoxGeometry(b.widthM,0.003*len,Math.hypot(top,run)),T==="wedge"?M.steel:M.alu);
     ramp.position.set(front[0],top/2,front[1]-run/2);ramp.rotation.x=-slope;ramp.userData.part="weapon";
     if(T==="wedge"){g.add(ramp);return;}
@@ -113,13 +131,13 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     /* flipper: the ramp is the plate, hinged at the top front, swinging up when it fires */
     const f=new THREE.Group();f.userData.role="flip";const plate=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.9,0.003*len,b.lengthM*0.55),M.alu);
     plate.position.set(0,0,-b.lengthM*0.275);plate.userData.part="weapon";f.add(plate);   // hinged at the back, the tip at the front edge
-    f.position.set(front[0],H+0.003*len,front[1]+b.lengthM*0.55);g.add(f);g.add(ramp);return;}
+    f.position.set(front[0],H+lift+0.003*len,front[1]+b.lengthM*0.55);g.add(f);g.add(ramp);return;}
   if(T==="hammer"||T==="crusher"){const arm=new THREE.Group();arm.userData.role="arm";
     const al=T==="hammer"?b.lengthM*0.7:b.lengthM*0.45;
     const beam=new THREE.Mesh(new THREE.BoxGeometry(0.008*len,0.008*len,al),M.alu);beam.position.set(0,0,-al/2);beam.userData.part="weapon";arm.add(beam);
     const head=new THREE.Mesh(T==="hammer"?new THREE.BoxGeometry(0.03*len,0.02*len,0.016*len):new THREE.BoxGeometry(0.012*len,0.025*len,0.03*len),M.steel);
     head.position.set(0,T==="hammer"?-0.008*len:-0.012*len,-al);head.userData.part="weapon";arm.add(head);
-    arm.position.set(0,H+0.012*len,T==="hammer"?hl*0.3:front[1]+al*0.6);g.add(arm);
+    arm.position.set(0,H+lift+0.012*len,T==="hammer"?hl*0.3:front[1]+al*0.6);g.add(arm);
     if(T==="crusher"){const jaw=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.4,0.004*len,0.03*len),M.steel);jaw.position.set(front[0],clr+0.003*len,front[1]-0.012*len);g.add(jaw);}
     return;}
   /* a pusher: a plain plate on the front */

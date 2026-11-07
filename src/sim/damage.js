@@ -27,7 +27,8 @@ const DAMAGE={
   bentPower:0.8,   // ... and spins up on this share of power (it shakes)
   damagedAt:0.999  // a part under this share of its hp is "damaged" (a repair fee); 0 hp is "destroyed" (re-buy)
 };
-const chassisHp=b=>{const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0];return ch.hp*classMult(b.cls).mass;};
+const bodyOf=b=>part("body",b.cfg.body)||PARTS.body[0];
+const chassisHp=b=>{const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0];return ch.hp*bodyOf(b).hpMul*classMult(b.cls).mass;};
 /* hp left on every armour plate, part and the chassis: {armour:{face:J}, parts:{key:J}, chassis:J}. dmg (optional) is
    damage carried in from earlier fights, {key: J taken} */
 function damageState(b,dmg){const st={armour:{},parts:{},chassis:chassisHp(b)};
@@ -94,7 +95,7 @@ function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.part
   const hasW=b.weapon.type!=="none",wf=hasW?frac("weapon"):0,weaponOk=hasW&&wf>0,motorOk=weaponOk&&wf>=DAMAGE.motorAt;
   const sr=b.cfg.extras.indexOf("selfright")>=0&&alive("selfright"),wr=!!part("weapon",b.cfg.weapon).selfRights&&motorOk;
   const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0],cf=Math.max(0,st.chassis)/Math.max(chassisHp(b),1e-9);
-  const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*ch.flex*(1-cf));
+  const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*(ch.flex+bodyOf(b).flexAdd)*(1-cf));
   return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt};}
 /* J taken per key (only the keys that took any): part keys, armour_<face>, chassis. This is S.bots[cls].damage's shape. */
 function damageTaken(b,st){const out={},r=v=>Math.round(v*100)/100;
