@@ -66,8 +66,10 @@ function evalBuild(cfgIn,opts){
     back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
-  for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000;
-    let absorbJ=a.absorbPerG*g,hpJ=a.hpPerG*g,deflect=Math.min(0.8,a.deflect+(bd.deflect[f]||0));
+  /* a plate's hp and absorb go with its thickness, not its height (0.1.15.2, Kelbo): a low body's shorter side plates weigh
+     less but stop a hit as well, and a tall body's bigger ones weigh more without adding hp. The top doesn't change height. */
+  for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000,gp=f==="top"?g:g/bd.heightMul;
+    let absorbJ=a.absorbPerG*gp,hpJ=a.hpPerG*gp,deflect=Math.min(0.8,a.deflect+(bd.deflect[f]||0));
     if(f==="front")for(const e of ex){if(e.frontAbsorbJ)absorbJ+=e.frontAbsorbJ*M.mass;if(e.frontDeflect)deflect=Math.min(0.8,deflect+e.frontDeflect);}
     armourMapJ[f]={id:a.id,name:a.name,thickMm:r3(t),massG:g,absorbJ,hpJ,deflect};
     if(g>0)addM("armour_"+f,"armour",a.id,g,facePos[f][0],facePos[f][1]);}
