@@ -52,14 +52,15 @@ function buildBot(b,team,sp){
   /* the weapon bay (0.1.15.3): evalBuild's b.bay. A slot, pocket or well is cut out of the chassis, its front plate and
      the top over it; a deck is a flat plate on the box top where a raised top (a wedge lid, a dome, a shell) is cut away
      for an arm or a flipper. span: the opening's height in the box, from its bottom */
-  const bay=b.bay&&b.bay.rect&&b.bay.kind!=="none"?b.bay:null,bk=bay?bay.kind:"none",reg=bay?bayRegion(bay,hw,hl,Math.max(Wd,L)*0.06,seg):null;
-  const wr0=Math.max(0.01*len,b.weapon.radiusM||0.04),dep=bay?Math.min(bh*0.8,bay.depthM||0):0;
+  let bay=b.bay&&b.bay.rect&&b.bay.kind!=="none"?b.bay:null,bk=bay?bay.kind:"none",reg=bay?bayRegion(bay,hw,hl,Math.max(Wd,L)*0.06,seg):null;
+  let wr0=Math.max(0.01*len,b.weapon.radiusM||0.04),dep=bay?Math.min(bh*0.8,bay.depthM||0):0;
   const span=!reg?null:bk==="slot"?(b.weapon.id==="saw"?[bh-Math.min(bh*0.8,wr0*0.5),bh]:[0,bh]):bk==="pocket"?[0,bh]:bk==="well"?[bh-dep,bh]:bk==="underwell"?[0,dep]:null;
   const ext=(outline,holes,y0,y1,mat,part)=>y1-y0>1e-5?add(shapeGeo(outline,holes,y1-y0,cx,cy,y0),mat,0,0,0,part):null;
   /* chassis: the polygon extruded (in layers round a bay), a little inset so the armour panels sit on it */
   const cm=chassisMat(cfg.chassis),cut=span?polyMinus(b.polygon,reg):null;
   if(cut){ext(b.polygon,null,clr,clr+span[0],cm,"chassis");ext(cut.outline,cut.holes,clr+span[0],clr+span[1],cm,"chassis");ext(b.polygon,null,clr+span[1],boxTop,cm,"chassis");}
   else ext(b.polygon,null,clr,boxTop,cm,"chassis");
+  if(span&&!cut){reg=null;dep=0;}   /* a bay the outline can't be cut round (a big moved disc over a corner): draw the bot uncut, the weapon on top */
   /* armour panels, per face; thickness drawn at least 2 mm (x class) so a plate reads on a phone. The front plate parts
      round a bay that opens at the front */
   const A=b.armourMapJ||{},th=f=>A[f]&&A[f].id!=="none"?Math.max(0.002*len,(A[f].thickMm||0)/1000):0;
@@ -136,8 +137,8 @@ function buildBot(b,team,sp){
    them; until they arrive (or if they fail) the coded shapes stand in. ---- */
 const SHELL_TOPS={wedge:1,dome:1,pancake:1,invert:1};   // bodies whose shell is the top (the rest add to the flat top)
 /* how far a shell's lid stands above the box top, in chassis heights, for the stripe and the sponsor patch */
-const SHELL_LID={pancake:.12,invert:.09};
-const SHELL_VAR={wedge_top:1,wedge_bolts:1,dome_shell:1,dome_bolts:1,pancake_lid:1,pancake_bolts:1,invert_plate:1,invert_bolts:1};   // pieces with slotted variants   // the wedge lid's plate is .07 thick over its slope
+const SHELL_LID={pancake:.12,invert:.09};   // the wedge lid's plate is .07 thick over its slope
+const SHELL_VAR={wedge_top:1,wedge_bolts:1,dome_shell:1,dome_bolts:1,pancake_lid:1,pancake_bolts:1,invert_plate:1,invert_bolts:1};   // pieces with slotted variants
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
   o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;m.userData.keep=1;if(part)m.userData.part=part;}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
