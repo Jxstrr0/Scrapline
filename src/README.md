@@ -14,7 +14,7 @@ node build.js --check    # exit 1 if index.html or sw.js != what src/ builds; na
 ## How the files fit together
 
 - The files are **slices of one page**. A `.js` file may open or close in the middle of an IIFE, so `node --check` on a single file is meaningless. Test the built `index.html`.
-- The first file of each `<script>` block starts with its `<script>` line and the last file of the block ends with `</script>`: `sim/rng.js` … `sim/opponents.js`, `sound/synth.js` on its own, `vis/core.js` … `vis/api.js`, and `app/state.js` … `app/help.js`.
+- The first file of each `<script>` block starts with its `<script>` line and the last file of the block ends with `</script>`: `sim/rng.js` … `sim/opponents.js`, `sound/synth.js` on its own, `sound/voicelines.js` on its own, `sound/voice.js` on its own, `vis/core.js` … `vis/api.js`, and `app/state.js` … `app/help.js`.
 - Every file except the last ends with a newline (`build.js` refuses otherwise). `html/tail.html` holds the page's last line, with no trailing newline. Empty files are refused: a stub needs at least its header comment.
 - A new file must be added to `manifest.txt` at the right position; `build.js` refuses to build if a file in `src/` is missing from it, and refuses leftover merge-conflict markers.
 - Scope is shared within each script block. `SCRAP_SIM` is one IIFE over the sim files, `SCRAP_VIS` one IIFE over the vis files, and the app is one top-level script over the app files. `start()` runs after the whole app block has loaded (`__ldGo` in `app/boot.js`), so later app files can add to tables and `TAB_RENDER` freely.
@@ -49,6 +49,8 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/opponents.js` | `OPPONENTS` (15: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
 | `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap; recorded clangs from `sounds/` layered under it on Full / Ultra (`samples`) |
+| `sound/voicelines.js` | the whole block, **generated** by `tools/make-voicelines.js` from `docs/voice/scrapline_commentary_script_sheet.csv` (never edit by hand): `VOICE_LINES`, every voice clip with its file, speaker, cue, duration and caption |
+| `sound/voice.js` | the whole block: `SCRAP_VOICE`, the announcer and commentator. Loads `sounds/voice/` when the Fight tab opens, plays the intro before a fight, the live calls from the fight log (seeded picks, so replays match), the bell, the pit, the post-mortem line, and captions when muted |
 | **SCRAP_VIS** (three.js) | |
 | `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, the painted workshop reflection, materials (`makeMats`) |
 | `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis and its body style: coded on Lite, the Blender shells from `models/bot-shells.glb` on Full and Ultra via `shellBody`, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |

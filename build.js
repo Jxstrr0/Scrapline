@@ -122,10 +122,11 @@ function swSource(page) {
   return SW_TEMPLATE.replace("__CACHE__", () => "scr-shell-v" + ver + "-" + hash).replace("__MEDIA__", () => "scr-media-v1-" + soundsHash()).replace("__PRECACHE__", () => JSON.stringify(list)).replace("__CDN__", () => JSON.stringify(cdn));
 }
 /* sounds/, models/ and textures/ are cached as they are fetched; the cache name carries a hash of the listings (names + sizes) so a replaced or added file retires the old cache.
-   Sounds alone hash as they always did, so adding models/ only changes the name once. */
+   Sounds alone hash as they always did, so adding models/ only changes the name once. sounds/voice/ is not precached (about 6 MB):
+   each clip is kept once the game has fetched it (the Fight tab loads them all), so a phone that has opened the Fight tab plays them offline. */
 function soundsHash() {
   const h = require("crypto").createHash("sha256");
-  for (const dir of ["sounds", "models", "textures"]) {   /* models/ (Full / Ultra props) and textures/ (the studio light) are cached the same way */
+  for (const dir of ["sounds", "models", "textures", "sounds/voice"]) {   /* models/ (Full / Ultra props), textures/ (the studio light) and sounds/voice/ (the commentary, every tier, 0.1.16) are cached the same way */
     const d = path.join(ROOT, dir);
     if (fs.existsSync(d)) for (const n of fs.readdirSync(d).sort()) { const st = fs.statSync(path.join(d, n)); if (st.isFile()) h.update((dir === "sounds" ? "" : dir + "/") + n + "\0" + st.size + "\0"); }
   }
