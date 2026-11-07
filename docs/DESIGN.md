@@ -331,6 +331,25 @@ The 3D bot draws each body in code on every tier: a sloped top with side cheeks,
 
 A Body option's delta line on Build now shows what it does to the bot's height (`mm tall`, lower is green) and whether it gains or loses driving upside down, ahead of the armour and front edge (up to three changes, against two for other rows). The plan's Body styles row has the final numbers.
 
+## 0.1.15.2: body balance on every class
+
+The body styles were balanced on beetle only. Run on every class (each body on each test build against the other eleven, 6 seeds x skills .5 / .85), the low bodies fell well under in feather and heavy: Pancake 4.5 and 8.5 points under the plain box on average, 20 to 25 under on the heavy hammer and horizontal spinner; Wedge shell 18 to 20 under on the heavy hammer and Brick. A low body shrinks the side, front and back plates, and their hp went with their mass, so it paid twice.
+
+**A plate's hp and absorb now go with its thickness, not its height** (`evalBuild` in `sim/build.js`; Kelbo: both ways). A low body's shorter plates weigh less and keep a full-height plate's hp; a tall body's bigger ones weigh more without adding hp. The top plate is unchanged.
+
+Mean change against the plain box on the same test build (worst single build in brackets), after:
+
+| Body | Ant | Beetle | Hobby | Feather | Heavy |
+|---|---|---|---|---|---|
+| Scrap frame | -2 (-7) | -1 (-5) | +1 (-8) | 0 (-9) | -1 (-9) |
+| Slab | 0 (-8) | -3 (-11) | +1 (-6) | -2 (-8) | -1 (-5) |
+| Wedge shell | -3 (-13) | -2 (-12) | +1 (-11) | 0 (-10) | -2 (-15) |
+| Dome | -9 (-17) | 0 (-1) | 0 (-1) | 0 (-2) | +1 (0) |
+| Pancake | -4 (-11) | -1 (-13) | 0 (-7) | +1 (-9) | -2 (-13) |
+| Invertible | -2 (-7) | -4 (-6) | -1 (-3) | 0 (-5) | +3 (+1) |
+
+Pancake in feather was -4.5 and in heavy -8.5 (worst -25). The Dome only fits on the Glass cannon and Sloppy budget; its ant -17 on the Glass cannon was there before. Bodies that don't fit a near-limit test build aren't counted (a player trades armour for them).
+
 ## Known loose ends
 
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.
