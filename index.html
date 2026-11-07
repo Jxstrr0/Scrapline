@@ -3103,7 +3103,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.15.0";
+const VERSION="0.1.15.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -3876,8 +3876,10 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const armour=x=>{let t=0;for(const f of ["front","back","left","right","top"])t+=x.armourMapJ[f].absorbJ+x.armourMapJ[f].hpJ;return t;};
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
   const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],
-    battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"]}[slot]||["speed","wj"];
+    battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
+    if(k==="inv"&&!!r.height.drivesInverted!==!!base.height.drivesInverted)cand.push(r.height.drivesInverted?'<i class="up">drives upside down</i>':'<i class="dn">can\'t drive upside down</i>');
+    if(k==="tall")num(x=>x.height.heightMm,r,base," mm tall",1,false,0.5);
     if(k==="speed")num(x=>x.driveSpeed,r,base," m/s",1,true,0.05);
     if(k==="push")num(x=>x.pushN,r,base," N",base.pushN<100?1:0,true,base.pushN*0.03);
     if(k==="wj")num(x=>x.weapon.energyJ||0,r,base," J",0,true,Math.max(1,(base.weapon.energyJ||0)*0.01));
@@ -3886,7 +3888,7 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
     if(k==="edge")num(x=>x.height.frontEdgeMm,r,base," mm edge",1,false,0.1);
     if(k==="heat")num(x=>x.heat.fightDerateS==null?999:x.heat.fightDerateS,r,base," s heat",0,true,2);
     if(k==="bend")num(x=>x.weapon.bendJ||0,r,base," J to bend",0,true,1);}
-  return out.concat(cand.slice(0,2)).join("");}
+  return out.concat(cand.slice(0,slot==="body"?3:2)).join("");}
 
 /* ---- option rows ---- */
 function bOpts(slot,cur,fittedId,mk,price){const base=bEval(),cls=bCls(),M=SIM.classMult(cls);
