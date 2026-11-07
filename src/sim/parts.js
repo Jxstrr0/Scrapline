@@ -43,6 +43,26 @@ const PARTS={
     {id:"ti",     name:"Titanium box",   massPerCell:11,hp:320,flex:0.10,heightMm:38,shape:"box",  cost:350,hours:9,unlock:"rnd:titanium"},
     {id:"custom", name:"Custom shape",   massPerCell:10,hp:260,flex:0.12,heightMm:34,shape:"wedge",cost:300,hours:10,unlock:"rnd:custom"}
   ],
+  /* the body: the shell's shape over the chassis, any material (0.1.14.0, Kelbo: real shapes, not paint). massMul and hpMul
+     scale the chassis's own mass and hp, flexAdd adds to its flex, heightMul scales its height (a low body leaves the wheels
+     proud, so it drives upside down; a tall one doesn't), edgeMm is added to the front edge (x class), deflect adds to each
+     face's armour deflect (glancing hits), inverts: it drives upside down whatever the wheels. "plain" is the box as before. */
+  body:[
+    {id:"plain",  name:"Plain box",    massMul:1,   hpMul:1,   flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{},                    cost:0,  hours:0,unlock:"start",
+      line:"The box as it comes. Nothing to add, nothing to get wrong."},
+    {id:"scrap",  name:"Scrap frame",  massMul:0.8, hpMul:0.7, flexAdd:0.15,heightMul:1,   edgeMm:0,   deflect:{},                    cost:10, hours:2,unlock:"start",
+      line:"An open tube frame with patched panels. Light and cheap, and it flexes: the armour mounts give."},
+    {id:"slab",   name:"Slab",         massMul:1.1, hpMul:1.1, flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{left:0.1,right:0.1},  cost:30, hours:3,unlock:"start",
+      line:"Chamfered edges, corner guards, bolt heads. Side hits glance off a little more often."},
+    {id:"wedge",  name:"Wedge shell",  massMul:1.1, hpMul:1,   flexAdd:0,   heightMul:0.85,edgeMm:-0.5,deflect:{front:0.05,top:0.15}, cost:60, hours:5,unlock:"tool:welder",
+      line:"The top slopes down to a low front. Hits on the top glance; less room inside."},
+    {id:"dome",   name:"Dome",         massMul:1.12,hpMul:1.05,flexAdd:0,   heightMul:1.15,edgeMm:0,   deflect:{top:0.3},             cost:90, hours:6,unlock:"tool:press",
+      line:"A rounded clamshell. Hammers and saws skate off the top, but it sits tall, so small wheels won't reach the floor upside down."},
+    {id:"pancake",name:"Pancake",      massMul:0.95,hpMul:1,   flexAdd:0,   heightMul:0.7, edgeMm:0,   deflect:{top:0.1},             cost:70, hours:5,unlock:"tool:mill",
+      line:"Very low and flat. Wheels stand proud, so it drives either way up; it rides on its wheels, so wedges get under it more easily."},
+    {id:"invert", name:"Invertible",   massMul:1.2, hpMul:1,   flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{},                    cost:110,hours:7,unlock:"tool:cnc",
+      line:"The same both ways up: it drives upside down and never needs to self-right. The heaviest body."}
+  ],
   /* per face. Mass is worked out from the face's area x thickMm x density (g/cm3), so it follows the chassis. absorbPerG and
      hpPerG are J per gram of plate: absorb is eaten before any damage, hp is what the plate takes before it is gone.
      deflect: 0..1 chance a glancing hit skids off. thickMm is at beetle scale (x thick in other classes). */
@@ -141,12 +161,12 @@ const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite
 const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
   cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
   driver:{style:"rush"}};
-const PART_SLOTS=["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
+const PART_SLOTS=["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
 
 /* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
-const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",
+const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
   drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
 

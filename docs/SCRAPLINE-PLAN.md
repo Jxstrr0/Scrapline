@@ -83,6 +83,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Era / time | Present day, 20-year career. **Act, then Close week** (PEW style); 52 weeks a season; the year advances per season |
 | Look | Longlight palette (section 2). Space Grotesk UI, JetBrains Mono readouts |
 | Blender | Workshop interiors, arena, hazards, trailer, trophies. Bots are parametric code so the model matches the build; **optional Blender hero shells** are skins on Full/Ultra only, sized to the chassis grid |
+| Body styles (0.1.14.0) | **Real chassis shapes, not paint** (Kelbo): a `body` slot separate from the chassis material (`PARTS.body`): Plain box, Scrap frame, Slab, Wedge shell, Dome, Pancake, Invertible, each with its own mass, hp, flex, height, front edge and per-face deflect (Invertible drives upside down). **Unlocks follow the workshop**: Plain, Scrap frame and Slab from the start, the rest with a tool (welder, press brake, mill, CNC router), so they come with the workshop stage. **Looks:** Blender shells on Full and Ultra, a cheap coded version of each on Lite (Kelbo). All six in the first batch |
 
 ---
 
