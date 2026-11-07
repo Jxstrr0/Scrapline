@@ -11,7 +11,7 @@
      armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
-     cost (thalers), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
+     cost (euros), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
    Coordinates: chassis centre is the origin, +x right, +y forward (the front face is +y). ---- */
 const K={
   g:9.81,
