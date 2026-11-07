@@ -38,7 +38,7 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
 function fxChunk(i,key){const B=AR.bots[i];if(!B||V.run.fxLow)return;const ms=(B.mesh.userData.parts||{})[key];if(!ms||!ms.length)return;
   if(FX.chunks.length>=6){const c=FX.chunks.shift();c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}
   const src=ms[0],m=src.clone();m.material=src.material.clone();m.material.transparent=true;m.userData={own:true};
-  B.mesh.updateMatrixWorld(true);src.getWorldPosition(m.position);src.getWorldQuaternion(m.quaternion);m.scale.setScalar(AR.U);
+  B.mesh.updateMatrixWorld(true);src.matrixWorld.decompose(m.position,m.quaternion,m.scale);   // its world size: a Blender shell is stretched to the bot
   AR.g.add(m);const a=fxR()*Math.PI*2;FX.chunks.push({m,v:[Math.cos(a)*2.5,3+fxR()*2,Math.sin(a)*2.5],w:[fxR()*12-6,fxR()*12-6,fxR()*12-6],t:0});
   fxSpark(m.position.x,m.position.y,m.position.z,12,3);}
 function fxTick(dt){if(!FX.pts&&!FX.chunks.length)return;const g=-9;
