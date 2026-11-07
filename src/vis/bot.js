@@ -300,7 +300,7 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
 /* parts the sim says are damaged go grey, destroyed ones disappear. states: {key: "intact"|"damaged"|"destroyed"} */
 function botDamage(g,states){const parts=g.userData.parts||{};
   for(const key in parts){const s=states[key]||"intact";for(const m of parts[key]){m.visible=s!=="destroyed"||key==="chassis";
-    if(m.userData.base){m.material.color.copy(m.userData.base);if(s==="damaged")m.material.color.multiplyScalar(0.55);else if(s==="destroyed")m.material.color.multiplyScalar(0.3);}}}}
+    if(m.userData.base){m.userData.dmul=s==="damaged"?0.55:s==="destroyed"?0.3:1;m.material.color.copy(m.userData.base).multiplyScalar(m.userData.dmul);}}}}   // dmul: the hit flash (arena.js) lerps from here
 
 /* the workshop's bot. Until a build is passed in, the placeholder (a plywood box with clay sides and a horizontal disc) */
 function buildPlaceholderBot(){
