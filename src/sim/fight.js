@@ -220,13 +220,14 @@ function carryFlags(f){if(!f||typeof f!=="object")return null;const o={};if(f.be
 function logIt(F,e){e.t=r2(F.t);F.log.push(e);return e;}
 /* a hit (or a landing): a small one that destroys nothing is merged into a matching entry from the last half second
    (same kind, attacker, victim and face, and both in the weapon bay or both not), so grinding contact and little
-   bounces stay one line. bay:1 marks a hit that came down into the open weapon bay (0.1.15.3) */
+   bounces stay one line. bay:1 marks a hit that came down into the open weapon bay (0.1.15.3); bay:2, into the bay underneath a bot
+   upside down */
 function logHit(F,k,a,v,face,E,res,bay){const small=E<FIGHT.microJ*F.M.mass&&!(res&&res.parts.some(p=>p.destroyed));
   if(small)for(let i=F.log.length-1,n=0;i>=0&&n<6;i--,n++){const L=F.log[i];if(F.t-L.t>=0.5)break;
-    if(L.k===k&&L.a===a&&L.v===v&&L.f===face&&!L.bay===!bay&&!(L.x&&L.x.some(q=>q[2]))){L.E=r2(L.E+E);L.n=(L.n||1)+1;
+    if(L.k===k&&L.a===a&&L.v===v&&L.f===face&&(L.bay||0)===(bay||0)&&!(L.x&&L.x.some(q=>q[2]))){L.E=r2(L.E+E);L.n=(L.n||1)+1;
       if(res){L.p=r2((L.p||0)+(res.plate||0));for(const p of res.parts){const q=L.x&&L.x.find(z=>z[0]===p.key);if(q)q[1]=r2(q[1]+p.dmg);else(L.x=L.x||[]).push([p.key,r2(p.dmg),0]);}}
       return L;}}
-  const e={k,a,v,f:face,E:r2(E)};if(bay)e.bay=1;if(res){e.p=r2(res.plate||0);if(res.plateBroken)e.pb=1;if(res.parts.length)e.x=res.parts.map(p=>[p.key,r2(p.dmg),p.destroyed?1:0]);}
+  const e={k,a,v,f:face,E:r2(E)};if(bay)e.bay=bay;if(res){e.p=r2(res.plate||0);if(res.plateBroken)e.pb=1;if(res.parts.length)e.x=res.parts.map(p=>[p.key,r2(p.dmg),p.destroyed?1:0]);}
   return logIt(F,e);}
 
 /* ---- damage to a bot, and the failures it sets off ---- */
@@ -244,7 +245,7 @@ function fxDiff(F,o,before){const a=before,b=o.fx,n0=F.log.length,L=(k,extra)=>l
    bot with no open bay leaves the fight's sequence exactly as it was. Never for a landing (damageBot's caller decides). */
 function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAGE.bayMul:0;return p>0&&F.rng()<p;}
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};if(E<=0||o.out==="pit")return null;const before=o.fx;
-  const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=!!opts.bay&&kind!=="land"&&!opts.below;
+  const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
   const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
@@ -330,7 +331,8 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
   if(o.inverted&&!o.b.height.drivesInverted)return;
   for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.air)continue;const c=zoneTouch(o,t);if(!c)continue;
     const face=o.zone.top?"top":faceAt(t,c.px,c.py);
-    if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0)damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i,{bay:inBay(F,t)});
+    if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0){const gb=wp.grBay||(wp.grBay={}),q=gb[t.i];   /* the grind rolls for the bay once a half second, so its log lines merge */
+      const bay=q&&F.t-q.t<0.5?q.b:(gb[t.i]={t:F.t,b:inBay(F,t)}).b;damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i,{bay});}
     if(wp.om<FIGHT.minSpin*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS))continue;
     const stored=0.5*w.inertia*wp.om*wp.om,full=wp.om>=0.98*w.omega;
     let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?(WEDGE_RULES.underBiteBy[w.id]||WEDGE_RULES.underBite):1);

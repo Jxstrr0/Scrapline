@@ -31,9 +31,10 @@ function rpTimeline(F){const dur=Math.max(F.endT!=null?F.endT:F.t,1),mm=Math.max
 /* the moment just before t when a did something to v (under, flip), within win seconds */
 function rpBefore(F,k,a,v,t,win){let best=null;for(const e of F.log){if(e.t>t+1e-6)break;if(e.k===k&&e.v===v&&(a==null||e.a===a)&&t-e.t<=win)best=e;}return best;}
 function rpPlateGone(F,v,f,t){for(const e of F.log){if(e.t>t+1e-6)break;if(e.v===v&&e.pb&&e.f===f)return e;}return null;}
+function rpTopPlate(F,v){const o=F.bots[v],a=o&&o.b.armourMapJ&&o.b.armourMapJ.top;return!!a&&a.id!=="none";}
 function rpHow(F,e,f){const me=F.bots[0],mm=Math.max(F.M.mass,1e-6),J=`<span class="readout">${Math.round(e.E||0)} J</span>`;
   switch(e.k){
-    case"hit":case"grind":{let s=`${rpWeapon(F,e.a)} ${e.k==="grind"?"grinding":"hit"} ${e.bay?"straight into your open weapon bay, past the top plate":"on your "+(RP_FACE[e.f]||e.f)}, ${J}`;
+    case"hit":case"grind":{let s=`${rpWeapon(F,e.a)} ${e.k==="grind"?"grinding":"hit"} ${e.bay===2?"into your open weapon bay from underneath, while you were upside down":e.bay?"straight into your open weapon bay"+(rpTopPlate(F,e.v)?", past the top plate":""):"on your "+(RP_FACE[e.f]||e.f)}, ${J}`;
       const u=rpBefore(F,"under",e.a,0,e.t,3);
       if(u||e.f==="front"&&F.bots[e.a]&&F.bots[e.a].b.weapon.type!=="none"&&rpBefore(F,"lift",e.a,0,e.t,3)){const mine=me.b.height.frontEdgeMm,th=F.bots[e.a].b.height.frontEdgeMm;
         s+=`; ${rpWho(F,e.a)} got under you first: your front edge ${ftMm(mine)} mm, theirs ${ftMm(th)} mm`;}
