@@ -1,7 +1,7 @@
 /* ===================== app/boot.js: tabs, Settings, intro, start-up =====================
    showTab(t) switches the five tabs (Build, Bench, Fight, Shop, Career) and remembers the last one in S.settings.tab.
    openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, effects (PR 9), controls (direct /
-   tactical), hand, assists, sound, the tutorial again (PR 9), saves, install, version.
+   tactical), hand, assists, sound, voices, commentary and captions (0.1.16), the tutorial again (PR 9), saves, install, version.
    start() runs once the whole app script has loaded (scheduled through __ldGo at the bottom of this file): it loads
    the save, starts the 3D view, draws the tabs and lifts the loading splash. */
 const TABS=["build","bench","fight","shop","career"];
@@ -14,6 +14,7 @@ function showTab(t){
   document.documentElement.setAttribute("data-tab",t);
   document.querySelectorAll("#tabs button").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
   document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+t));
+  if(t!=="fight"&&typeof SCRAP_VOICE!=="undefined")SCRAP_VOICE.stop();   // the voices belong to the Fight tab
   if(TAB_RENDER[t])TAB_RENDER[t]();
   visBot();
   $("panel").scrollTop=tabScroll[t]||0;
@@ -38,6 +39,10 @@ function openSettings(){
 <div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
 <div class="field"><span class="lbl">Sound</span>${segHtml("sndSeg","snd",[["1","On"],["0","Off"]],ST().sound===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Voices</span>${segHtml("vocSeg","voc",[["1","On","announcer and commentator"],["0","Off"]],ST().voice===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Commentary</span>${segHtml("comSeg","com",[["1","On","Jess Moser on the radio"],["0","Off","announcer only"]],ST().comm===false?"0":"1")}</div>
+<div class="field"><span class="lbl">Captions</span>${segHtml("capSeg","capt",[["muted","When muted","sound or voices off"],["off","Off"]],ST().captions==="off"?"off":"muted")}
+<p class="hint">The calls as text at the bottom of a fight, when you can't hear them.</p></div>
 <div class="field"><span class="lbl">Tutorial</span><div class="row"><button class="btn" id="tutAgain"${TUT_ON?" disabled":""}>Run the tutorial</button></div><p class="hint">A coached first fight on a loaner bot. Your workshop is put back as it was at the end.</p></div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
@@ -53,7 +58,10 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("ctlSeg","ctl",v=>{ST().controls=v;});
   pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
   pick("asSeg","assist",v=>{ST().assists=v==="1";});
-  pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();});
+  pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();applyVoice();ftVoiceLoad();});
+  pick("vocSeg","voc",v=>{ST().voice=v==="1";applyVoice();ftVoiceLoad();});
+  pick("comSeg","com",v=>{ST().comm=v==="1";applyVoice();});
+  pick("capSeg","capt",v=>{ST().captions=v==="off"?"off":"muted";applyVoice();});
   buStoreLine();
   $("tutAgain").addEventListener("click",()=>{closeSheet();tutStart();});
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});

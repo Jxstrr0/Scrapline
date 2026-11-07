@@ -8,6 +8,10 @@
      whine(i, w, d)      bot i's motors: w the weapon's share of full speed (a rising saw whine), d the drive's share of
                          top speed (a low hum). Smoothed, so the app can call it a few times a second.
      stop()              fade everything out (a fight ends, the tab is left, Settings turns sound off), then suspend
+     voiceBus()          for SCRAP_VOICE (sound/voice.js): {ctx, out}, out a gain straight to the speakers (the voices skip the
+                         clangs' compressor), waking a suspended context; null before the first tap
+     talk(until)         a voice line plays until ctx time `until`: the clangs and motors duck under it, and stop() won't
+                         suspend the context before it ends (the result call outlives the fight)
      samples(on)         the graphics tier says Full or Ultra (app/state.js applyGfx): recorded one-shots from sounds/ (CC0, credited
                          in sounds/CREDITS.md) are fetched and decoded once, after the first tap, and each hit plays one variant over
                          a quieter synth clang. Kinds: hit, big (a hit over 0.6), wall, land, haz, part (a part torn off; recorded
@@ -15,7 +19,7 @@
                          fails to load is skipped and the synth plays alone. */
 const SCRAP_SOUND=(function(){
 "use strict";
-let ctx=null,master=null,noise=null,lastHit=0,hits=0,sleepT=0;const motors=[];
+let ctx=null,master=null,noise=null,lastHit=0,hits=0,sleepT=0,vbus=null,vUntil=0;const motors=[];
 /* recorded one-shots: kind -> clip ids in sounds/ (file id + ".mp3"); buf holds the decoded ones */
 const SAMP={on:false,started:false,buf:{},sets:{hit:["hit1","hit2","hit3","hit4"],big:["big1","big2","big3","big4"],wall:["wall1","wall2","wall3"],
   land:["land1","land2","land3"],haz:["haz1","haz2"],part:["part1","part2"]}};
@@ -59,10 +63,15 @@ function whine(i,ws,ds){if(!awake())return;const m=motor(i),t=ctx.currentTime,k=
   m.w.frequency.setTargetAtTime(90+ws*820+i*23,t,0.15);m.wg.gain.setTargetAtTime(ws>0.02?0.035*k*(0.3+0.7*ws):0,t,0.12);
   m.d.frequency.setTargetAtTime(55+ds*90+i*7,t,0.1);m.dg.gain.setTargetAtTime(ds>0.05?0.05*k*ds:0,t,0.1);}
 function stop(){if(!ctx)return;const t=ctx.currentTime;for(const m of motors)if(m){m.wg.gain.setTargetAtTime(0,t,0.08);m.dg.gain.setTargetAtTime(0,t,0.08);}
-  if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(()=>{sleepT=0;if(ctx&&ctx.state==="running")ctx.suspend().catch(()=>{});},600);}
+  if(sleepT)clearTimeout(sleepT);const nap=()=>{sleepT=0;if(!ctx||ctx.state!=="running")return;const w=vUntil-ctx.currentTime;   // a voice still talking: wait for it
+    if(w>0){sleepT=setTimeout(nap,w*1000+300);return;}ctx.suspend().catch(()=>{});};sleepT=setTimeout(nap,600);}
+function voiceBus(){if(!ctx)return null;if(ctx.state==="suspended")ctx.resume().catch(()=>{});
+  if(!vbus){vbus=ctx.createGain();vbus.gain.value=0.9;vbus.connect(ctx.destination);}return{ctx,out:vbus};}
+function talk(until){if(!ctx)return;const t=ctx.currentTime;vUntil=Math.max(vUntil,until);
+  master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(0.32,t,0.04);master.gain.setTargetAtTime(0.55,vUntil,0.25);}
 const gesture=()=>unlock();
 for(const ev of ["pointerdown","touchend","click","keydown"])window.addEventListener(ev,gesture,{passive:true});
 function samples(on){SAMP.on=!!on;sampLoad();}
-return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples};
+return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples,voiceBus,talk};
 })();
 </script>
