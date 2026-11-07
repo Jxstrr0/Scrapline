@@ -3,7 +3,8 @@
      rpTimeline(F)   the hits along the round: yours above the line, theirs on you below, bar height by energy
      rpCauses(F)     what went wrong, in order: every plate or part of yours destroyed, with the cause chain ("left front
                      wheel lost at 0:42: undercutter hit on your left side, 85 J; the left plate had given at 0:30"),
-                     and the failures that aren't a part (a speed controller, the battery smoking or going flat)
+                     and the failures that aren't a part (a speed controller, the battery smoking or going flat); a hit
+                     that came down into the open weapon bay says so (0.1.15.3)
      rpHint(F)       one redesign hint: the biggest reason you lost or got hurt, told by the stress report's own COMBOS
                      rule when one fits (the same words as the Build tab), else in plain words
      rpBill(o)       the repair bill: each damaged part's fee and each destroyed part's price (REPAIR_COST), plus the
@@ -32,7 +33,7 @@ function rpBefore(F,k,a,v,t,win){let best=null;for(const e of F.log){if(e.t>t+1e
 function rpPlateGone(F,v,f,t){for(const e of F.log){if(e.t>t+1e-6)break;if(e.v===v&&e.pb&&e.f===f)return e;}return null;}
 function rpHow(F,e,f){const me=F.bots[0],mm=Math.max(F.M.mass,1e-6),J=`<span class="readout">${Math.round(e.E||0)} J</span>`;
   switch(e.k){
-    case"hit":case"grind":{let s=`${rpWeapon(F,e.a)} ${e.k==="grind"?"grinding":"hit"} on your ${RP_FACE[e.f]||e.f}, ${J}`;
+    case"hit":case"grind":{let s=`${rpWeapon(F,e.a)} ${e.k==="grind"?"grinding":"hit"} ${e.bay?"straight into your open weapon bay, past the top plate":"on your "+(RP_FACE[e.f]||e.f)}, ${J}`;
       const u=rpBefore(F,"under",e.a,0,e.t,3);
       if(u||e.f==="front"&&F.bots[e.a]&&F.bots[e.a].b.weapon.type!=="none"&&rpBefore(F,"lift",e.a,0,e.t,3)){const mine=me.b.height.frontEdgeMm,th=F.bots[e.a].b.height.frontEdgeMm;
         s+=`; ${rpWho(F,e.a)} got under you first: your front edge ${ftMm(mine)} mm, theirs ${ftMm(th)} mm`;}

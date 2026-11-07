@@ -3,7 +3,8 @@
      damageState(b, dmg)        hp left on every plate, part and the chassis: fresh, or after dmg ({key: J taken}, the shape
                                 S.bots[cls].damage keeps: part keys, armour_<face>, chassis)
      hitOrder(b, face)          the parts behind a face, most exposed first
-     hitFace(b, face, E, st, absorbMul)   one square hit (the bench's impact test and every hit in a fight)
+     hitFace(b, face, E, st, absorbMul, bay)   one square hit (the bench's impact test and every hit in a fight); bay:
+                                          it came down into the open weapon bay (0.1.15.3), past the plate
      landHit(b, st, E, inverted)          a landing: on its wheels, into the wheels and drive pods; upside down, the top
      damageEffects(b, st, flags)          what the damage does to the bot: each side's push and grip, power, the weapon,
                                           the self-righter, chassis flex (armour absorbs less), and whether it is dead
@@ -25,7 +26,9 @@ const DAMAGE={
   flexAt:0.5,      // a chassis below this share of hp is logged as flexing
   bentMul:0.5,     // a bent disc hits with half its energy ...
   bentPower:0.8,   // ... and spins up on this share of power (it shakes)
-  damagedAt:0.999  // a part under this share of its hp is "damaged" (a repair fee); 0 hp is "destroyed" (re-buy)
+  damagedAt:0.999, // a part under this share of its hp is "damaged" (a repair fee); 0 hp is "destroyed" (re-buy)
+  bayMul:0.2       // a hit from above lands in an open weapon bay this x the bay's share of the top (b.bay.topFrac, or
+                   // belowFrac upside down; 0.1.15.3): it skips the plate and lands on the weapon, then what's behind
 };
 const bodyOf=b=>part("body",b.cfg.body)||PARTS.body[0];
 const chassisHp=b=>{const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0];return ch.hp*bodyOf(b).hpMul*classMult(b.cls).mass;};
@@ -56,13 +59,17 @@ function hitOrder(b,face){const c=CLASSES[b.cls],fp=c.fp,out=[];
    most exposed part behind it, and a part that is destroyed passes DAMAGE.passOn of what is left on to the next. st
    (damageState) is changed in place; leave it out for a fresh bot. Returns {face, E, absorbed, plate, plateBroken,
    parts:[{key, slot, dmg, left, destroyed}], through} (through: what nothing stopped, into the chassis; the fight
-   takes it off st.chassis). */
-function hitFace(b,face,E,st,absorbMul){st=st||damageState(b);const A=b.armourMapJ[face];
-  const out={face,E,absorbed:0,plate:0,plateBroken:false,parts:[],through:0};let rest=E;
-  if(st.armour[face]>0){const ab=Math.min(rest,A.absorbJ*(absorbMul==null?1:absorbMul));rest-=ab;out.absorbed=ab;
+   takes it off st.chassis). bay (0.1.15.3): the hit came down into the open weapon bay, so the plate neither absorbs
+   nor takes any of it: it goes straight to the weapon (its disc, motor and belt are the one part, "weapon"), then the
+   parts behind that face in their usual order; out.bay is set. */
+function hitFace(b,face,E,st,absorbMul,bay){st=st||damageState(b);const A=b.armourMapJ[face];
+  const out={face,E,absorbed:0,plate:0,plateBroken:false,parts:[],through:0};let rest=E;if(bay)out.bay=true;
+  if(!bay&&st.armour[face]>0){const ab=Math.min(rest,A.absorbJ*(absorbMul==null?1:absorbMul));rest-=ab;out.absorbed=ab;
     const d=Math.min(rest,st.armour[face]);st.armour[face]-=d;rest-=d;out.plate=d;
     if(st.armour[face]<=1e-9){st.armour[face]=0;out.plateBroken=rest>0||d>0;}}
-  if(rest>1e-9)for(const h of hitOrder(b,face)){const left=st.parts[h.key];if(!(left>0))continue;
+  let order=hitOrder(b,face);
+  if(bay){const w=b.parts.find(p=>p.key==="weapon");order=order.filter(h=>h.key!=="weapon");if(w&&w.hpJ>0)order.unshift({key:w.key,slot:w.slot});}
+  if(rest>1e-9)for(const h of order){const left=st.parts[h.key];if(!(left>0))continue;
     const d=Math.min(rest,left);st.parts[h.key]=left-d;rest-=d;const dead=st.parts[h.key]<=1e-9;if(dead)st.parts[h.key]=0;
     out.parts.push({key:h.key,slot:h.slot,dmg:d,left:st.parts[h.key],destroyed:dead});
     if(!dead||rest<=1e-9){rest=dead?rest:0;break;}rest*=DAMAGE.passOn;}

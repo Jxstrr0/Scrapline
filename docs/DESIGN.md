@@ -350,6 +350,37 @@ Mean change against the plain box on the same test build (worst single build in 
 
 Pancake in feather was -4.5 and in heavy -8.5 (worst -25). The Dome only fits on the Glass cannon and Sloppy budget; its ant -17 on the Glass cannon was there before. Bodies that don't fit a near-limit test build aren't counted (a player trades armour for them).
 
+## 0.1.15.3: weapon bays
+
+`evalBuild` works out the weapon bay (`b.bay`, `bayOf` in `sim/build.js`): the opening the body leaves round the weapon.
+
+| Weapon | Bay | Open | Share of the top (ant, beetle, heavy / hobby, feather) |
+|---|---|---|---|
+| Vertical disc | slot through the body | above and below | 0.042 / 0.036 |
+| Saw | slot | above | 0.037 / 0.031 |
+| Drum | pocket at the front | above and below | 0.113 / 0.098 |
+| Horizontal disc | round well in the top | above | 0.320 / 0.281 |
+| Undercutter | round well underneath | below | 0.177 / 0.162 (of the underside) |
+| Hammer, flipper, lifter, crusher | flat deck | closed | 0 |
+| Wedge, no weapon | none | closed | 0 |
+
+**An open bay is a weak spot** (Kelbo). A hit from above (a hammer, a crusher, a saw's hit or its grind) comes down into the bay with a chance of the bay's share of the top x `DAMAGE.bayMul` (0.2). When the target is upside down, its underside faces up, so the underside's share counts instead (a vertical disc's slot, a drum's pocket and an undercutter's well go through). A hit into the bay skips the top plate (no absorb, no plate hp, no glancing off) and lands on the weapon first (disc, motor and belt are one part), then the parts behind the top as usual (`hitFace(b, face, E, st, absorbMul, bay)` in `sim/damage.js`). Landings never go into the bay. The fight draws from its generator only when the target has a bay open on that side, so fights without one are exactly as before. The log entry carries `bay:1`, and the post-mortem and the fight log say "straight into your open weapon bay".
+
+So the chance of a hit going into the bay is 6.4% for a horizontal disc, 2.3% for a drum, 0.8% for a vertical disc, 0.7% for a saw and 3.5% for an undercutter that is upside down. In hobby and feather it is 5.6%, 2.0%, 0.7%, 0.6% and 3.2%. At `bayMul` 1 the hammer jumped 14-20 points in hobby, feather and heavy, because the top plate normally soaks up a hammer blow completely. At 0.2 the builds with a bay lose 0-3 points and the hammer gains 4-7 in the bigger classes. The test builds have no saw or crusher, so the hammer is the only one that uses the bay.
+
+Win % against the other test builds (12 seeds x skills .5 / .85), before -> after:
+
+| Build | Ant | Beetle | Hobby | Feather | Heavy |
+|---|---|---|---|---|---|
+| Horizontal spinner | 67 -> 68 | 60 -> 62 | 67 -> 65 | 65 -> 64 | 66 -> 64 |
+| Vertical spinner | 53 -> 51 | 61 -> 62 | 62 -> 62 | 67 -> 65 | 63 -> 64 |
+| Drum | 58 -> 60 | 62 -> 61 | 53 -> 51 | 60 -> 59 | 59 -> 59 |
+| Glass cannon | 52 -> 53 | 44 -> 41 | 48 -> 48 | 43 -> 41 | 38 -> 37 |
+| Invertible box | 55 -> 55 | 63 -> 62 | 56 -> 56 | 63 -> 63 | 63 -> 63 |
+| Hammer | 41 -> 38 | 38 -> 39 | 46 -> 51 | 39 -> 46 | 50 -> 54 |
+
+Every other build is unchanged. The ant and beetle moves are noise: an ant hammer blow is about 2 J, so the bay does nothing there, but the extra draw changes which seeds play out how. Hammer against the horizontal spinner: hobby 21 -> 50%, feather 25 -> 35%, heavy 60 -> 83%.
+
 ## Known loose ends
 
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.

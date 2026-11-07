@@ -7,7 +7,7 @@
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
-     bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, u} the weapon bay (bayOf, below)
+     bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, belowFrac, u} the weapon bay (bayOf, below)
      armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
@@ -230,12 +230,6 @@ function evalBuild(cfgIn,opts){
   b.verdict=!b.valid?(totalG>c.limitG?"over":"invalid"):b.stress.some(s=>s.sev==="bad"||s.sev==="warn")?"flaws":"valid";
   return b;}
 
-/* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
-   part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
-   material, so it pays for the material too. fitted null (or another class) means the whole bot.
-   Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
-   replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
-   fitBill(null, cfg).cost. ---- */
 /* ---- the weapon bay (0.1.15.3, Kelbo: real weapon bays): the opening the body leaves round the weapon. The 3D bot cuts
    it (vis/bot.js, and the slotted Blender shells), and the fight treats an open one as a weak spot (sim/fight.js).
      kind       "slot" (vertical disc, saw: a slot through the top), "pocket" (drum: open at the front and top), "well"
@@ -244,7 +238,9 @@ function evalBuild(cfgIn,opts){
      rect       [x0, y0, x1, y1] m in build coords (+y forward), clipped to the body; circle {x, y, r} m for a well
      depthM     how far a well is cut into the body
      openTop    a hit from above can land in it; openBelow the same from underneath (so from above when upside down)
-     topFrac    its share of the top's area (0 when it isn't open)
+     topFrac    its share of the top's area (0 when it isn't open from above); belowFrac the same from underneath. A hit
+                from above lands in the bay this often (x DAMAGE.bayMul; belowFrac when the bot is upside down) and skips
+                the top plate (sim/fight.js, hitFace's bay)
      u          the same in a unit body (x -0.5..0.5 the width, z -0.5..0.5 the length with the front at -z, depth in
                 chassis heights), the Blender shells' coordinates
    The sizes follow the 3D bot's weapon (a vertical disc is about 0.18 of its radius thick, a drum about half the width). */
@@ -260,9 +256,15 @@ function bayOf(wp,w,pos,fp,at,g){const hw=g.W/2,hl=g.L/2,len=g.M.len,bodyH=Math.
   else if(T==="flipper"){kind="deck";rect=clip(-0.47*g.W,hl-0.58*g.L,0.47*g.W,hl);}
   else if((T==="lifter"||T==="crusher")&&fr){kind="deck";rect=clip(fr[0],T==="crusher"?Math.min(fr[1],hl-0.32*g.L):fr[1],fr[2],hl);}
   const area=rect?Math.max(0,rect[2]-rect[0])*Math.max(0,rect[3]-rect[1])*(circle?Math.PI/4:1):0;
-  const topFrac=openTop?clamp(area/(g.W*g.L*g.cellFrac),0,1):0;
+  const frac=clamp(area/(g.W*g.L*g.cellFrac),0,1),topFrac=openTop?frac:0,belowFrac=openBelow?frac:0;
   const u=rect?{rect:[rect[0]/g.W,-rect[3]/g.L,rect[2]/g.W,-rect[1]/g.L],circle:circle?{x:circle.x/g.W,z:-circle.y/g.L,rx:circle.r/g.W,rz:circle.r/g.L}:null,depth:depthM/bodyH}:null;
-  return{kind,rect,circle,depthM,openTop,openBelow,topFrac,u};}
+  return{kind,rect,circle,depthM,openTop,openBelow,topFrac,belowFrac,u};}
+/* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
+   part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
+   material, so it pays for the material too. fitted null (or another class) means the whole bot.
+   Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
+   replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
+   fitBill(null, cfg).cost. ---- */
 function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.cls?normCfg(fitted):null,M=classMult(b.cls),lines=[];
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
