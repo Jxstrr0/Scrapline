@@ -840,6 +840,7 @@ const TEST_BUILDS=[
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
+     bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, u} the weapon bay (bayOf, below)
      armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
@@ -1001,6 +1002,8 @@ function evalBuild(cfgIn,opts){
   if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale,energyJ:wp.crushJ*M.mass*powerScale,reachM:0.5*L/1000,bite:wm.bite});
   if(wp.type==="wedge")Object.assign(weapon,{reachM:wp.reachMm*M.len/1000,bite:wm.bite});
 
+  const bay=bayOf(wp,weapon,wpos,fpOf("weapon"),lay.place.weapon,{W:W/1000,L:L/1000,H:H/1000,clr:clearanceMm/1000,cell:cellMm/1000,c,M,cellFrac});
+
   /* ---- exposure: per cell, from each face (closer and less armoured is worse) and from above ---- */
   const cells=[];let topE=K.topWeight*(1-armourMapJ.top.prot);
   for(let y=0;y<c.gridH;y++){const row=[];for(let x=0;x<c.gridW;x++){
@@ -1053,7 +1056,7 @@ function evalBuild(cfgIn,opts){
     limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW:el.idleW*M.power,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
-    height,weapon,armourMapJ,weakestFace,exposureScore,cells,parts,
+    height,weapon,bay,armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
   b.stress=stressReport(b);
@@ -1066,6 +1069,33 @@ function evalBuild(cfgIn,opts){
    Returns {lines:[{slot, face, id, name, cost, hours}], removed:[{slot, face, id, name}] (what comes off and is not
    replaced: a plate taken off, the weapon taken off, an extra dropped), cost, hours}. evalBuild's cost is
    fitBill(null, cfg).cost. ---- */
+/* ---- the weapon bay (0.1.15.3, Kelbo: real weapon bays): the opening the body leaves round the weapon. The 3D bot cuts
+   it (vis/bot.js, and the slotted Blender shells), and the fight treats an open one as a weak spot (sim/fight.js).
+     kind       "slot" (vertical disc, saw: a slot through the top), "pocket" (drum: open at the front and top), "well"
+                (horizontal disc: a round recess in the top it sits in), "underwell" (undercutter: the same from below),
+                "deck" (hammer, flipper, lifter, crusher: a flat deck the arm or plate lies on), "none"
+     rect       [x0, y0, x1, y1] m in build coords (+y forward), clipped to the body; circle {x, y, r} m for a well
+     depthM     how far a well is cut into the body
+     openTop    a hit from above can land in it; openBelow the same from underneath (so from above when upside down)
+     topFrac    its share of the top's area (0 when it isn't open)
+     u          the same in a unit body (x -0.5..0.5 the width, z -0.5..0.5 the length with the front at -z, depth in
+                chassis heights), the Blender shells' coordinates
+   The sizes follow the 3D bot's weapon (a vertical disc is about 0.18 of its radius thick, a drum about half the width). */
+function bayOf(wp,w,pos,fp,at,g){const hw=g.W/2,hl=g.L/2,len=g.M.len,bodyH=Math.max(0.001,g.H-g.clr),id=wp.id,T=wp.type,r=w.radiusM||0,cx=pos[0],cy=pos[1];
+  const clip=(x0,y0,x1,y1)=>[Math.max(-hw,x0),Math.max(-hl,y0),Math.min(hw,x1),Math.min(hl,y1)];
+  const fr=fp&&at?[(at[0]-g.c.gridW/2)*g.cell,(g.c.gridH/2-(at[1]+fp.h))*g.cell,(at[0]+fp.w-g.c.gridW/2)*g.cell,(g.c.gridH/2-at[1])*g.cell]:null;
+  let kind="none",rect=null,circle=null,depthM=0,openTop=false,openBelow=false;
+  if(id==="vsp"||id==="saw"){kind="slot";const sw=Math.min(fr?fr[2]-fr[0]:g.W,0.3*r+0.006*len);rect=clip(cx-sw/2,cy-r*1.05,cx+sw/2,cy+r*1.05);openTop=true;openBelow=id==="vsp";}
+  else if(id==="drum"){kind="pocket";const dw=Math.min(g.W*0.7,Math.max(r*2,g.W*0.5))+0.006*len;rect=clip(cx-dw/2,cy-r*1.15,cx+dw/2,hl);openTop=openBelow=true;}
+  else if(id==="hsp"||id==="under"){kind=id==="hsp"?"well":"underwell";const rr=r*1.06;circle={x:cx,y:cy,r:rr};rect=clip(cx-rr,cy-rr,cx+rr,cy+rr);
+    depthM=Math.min(bodyH*0.45,Math.max(0.004*len,r*0.08)*2.2+0.002*len);if(id==="hsp")openTop=true;else openBelow=true;}
+  else if(T==="hammer"){kind="deck";const dw=Math.max(fr?fr[2]-fr[0]:0,0.034*len);rect=clip(-dw/2,-0.3*hl-0.01*len,dw/2,hl);}
+  else if(T==="flipper"){kind="deck";rect=clip(-0.47*g.W,hl-0.58*g.L,0.47*g.W,hl);}
+  else if((T==="lifter"||T==="crusher")&&fr){kind="deck";rect=clip(fr[0],T==="crusher"?Math.min(fr[1],hl-0.32*g.L):fr[1],fr[2],hl);}
+  const area=rect?Math.max(0,rect[2]-rect[0])*Math.max(0,rect[3]-rect[1])*(circle?Math.PI/4:1):0;
+  const topFrac=openTop?clamp(area/(g.W*g.L*g.cellFrac),0,1):0;
+  const u=rect?{rect:[rect[0]/g.W,-rect[3]/g.L,rect[2]/g.W,-rect[1]/g.L],circle:circle?{x:circle.x/g.W,z:-circle.y/g.L,rx:circle.r/g.W,rz:circle.r/g.L}:null,depth:depthM/bodyH}:null;
+  return{kind,rect,circle,depthM,openTop,openBelow,topFrac,u};}
 function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.cls?normCfg(fitted):null,M=classMult(b.cls),lines=[];
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
