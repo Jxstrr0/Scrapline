@@ -16,7 +16,7 @@
 const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon"};
 /* hp of a damage key on a build */
 function pitHp(b,key){if(key.indexOf("armour_")===0){const a=b.armourMapJ[key.slice(7)];return a?a.hpJ:0;}
-  if(key==="chassis"){const ch=SIM.part("chassis",b.cfg.chassis);return ch?ch.hp*SIM.classMult(b.cls).mass:0;}
+  if(key==="chassis"){const ch=SIM.part("chassis",b.cfg.chassis),bd=SIM.part("body",b.cfg.body);return ch?ch.hp*(bd?bd.hpMul:1)*SIM.classMult(b.cls).mass:0;}
   const p=b.parts.find(q=>q.key===key);return p?p.hpJ:0;}
 /* the swap that puts a key back to new, or null when only a bodge helps */
 function pitSwap(b,key,flags,frac){if(key.indexOf("armour_")===0)return"armour";if(key==="battery")return"battery";

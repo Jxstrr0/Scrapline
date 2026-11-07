@@ -42,13 +42,13 @@ function evalBuild(cfgIn,opts){
   /* opts.limitG: a season's rule change to the class limit (the career, PR 8); the parts still scale by the class */
   const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
-  const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
+  const ch=pick("chassis",cfg.chassis),bd=pick("body",cfg.body),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
   const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
   /* ---- geometry (mm) ---- */
-  const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*M.len;
+  const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*bd.heightMul*M.len;
   const cellsAll=c.gridW*c.gridH;let cellsOn=0;
   for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y))cellsOn++;
   const cellFrac=cellsOn/cellsAll;
@@ -59,7 +59,7 @@ function evalBuild(cfgIn,opts){
 
   /* ---- mass items: {key, slot, id, g, x, y} (x, y in m), plus the moment-of-inertia extras ---- */
   const items=[];const addM=(key,slot,id,g,x,y)=>{items.push({key,slot,id,g,x,y});};
-  addM("chassis","chassis",ch.id,ch.massPerCell*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
+  addM("chassis","chassis",ch.id,ch.massPerCell*bd.massMul*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
 
   /* armour: plate area x thickness x density; the top covers the whole outline */
   const faceArea={front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
@@ -67,7 +67,7 @@ function evalBuild(cfgIn,opts){
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
   for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000;
-    let absorbJ=a.absorbPerG*g,hpJ=a.hpPerG*g,deflect=a.deflect;
+    let absorbJ=a.absorbPerG*g,hpJ=a.hpPerG*g,deflect=Math.min(0.8,a.deflect+(bd.deflect[f]||0));
     if(f==="front")for(const e of ex){if(e.frontAbsorbJ)absorbJ+=e.frontAbsorbJ*M.mass;if(e.frontDeflect)deflect=Math.min(0.8,deflect+e.frontDeflect);}
     armourMapJ[f]={id:a.id,name:a.name,thickMm:r3(t),massG:g,absorbJ,hpJ,deflect};
     if(g>0)addM("armour_"+f,"armour",a.id,g,facePos[f][0],facePos[f][1]);}
@@ -139,10 +139,11 @@ function evalBuild(cfgIn,opts){
 
   /* ---- height profile ---- */
   const rWheel=wh.radiusMm*M.len,proud=rWheel-H/2;
-  const centred=!wh.tracks&&proud>=K.proudMm*M.len;
-  const clearanceMm=centred?proud:K.lowClearMm*M.edge;
+  const centred=bd.inverts||!wh.tracks&&proud>=K.proudMm*M.len;
+  const clearanceMm=centred?(bd.inverts?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
   let frontEdgeMm=wp.edgeMm!=null?wp.edgeMm*M.edge:clearanceMm;
   for(const e of ex)if(e.edgeMm)frontEdgeMm+=e.edgeMm*M.edge;
+  frontEdgeMm+=bd.edgeMm*M.edge;
   frontEdgeMm=Math.max(0.5*M.edge,frontEdgeMm);
   const selfRight=has("selfRight")||!!wp.selfRights;
   const invertible=centred||selfRight;
@@ -234,7 +235,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
+  for(const s of ["chassis","body","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);

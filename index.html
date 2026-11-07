@@ -609,6 +609,26 @@ const PARTS={
     {id:"ti",     name:"Titanium box",   massPerCell:11,hp:320,flex:0.10,heightMm:38,shape:"box",  cost:350,hours:9,unlock:"rnd:titanium"},
     {id:"custom", name:"Custom shape",   massPerCell:10,hp:260,flex:0.12,heightMm:34,shape:"wedge",cost:300,hours:10,unlock:"rnd:custom"}
   ],
+  /* the body: the shell's shape over the chassis, any material (0.1.14.0, Kelbo: real shapes, not paint). massMul and hpMul
+     scale the chassis's own mass and hp, flexAdd adds to its flex, heightMul scales its height (a low body leaves the wheels
+     proud, so it drives upside down; a tall one doesn't), edgeMm is added to the front edge (x class), deflect adds to each
+     face's armour deflect (glancing hits), inverts: it drives upside down whatever the wheels. "plain" is the box as before. */
+  body:[
+    {id:"plain",  name:"Plain box",    massMul:1,   hpMul:1,   flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{},                    cost:0,  hours:0,unlock:"start",
+      line:"The box as it comes. Nothing to add, nothing to get wrong."},
+    {id:"scrap",  name:"Scrap frame",  massMul:0.8, hpMul:0.7, flexAdd:0.15,heightMul:1,   edgeMm:0,   deflect:{},                    cost:10, hours:2,unlock:"start",
+      line:"An open tube frame with patched panels. Light and cheap, and it flexes: the armour mounts give."},
+    {id:"slab",   name:"Slab",         massMul:1.15,hpMul:1.1, flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{left:0.1,right:0.1},  cost:30, hours:3,unlock:"start",
+      line:"Chamfered edges, corner guards, bolt heads. Side hits glance off a little more often."},
+    {id:"wedge",  name:"Wedge shell",  massMul:1.1, hpMul:1,   flexAdd:0,   heightMul:0.85,edgeMm:-0.5,deflect:{front:0.05,top:0.15}, cost:60, hours:5,unlock:"tool:welder",
+      line:"The top slopes down to a low front. Hits on the top glance; less room inside."},
+    {id:"dome",   name:"Dome",         massMul:1.2, hpMul:1.05,flexAdd:0,   heightMul:1.15,edgeMm:0,   deflect:{top:0.3},             cost:90, hours:6,unlock:"tool:press",
+      line:"A rounded clamshell. Hammers and saws skate off the top, but it sits tall, so small wheels won't reach the floor upside down."},
+    {id:"pancake",name:"Pancake",      massMul:1,   hpMul:0.9, flexAdd:0,   heightMul:0.7, edgeMm:0,   deflect:{top:0.1},             cost:70, hours:5,unlock:"tool:mill",
+      line:"Very low and flat. Wheels stand proud, so it drives either way up; a thinner box takes less."},
+    {id:"invert", name:"Invertible",   massMul:1.3, hpMul:1,   flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{},                    cost:110,hours:7,unlock:"tool:cnc",
+      line:"The same both ways up: it drives upside down and never needs to self-right. The heaviest body."}
+  ],
   /* per face. Mass is worked out from the face's area x thickMm x density (g/cm3), so it follows the chassis. absorbPerG and
      hpPerG are J per gram of plate: absorb is eaten before any damage, hp is what the plate takes before it is gone.
      deflect: 0..1 chance a glancing hit skids off. thickMm is at beetle scale (x thick in other classes). */
@@ -707,12 +727,12 @@ const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite
 const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
   cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
   driver:{style:"rush"}};
-const PART_SLOTS=["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
+const PART_SLOTS=["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
 
 /* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
-const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",
+const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
   drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
 
@@ -855,13 +875,13 @@ function evalBuild(cfgIn,opts){
   /* opts.limitG: a season's rule change to the class limit (the career, PR 8); the parts still scale by the class */
   const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
-  const ch=pick("chassis",cfg.chassis),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
+  const ch=pick("chassis",cfg.chassis),bd=pick("body",cfg.body),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
   const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
   /* ---- geometry (mm) ---- */
-  const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*M.len;
+  const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*bd.heightMul*M.len;
   const cellsAll=c.gridW*c.gridH;let cellsOn=0;
   for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y))cellsOn++;
   const cellFrac=cellsOn/cellsAll;
@@ -872,7 +892,7 @@ function evalBuild(cfgIn,opts){
 
   /* ---- mass items: {key, slot, id, g, x, y} (x, y in m), plus the moment-of-inertia extras ---- */
   const items=[];const addM=(key,slot,id,g,x,y)=>{items.push({key,slot,id,g,x,y});};
-  addM("chassis","chassis",ch.id,ch.massPerCell*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
+  addM("chassis","chassis",ch.id,ch.massPerCell*bd.massMul*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
 
   /* armour: plate area x thickness x density; the top covers the whole outline */
   const faceArea={front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
@@ -880,7 +900,7 @@ function evalBuild(cfgIn,opts){
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
   for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000;
-    let absorbJ=a.absorbPerG*g,hpJ=a.hpPerG*g,deflect=a.deflect;
+    let absorbJ=a.absorbPerG*g,hpJ=a.hpPerG*g,deflect=Math.min(0.8,a.deflect+(bd.deflect[f]||0));
     if(f==="front")for(const e of ex){if(e.frontAbsorbJ)absorbJ+=e.frontAbsorbJ*M.mass;if(e.frontDeflect)deflect=Math.min(0.8,deflect+e.frontDeflect);}
     armourMapJ[f]={id:a.id,name:a.name,thickMm:r3(t),massG:g,absorbJ,hpJ,deflect};
     if(g>0)addM("armour_"+f,"armour",a.id,g,facePos[f][0],facePos[f][1]);}
@@ -952,10 +972,11 @@ function evalBuild(cfgIn,opts){
 
   /* ---- height profile ---- */
   const rWheel=wh.radiusMm*M.len,proud=rWheel-H/2;
-  const centred=!wh.tracks&&proud>=K.proudMm*M.len;
-  const clearanceMm=centred?proud:K.lowClearMm*M.edge;
+  const centred=bd.inverts||!wh.tracks&&proud>=K.proudMm*M.len;
+  const clearanceMm=centred?(bd.inverts?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
   let frontEdgeMm=wp.edgeMm!=null?wp.edgeMm*M.edge:clearanceMm;
   for(const e of ex)if(e.edgeMm)frontEdgeMm+=e.edgeMm*M.edge;
+  frontEdgeMm+=bd.edgeMm*M.edge;
   frontEdgeMm=Math.max(0.5*M.edge,frontEdgeMm);
   const selfRight=has("selfRight")||!!wp.selfRights;
   const invertible=centred||selfRight;
@@ -1047,7 +1068,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
+  for(const s of ["chassis","body","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
@@ -1901,7 +1922,8 @@ const DAMAGE={
   bentPower:0.8,   // ... and spins up on this share of power (it shakes)
   damagedAt:0.999  // a part under this share of its hp is "damaged" (a repair fee); 0 hp is "destroyed" (re-buy)
 };
-const chassisHp=b=>{const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0];return ch.hp*classMult(b.cls).mass;};
+const bodyOf=b=>part("body",b.cfg.body)||PARTS.body[0];
+const chassisHp=b=>{const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0];return ch.hp*bodyOf(b).hpMul*classMult(b.cls).mass;};
 /* hp left on every armour plate, part and the chassis: {armour:{face:J}, parts:{key:J}, chassis:J}. dmg (optional) is
    damage carried in from earlier fights, {key: J taken} */
 function damageState(b,dmg){const st={armour:{},parts:{},chassis:chassisHp(b)};
@@ -1968,7 +1990,7 @@ function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.part
   const hasW=b.weapon.type!=="none",wf=hasW?frac("weapon"):0,weaponOk=hasW&&wf>0,motorOk=weaponOk&&wf>=DAMAGE.motorAt;
   const sr=b.cfg.extras.indexOf("selfright")>=0&&alive("selfright"),wr=!!part("weapon",b.cfg.weapon).selfRights&&motorOk;
   const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0],cf=Math.max(0,st.chassis)/Math.max(chassisHp(b),1e-9);
-  const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*ch.flex*(1-cf));
+  const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*(ch.flex+bodyOf(b).flexAdd)*(1-cf));
   return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt};}
 /* J taken per key (only the keys that took any): part keys, armour_<face>, chassis. This is S.bots[cls].damage's shape. */
 function damageTaken(b,st){const out={},r=v=>Math.round(v*100)/100;
@@ -3816,6 +3838,8 @@ const B_SECS=[
       <p>One bot per class. Each class keeps its own bot, draft and designs.</p>`},
   {id:"chassis",t:"Chassis",sum:()=>bName("chassis",draft().chassis),
     body:()=>bOpts("chassis",draft().chassis,bFit("chassis"),(c,id)=>{c.chassis=id;})},
+  {id:"body",t:"Body",sum:()=>bName("body",draft().body),
+    body:()=>{const p=SIM.part("body",draft().body);return(p&&p.line?`<p>${esc(p.line)}</p>`:"")+bOpts("body",draft().body,bFit("body"),(c,id)=>{c.body=id;});}},
   {id:"armour",t:"Armour",sum:()=>{const r=bEval();return"weakest: "+FACE_LBL[r.weakestFace].toLowerCase();},
     body:()=>{const d=draft(),f=B.face;
       return bArmourMap()+`<div class="seg faces" role="group" aria-label="Face">${["front","back","left","right","top"].map(x=>`<button type="button" data-face="${x}" class="${x===f?"on":""}" aria-pressed="${x===f}">${FACE_LBL[x]}<small>${esc(bName("armour",d.armour[x]).replace("HDPE, ","HDPE "))}</small></button>`).join("")}</div>`
@@ -4738,7 +4762,7 @@ TAB_RENDER.fight=function(){
 const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon"};
 /* hp of a damage key on a build */
 function pitHp(b,key){if(key.indexOf("armour_")===0){const a=b.armourMapJ[key.slice(7)];return a?a.hpJ:0;}
-  if(key==="chassis"){const ch=SIM.part("chassis",b.cfg.chassis);return ch?ch.hp*SIM.classMult(b.cls).mass:0;}
+  if(key==="chassis"){const ch=SIM.part("chassis",b.cfg.chassis),bd=SIM.part("body",b.cfg.body);return ch?ch.hp*(bd?bd.hpMul:1)*SIM.classMult(b.cls).mass:0;}
   const p=b.parts.find(q=>q.key===key);return p?p.hpJ:0;}
 /* the swap that puts a key back to new, or null when only a bodge helps */
 function pitSwap(b,key,flags,frac){if(key.indexOf("armour_")===0)return"armour";if(key==="battery")return"battery";
@@ -5048,7 +5072,7 @@ function crPartLock(slot,id){if(!crOn())return null;const p=SIM.part(slot,id);if
 function crDiscLock(){if(!crOn())return null;if(!S.unlocks.rnd.disc)return"needs R&D: your own disc profile";if(!tmHas("fabricator"))return"needs a fabricator";return null;}
 /* every locked part in a cfg: [{slot, id, name, why}] */
 function crCfgLocks(cfg){if(!crOn()||!cfg)return[];const c=SIM.normCfg(cfg),out=[],add=(slot,id)=>{const w=crPartLock(slot,id);if(w&&!out.some(x=>x.slot===slot&&x.id===id))out.push({slot,id,name:SIM.part(slot,id).name,why:w});};
-  for(const s of["chassis","drive","wheels","battery","electronics","weapon"])add(s,c[s]);
+  for(const s of["chassis","body","drive","wheels","battery","electronics","weapon"])add(s,c[s]);
   if(c.weapon!=="none")add("weaponMaterial",c.weaponMaterial);
   for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);
   if(c.disc){const w=crDiscLock();if(w)out.push({slot:"disc",id:"disc",name:`Disc profile “${c.disc.name}”`,why:w});}
@@ -5080,9 +5104,9 @@ function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffff
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
   events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0,trophies:[]};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
-const CR_START={chassis:"hdpe",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
+const CR_START={chassis:"hdpe",body:"plain",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
-  for(const s of["chassis","drive","wheels","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
+  for(const s of["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
   for(const f of SIM.FACES)if(crPartLock("armour",c.armour[f]))c.armour[f]=CR_START.armour;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
