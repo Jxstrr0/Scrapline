@@ -327,6 +327,10 @@ The 3D bot draws each body in code on every tier: a sloped top with side cheeks,
 - Wedge, Dome, Pancake and Invertible shells replace the top; Slab and Scrap frame keep the flat top plate and add skirts, guards, tubes and welds to it. The scrap frame gains a cross brace on Full.
 - Lite is unchanged (no load, the coded shapes). The sim is untouched.
 
+## 0.1.15.1: body deltas
+
+A Body option's delta line on Build now shows what it does to the bot's height (`mm tall`, lower is green) and whether it gains or loses driving upside down, ahead of the armour and front edge (up to three changes, against two for other rows). The plan's Body styles row has the final numbers.
+
 ## Known loose ends
 
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.
