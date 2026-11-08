@@ -3979,7 +3979,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.17.2";
+const VERSION="0.1.17.3";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4497,8 +4497,9 @@ function buRestore(text,err){
   closeSheet();applyLoaded(r.data.save,"Backup restored");buPersist();}
 
 /* ===================== SAVE SAFETY: backup files, keep-my-storage, the backup reminder (after PEW 1.76.66) =====================
-   Every Longlight game lives at jxstrr0.github.io, so they share one browser storage pot. When a phone runs short of
-   space the browser may clear all of it at once. Three things guard against that:
+   Scrapline has its own address (scrapline.longlight.games), so its own browser storage; saves from before the move stay
+   on jxstrr0.github.io. When a phone runs short of space the browser may still clear a site's storage. Three things guard
+   against that:
      buPersist()   asks the browser to keep this site's storage (navigator.storage.persist). Once per page load, only after a
                    save write with progress (save() in app/state.js calls buSaved) or after a backup / restore. Firefox may
                    ask the player; Chrome and Safari decide quietly. Missing API: nothing happens.
@@ -6783,7 +6784,7 @@ async function cardFonts(){try{if(document.fonts&&document.fonts.load)await Prom
 function cardBase(){const c=document.createElement("canvas");c.width=CARD.W;c.height=CARD.H;const g=c.getContext("2d");
   g.fillStyle=CARD.bg;g.fillRect(0,0,CARD.W,CARD.H);g.strokeStyle=CARD.clay;g.lineWidth=4;g.strokeRect(18,18,CARD.W-36,CARD.H-36);
   g.textBaseline="alphabetic";g.fillStyle=CARD.clay;g.font=`700 30px ${CARD.f}`;cardSpaced(g,"SCRAPLINE",CARD.pad,96,6);
-  g.fillStyle=CARD.muted;g.font=`500 24px ${CARD.m}`;g.textAlign="center";g.fillText(`© ${new Date().getFullYear()} Kelbo / Longlight Interactive · jxstrr0.github.io/Scrapline`,CARD.W/2,CARD.H-52);g.textAlign="left";
+  g.fillStyle=CARD.muted;g.font=`500 24px ${CARD.m}`;g.textAlign="center";g.fillText(`© ${new Date().getFullYear()} Kelbo / Longlight Interactive · scrapline.longlight.games`,CARD.W/2,CARD.H-52);g.textAlign="left";
   return{c,g};}
 function cardSpaced(g,s,x,y,sp){for(const ch of s){g.fillText(ch,x,y);x+=g.measureText(ch).width+sp;}}
 /* text shrunk until it fits w */

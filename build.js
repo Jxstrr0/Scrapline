@@ -2,8 +2,8 @@
 /* Scrapline: build index.html from src/.
  *
  *   Copied from Prairie Engine Works (Jxstrr0/350Chev). The only changes are the names: the service worker's caches are
- *   "scr-..." instead of "pew-..." (every Kelbo game lives on jxstrr0.github.io and shares one cache store, and PEW's
- *   worker deletes every "pew-" cache but its own, so the two games would keep deleting each other's offline copy), and
+ *   "scr-..." instead of "pew-..." (the games once shared one cache store on jxstrr0.github.io, where PEW's worker
+ *   deleted every "pew-" cache but its own; each game has its own subdomain now, but the prefixes stay), and
  *   the on-demand three.js addon list is SCR_LIBS instead of PEW_LIBS.
  *
  *   Edit src/, run `node build.js`, commit both src/ and index.html. Never hand-edit index.html.
