@@ -1435,6 +1435,10 @@ const FIGHT={
   up:{hsp:0,vsp:0.6,drum:0.5,under:0.3,saw:0},   // share of a spinner's throw that goes upward
   flipDmg:0.15,               // a flipper's arm hit: this x launchJ x bite in damage
   flipFwd:1,                  // m/s forward a flipped bot carries (x sqrt len)
+  flipThrow:{ant:1.6,beetle:1.8,hobby:1.8},   // 0.1.17.5: a flipper's own flip throws this much further again (m/s, x sqrt len), in the
+                              // classes where flippers fell short: a flip near the pit or a wall can finish the fight
+  flipStunS:{ant:0.6,beetle:0.6,hobby:0.5},   // ... and a bot that lands from a flipper's flip has no drive for this long (wheels and
+                              // nerve both rattled), so the flipper can follow up
   invertM:[0.08,0.25],        // a flip or throw this high (m, x len) may land the bot upside down, rising to ...
   invertMax:0.85,             // ... this chance at the top of the range
   holdMaxS:10,                // the league's rule: a lift or a pin lets go after this long ...
@@ -1450,6 +1454,8 @@ const FIGHT={
   shock:{minShare:0.6,p:{ant:0.0005,beetle:0.001,hobby:0.003,feather:0.006,heavy:0.0075}},
   rightS:1.2,                 // seconds to self-right
   hazCtrlS:3,                 // the judges count a shove into a hazard as this many seconds of control for whoever pushed
+  flipCtrlS:{ant:2,beetle:2,hobby:2},   // ... and a flip that sends a bot up (0.1.17.5) as this many for the flipper, in the classes
+                              // where flippers fell short (feather and heavy flippers were already level)
   /* the judges' bookkeeping: closing at this share of the bot's top speed counts as aggression (away from the enemy at it,
      as retreating); pinned against a wall means slower than pinV x top speed with an enemy on it */
   judge:{closeV:0.2,pinV:0.3,driveV:0.25,
@@ -1533,7 +1539,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
     zone:weaponZone(b),st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
-    under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,
+    under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,dazed:-1,stunNext:0,
     input:{throttle:0,steer:0,weapon:0,selfRight:0},cmd:[0,0],touch:{},wallT:null,pin:null,release:-1,releaseFrom:-1,airBy:null,invBy:null,
     stats:{dealt:0,taken:0,hits:0,landed:0,failHits:0},jd:{close:0,contact:0,retreat:0,ctrl:0}};
   o.rad=Math.max(...o.poly.map(p=>Math.hypot(p[0],p[1])));
@@ -1685,15 +1691,15 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
   return 0;}
 
 /* a bot sent up: vz, a forward push, and whether it will land upside down */
-function launch(F,t,vz,flip,by,att){t.air=true;t.vz=vz;t.z=Math.max(t.z,0.001);t.zPeak=t.z;t.flipNext=!!flip;t.under=null;t.held=null;
+function launch(F,t,vz,flip,by,att,fwd){t.air=true;t.stunNext=0;t.vz=vz;t.z=Math.max(t.z,0.001);t.zPeak=t.z;t.flipNext=!!flip;t.under=null;t.held=null;
   t.airBy=by?by.i:att!=null?att:null;
-  if(by){const f=[Math.cos(by.h),Math.sin(by.h)],v=FIGHT.flipFwd*Math.sqrt(by.M.len);t.vx+=f[0]*v;t.vy+=f[1]*v;t.w+=rRange(F.rng,-6,6);}}
+  if(by){const f=[Math.cos(by.h),Math.sin(by.h)],v=(FIGHT.flipFwd+(fwd||0))*Math.sqrt(by.M.len);t.vx+=f[0]*v;t.vy+=f[1]*v;t.w+=rRange(F.rng,-6,6);}}
 function invertChance(F,hM){const a=FIGHT.invertM[0]*F.M.len,b=FIGHT.invertM[1]*F.M.len;return FIGHT.invertMax*Math.max(0,Math.min(1,(hM-a)/(b-a)));}
 function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon).strokeMm*o.M.len/1000;let hit=false;
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;hit=true;
     if(t.m>w.canLiftKg){logIt(F,{k:"flip",a:o.i,v:t.i,h:0,heavy:1});continue;}
-    const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);
-    launch(F,t,Math.sqrt(2*K.g*h),flip,o);logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
+    const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);if(!o.mini&&!t.mini)o.jd.ctrl+=FIGHT.flipCtrlS[F.cls]||0;
+    launch(F,t,Math.sqrt(2*K.g*h),flip,o,null,FIGHT.flipThrow[F.cls]||0);t.stunNext=FIGHT.flipStunS[F.cls]||0;logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
     damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
   if(!hit)logIt(F,{k:"flip",a:o.i,v:-1});}
 function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
@@ -1740,7 +1746,7 @@ function releaseInput(F,o){const v=F.bots[o.releaseFrom];if(!v)return{throttle:-
 function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F.t?releaseInput(F,o):o.input;let draw=0;
   const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
   if(o.air){o.cmd=[0,0];return 0;}
-  const go=mobile(o)&&!o.righting,p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
+  const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
   const gripMul=o.held!=null?FIGHT.liftGrip:o.under?(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
   let cL=go?clamp1(u.throttle+u.steer):0,cR=go?clamp1(u.throttle-u.steer):0;
@@ -1865,7 +1871,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
     else o.righting=0;
     /* the height axis */
     if(o.air){o.vz-=K.g*dt;o.z+=o.vz*dt;if(o.z>o.zPeak)o.zPeak=o.z;
-      if(o.z<=0&&o.vz<0){o.z=0;o.vz=0;o.air=false;if(o.flipNext){o.inverted=!o.inverted;o.flipNext=false;o.invBy=o.inverted?o.airBy:null;logIt(F,{k:"inv",v:o.i,inv:o.inverted?1:0});}
+      if(o.z<=0&&o.vz<0){o.z=0;o.vz=0;o.air=false;if(o.stunNext){o.dazed=F.t+o.stunNext;o.stunNext=0;}if(o.flipNext){o.inverted=!o.inverted;o.flipNext=false;o.invBy=o.inverted?o.airBy:null;logIt(F,{k:"inv",v:o.i,inv:o.inverted?1:0});}
         damageBot(F,o,"top",o.m*K.g*o.zPeak*BENCH.dropShare,"land",-1,{inverted:o.inverted});fxPush(F,{k:"land",x:o.x,y:o.y,E:o.m*K.g*o.zPeak,v:o.i});o.stats.landed++;o.zPeak=0;}}
     else o.z=o.under?WEDGE_RULES.liftMm*o.M.len/1000:o.held!=null?((F.bots[o.held].b.weapon.liftM)||0.02)*0.5:0;
     if(o.under&&F.t>o.under.until)o.under=null;
@@ -2319,10 +2325,11 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
    A pin (under a wedge or against a wall) lasts at most FIGHT.holdMaxS in one spell: then the pinner backs off. ---- */
 const ARENAS={
   box:{id:"box",name:"Test box",sizeM:2.4,wallE:0.35,pit:null,hazards:[]},
-  /* the antweights' table at club meets: small, an open pit on one side (narrowed in 0.1.12.0: it decided 79% of ant fights) */
-  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.8,-0.15,1.0,0.15],openS:0},hazards:[]},
-  /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it (narrowed in 0.1.12.0, as the tabletop's) */
-  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.94,-0.2,1.2,0.2],openS:20},
+  /* the antweights' table at club meets: small, an open pit on one side (narrowed in 0.1.12.0: it decided 79% of ant fights; again in 0.1.17.5) */
+  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.84,-0.12,1.0,0.12],openS:0},hazards:[]},
+  /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it (narrowed in 0.1.12.0, as the tabletop's; smaller again
+     and opening at 0:30 from 0.1.17.5) */
+  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.98,-0.17,1.2,0.17],openS:30},
     hazards:[{type:"pusher",rect:[-1.2,-0.3,-0.98,0.3],n:[1,0],kickMs:2.2,J:6,vzMs:0,activeS:0.35,periodS:4,startS:0}]},
   /* the regional arenas (Stahlbrück, Eisenau, Grauwald): the pit opens a third of the way in; two pushers and a floor spinner */
   regional:{id:"regional",name:"Regional arena",sizeM:2.6,wallE:0.35,pit:{rect:[0.7,0.7,1.3,1.3],openS:30},
@@ -4072,7 +4079,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.17.4";
+const VERSION="0.1.17.5";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
