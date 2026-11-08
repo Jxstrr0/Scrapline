@@ -78,6 +78,8 @@ function surfFields(n){
    (the main thread has the loading bar and the first frames to draw; a browser without blob workers does it in a
    timeout) and surfLand turns each into textures and puts them on every material made from the set, on the cached
    bots, the workshop's bot and the bots in a fight. A tier change in between drops the late result (SURF.gen) */
+/* Lite: drop the maps and forget a result still on its way */
+function surfDrop(){for(const t of SURF.tex)t.dispose();SURF.tex=[];++SURF.gen;}
 const SURF_KEYS=["steel","alu","ti","plate","disc","ply","hdpe","rubber","paint"];
 function surfMaps(){for(const t of SURF.tex)t.dispose();SURF.tex=[];const gen=++SURF.gen,out={};
   for(const k of SURF_KEYS)out[k]={key:k,map:null,nor:null,rough:null,ns:1,avg:1};
@@ -97,7 +99,7 @@ function surfLand(set,f){const n=SURF.n,an=Math.min(4,V.r.capabilities.getMaxAni
   set.map=tex(f.alb,true);set.nor=tex(f.nor,false);set.rough=tex(f.rough,false);set.ns=f.ns;set.avg=Math.pow(f.avg,2.2);
   /* every material made from this set, wherever it is by now */
   const seen=new Set(),fix=o=>{if(!o)return;o.traverse(m=>{if(!m.isMesh||!m.material)return;for(const mat of Array.isArray(m.material)?m.material:[m.material]){
-    if(mat.userData.surf!==set.key||seen.has(mat))continue;seen.add(mat);surfDress(mat,set);if(m.userData.base)m.userData.base.copy(mat.color);}});};
+    if(mat.userData.surf!==set.key||seen.has(mat))continue;seen.add(mat);surfDress(mat,set);if(m.userData.base){m.userData.base.copy(mat.color);mat.color.multiplyScalar(m.userData.dmul||1);}}});};
   for(const k in V.mats)for(const mat of Array.isArray(V.mats[k])?V.mats[k]:[V.mats[k]])if(mat.userData.surf===set.key&&!seen.has(mat)){seen.add(mat);surfDress(mat,set);}
   for(const k in V.spMats)if(V.spMats[k].userData.surf===set.key){seen.add(V.spMats[k]);surfDress(V.spMats[k],set);}
   for(const g of BOT_CACHE.values())fix(g);fix(V.bot);for(const B of AR.bots)fix(B.mesh);}

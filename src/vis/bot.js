@@ -149,8 +149,9 @@ const SHELL_TOPS={wedge:1,dome:1,pancake:1,invert:1};   // bodies whose shell is
 const SHELL_LID={pancake:.12,invert:.09};   // the wedge lid's plate is .07 thick over its slope
 const SHELL_VAR={wedge_top:1,wedge_bolts:1,dome_shell:1,dome_bolts:1,pancake_lid:1,pancake_bolts:1,invert_plate:1,invert_bolts:1};   // pieces with slotted variants
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
-  /* each piece's geometry is copied for this bot, so uvProject can give it this bot's UVs (the shared file's stays as loaded) */
-  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;m.geometry=m.geometry.clone();if(part)m.userData.part=part;}});g.add(o);return o;}
+  /* each piece's geometry is copied for this bot, so uvProject can give it this bot's UVs (the shared file's stays as loaded;
+     the copy gets its own userData, since r128's clone shares it and uvProject marks it done there) */
+  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;const ge=m.geometry.clone();ge.userData={};m.geometry=ge;if(part)m.userData.part=part;}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
   const vn=(n,v)=>v&&SHELL_VAR[n]?n+"__"+v:n;   // a slotted piece for a weapon bay (shellVariant)
   const U=(name,mat,part)=>shellAdd(g,S,vn(name,k.sv),mat,part,-cx,H,cy,Wd,bodyH,L);   // a piece over the whole body
@@ -268,7 +269,7 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     else{   // vertical disc, drum, saw: spin about the x axis
       const drum=id==="drum",width=drum?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):Math.max(0.005*len,r*0.14);
       const geo=new THREE.CylinderGeometry(r,r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
-      const d=new THREE.Mesh(geo,drum?M.steel:mat);d.userData.part="weapon";spin.add(d);
+      const d=new THREE.Mesh(geo,drum&&V.tier!=="lite"?M.steel:mat);d.userData.part="weapon";spin.add(d);
       if(drum){for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*0.9,r*0.25,r*0.25),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
       else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
       const cyH=id==="saw"?H+r*0.6:r+Math.max(0.001,(b.height.frontEdgeMm||2)/1000);
@@ -330,7 +331,7 @@ function buildPlaceholderBot(){
   for(const a of [0,Math.PI]){const t=new THREE.Mesh(tooth,M.steel);t.position.set(Math.cos(a)*.62,0,Math.sin(a)*.62);t.rotation.y=-a;disc.add(t);}
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.09,16),M.alu);disc.add(hub);
   disc.position.set(0,Y+H/2+.21,L/2-.25);g.add(disc);
-  if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  if(!lite){SURF.tile=0.09*2.2/0.27*0.6;g.updateMatrixWorld(true);g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material!==M.disc)uvProject(o.geometry,o.matrixWorld);}});}   /* its grain at about the bots' density (it is drawn at 2.2 units a bot) */
   g.userData={disc,placeholder:true};
   return g;
 }

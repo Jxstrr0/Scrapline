@@ -32,6 +32,7 @@ function makeMats(tier){
   const lite=tier==="lite";
   if(V.mats)for(const k in V.mats)(Array.isArray(V.mats[k])?V.mats[k]:[V.mats[k]]).forEach(m=>m.dispose());
   if(!lite&&!V.env)V.env=shopEnv();
+  if(lite)surfDrop();   // vis/surface.js: frees Full's maps and drops a worker result still on its way
   const C=h=>new THREE.Color(h).convertSRGBToLinear(),S=lite?null:surfMaps();
   /* Lite has no reflection to darken bare metal, so its Phong base colour runs at 55% with a soft highlight, or polished
      steel under the overhead light reads as white plastic */
