@@ -17,7 +17,8 @@ camera); B() turns them into Blender's (z up). Colours are sRGB hex like the gam
   spinner   a floor turntable, unit radius: bolted disc, a toothed bar, a light ring (spinner_glow)
   pitedge   one unit of striped pit edge along x (0.1 wide), to tile round a pit
   pitwell   a unit open-topped well under the pit hole (x, z -0.5..0.5, y 0..-1)
-  stands    a 4-unit bleacher block, three tiers rising away from the arena (front at z 0, back at z -2.4), people on it
+  stands    in metres, not arena units: a 4 m bleacher block, four 0.45 m tiers rising away from the arena (front at z 0,
+            back at z -3.2), seated people on them; the game scales it (vis/props.js, kitBuild)
 Nothing random at run time: the crowd is laid out here once from a fixed seed.
 """
 import math, random, sys
@@ -282,32 +283,45 @@ bpy.ops.mesh.flip_normals()
 bpy.ops.object.mode_set(mode="OBJECT")
 link(w, g, HOLE)
 
-# ---- stands: three tiers, people on them ----
+# ---- stands: in metres (the game scales them to its dressing scale), four tiers, seated people on them ----
+# Real sizes so the people agree with the props (vis/props.js ARENA_PROP_UNITS): a 0.45 m step, rows 0.8 m deep, people
+# 0.55 m apart with a 0.6 m torso, a 0.23 m head, thighs on the step and shins down its face. 0.1.21.1: the old block
+# was in arena units with half-size people, so they came out doll-sized next to a barrel.
 g = empty("stands")
 rnd = random.Random(1979)
 p = []
-tiers = [(0.0, 0.35), (0.8, 0.8), (1.6, 1.25)]   # (z back from the front, seat height)
-for k, (zb, sh) in enumerate(tiers):
-    p.append(box(g, "t", 4.0, sh, 0.8, 0, sh / 2, -zb - 0.4, SEAT, 0.01))
-p.append(box(g, "t", 4.0, 0.06, 0.06, 0, 0.62, 0.05, STEEL))     # a front rail
+ROW, RISE, N = 0.8, 0.45, 4
+tiers = [(k * ROW, RISE * (k + 1)) for k in range(N)]   # (z back from the front, tread height)
+for k, (zb, th) in enumerate(tiers):
+    p.append(box(g, "t", 4.0, th, ROW, 0, th / 2, -zb - ROW / 2, SEAT, 0.01))
+p.append(box(g, "t", 4.0, 0.05, 0.05, 0, 1.0, 0.25, STEEL))      # a front rail at hand height
 for x in (-1.9, 0, 1.9):
-    p.append(box(g, "t", 0.05, 0.62, 0.05, x, 0.31, 0.05, STEEL))
-p.append(box(g, "t", 4.0, 2.2, 0.08, 0, 1.1, -2.44, SEAT))      # the back wall
+    p.append(box(g, "t", 0.05, 1.0, 0.05, x, 0.5, 0.25, STEEL))
+top = tiers[-1][1]
+p.append(box(g, "t", 4.0, 0.05, 0.05, 0, top + 1.0, -N * ROW + 0.05, STEEL))   # a rail along the back of the top row
+p.append(box(g, "t", 4.0, top + 0.3, 0.1, 0, (top + 0.3) / 2, -N * ROW - 0.05, SEAT))   # the back wall
 join(g, "stands_body", p)
 people = {}
-for k, (zb, sh) in enumerate(tiers):
-    for i in range(9):
-        if rnd.random() < 0.22:
+for k, (zb, th) in enumerate(tiers):
+    for i in range(7):
+        if rnd.random() < 0.2:
             continue
-        x = -1.8 + i * 0.45 + rnd.uniform(-0.08, 0.08)
-        z = -zb - 0.45 + rnd.uniform(-0.05, 0.05)
+        x = -1.65 + i * 0.55 + rnd.uniform(-0.06, 0.06)
+        zf = -zb                                    # the front edge of this step
+        z = zf - 0.42 + rnd.uniform(-0.04, 0.04)    # the torso, back from the edge
         shirt = rnd.choice(SHIRTS)
         skin = rnd.choice(SKINS)
-        tall = rnd.uniform(0.85, 1.1)
-        t = box(g, "b", 0.24, 0.32 * tall, 0.16, x, sh + 0.16 * tall, z, shirt, 0.02)
-        h = ball(g, "h", 0.085, x, sh + 0.32 * tall + 0.09, z + 0.01, skin)
+        legs = rnd.choice([BLK, SEAT, SHIRTS[1], SHIRTS[4]])
+        tall = rnd.uniform(0.92, 1.08)
+        tt = 0.6 * tall
+        lean = rnd.uniform(-0.06, 0.06)
+        t = box(g, "b", 0.42, tt, 0.24, x, th + tt / 2, z, shirt, 0.03, lean)
+        h = ball(g, "h", 0.115, x + lean * tt * 0.5, th + tt + 0.13, z + 0.02, skin)
+        th_ = box(g, "l", 0.36, 0.14, 0.46, x, th + 0.07, zf - 0.2, legs)          # thighs along the step
+        sh_ = box(g, "l", 0.32, 0.44, 0.12, x, th - 0.22, zf + 0.04, legs)         # shins down the step's face
         people.setdefault(shirt.name, []).append(t)
         people.setdefault(skin.name, []).append(h)
+        people.setdefault(legs.name, []).extend([th_, sh_])
 for i, (mn, parts) in enumerate(sorted(people.items())):
     join(g, "stands_crowd%d" % i, parts)
 
