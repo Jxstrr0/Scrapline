@@ -3211,7 +3211,7 @@ function shopEnv(){
    The mesh is in metres with its origin at the centre of mass (where the sim puts the bot), front along -z; the app's view
    scales it. On Full and Ultra the materials carry maps (vis/surface.js): buildBot ends by projecting UVs over the whole
    mesh (uvProject, one tile every SURF.tile metres), the wheels become a tyre with a tread round a brushed hub, and the
-   Blender shells get their geometry copied per bot so they take the projection too. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
+   Blender shells get their geometry copied per bot so they take the projection too. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates() (on Full and Ultra the grey is graded by hp lost, with scars and crooked plates: vis/wear.js). Meshes are cached
    by build hash (a few at a time) and their geometry and materials are disposed when they drop out of the cache. A team
    colour paints the side panels: clay for you, lilac, green and blue for the others. Your bot (the workshop's, and bot 0
    in a fight) also wears your sponsors' colours (SCRAP_VIS.setPaint, PR 8): a panel on each side, a patch on the top. ---- */
@@ -3349,7 +3349,11 @@ const SHELL_VAR={wedge_top:1,wedge_bolts:1,dome_shell:1,dome_bolts:1,pancake_lid
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
   /* each piece's geometry is copied for this bot, so uvProject can give it this bot's UVs (the shared file's stays as loaded;
      the copy gets its own userData, since r128's clone shares it and uvProject marks it done there) */
-  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;const ge=m.geometry.clone();ge.userData={};m.geometry=ge;if(part)m.userData.part=part;}});g.add(o);return o;}
+  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;const ge=m.geometry.clone();ge.userData={};m.geometry=ge;if(part)m.userData.part=part;
+    /* the copy's positions as plain floats: r128's raycast and bounds read a quantized attribute's raw integers (vis/wear.js
+       casts at the bot to place a scar) */
+    const P=ge.attributes.position;if(P&&P.normalized){const f=new Float32Array(P.count*3);for(let i=0;i<P.count;i++){f[i*3]=attrGet(P,i,0);f[i*3+1]=attrGet(P,i,1);f[i*3+2]=attrGet(P,i,2);}
+      ge.setAttribute("position",new THREE.BufferAttribute(f,3));ge.computeBoundingSphere();ge.computeBoundingBox();}}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
   const vn=(n,v)=>v&&SHELL_VAR[n]?n+"__"+v:n;   // a slotted piece for a weapon bay (shellVariant)
   const U=(name,mat,part)=>shellAdd(g,S,vn(name,k.sv),mat,part,-cx,H,cy,Wd,bodyH,L);   // a piece over the whole body
@@ -3534,9 +3538,10 @@ function wpDiscUV(par,mat){par.traverse(o=>{if(!o.isMesh||o.material!==mat||o.ge
   ge.setAttribute("uv",new THREE.BufferAttribute(uv,2));ge.userData.duv=1;});}
 
 /* parts the sim says are damaged go grey, destroyed ones disappear. states: {key: "intact"|"damaged"|"destroyed"} */
-function botDamage(g,states){const parts=g.userData.parts||{};
+function botDamage(g,states){const parts=g.userData.parts||{},graded=V.tier!=="lite"&&g.userData.wear;   /* Full / Ultra: graded by hp lost (vis/wear.js) */
   for(const key in parts){const s=states[key]||"intact";for(const m of parts[key]){m.visible=s!=="destroyed"||key==="chassis";
-    if(m.userData.base){m.userData.dmul=s==="damaged"?0.55:s==="destroyed"?0.3:1;m.material.color.copy(m.userData.base).multiplyScalar(m.userData.dmul);}}}}   // dmul: the hit flash (arena.js) lerps from here
+    if(m.userData.base){m.userData.dmul=s==="destroyed"?0.3:graded?(m.userData.dmul===0.3?1:m.userData.dmul||1):s==="damaged"?0.55:1;m.material.color.copy(m.userData.base).multiplyScalar(m.userData.dmul);}}}
+  if(graded){wearApply(g);wearHide(g,states);}}   // dmul: the hit flash (arena.js) lerps from here
 
 /* the workshop's bot. Until a build is passed in, the placeholder (a plywood box with clay sides and a horizontal disc) */
 function buildPlaceholderBot(){
@@ -3703,7 +3708,7 @@ function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
-  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;});
+  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;wearClear(B);});
   for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
   for(const n of FX.nums)fxNumDrop(n);FX.nums=[];return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
@@ -3759,7 +3764,7 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   V.cam.position.set(c.x+sx,Math.sin(pitch)*d+sy,c.z+Math.cos(pitch)*d);V.cam.lookAt(c.x+sx*0.5,0,c.z);}
 
 /* a bot's tag and hit flash, each frame */
-function botMarks(B,dt){const o=B.o,U=AR.U,m=B.mesh,gone=!!o.out;
+function botMarks(B,dt){const o=B.o,U=AR.U,m=B.mesh,gone=!!o.out;wearTick(B,dt);
   if(B.tag){B.tag.visible=!gone;if(!gone)B.tag.position.set(o.x*U,((o.z||0)+(m.userData.H||0.05)*1.3)*U+0.3,-o.y*U);}
   if(B.flash>0||B.flashOn){B.flash=Math.max(0,B.flash-dt*6);B.flashOn=B.flash>0;const parts=m.userData.parts||{};
     const ks=B.flashKeys;
@@ -3812,7 +3817,8 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
     const B=big&&e.v!=null?AR.bots[e.v]:null,now=performance.now(),gap=V.run.reduce?330:250;
     if(B&&now-B.flashT>=gap){B.flashT=now;B.flash=Math.min(1,0.45+En/50)*(V.run.reduce?0.6:1);B.flashOn=true;
       const ps=B.mesh.userData.parts||{};B.flashKeys=e.keys&&e.keys.some(k=>ps[k])?e.keys:null;}
-    if(B&&e.d>=0.005)fxNum(B,e.d);}}
+    if(B&&e.d>=0.005)fxNum(B,e.d);
+    if(B)wearScar(B,e,En);}}   // Full / Ultra: a scar where it landed (vis/wear.js)
 /* a damage number: a sprite that keeps its size on screen (like the name tags), above the bot */
 function fxNum(B,d){const lite=V.tier==="lite",max=lite?3:6;while(FX.nums.length>=max)fxNumDrop(FX.nums.shift());
   const W=lite?96:128,Hh=W/2,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/128;
@@ -3853,6 +3859,75 @@ function fxTick(dt){if(!FX.pts&&!FX.chunks.length&&!FX.nums.length)return;const 
   FX.puffs=FX.puffs.filter(p=>{if(p.t>1.6){p.m.parent&&p.m.parent.remove(p.m);p.m.geometry.dispose();return false;}return true;});
   for(const n of FX.nums){n.t+=dt;fxNumPlace(n);}
   FX.nums=FX.nums.filter(n=>{if(n.t>=1||n.B.o.out){fxNumDrop(n);return false;}return true;});}
+/* ---- vis/wear.js: visible damage on Full and Ultra (0.1.23). Lite keeps botDamage's three steps (grey when damaged, gone
+   when destroyed) and none of this.
+     scars    a hit leaves a mark where it landed: a sooty scorch with bright gouges across it, a small decal laid on the
+              surface the hit struck (found by casting a ray down at the bot from over the side the hit came from), sized by the hit's energy and
+              turned to a seeded angle. It belongs to the part it landed on and goes when that part is destroyed. At most
+              WEAR.scars per bot, oldest first out; a replay seek clears them (they come back as the hits replay)
+     wear     each part darkens and dulls with the share of its hp that is gone (o.st against its fresh hp), instead of
+              jumping to grey at the first scratch, so a bot looks as beaten as it is; a repaired part comes back clean
+     askew    an armour plate past WEAR.tiltAt of its hp lost is knocked off true, up to WEAR.tilt radians, its direction
+              seeded by the part, so a battered plate hangs crooked before it falls off
+     bent     a bent disc, drum or saw (the sim's flags.bent) wobbles as it spins (half as much under reduced motion)
+   All of it comes from the fight object (the vis reads it, never steps it), so a replay shows the same wear. ---- */
+const WEAR={scars:{full:18,ultra:30},minE:2.5,size:[0.15,0.32],dark:0.55,dull:0.35,tiltAt:0.35,tilt:0.07,wobble:0.09,every:0.25};
+const WR={mats:null,geo:null,ray:null};
+/* four scar textures, drawn once with a fixed seed: soot, a burnt rim, and a few bright gouges running one way */
+function wearMats(){if(WR.mats)return WR.mats;let s=97;const r=()=>(s=(s*16807)%2147483647)/2147483647;WR.mats=[];
+  for(let i=0;i<4;i++){const N=128,c=document.createElement("canvas");c.width=c.height=N;const x=c.getContext("2d");
+    for(let k=0;k<5;k++){const cx=N/2+(r()-0.5)*26,cy=N/2+(r()-0.5)*26,R=N*(0.2+r()*0.22),gr=x.createRadialGradient(cx,cy,0,cx,cy,R);
+      gr.addColorStop(0,"rgba(16,12,10,0.85)");gr.addColorStop(0.45,"rgba(52,36,26,0.55)");gr.addColorStop(0.75,"rgba(96,84,74,0.16)");gr.addColorStop(1,"rgba(96,84,74,0)");x.fillStyle=gr;x.fillRect(0,0,N,N);}
+    const a=(r()-0.5)*0.5,n=3+Math.floor(r()*4);x.lineCap="round";
+    for(let k=0;k<n;k++){const off=(r()-0.5)*N*0.42,L=N*(0.22+r()*0.3),cx=N/2-Math.sin(a)*off,cy=N/2+Math.cos(a)*off,dx=Math.cos(a)*L/2,dy=Math.sin(a)*L/2,w=1.5+r()*3.5;
+      x.strokeStyle="rgba(10,8,8,0.7)";x.lineWidth=w+2.5;x.beginPath();x.moveTo(cx-dx,cy-dy);x.lineTo(cx+dx,cy+dy);x.stroke();
+      x.strokeStyle="rgba(232,230,224,0.92)";x.lineWidth=w;x.beginPath();x.moveTo(cx-dx,cy-dy);x.lineTo(cx+dx*0.85,cy+dy*0.85);x.stroke();}
+    const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;
+    WR.mats.push(new THREE.MeshStandardMaterial({map:t,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3,roughness:0.8,metalness:0.35}));}
+  WR.geo=new THREE.PlaneGeometry(1,1);WR.ray=new THREE.Raycaster();return WR.mats;}
+/* the part a scar on mesh o belongs to ("chassis" for a stripe or a bolt that carries none), or null when o is no place
+   for one: the spinning weapon and its blur, a wheel, another scar, or anything hidden */
+function wearSurface(o,root){if(!o.isMesh||o.userData.scar)return null;let k=null;
+  for(let p=o;p&&p!==root;p=p.parent){if(!p.visible||p.userData.role)return null;if(!k&&p.userData.part)k=p.userData.part;}
+  k=k||"chassis";return /^wheel/.test(k)?null:k;}
+/* a hit on bot B (fx event e in sim metres, En its energy over the class mass): a scar where it landed */
+function wearScar(B,e,En){if(V.tier==="lite"||En<WEAR.minE||B.o.out)return;wearMats();const m=B.mesh,u=m.userData,U=AR.U;
+  m.updateMatrixWorld(true);const c=new THREE.Vector3().setFromMatrixPosition(m.matrixWorld);c.y+=(u.H||0.05)*0.5*U;
+  const h=new THREE.Vector3(e.x*U,c.y,-e.y*U).sub(c);h.y=0;if(h.lengthSq()<1e-8)h.set(0,0,-1).applyQuaternion(m.quaternion);h.normalize();
+  /* the ray comes down at the bot from above the side that was hit, aimed a quarter of the way in at mid height: it finds
+     the top near the struck edge (the face the camera sees most), or the side or a slope when those stand in the way */
+  const S=Math.max(u.L||0.3,u.W||0.3)*U,o=c.clone().addScaledVector(h,S*1.1);o.y+=S*1.6;const t=c.clone().addScaledVector(h,S*0.25);
+  const dir=t.sub(o),far=dir.length()*1.3;dir.normalize();WR.ray.set(o,dir);WR.ray.far=far;
+  let hit=null,part=null;for(const i of WR.ray.intersectObject(m,true)){if(!i.face)continue;part=wearSurface(i.object,m);if(part){hit=i;break;}}if(!hit)return;
+  /* the face's normal into the bot's own frame, through the normal matrix (shell pieces are scaled unevenly and some are
+     mirrored), turned to face the ray so the scar is never laid on the inside of a surface */
+  const nw=hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();if(nw.dot(dir)>0)nw.negate();
+  const n=nw.applyQuaternion(m.quaternion.clone().invert()).normalize(),p=m.worldToLocal(hit.point.clone()),Lm=u.L||0.3;
+  const sc=new THREE.Mesh(WR.geo,WR.mats[Math.floor(fxR()*4)]);sc.userData={scar:true,keep:true,part};
+  sc.position.copy(p).addScaledVector(n,Lm*0.002);sc.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),n);sc.rotateZ(fxR()*Math.PI*2);
+  sc.scale.setScalar(Lm*(WEAR.size[0]+Math.min(WEAR.size[1]-WEAR.size[0],En*0.004)));sc.renderOrder=2;m.add(sc);
+  const list=u.scars||(u.scars=[]),max=WEAR.scars[V.tier]||18;list.push(sc);while(list.length>max){const d=list.shift();d.parent&&d.parent.remove(d);}}
+function wearClear(B){const u=B.mesh.userData;for(const d of u.scars||[])d.parent&&d.parent.remove(d);u.scars=[];u.wear=null;B.wearT=0;}
+/* scars on a destroyed part go with it (botDamage) */
+function wearHide(g,states){for(const d of g.userData.scars||[]){const k=d.userData.part;d.visible=k==="chassis"||states[k]!=="destroyed";}}
+/* each frame on Full and Ultra: the parts' wear from the sim's state a few times a second, and a bent weapon's wobble */
+function wearTick(B,dt){if(V.tier==="lite")return;const o=B.o,m=B.mesh,u=m.userData;
+  if(u.spin){const a=o.flags&&o.flags.bent?WEAR.wobble*(V.run.reduce?0.5:1):0,sp=u.spin,ax=sp.userData.axis,t=sp.rotation[ax];
+    if(ax==="y"){sp.rotation.x=a*Math.sin(t);sp.rotation.z=a*Math.cos(t);}else{sp.rotation.y=a*Math.sin(t);sp.rotation.z=a*Math.cos(t);}}
+  B.wearT=(B.wearT||0)-dt;if(B.wearT>0||!o.st)return;B.wearT=WEAR.every;
+  const f=B.fresh||(B.fresh=window.SCRAP_SIM?SCRAP_SIM.damageState(o.b):null);if(!f)return;
+  const lost=(left,hp)=>hp>0?Math.max(0,Math.min(1,1-left/hp)):0,w={chassis:lost(o.st.chassis,f.chassis)};
+  for(const k in f.armour)w["armour_"+k]=lost(o.st.armour[k],f.armour[k]);for(const k in f.parts)w[k]=lost(o.st.parts[k],f.parts[k]);
+  u.wear=w;wearApply(m);}
+/* the wear onto the part meshes: darker and duller with hp lost (the hit flash lerps from dmul), armour knocked askew */
+function wearApply(g){const u=g.userData,w=u.wear,parts=u.parts||{};if(!w)return;
+  for(const key in parts){const x=w[key]||0;for(const p of parts[key]){const d=p.userData;if(!d.base)continue;
+    if(d.dmul!==0.3)d.dmul=1-WEAR.dark*Math.pow(x,0.7);p.material.color.copy(d.base).multiplyScalar(d.dmul);
+    if(d.rough0==null&&p.material.roughness!=null){d.rough0=p.material.roughness;d.metal0=p.material.metalness;}
+    if(d.rough0!=null){p.material.roughness=Math.min(1,d.rough0+WEAR.dull*x);p.material.metalness=d.metal0*(1-0.4*x);}
+    if(key.indexOf("armour_")===0){if(!d.r0)d.r0=p.rotation.clone();let hs=0;for(let i=0;i<key.length;i++)hs=(hs*31+key.charCodeAt(i))&1023;
+      const k=Math.max(0,(x-WEAR.tiltAt)/(1-WEAR.tiltAt))*WEAR.tilt,an=hs/1024*Math.PI*2;
+      p.rotation.set(d.r0.x+Math.cos(an)*k,d.r0.y,d.r0.z+Math.sin(an)*k);}}}}
 /* ---- vis/workshop.js: the workbench (a steel plate on a wooden bench in a dark corner of a machine shop, cold overhead
    light) with the bot the app last passed to setBot (the placeholder until then), orbit and pinch controls, framing, the
    two views ("workshop" and "arena": V.view) and the frame loop. ---- */
@@ -4182,7 +4257,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.22.0";
+const VERSION="0.1.23.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 

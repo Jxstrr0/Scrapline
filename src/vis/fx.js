@@ -43,7 +43,8 @@ function fxEvents(list){if(!AR.F||!AR.g)return;const F=AR.F,U=AR.U,mm=Math.max(F
     const B=big&&e.v!=null?AR.bots[e.v]:null,now=performance.now(),gap=V.run.reduce?330:250;
     if(B&&now-B.flashT>=gap){B.flashT=now;B.flash=Math.min(1,0.45+En/50)*(V.run.reduce?0.6:1);B.flashOn=true;
       const ps=B.mesh.userData.parts||{};B.flashKeys=e.keys&&e.keys.some(k=>ps[k])?e.keys:null;}
-    if(B&&e.d>=0.005)fxNum(B,e.d);}}
+    if(B&&e.d>=0.005)fxNum(B,e.d);
+    if(B)wearScar(B,e,En);}}   // Full / Ultra: a scar where it landed (vis/wear.js)
 /* a damage number: a sprite that keeps its size on screen (like the name tags), above the bot */
 function fxNum(B,d){const lite=V.tier==="lite",max=lite?3:6;while(FX.nums.length>=max)fxNumDrop(FX.nums.shift());
   const W=lite?96:128,Hh=W/2,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/128;
