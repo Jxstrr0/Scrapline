@@ -5,6 +5,7 @@
      wheels    one per wheel part, at its place in the layout; tracks as a belt
      weapon    by type: horizontal disc, vertical disc, drum, undercutter, saw on an arm, hammer arm, crusher jaw,
                flipper plate, lifter forks, a wedge's ramp (a pusher has a plain front)
+               (on Full and Ultra the Blender pieces from models/bot-weapons.glb, stretched to the same boxes: wpPiece)
      bay       the weapon bay (b.bay, 0.1.15.3): a slot, pocket or well cut out of the chassis, its front plate and the top
                (a notch or hole by polyMinus, the chassis in layers round it), a recess from below for an undercutter, a
                deck where a raised top is cut away for an arm or a flipper; walls under a raised top so it isn't hollow.
@@ -20,7 +21,7 @@
 const BOT_TEAM=[0xd97757,0xb48ce8,0x4cc38a,0x7fb3e6];
 const BOT_CACHE=new Map();   // hash -> group; kept to BOT_CACHE_MAX, oldest first out
 const BOT_CACHE_MAX=6;
-function botHash(b,team,paint){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+(shellsReady()?"s":"")+"|"+(paint?(paint.side||"")+(paint.top||""):"");}
+function botHash(b,team,paint){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+shellsReady()+"|"+(paint?(paint.side||"")+(paint.top||""):"");}
 /* a sponsor colour ("#rrggbb") as a material, shared and never disposed with a bot (core.js makeMats clears them) */
 function spMat(hex){let m=V.spMats[hex];if(!m)m=V.spMats[hex]=V.spMatte(parseInt(String(hex).slice(1),16)||0x888888,.45);return m;}
 function disposeTree(g){g.traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();if(o.material&&o.userData.own){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});}
@@ -256,11 +257,13 @@ function shellVariant(bay,w,body){if(!bay)return{top:null,bottom:null};const u=b
 
 function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw,hl,H,clr,bodyH,len,seg,front,bh,lift}=k;
   const mount=w.mountM?P(w.mountM[0],w.mountM[1]):front,r=Math.max(0.01*len,w.radiusM||0.04),mat=M.disc;
+  /* Full and Ultra: a Blender piece (models/bot-weapons.glb, wpPiece) where one is loaded, else null and the coded box */
+  const Wp=V.tier!=="lite"?botWeapons():null,pc=(par,name,m,x,y,z,sx,sy,sz,part)=>Wp?wpPiece(par,Wp,name,m,part,x,y,z,sx,sy,sz):null;
   const teeth=(grp,R,n,thick,axis)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(R*0.32,thick*1.4,R*0.18),M.steel);
     t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.rotation.y=-a;grp.add(t);}};
   if(T==="spinner"||T==="saw"){const spin=new THREE.Group();spin.userData.role="spin";
     if(id==="hsp"||id==="under"){const thick=Math.max(0.004*len,r*0.08);
-      const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,2,thick);
+      if(!wpDisc(spin,pc,"wp_disc",mat,r,thick,M)){const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,2,thick);}
       const wd=k.wellD||0,dy=id==="under"?(wd?clr+Math.max(thick*0.6,wd*0.45):clr+thick):wd?k.boxTop-wd+thick*0.5+0.0015*len:clr+bodyH*0.55;
       spin.position.set(mount[0],dy,mount[1]);spin.userData.axis="y";
       if(wd){const y0=id==="under"?dy:k.boxTop-wd,y1=id==="under"?clr+wd:dy;   /* the hub, from the well's floor (the recess's roof) to the disc */
@@ -268,14 +271,21 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
       else if(id==="hsp")add(new THREE.CylinderGeometry(r*0.15,r*0.15,bodyH*0.5,12),M.steel,mount[0],clr+bodyH*0.3,mount[1]);}
     else{   // vertical disc, drum, saw: spin about the x axis
       const drum=id==="drum",width=drum?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):Math.max(0.005*len,r*0.14);
-      const geo=new THREE.CylinderGeometry(r,r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
+      /* the pieces: a drum lies along x as modelled; a disc or saw is modelled flat, so it goes in a group turned onto its side */
+      const side=new THREE.Group();side.rotation.z=Math.PI/2;
+      const done=drum?!!pc(spin,"wp_drum",M.steel,0,0,0,width,r,r,"weapon")&&(pc(spin,"wp_drum_teeth",M.steel,0,0,0,width,r,r,"weapon"),true)
+        :id==="saw"?!!pc(side,"wp_saw",mat,0,0,0,r,width,r,"weapon")&&(pc(side,"wp_disc_hub",M.steel,0,0,0,r*0.7,width,r*0.7,"weapon"),true)
+        :wpDisc(side,pc,"wp_disc",mat,r,width,M);
+      if(done){if(side.children.length)spin.add(side);wpDiscUV(spin,mat);}
+      else{const geo=new THREE.CylinderGeometry(r,r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
       const d=new THREE.Mesh(geo,drum&&V.tier!=="lite"?M.steel:mat);d.userData.part="weapon";spin.add(d);
       if(drum){for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*0.9,r*0.25,r*0.25),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
-      else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
+      else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}}
       const cyH=id==="saw"?H+r*0.6:r+Math.max(0.001,(b.height.frontEdgeMm||2)/1000);
       spin.position.set(mount[0],cyH,mount[1]);spin.userData.axis="x";
       /* the uprights that hold it */
-      for(const s of [-1,1])add(new THREE.BoxGeometry(0.004*len,id==="saw"?r*1.2:r*1.2,r*0.8),M.steel,mount[0]+s*(width/2+0.003*len),id==="saw"?H+r*0.3:cyH,mount[1]+r*0.25);}
+      for(const s of [-1,1]){const x=mount[0]+s*(width/2+0.003*len);   /* the piece's bearing boss is at the axle, so the saw's arm (axle above the plate's middle) keeps the box */
+        if(id==="saw"||!pc(g,"wp_upright",M.steel,x,cyH,mount[1]+r*0.25,0.004*len,r*1.2,r*0.8))add(new THREE.BoxGeometry(0.004*len,r*1.2,r*0.8),M.steel,x,id==="saw"?H+r*0.3:cyH,mount[1]+r*0.25);}}
     g.add(spin);
     /* a blur disc that shows when it's up to speed (opacity set per frame) */
     const blur=new THREE.Mesh(spin.userData.axis==="y"?new THREE.CircleGeometry(r*1.05,seg):new THREE.CircleGeometry(r*1.05,seg),M.blur.clone());
@@ -285,28 +295,46 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     return;}
   if(T==="wedge"||T==="lifter"||T==="flipper"){
     /* a ramp from the front edge to the floor ahead of the bot */
-    const reach=Math.max(0.01*len,(w.reachM||0.04)),top=clr+bh*0.95,run=reach+0.004*len,slope=Math.atan2(top,run);
-    const ramp=new THREE.Mesh(new THREE.BoxGeometry(b.widthM,0.003*len,Math.hypot(top,run)),T==="wedge"?M.steel:M.alu);
-    ramp.position.set(front[0],top/2,front[1]-run/2);ramp.rotation.x=-slope;ramp.userData.part="weapon";
+    const reach=Math.max(0.01*len,(w.reachM||0.04)),top=clr+bh*0.95,run=reach+0.004*len,slope=Math.atan2(top,run),rl=Math.hypot(top,run),rm=T==="wedge"?M.steel:M.alu;
+    const ramp=pc(g,"wp_ramp",rm,front[0],top/2,front[1]-run/2,b.widthM,0.003*len,rl,"weapon")||new THREE.Mesh(new THREE.BoxGeometry(b.widthM,0.003*len,rl),rm);
+    ramp.position.set(front[0],top/2,front[1]-run/2);ramp.rotation.x=-slope;ramp.userData.part=ramp.isMesh?"weapon":undefined;
     if(T==="wedge"){g.add(ramp);return;}
     if(T==="lifter"){const f=new THREE.Group();f.userData.role="forks";
-      for(const s of [-1,1]){const fk=new THREE.Mesh(new THREE.BoxGeometry(0.006*len,0.004*len,reach+bodyH),M.steel);fk.position.set(s*b.widthM*0.25,0,-(reach+bodyH)/2);fk.userData.part="weapon";f.add(fk);}
+      for(const s of [-1,1]){const fl=reach+bodyH;if(!pc(f,"wp_fork",M.steel,s*b.widthM*0.25,0,-fl/2,0.006*len,0.004*len,fl,"weapon")){
+        const fk=new THREE.Mesh(new THREE.BoxGeometry(0.006*len,0.004*len,fl),M.steel);fk.position.set(s*b.widthM*0.25,0,-fl/2);fk.userData.part="weapon";f.add(fk);}}
       f.position.set(front[0],clr+0.002*len,front[1]+bodyH*0.3);g.add(f);
-      ramp.scale.set(1,1,0.4);ramp.position.set(front[0],top*0.8,front[1]-run*0.2);g.add(ramp);return;}
+      ramp.scale.z*=0.4;ramp.position.set(front[0],top*0.8,front[1]-run*0.2);g.add(ramp);return;}
     /* flipper: the ramp is the plate, hinged at the top front, swinging up when it fires */
-    const f=new THREE.Group();f.userData.role="flip";const plate=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.9,0.003*len,b.lengthM*0.55),M.alu);
-    plate.position.set(0,0,-b.lengthM*0.275);plate.userData.part="weapon";f.add(plate);   // hinged at the back, the tip at the front edge
+    const f=new THREE.Group();f.userData.role="flip";const pl=b.lengthM*0.55;
+    if(!pc(f,"wp_flip",M.alu,0,0,0,b.widthM*0.9,pl,pl,"weapon")){const plate=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.9,0.003*len,pl),M.alu);
+      plate.position.set(0,0,-pl/2);plate.userData.part="weapon";f.add(plate);}   // hinged at the back, the tip at the front edge
     f.position.set(front[0],H+lift+0.003*len,front[1]+b.lengthM*0.55);g.add(f);g.add(ramp);return;}
   if(T==="hammer"||T==="crusher"){const arm=new THREE.Group();arm.userData.role="arm";
     const al=T==="hammer"?b.lengthM*0.7:b.lengthM*0.45;
-    const beam=new THREE.Mesh(new THREE.BoxGeometry(0.008*len,0.008*len,al),M.alu);beam.position.set(0,0,-al/2);beam.userData.part="weapon";arm.add(beam);
-    const head=new THREE.Mesh(T==="hammer"?new THREE.BoxGeometry(0.03*len,0.02*len,0.016*len):new THREE.BoxGeometry(0.012*len,0.025*len,0.03*len),M.steel);
-    head.position.set(0,T==="hammer"?-0.008*len:-0.012*len,-al);head.userData.part="weapon";arm.add(head);
+    if(!pc(arm,"wp_beam",M.alu,0,0,0,0.008*len,0.008*len,al,"weapon")){const beam=new THREE.Mesh(new THREE.BoxGeometry(0.008*len,0.008*len,al),M.alu);beam.position.set(0,0,-al/2);beam.userData.part="weapon";arm.add(beam);}
+    const hd=T==="hammer"?[0.03*len,0.02*len,0.016*len]:[0.012*len,0.025*len,0.03*len],hy=T==="hammer"?-0.008*len:-0.012*len;
+    if(!pc(arm,T==="hammer"?"wp_hammer_head":"wp_beak",M.steel,0,hy,-al,hd[0],hd[1],hd[2],"weapon")){
+      const head=new THREE.Mesh(new THREE.BoxGeometry(hd[0],hd[1],hd[2]),M.steel);head.position.set(0,hy,-al);head.userData.part="weapon";arm.add(head);}
     arm.position.set(0,H+lift+0.012*len,T==="hammer"?hl*0.3:front[1]+al*0.6);g.add(arm);
-    if(T==="crusher"){const jaw=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.4,0.004*len,0.03*len),M.steel);jaw.position.set(front[0],clr+0.003*len,front[1]-0.012*len);g.add(jaw);}
+    if(T==="crusher"&&!pc(g,"wp_jaw",M.steel,front[0],clr+0.003*len,front[1]-0.012*len,b.widthM*0.4,0.004*len,0.03*len)){
+      const jaw=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.4,0.004*len,0.03*len),M.steel);jaw.position.set(front[0],clr+0.003*len,front[1]-0.012*len);g.add(jaw);}
     return;}
   /* a pusher: a plain plate on the front */
   if(!k.th("front"))add(new THREE.BoxGeometry(b.widthM,bodyH*0.7,0.003*len),M.hdpe,front[0],clr+bodyH*0.4,front[1]-0.0015*len);}
+
+/* ---- Full and Ultra: the weapon parts (models/bot-weapons.glb, tools/blender-bot-weapons.py; loaded by botWeapons in
+   vis/props.js). Each piece is modelled in its own unit box (the script's header gives each one's axes) and stretched to
+   the coded box it replaces, so the sim's sizes still rule; its geometry is copied per bot like a shell's. ---- */
+function wpPiece(par,W,name,mat,part,x,y,z,sx,sy,sz){return shellAdd(par,W,name,mat,part,x,y,z,sx,sy,sz);}
+/* a disc with its teeth, hub and hub bolts, radius r and thickness t, into group par; false when the pieces aren't there */
+function wpDisc(par,pc,name,mat,r,t,M){if(!pc(par,name,mat,0,0,0,r,t,r,"weapon"))return false;
+  pc(par,"wp_disc_teeth",M.steel,0,0,0,r,t,r,"weapon");pc(par,"wp_disc_hub",M.steel,0,0,0,r,t,r);pc(par,"wp_disc_bolts",M.steel,0,0,0,r,t,r);
+  wpDiscUV(par,mat);return true;}
+/* the disc material's turned rings want the cylinder cap's UVs (centre at 0.5, 0.5, the rim at the edge): made here from
+   each point's place in the unit disc (the quantized mesh's own offset and scale undone), as the bot's uvProject skips them */
+function wpDiscUV(par,mat){par.traverse(o=>{if(!o.isMesh||o.material!==mat||o.geometry.userData.duv)return;const ge=o.geometry,P=ge.attributes.position,n=P.count,uv=new Float32Array(n*2);
+  for(let i=0;i<n;i++){const x=o.position.x+o.scale.x*attrGet(P,i,0),z=o.position.z+o.scale.z*attrGet(P,i,2);uv[i*2]=0.5+x/2;uv[i*2+1]=0.5-z/2;}
+  ge.setAttribute("uv",new THREE.BufferAttribute(uv,2));ge.userData.duv=1;});}
 
 /* parts the sim says are damaged go grey, destroyed ones disappear. states: {key: "intact"|"damaged"|"destroyed"} */
 function botDamage(g,states){const parts=g.userData.parts||{};
