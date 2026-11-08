@@ -333,6 +333,30 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .shlist li.on .nm b{color:var(--clay-t)}
 .tag.lock,.opt .tag.lock{color:var(--warn);text-transform:none;letter-spacing:0;font-weight:500}
 .shlist .tag{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t);white-space:nowrap}
+/* the bracket screen (0.1.26): columns of matches joined by lines; the winner is bold, the loser struck through and muted, your path has a clay edge */
+.bracket{display:flex;gap:16px;margin:4px 0 8px}
+.brcol{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.brh{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brh.now{color:var(--clay-t)}
+.brcells{flex:1;display:flex;flex-direction:column}
+.brcell{flex:1;display:flex;align-items:center;position:relative;padding:3px 0}
+.brm{position:relative;width:100%;border:1px solid var(--rule);border-radius:8px;background:var(--card2);overflow:visible}
+.brm.me{border-color:var(--clay)}
+.brcell::after{content:"";position:absolute;right:-8px;top:50%;width:8px;border-top:1px solid var(--rule)}
+.brcell:nth-child(odd)::before{content:"";position:absolute;right:-8px;top:50%;height:100%;border-right:1px solid var(--rule)}
+.brcol:last-child .brcell::after,.brcol:last-child .brcell::before{display:none}
+.brcol:not(:first-child) .brm::before{content:"";position:absolute;left:-9px;top:50%;width:8px;border-top:1px solid var(--rule)}
+.brs{display:flex;align-items:center;gap:5px;min-height:30px;padding:3px 5px;font-size:12px;line-height:1.2;color:var(--ink)}
+.brs+.brs{border-top:1px solid var(--rule)}
+.brc{flex:0 0 10px;width:10px;height:10px;border-radius:3px;background:var(--dim)}
+.brn{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.brs.w .brn{font-weight:700}
+.brs.l .brn{color:var(--muted);text-decoration:line-through}
+.brs.l .brc{opacity:.5}
+.brs.tbd .brn{color:var(--dim);font-style:italic}.brs.tbd .brc{background:transparent;box-shadow:inset 0 0 0 1px var(--dim)}
+.brr{padding:2px 5px 3px;border-top:1px solid var(--rule);font:12px var(--mono);color:var(--lilac)}
+.brchamp{margin:0 0 8px;font-size:15px}.brchamp b{color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){.brs{transition:background-color .2s}}
 .crtab,.shkits,.shbooks{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 8px}
 .crtab th,.crtab td,.shkits th,.shkits td,.shbooks td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:right}
 .crtab th[scope=row],.crtab thead th:first-child,.shkits th[scope=row],.shbooks td:nth-child(2){text-align:left;font-weight:500}
