@@ -14,6 +14,9 @@
      shells     models/bot-shells.glb, original work built in Blender from tools/blender-bot-shells.py: the body styles' shells
                 (wedge lid and cheeks, dome, slab skirts and corner guards, pancake lid, invertible plates, scrap tubes and
                 welds). botShells loads it the first time a bot is drawn on Full or Ultra; vis/bot.js shellBody uses it.
+     weapons    models/bot-weapons.glb (0.1.22), original work built in Blender from tools/blender-bot-weapons.py: disc, saw,
+                drum, uprights, ramp, lifter tines, flipper plate, arm, hammer head, crusher beak and jaw. botWeapons loads
+                it alongside the shells; vis/bot.js buildWeapon uses it.
    More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
    tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
@@ -24,7 +27,7 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
   meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
-  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb"};
+  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
    [key, x, y, z, turn] in scene units; y 0 is the bench top, -1.4 the floor. The camera starts at -x +z, so the room reads
@@ -159,11 +162,15 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
     kitBake(G,st,false);
     const o2=off+deep;for(const c of K.crowd){c.position.y=top+(0.4+CROWD_M/2)*D;   // above the back wall (top row + 0.3 m)
       if(Math.abs(c.position.z)>Math.abs(c.position.x))c.position.z=Math.sign(c.position.z)*o2;else c.position.x=Math.sign(c.position.x)*o2;}}}
-/* ---- the body shells ---- */
-/* the loaded shells scene on Full and Ultra, or null (and the load starts): when it lands, the workshop's bot is drawn again
-   with them (a bot already in a fight keeps its coded shape) */
-function shellsReady(){const c=PROPS.models.shells;return V.tier!=="lite"&&!!(c&&c.scene);}
-function botShells(){if(V.tier==="lite")return null;const c=PROPS.models.shells;if(c&&c.scene)return c.scene;if(c||PROPS.shellAsk||PROPS.shellTries>=2)return null;   // two tries a visit, then the coded shapes
-  const go=()=>{PROPS.shellAsk=false;PROPS.shellTries=(PROPS.shellTries||0)+1;propModel("shells",()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
-  if(THREE.GLTFLoader)go();else if(window.__scrPost){PROPS.shellAsk=true;window.__scrPost(()=>{if(THREE.GLTFLoader&&V.tier!=="lite")go();else PROPS.shellAsk=false;});}
+/* ---- the body shells and the weapon parts ---- */
+/* a bot model's loaded scene on Full and Ultra ("shells": models/bot-shells.glb, "wpns": models/bot-weapons.glb), or null
+   (and the load starts): when it lands, the workshop's bot is drawn again with it (a bot already in a fight keeps its
+   coded shape). Two tries a visit each, then the coded shapes */
+function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":""):"";}
+function botModel(key){if(V.tier==="lite")return null;const c=PROPS.models[key];if(c&&c.scene)return c.scene;
+  const ask=PROPS.ask||(PROPS.ask={}),tries=PROPS.tries||(PROPS.tries={});if(c||ask[key]||(tries[key]||0)>=2)return null;
+  const go=()=>{ask[key]=false;tries[key]=(tries[key]||0)+1;propModel(key,()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
+  if(THREE.GLTFLoader)go();else if(window.__scrPost){ask[key]=true;window.__scrPost(()=>{if(THREE.GLTFLoader&&V.tier!=="lite")go();else ask[key]=false;});}
   return null;}
+function botShells(){return botModel("shells");}
+function botWeapons(){return botModel("wpns");}
