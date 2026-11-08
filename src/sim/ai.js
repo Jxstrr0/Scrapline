@@ -47,11 +47,10 @@ const aiLerp=(a,s)=>a[0]+(a[1]-a[0])*s;
    hammers wait for the enemy to come to them, flippers and crushers go in */
 function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&&arena.def?arena.def:arena,
     haz=!!(A&&(A.pit||(A.hazards&&A.hazards.length))),t=b.weapon.type;
-  /* 0.1.17.2, from each build's record per style against the auto field in every class: a horizontal disc does best waiting
-     for the commit (counter), an undercutter and a wedge by going in (rush, aggressive); the rest of the spinners keep away (a vertical disc or a
-     drum on counter is stronger still, but it ran the balance over 65%) */
+  /* 0.1.17.2, from each build's record per style against the auto field in every class: an undercutter and a wedge do best
+     going in (rush, aggressive). The other spinners keep away: a disc or a drum on counter wins more still, but ran the
+     balance past the 35-65% target, so the counter stays a style to pick (the opponents and the Fight tab's picker) */
   if(b.weapon.id==="under")return"rush";
-  if(b.weapon.id==="hsp")return"counter";
   if(t==="spinner"||t==="saw")return"keepaway";
   if(t==="wedge")return"aggressive";
   if(t==="none"||t==="lifter"||t==="flipper")return haz?"hazard":"boxrush";
