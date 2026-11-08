@@ -11,7 +11,7 @@ import io, json, os, subprocess, sys, tempfile, urllib.request
 from PIL import Image
 
 API = "https://api.polyhaven.com"
-UA = {"User-Agent": "Scrapline-asset-tool/1.0 (Longlight Interactive; https://jxstrr0.github.io/Scrapline/)"}
+UA = {"User-Agent": "Scrapline-asset-tool/1.0 (Longlight Interactive; https://scrapline.longlight.games/)"}
 
 
 def get(url):
