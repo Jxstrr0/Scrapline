@@ -40,11 +40,9 @@ const SHOP_SPOTS={
   hq:[["vice",3.6,0,-1.6,2.6],["meter",-3.5,0,-1.8,.5],["chest",-1.2,-1.4,-4.4,0],["drill",3.0,-1.4,-4.8,-.3],["desk",-5.6,-1.4,-4.4,.2],
     ["stool",-4.4,-1.4,-2.9,.4],["crate",6.2,-1.4,-1.6,.3],["barrel",6.6,-1.4,.6,0],["ext",6.4,-1.4,2.2,-1.2]]};
 /* arenas: [key, fx, dx, fz, dz, turn, metres per unit of size] placed at x = fx*H + dx, z = fz*H + dz (H the half size in
-   scene units, the camera at +z). Props are at ARENA_PROP_UNITS a metre (about the scale of the
-   stands' crowd) or real size if smaller (AR.U units per sim metre), so a heavyweight arena still dwarfs them; at real size a
-   barrel filled a third of a beetle arena (0.1.21.0). The test box has none; the ant's tabletop gets bench-top things at real
-   size. */
-const ARENA_PROP_UNITS=1.6;
+   scene units, the camera at +z). Props are at the dressing scale, AR.D (vis/arena.js: ARENA_PROP_UNITS a metre, or real
+   size if smaller), the same as the stands' people, so a heavyweight arena still dwarfs them; at real size a barrel filled a
+   third of a beetle arena (0.1.21.0). The test box has none; the ant's tabletop gets bench-top things at real size. */
 const ARENA_SPOTS={
   tabletop:[["meter",-.55,0,-1,-.9,.3],["oil",1,.9,-.6,0,.5],["lube",1,.8,-.35,0,1.6]],
   clubbox:[["crate",-.35,0,-1,-1.2,.2],["sign",.45,0,-1,-1.0,-.4],["tyre",1,1.2,.15,0,1.57],["propane",-1,-1.0,-.55,0,0]],
@@ -89,7 +87,7 @@ function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.st
   propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&PROPS.gen===gen&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
 function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.half*AR.U;
   arenaKit(G);
-  propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:F.arena.id==="tabletop"?AR.U:Math.min(AR.U,ARENA_PROP_UNITS)})),()=>AR.g===G&&V.tier!=="lite");}
+  propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:F.arena.id==="tabletop"?AR.U:AR.D})),()=>AR.g===G&&V.tier!=="lite");}
 /* a new workshop stage: drop this room's props and dress it for the new one */
 function propShopSwap(){const G=V.shop;if(!G)return;for(const o of G.children.filter(c=>c.name.indexOf("prop:")===0))G.remove(o);propShop();}
 /* ---- the arena kit ---- */
@@ -152,13 +150,15 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
     const edges=[];for(const [x,z,len,ry] of [[p.cx,z0-.05,p.w+.2,0],[p.cx,z1+.05,p.w+.2,0],[x0-.05,p.cz,p.d,Math.PI/2],[x1+.05,p.cz,p.d,Math.PI/2]]){
       const o=kitPiece(src,"pitedge");o.position.set(x,0,z);o.rotation.y=ry;o.scale.set(len,1,1);edges.push(o);}
     kitBake(G,edges,false);}
-  /* stands round the back and the sides, behind the props; the flat crowd moves back and up, to read as the upper seats */
-  if(KIT_STANDS[AR.F.arena.id]){const st=[],off=H+2.05;
-    for(const [ax,az,ry] of [[0,-1,0],[-1,0,Math.PI/2],[1,0,-Math.PI/2]]){const n=Math.ceil((2*H+1)/4);
-      for(let i=0;i<n;i++){const a=(i-(n-1)/2)*4,o=kitPiece(src,"stands");if(!o)break;
-        o.position.set(ax?ax*off:a,0,az?az*off:a);o.rotation.y=ry;st.push(o);}}
+  /* stands round the back and the sides, behind the props. The piece is in metres, so it is scaled by the dressing scale
+     (AR.D) like the props and blocks tile every 4 m of it; the flat crowd moves back behind the top row, as the seats beyond */
+  if(KIT_STANDS[AR.F.arena.id]){const st=[],D=AR.D,off=H+2.05,bw=4*D,deep=3.3*D,top=1.8*D;
+    for(const [ax,az,ry] of [[0,-1,0],[-1,0,Math.PI/2],[1,0,-Math.PI/2]]){const n=Math.ceil((2*H+1)/bw);
+      for(let i=0;i<n;i++){const a=(i-(n-1)/2)*bw,o=kitPiece(src,"stands");if(!o)break;
+        o.position.set(ax?ax*off:a,0,az?az*off:a);o.rotation.y=ry;o.scale.setScalar(D);st.push(o);}}
     kitBake(G,st,false);
-    for(const c of K.crowd){c.position.y=2.9;c.position.x*=(H+5)/(H+3);c.position.z*=(H+5)/(H+3);}}}
+    const o2=off+deep;for(const c of K.crowd){c.position.y=top+(0.4+CROWD_M/2)*D;   // above the back wall (top row + 0.3 m)
+      if(Math.abs(c.position.z)>Math.abs(c.position.x))c.position.z=Math.sign(c.position.z)*o2;else c.position.x=Math.sign(c.position.x)*o2;}}}
 /* ---- the body shells ---- */
 /* the loaded shells scene on Full and Ultra, or null (and the load starts): when it lands, the workshop's bot is drawn again
    with them (a bot already in a fight keeps its coded shape) */
