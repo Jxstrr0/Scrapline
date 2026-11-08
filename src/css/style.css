@@ -196,6 +196,18 @@ textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-ra
 #intro .sub{margin:0 0 18px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
 #intro p{margin:0 0 20px;color:var(--muted)}
 #intro .btn{width:100%}
+/* the home screen (0.1.18.0): the workshop and your bot show through the top (the 3D view's share of the screen); the
+   mode cards sit below. The hud's buttons hide while it's up. */
+html.home #intro{align-items:flex-end;overflow-y:auto;background:linear-gradient(180deg,#0E0E0D00 0%,#0E0E0D00 20%,#0E0E0Dcc 31%,#0E0E0D 37%)}
+html.home #hud,html.home #tag,html.home #panel,html.home #tabs{visibility:hidden}
+html.home #intro .box{margin:auto 0 0}
+.modebox{display:grid;gap:10px;margin:0 0 4px}
+.modebox button{display:block;width:100%;text-align:left;padding:14px 16px;border-radius:14px;border:1px solid var(--rule);background:var(--card);color:var(--ink);font:inherit;cursor:pointer;min-height:44px}
+.modebox button b{display:block;font-size:18px;margin-bottom:3px}
+.modebox button small{display:block;font-size:13px;line-height:1.35;color:var(--muted)}
+.modebox button[data-mode=career]{border-color:var(--clay);box-shadow:inset 3px 0 0 var(--clay)}
+.modebox button:hover,.modebox button:focus-visible{border-color:var(--clay);outline:none}
+.modebox button:focus-visible{box-shadow:0 0 0 3px #D9775766}
 #intro .credit{margin-top:22px;font-size:12px;color:var(--dim)}
 
 #pwaBar,#bkBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:60;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--lift);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transform:translate(-50%,16px);transition:opacity .25s,transform .25s}
@@ -206,7 +218,8 @@ html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: 
 
 @media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
 /* a phone on its side (PR 9): the 3D view on the left, the tab and the tab bar on the right, so neither is a sliver */
-@media (max-height:560px) and (orientation:landscape){#app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+@media (max-height:560px) and (orientation:landscape){html.home #intro{align-items:flex-start;justify-content:flex-end;background:linear-gradient(90deg,#0E0E0D00 0%,#0E0E0D00 30%,#0E0E0Dd9 42%,#0E0E0D 48%)}html.home #intro .box{width:min(400px,52%);margin:auto 0}html.home #intro .box>p:not(.sub):not(.hint){display:none}
+  #app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
   #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:calc(env(safe-area-inset-left,0px) + (100% - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))*.44);right:env(safe-area-inset-right,0px)}#tabs button{font-size:11px}}
 
 /* ---- the Bench tab (app/bench.js) ---- */
