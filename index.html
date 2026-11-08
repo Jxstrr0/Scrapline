@@ -352,6 +352,30 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .shlist li.on .nm b{color:var(--clay-t)}
 .tag.lock,.opt .tag.lock{color:var(--warn);text-transform:none;letter-spacing:0;font-weight:500}
 .shlist .tag{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t);white-space:nowrap}
+/* the bracket screen (0.1.26): columns of matches joined by lines; the winner is bold, the loser struck through and muted, your path has a clay edge */
+.bracket{display:flex;gap:16px;margin:4px 0 8px}
+.brcol{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.brh{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brh.now{color:var(--clay-t)}
+.brcells{flex:1;display:flex;flex-direction:column}
+.brcell{flex:1;display:flex;align-items:center;position:relative;padding:3px 0}
+.brm{position:relative;width:100%;border:1px solid var(--rule);border-radius:8px;background:var(--card2);overflow:visible}
+.brm.me{border-color:var(--clay)}
+.brcell::after{content:"";position:absolute;right:-8px;top:50%;width:8px;border-top:1px solid var(--rule)}
+.brcell:nth-child(odd)::before{content:"";position:absolute;right:-8px;top:50%;height:100%;border-right:1px solid var(--rule)}
+.brcol:last-child .brcell::after,.brcol:last-child .brcell::before{display:none}
+.brcol:not(:first-child) .brm::before{content:"";position:absolute;left:-9px;top:50%;width:8px;border-top:1px solid var(--rule)}
+.brs{display:flex;align-items:center;gap:5px;min-height:30px;padding:3px 5px;font-size:12px;line-height:1.2;color:var(--ink)}
+.brs+.brs{border-top:1px solid var(--rule)}
+.brc{flex:0 0 10px;width:10px;height:10px;border-radius:3px;background:var(--dim)}
+.brn{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.brs.w .brn{font-weight:700}
+.brs.l .brn{color:var(--muted);text-decoration:line-through}
+.brs.l .brc{opacity:.5}
+.brs.tbd .brn{color:var(--dim);font-style:italic}.brs.tbd .brc{background:transparent;box-shadow:inset 0 0 0 1px var(--dim)}
+.brr{padding:2px 5px 3px;border-top:1px solid var(--rule);font:12px var(--mono);color:var(--lilac)}
+.brchamp{margin:0 0 8px;font-size:15px}.brchamp b{color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){.brs{transition:background-color .2s}}
 .crtab,.shkits,.shbooks{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 8px}
 .crtab th,.crtab td,.shkits th,.shkits td,.shbooks td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:right}
 .crtab th[scope=row],.crtab thead th:first-child,.shkits th[scope=row],.shbooks td:nth-child(2){text-align:left;font-weight:500}
@@ -4347,7 +4371,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.25.0";
+const VERSION="0.1.26.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4573,7 +4597,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=11;
+const SAVE_V=12;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -4606,7 +4630,8 @@ const MIGRATE={
     if(c&&typeof c==="object"){c.fw=Array.isArray(c.results)&&c.results.some(r=>r&&Array.isArray(r.fights)&&r.fights.some(f=>f&&f.won));c.actSaid=c.act|0;}return o;},   // fw: a fight already won at an event (the announcer won't call a first win); actSaid: the act he last welcomed you to
   8:o=>{o.mode=o.career&&typeof o.career==="object"?"career":"sandbox";o.parked={};return o;},   // 0.1.18.0: modes. A save with a career stays in it (its bots are the career's garage); one without was sparring, so its bots become the Sandbox's
   9:o=>{o.daily={last:null,streak:0,top:0,best:null,tries:0};return o;},   // 0.1.20.0: the daily challenge starts empty
-  10:o=>{o.team=freshTeam();return o;}   // 0.1.24.0: teams. Everyone starts as the Eckwerkstatt in clay; bots[cls].name is optional (a default per class)
+  10:o=>{o.team=freshTeam();return o;},   // 0.1.24.0: teams. Everyone starts as the Eckwerkstatt in clay; bots[cls].name is optional (a default per class)
+  11:o=>{const d=o.career&&typeof o.career==="object"?o.career.day:null;if(d&&typeof d==="object"&&Array.isArray(d.pairs)&&Array.isArray(d.won)){d.hist=[];d.how=d.won.map(()=>null);d.sc=d.won.map(()=>"");}return o;}   // 0.1.26.0: the bracket screen keeps a tournament day's rounds (day.hist, how, sc); a day already under way has none of the earlier rounds
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -6840,7 +6865,7 @@ function crNewDay(e,kit){const c=S.career,b=bBot(e.cls),k=EVENT_KINDS[e.kind];
   if(e.kind==="tag"){const p=field[3];field.splice(3,1);field.splice(1,0,p);p.partner=true;}   // you and field[1] against field[2] and field[3]
   const day={key:crKey(e),ev:e.id,cls:e.cls,kind:e.kind,kit,seed:(c.seed^crHash(crKey(e)+"/day"))>>>0,field,fights:[],done:false,out:false};
   if(k.format==="league"){day.fx=[[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]];day.i=0;day.res=[];field.forEach(f=>{f.pts=0;f.diff=0;});}
-  else if(k.format==="bracket"){day.rd=0;day.pairs=[[0,1],[2,3],[4,5],[6,7]];day.won=[null,null,null,null];day.lost={};}
+  else if(k.format==="bracket"){day.rd=0;day.pairs=[[0,1],[2,3],[4,5],[6,7]];day.won=[null,null,null,null];day.lost={};day.how=[null,null,null,null];day.sc=["","","",""];day.hist=[];}
   return day;}
 /* your next fight today: {idx: field indexes, teams, bo, label} or null */
 function crNext(day){if(!day||day.done)return null;const k=EVENT_KINDS[day.kind];
@@ -6882,7 +6907,8 @@ function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F
     day.res.push({a,b,w});const sa=SIM.damageShare(F.bots[0].b,F.bots[0].st),sb=SIM.damageShare(F.bots[1].b,F.bots[1].st);
     if(w==null){day.field[a].pts+=1;day.field[b].pts+=1;}else day.field[w].pts+=3;
     day.field[a].diff+=sb-sa;day.field[b].diff+=sa-sb;day.i++;}
-  else if(k.format==="bracket"){const p=day.pairs.findIndex(x=>x.indexOf(idx[0])>=0&&x.indexOf(idx[1])>=0);day.won[p]=winIdx;day.lost[winIdx===idx[0]?idx[1]:idx[0]]=day.rd;}
+  else if(k.format==="bracket"){const p=day.pairs.findIndex(x=>x.indexOf(idx[0])>=0&&x.indexOf(idx[1])>=0);day.won[p]=winIdx;day.lost[winIdx===idx[0]?idx[1]:idx[0]]=day.rd;
+    if(day.how){day.how[p]=stopped?"forfeit":F.reason;if(day.pairs.length===1){const lw=Object.keys(res.wins).filter(t=>+t!==res.wt).reduce((a,t)=>a+res.wins[t],0);day.sc[p]=`${res.wins[res.wt]||0}–${lw}`;}}}
   else day.rank=crRank(F,res.wt,res.teams,stopped);
   if(idx.indexOf(0)>=0){const me=res.teams[idx.indexOf(0)],won=res.wt===me;
     day.fights.push({label:nx.label,vs:crAnd(idx.filter((i,k)=>res.teams[k]!==me).map(i=>day.field[i].name)),won,draw:k.format==="league"&&day.res[day.res.length-1].w==null,
@@ -6904,7 +6930,7 @@ function crAdvance(day){const k=EVENT_KINDS[day.kind];let guard=0;
         const res=crSimMatch(day,pr,null,day.pairs.length===1?3:1,false);crRecord(day,{idx:pr,bo:1,label:""},res,false);for(const i of pr)if(i!==0)crCrew(day,i);}
       if(open)break;
       if(day.pairs.length===1){day.done=true;day.champ=day.won[0];break;}
-      const w=day.won;day.pairs=[];for(let i=0;i<w.length;i+=2)day.pairs.push([w[i],w[i+1]]);day.won=day.pairs.map(()=>null);day.rd++;continue;}
+      const w=day.won;day.hist.push({pairs:day.pairs,won:w,how:day.how,sc:day.sc});day.pairs=[];for(let i=0;i<w.length;i+=2)day.pairs.push([w[i],w[i+1]]);day.won=day.pairs.map(()=>null);day.how=day.pairs.map(()=>null);day.sc=day.pairs.map(()=>"");day.rd++;continue;}
     if(day.fights.length||day.rank)day.done=true;break;}
   if(day.done)crFinish(day);}
 /* your placing: 1-based, and what it's called */
@@ -6925,7 +6951,7 @@ function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],p
   c.seq=(c.seq||0)+1;c.results.unshift({seq:c.seq,y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
   if(place===1)tpAward(day.kind==="champ"?"title":"win",e,day.cls);   // a trophy card (app/help.js)
   const offer=tmAfterEvent(day,place);
-  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null};save();hud();}
+  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null,br:k.format==="bracket"?crBracketHtml(day):""};save();hud();}
 
 /* ---- your fights ---- */
 function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
@@ -7036,7 +7062,7 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
     <p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p>
     <div class="row"><button type="button" class="btn pri" data-cr="close">Close week</button></div></div>`;}
 function crEventCard(){const c=S.career;
-  if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${crFightsHtml(c.results[0]?c.results[0].fights:[])}
+  if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
     ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
     <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p></div>`;
   if(c.day)return crDayCard(c.day);
@@ -7054,7 +7080,7 @@ function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;const f=EVEN
   CR.kit=noPit?"none":CR.kitPick||"basic";const t=crTravel(e);
   const kits=[["none","No kit","free"]].concat(Object.keys(PIT_KITS).map(k=>[k,PIT_KITS[k].name.replace(" kit",""),fmt$(crKitPrice(k,e.cls))]));
   const tot=()=>crEntry(e)+t.cost+crKitPrice(CR.kit,e.cls);
-  openSheet("Enter "+e.name,`${crEvLine(e)}${noPit?`<p class="hint">One fight and no pit window, so no pit kit.</p>`:`<div class="field"><span class="lbl">Pit kit</span>${segHtml("crKit","crkit",kits,CR.kit)}<p class="hint" id="crKitLine">${crKitLine(e)}</p></div>`}
+  openSheet("Enter "+e.name,`${crEvLine(e)}${crDrawHtml(e)}${noPit?`<p class="hint">One fight and no pit window, so no pit kit.</p>`:`<div class="field"><span class="lbl">Pit kit</span>${segHtml("crKit","crkit",kits,CR.kit)}<p class="hint" id="crKitLine">${crKitLine(e)}</p></div>`}
     <ul class="bill"><li><span>Entry</span><span>${fmt$(crEntry(e))}</span></li><li><span>Travel</span><span>${fmt$(t.cost)}</span></li><li><span>Pit kit</span><span id="crKitP">${fmt$(crKitPrice(CR.kit,e.cls))}</span></li><li><b>Total</b><b id="crTot">${fmt$(tot())}</b></li></ul>
     <p class="hint">You have ${fmt$(c.money)} and ${crR1(c.hours)} h; the day takes ${t.hours} h. Your fitted ${esc(SIM.CLASSES[e.cls].name.toLowerCase())} goes as it is${crDmgTxt(e.cls)}.</p>
     <p class="worn" id="crWhy"></p><div class="row"><button type="button" class="btn pri" data-cr="enter-ok">Enter</button></div>`);
@@ -7082,9 +7108,35 @@ function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.
 function crTable(day){const k=EVENT_KINDS[day.kind],nm=i=>i===0?"<b>You</b>":esc(day.field[i].name);
   if(k.format==="league"){const order=day.field.map((f,i)=>i).sort((a,b)=>day.field[b].pts-day.field[a].pts||day.field[b].diff-day.field[a].diff||a-b);
     return`<table class="crtab"><thead><tr><th scope="col">Table</th><th scope="col">Played</th><th scope="col">Points</th></tr></thead><tbody>${order.map(i=>`<tr><th scope="row">${nm(i)}</th><td class="readout">${day.res.filter(r=>r.a===i||r.b===i).length}</td><td class="readout">${day.field[i].pts}</td></tr>`).join("")}</tbody></table>`;}
-  if(k.format==="bracket"){const rd=["Quarter-finals","Semi-finals","Final"][day.rd]||"";return`<p class="hint">${rd}: ${day.pairs.map((p,i)=>`${nm(p[0])} v ${nm(p[1])}${day.won[i]!=null?` → ${nm(day.won[i])}`:""}`).join(" · ")}</p>`;}
+  if(k.format==="bracket")return crBracketHtml(day);
   if(k.format==="tag")return`<p class="hint">You and ${esc(day.field[1].name)} against ${esc(day.field[2].name)} and ${esc(day.field[3].name)}.</p>`;
   return`<p class="hint">In the arena: you, ${day.field.slice(1).map(f=>esc(f.name)).join(", ")}.</p>`;}
+/* ---- the bracket screen (0.1.26): quarter-finals, semi-finals and the final drawn as a tree. day.hist keeps the rounds
+   already played ({pairs, won, how, sc}), the current round is day.pairs, later rounds fill from the winners so far ---- */
+const BR_ROUNDS=["Quarter-finals","Semi-finals","Final"],BR_HOW={ko:"KO",pit:"pit",judges:"judges",forfeit:"forfeit",draw:"on damage"};
+function crRounds(day){const hist=day.hist||[],off=day.rd-hist.length,out=[];
+  for(let r=off;r<3;r++){let d;
+    if(r<day.rd)d=hist[r-off];
+    else if(r===day.rd)d={pairs:day.pairs,won:day.won,how:day.how||[],sc:day.sc||[]};
+    else{const p=out[out.length-1],n=4>>r;d={pairs:Array.from({length:n},(_,m)=>[p.won[2*m]==null?null:p.won[2*m],p.won[2*m+1]==null?null:p.won[2*m+1]]),won:Array(n).fill(null),how:[],sc:[]};}
+    out.push(d);}
+  return{rounds:out,off};}
+function crBrSlot(day,i,state){if(i==null)return`<div class="brs tbd"><span class="brn">to be decided</span></div>`;
+  const f=day.field[i],mine=i===0,L=mine?lvMine():lvOpp(f.id),nm=mine?"You":f.name;
+  const chip=L?`<i class="brc" style="background:${L.main};box-shadow:inset 0 0 0 2px ${L.accent}"></i>`:`<i class="brc"></i>`;
+  return`<div class="brs${mine?" me":""}${state?" "+state:""}">${chip}<span class="brn">${esc(nm)}</span>${state==="w"?'<span class="vh"> won</span>':state==="l"?'<span class="vh"> lost</span>':""}</div>`;}
+function crBracketHtml(day){const{rounds,off}=crRounds(day),champ=day.champ;
+  const cols=rounds.map((d,ri)=>{const r=off+ri,now=!day.done&&r===day.rd;
+    const cells=d.pairs.map((pr,m)=>{const w=d.won[m],a=pr[0],b=pr[1],mine=a===0||b===0,how=d.how&&d.how[m]?(BR_HOW[d.how[m]]||""):"",sc=d.sc&&d.sc[m]?d.sc[m]:"";
+      const res=w!=null?`${sc?sc+" · ":""}${how}`:"";
+      const lab=`${BR_ROUNDS[r]}: ${a==null?"to be decided":a===0?"you":day.field[a].name} against ${b==null?"to be decided":b===0?"you":day.field[b].name}${w!=null?`, won by ${w===0?"you":day.field[w].name}${res?" ("+res+")":""}`:""}`;
+      return`<div class="brcell"><div class="brm${mine?" me":""}" role="group" aria-label="${esc(lab)}">${crBrSlot(day,a,w==null?"":w===a?"w":"l")}${crBrSlot(day,b,w==null?"":w===b?"w":"l")}${res?`<div class="brr">${esc(res)}</div>`:""}</div></div>`;}).join("");
+    return`<div class="brcol"><div class="brh${now?" now":""}">${BR_ROUNDS[r]}</div><div class="brcells">${cells}</div></div>`;}).join("");
+  return`<div class="bracket" data-rounds="${rounds.length}">${cols}</div>${champ!=null?`<p class="brchamp">Champion: <b>${esc(champ===0?"You":day.field[champ].name)}</b></p>`:""}`;}
+/* the draw before you enter: who you would meet first, from the same field the day will use */
+function crDrawHtml(e){const k=EVENT_KINDS[e.kind];if(k.format!=="bracket")return"";
+  const field=[{id:"you",name:"You"}].concat(crField(e)),day={field,rd:0,pairs:[[0,1],[2,3],[4,5],[6,7]],won:[null,null,null,null],how:[],sc:[],hist:[]};
+  return`<div class="field"><span class="lbl">The draw</span>${crBracketHtml(day)}<p class="hint">You meet <b>${esc(field[1].name)}</b> first. The draw is fixed for the day.</p></div>`;}
 function crRepairCard(){const rows=SIM.CLASS_IDS.map(cls=>({cls,bill:crBill(cls)})).filter(x=>x.bill&&x.bill.lines.length);if(!rows.length)return"";
   return`<div class="card"><h3>Workshop: repairs</h3>${rows.map(({cls,bill})=>`<h4>${esc(SIM.CLASSES[cls].name)} <small class="readout">${fmt$(bill.cost)} · ${bill.hours} h</small></h4>
     <ul class="crrep">${bill.lines.map(l=>`<li><span>${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></span><span class="readout">${fmt$(l.cost)} · ${l.hours} h</span><button type="button" class="btn sm" data-crfix="${cls}" data-crkey="${esc(l.key)}">Fix</button></li>`).join("")}</ul>
