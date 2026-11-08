@@ -215,7 +215,9 @@ function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
   const m=$("bwMeter");m.setAttribute("aria-valuemax",r.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
-  $("bCap").innerHTML=`<span><b>${r.driveSpeed.toFixed(1)}</b> m/s</span><span>${w.energyJ>=1?`<b class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</b> J`:`<b>${w.type==="none"?"no weapon":w.type}</b>`}</span><span>weak <b>${FACE_LBL[bWeak(r)].toLowerCase()}</b></span><span><b class="readout">${fmtS(r.runtimeS)}</b> run</span><span class="chip ${v[0]}">${v[1]}</span>`;
+  const run=r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":`${Math.floor(r.runtimeS/60)}:${String(Math.round(r.runtimeS%60)).padStart(2,"0")}`,cell=(l,v)=>`<span class="bst"><small>${l}</small><b>${v}</b></span>`;
+  $("bCap").innerHTML=cell("Top speed",`${r.driveSpeed.toFixed(1)}<i> m/s</i>`)+(w.energyJ>=1?cell("Hit energy",`<span class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</span><i> J</i>`):cell("Weapon",w.type==="none"?"none":esc(w.type)))
+    +cell("Weak side",FACE_LBL[bWeak(r)])+cell("Battery",run)+`<span class="chip ${v[0]}">${v[1]}</span>`;
   $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
