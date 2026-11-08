@@ -84,9 +84,9 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.19.0)
+## Current status (0.1.20.0)
 
-The full log from PR 0 to 0.1.19.0 (what each version added, the tables and
+The full log from PR 0 to 0.1.20.0 (what each version added, the tables and
 save fields it brought) is `docs/HISTORY.md`. Read the matching entry before
 changing a system it describes; add each new release there and update this
 section.
@@ -102,9 +102,9 @@ section.
   and shove escapes, flanking, hit-and-run), a home screen with Career and
   Sandbox modes (separate garages, `S.mode` / `S.parked`; Mode in Settings),
   labelled Build stats and Fix it buttons on the post-mortem (`RP_FIX`).
-  Money is euros. `SAVE_V` is 9.
-- Next (Kelbo's order, plan section 1): 0.1.20 a daily challenge and replay codes,
-  0.1.21+ the rest of the Full/Ultra graphics push (Blender weapon parts, visible damage;
+  A daily challenge and `SCRRP1:` replay codes
+  (`src/app/daily.js`). Money is euros. `SAVE_V` is 10.
+- Next (Kelbo's order, plan section 1): 0.1.21+ the rest of the Full/Ultra graphics push (Blender weapon parts, visible damage;
   Lite unchanged), then slow-motion replays, paint and a bracket screen.
   Merged branches delete themselves on GitHub.
 - What to test on a phone after any change: the loading bar finishes and the
@@ -113,7 +113,8 @@ section.
   Sound off); a best of three reaches the pit and the next round; a replay
   plays and scrubs; Build changes show in the workshop; a career event is
   fought and a week closes; a save slot saves and loads; Back up then Restore
-  round trips; Settings opens and the theme switches; on Full, no "Graphics
+  round trips; the Daily challenge fights and keeps a score; a Share code from a
+  post-mortem plays back through Watch a code; Settings opens and the theme switches; on Full, no "Graphics
   lowered" toast; portrait and landscape; no console errors on desktop. The
   full checklist is at the end of `docs/HISTORY.md`.
 

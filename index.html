@@ -4101,7 +4101,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.19.0";
+const VERSION="0.1.20.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4327,7 +4327,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=9;
+const SAVE_V=10;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   mode:"sandbox",                  // "career" or "sandbox" (0.1.18.0): which garage S.bots is; picked on the home screen and in Settings (setMode, app/career.js)
@@ -4338,6 +4338,7 @@ function freshState(){return{v:SAVE_V,settings:freshSettings(),
   unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
   staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff: [{id, y, w}] hired (STAFF.people id, when); sponsors: [{id, y, w}] signed (SPONSORS id, when; PR 8)
   lastFight:null,                 // the latest fight log, for replay (PR 6)
+  daily:{last:null,streak:0,top:0,best:null,tries:0},   // the daily challenge (0.1.20.0, app/daily.js): last day fought ("YYYY-MM-DD"), days in a row, longest run, today's best {score, txt, bring}, today's tries
   lastBackup:0};}
 let S=freshState();
 const ST=()=>S.settings;
@@ -4355,7 +4356,8 @@ const MIGRATE={
     if(c&&typeof c==="object"&&!Array.isArray(c.trophies))c.trophies=[];return o;},
   7:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){s.voice=s.voice!==false;s.comm=s.comm!==false;if(s.captions!=="off")s.captions="muted";}   // 0.1.16.0: the voices (sound/voice.js)
     if(c&&typeof c==="object"){c.fw=Array.isArray(c.results)&&c.results.some(r=>r&&Array.isArray(r.fights)&&r.fights.some(f=>f&&f.won));c.actSaid=c.act|0;}return o;},   // fw: a fight already won at an event (the announcer won't call a first win); actSaid: the act he last welcomed you to
-  8:o=>{o.mode=o.career&&typeof o.career==="object"?"career":"sandbox";o.parked={};return o;}   // 0.1.18.0: modes. A save with a career stays in it (its bots are the career's garage); one without was sparring, so its bots become the Sandbox's
+  8:o=>{o.mode=o.career&&typeof o.career==="object"?"career":"sandbox";o.parked={};return o;},   // 0.1.18.0: modes. A save with a career stays in it (its bots are the career's garage); one without was sparring, so its bots become the Sandbox's
+  9:o=>{o.daily={last:null,streak:0,top:0,best:null,tries:0};return o;}   // 0.1.20.0: the daily challenge starts empty
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -4370,6 +4372,7 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
   for(const k of ["designs","rivals","parked"])if(!buObjS(n[k]))n[k]={};
   if(n.mode!=="career")n.mode="sandbox";
+  if(!buObjS(n.daily))n.daily={last:null,streak:0,top:0,best:null,tries:0};
   for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
   S=n;return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
@@ -4479,7 +4482,8 @@ const BU_MSG={
   notcode:"That doesn't look like a save code. Backup codes start with \"SCR1:\".",
   bad:"That code opened, but the save inside doesn't look right, so nothing was changed.",
   store:"This browser wouldn't let the game save (storage may be full or blocked), so nothing was changed.",
-  busy:"Let the fight finish first, then restore."
+  busy:"Let the fight finish first, then restore.",
+  replay:"That's a replay code, not a backup. Paste it on the Fight tab, under Replay codes."
 };
 const buFail=k=>{const e=new Error(BU_MSG[k]);e.bu=k;return e;};   // an error with a message that's fine to show the player
 
@@ -4538,7 +4542,7 @@ const buObj=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 const buNum=v=>typeof v==="number"&&isFinite(v);
 function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
-  for(const k of ["designs","unlocks","rivals","parked"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  for(const k of ["designs","unlocks","rivals","parked","daily"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
   if("mode" in o&&o.mode!=null&&o.mode!=="career"&&o.mode!=="sandbox")return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
   /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */
@@ -4563,6 +4567,7 @@ function buRead(text){
   if(!s)throw buFail("empty");
   const m=/SCR(\d+):/.exec(s);
   if(!m){
+    if(/SCRRP\d+:/.test(s))throw buFail("replay");
     if(/(^|[^A-Za-z0-9])[A-Za-z]{2,8}\d+:[A-Za-z0-9_-]/.test(s))throw buFail("other");   // e.g. PEW1:... from another game
     throw buFail("notcode");}
   const n=+m[1];
@@ -5517,7 +5522,8 @@ const CONTROLS={read:ctlRead,mount:ctlMount,unmount:ctlUnmount};
    The frame loop steps the sim at its fixed 60 Hz with an accumulator clamped to 5 steps a frame, so a stall never
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
 const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
-  you:false,on:false,view2d:false,partN:0,buzzT:0};
+  you:false,on:false,view2d:false,partN:0,buzzT:0,
+  ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js)
 const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
@@ -5535,7 +5541,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
   const bots=[{cfg:bot.cfg,name:"You",driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
   if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,driver:o.driver});
-  FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;
+  FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
   const kit=()=>Object.assign({},PIT_KITS[FT.kit].allow);
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
@@ -5543,7 +5549,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
-function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
+function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
@@ -5751,7 +5757,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
   else if(a==="evback")ftEvBack();
-  else if(a==="again"){ftExit();ftStart();}
+  else if(a==="again"){const dl=FT.ext&&FT.ext.kind==="daily";ftExit();if(dl)dlStart();else ftStart();}
   else if(a==="pit")ftPit();
   else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
@@ -5853,6 +5859,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
 }
 function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
+  if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
   if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
     btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
@@ -5937,11 +5944,12 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
 /* ---- the tab ---- */
 function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
-  if(!bot.cfg){FT.F=null;FT.rounds=[];FT.bout=null;el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
-    <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`;return;}
-  {const R0=ftShown()||FT.F;if(R0&&!FT.on&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
+  const dl=dlCard(),ext=!!(FT.ext&&ftShown());
+  if(!bot.cfg){if(!ext){FT.F=null;FT.rounds=[];FT.bout=null;}el.innerHTML=chips+ftEvCard()+dl+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+    <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+(ext?ftResHtml(ftShown()):"")+rcCard();if(ext)ftResPost(ftShown());return;}
+  {const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
   const R=ftShown(),drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon),you=FT.style==="you";
-  el.innerHTML=chips+ftEvCard()+`<div class="card"><h3>Sparring</h3>
+  el.innerHTML=chips+ftEvCard()+dl+`<div class="card"><h3>Sparring</h3>
     <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against anyone in the class, in any arena. No stakes: free practice, fresh every time, and the repair bill is shown, never charged.</p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
     ${ftPicker(cls)}
@@ -5953,10 +5961,14 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
       <p class="hint" id="ftDrvHint">${ftDrvHint()}</p></div>
     <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
     <div class="row"><button type="button" class="btn pri" data-ft="go">Fight</button></div></div>
-    ${R?`<div class="card" id="ftResCard"><h3>${FT.bout?"The bout":"Last fight"}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
+    ${R?ftResHtml(R):""}${rcCard()}`;
+  if(R)ftResPost(R);}
+/* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
+function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":"From a replay code":FT.bout?"The bout":"Last fight";
+  return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
     ${rpHtml(R)}
-    <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`:""}`;
-  if(R){ftHud(R);ftLog(R);rpDraw(R);ftVoicePm(R);}}
+    <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;}
+function ftResPost(R){ftHud(R);ftLog(R);rpDraw(R);ftVoicePm(R);}
 /* while a career event is on: the way back to it */
 function ftEvCard(){const c=S.career;if(!crOn()||!(c.day||CR.end))return"";const nm=c.day?crEv(c.day.ev).name:CR.end.name;
   return`<div class="card crback"><h3>${esc(nm)}</h3><p>${c.day?"You're at an event.":"The event is over."} Sparring here is free practice and changes nothing.</p><div class="row"><button type="button" class="btn pri" data-ft="career">Back to the event</button></div></div>`;}
@@ -5984,11 +5996,12 @@ function ftClick(e){const t=e.target;let x;
     if(a==="go")ftStart();
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
+    else if(a==="rcode")rcShareOpen();
     else if(a==="fix"){const id=x.dataset.sec;B.open[id]=true;showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
     else if(a==="career")showTab("career");
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
-  if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;save();ftRender();visBot();return;}
+  if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;FT.ext=null;save();ftRender();visBot();return;}
   if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;ftOn("ftopp",x);const l=$("ftOppLine");if(l)l.innerHTML=ftOppLine(ftOpp(bCls()));return;}
   if((x=t.closest("[data-ftarena]"))){FT.arena=x.dataset.ftarena;ftRender();return;}
   if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);const s=$("ftSpeedF");if(s)s.hidden=FT.style==="you";const h=$("ftDrvHint");if(h)h.textContent=ftDrvHint();return;}
@@ -6238,11 +6251,117 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
       ${c.length?`<ul class="rpcause">${c.map(x=>`<li>${x.html}</li>`).join("")}</ul>`:`<p class="ok">Nothing broke.</p>`}
       <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p></div></div>
     <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
-      <div class="row">${h.sec&&B_SECS.some(x=>x.id===h.sec)?`<button type="button" class="btn sm" data-ft="fix" data-sec="${h.sec}">Fix it: ${esc(B_SECS.find(x=>x.id===h.sec).t)}</button>`:'<button type="button" class="btn sm" data-ft="build">Open Build</button>'}<button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
+      <div class="row">${h.sec&&B_SECS.some(x=>x.id===h.sec)?`<button type="button" class="btn sm" data-ft="fix" data-sec="${h.sec}">Fix it: ${esc(B_SECS.find(x=>x.id===h.sec).t)}</button>`:'<button type="button" class="btn sm" data-ft="build">Open Build</button>'}<button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button>${ftReplayOk(F)?'<button type="button" class="btn sm" data-ft="rcode">Share</button>':""}</div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
   <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
   <div class="card"><h3>${F.bots.filter(o=>!o.mini).length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0&&!o.mini).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
 function rpDraw(F){const cv=$("rpSil");if(cv&&F){const me=F.bots[0],s=SIM.partStates(me.b,me.st);if(me.flags.bent&&s.weapon==="intact")s.weapon="damaged";ftSil(cv,me,s,112);}}
+/* ===================== app/daily.js: THE DAILY CHALLENGE and REPLAY CODES (0.1.20.0) =====================
+   Daily challenge (Kelbo: bring your own bot). The date (the phone's own, local) picks a class, an opponent in it and an
+   arena, and the fight's seed, so everyone gets the same fight that day; you drive. Bring your fitted bot for that class,
+   any of your saved designs for it, or a starting point. Sandbox rules: nothing costs, nothing carries over, in either mode.
+   S.daily (inside scr-save, SAVE_V 10) keeps {last, streak, top, best, tries}: the last day you fought it, how many days in
+   a row, your longest run, today's best result and today's tries. A stopped fight doesn't count.
+     dlDay(d)      "YYYY-MM-DD", local         dlPick(day)   {day, cls, opp, arena, seed}
+     dlCard()      the Fight tab's card        dlStart()     the fight          dlRecord(F)   a finished daily round
+   Replay codes: a fight's log (seed, builds, arena, rules, your inputs; no entries, the replay makes them again) as
+   "SCRRP1:" + JSON -> LZW -> base64url + a 6-character checksum, with buZip / buUnzip / buSum from app/savecode.js. The
+   post-mortem's Share button makes one; the Fight tab's Replay codes card plays one and shows its post-mortem. Nothing
+   is stored: a pasted code lives only until the next fight. A code made on another version may play out differently. */
+const DL={bring:null};
+function dlDay(d){d=d||new Date();const p=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+function dlPrev(day){const [y,m,d]=day.split("-").map(Number);return dlDay(new Date(y,m-1,d-1));}
+function dlPick(day){let h=2166136261;const s="scr-daily:"+day;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+  const r=SIM.rng(h),cls=SIM.rPick(r,SIM.CLASS_IDS),ops=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>o.id),
+    home=SIM.CLASSES[cls].arenaId,away=SIM.ARENA_IDS.filter(a=>a!==home&&a!=="box");
+  const opp=ops.length?SIM.rPick(r,ops):SIM.rPick(r,SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy")).id,arena=r()<0.6||!away.length?home:SIM.rPick(r,away);
+  return{day,cls,opp,arena,seed:(Math.floor(r()*0x7fffffff)>>>0)||1};}
+const dlState=()=>{if(!buObjS(S.daily))S.daily={last:null,streak:0,top:0,best:null,tries:0};return S.daily;};
+/* what you can bring for the day's class: your fitted bot (this mode's garage), your designs, the starting points */
+function dlBrings(cls){const out=[],b=S.bots[cls];
+  if(b&&buObjS(b.cfg))out.push({id:"fit",name:"Your fitted bot",cfg:b.cfg});
+  (Array.isArray(S.designs[cls])?S.designs[cls]:[]).forEach((d,i)=>{if(d&&buObjS(d.cfg))out.push({id:"d"+i,name:d.name,cfg:d.cfg});});
+  SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy").forEach(t=>out.push({id:"t:"+t.id,name:t.name,cfg:t.cfg,start:true}));
+  return out.map(o=>Object.assign(o,{cfg:SIM.normCfg(Object.assign({},o.cfg,{cls}))}));}
+function dlBring(cls){const L=dlBrings(cls);return L.find(o=>o.id===DL.bring)||L[0];}
+/* a daily round, scored: a win beats a draw beats a loss; a faster knockout and more damage dealt break ties */
+function dlScore(F){const me=F.bots[0],end=F.endT!=null?F.endT:F.t,won=F.winner!=null&&F.winner===me.team,lost=F.winner!=null&&!won;let by=0;
+  for(const e of F.log)if(e.a===0&&(e.k==="hit"||e.k==="grind"||e.k==="ram"&&(e.x||e.pb)))by+=e.E||0;
+  const ko=F.reason==="ko"||F.reason==="pit",fast=won&&ko?Math.max(0,Math.round((F.rules.roundS-end)*10)):0,
+    score=(won?2000:lost?0:1000)+fast+Math.min(999,Math.round(by));
+  const txt=won?(ko?`Won ${F.reason==="pit"?"into the pit":"by knockout"} at ${ftT(end)}`:"Won on the judges"):lost?(ko?`Lost: ${me.out==="pit"?"into the pit":"counted out"} at ${ftT(end)}`:"Lost on the judges"):"A draw";
+  return{score,txt,won};}
+function dlRecord(F){if(F.reason==="stopped")return;const D=dlState(),day=FT.ext.day,r=dlScore(F);
+  if(D.last!==day){D.streak=D.last===dlPrev(day)?(D.streak|0)+1:1;D.last=day;D.best=null;D.tries=0;}
+  D.tries=(D.tries|0)+1;D.top=Math.max(D.top|0,D.streak);
+  const nb=!D.best||r.score>D.best.score;if(nb)D.best={score:r.score,txt:r.txt,bring:FT.ext.bring};
+  FT.ext.res=Object.assign(r,{newBest:nb});save();}
+function dlStart(){if(FT.on)return;const P=dlPick(dlDay()),b=dlBring(P.cls),opp=ftOpp(P.cls,P.opp);
+  const bots=[{cfg:clone(b.cfg),name:"You",driver:null},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
+  FT.you=true;FT.sig=bnSig(b.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.bout=null;FT.ext={kind:"daily",day:P.day,bring:b.name};
+  ftGo(SIM.newFight({seed:P.seed,fx:true,arena:P.arena,bots}));}
+function dlCard(){const P=dlPick(dlDay()),c=SIM.CLASSES[P.cls],opp=ftOpp(P.cls,P.opp),D=dlState(),today=D.last===P.day,L=dlBrings(P.cls),cur=dlBring(P.cls);
+  const prevOk=D.last===P.day||D.last===dlPrev(P.day),run=prevOk?D.streak|0:0,ex=FT.ext&&FT.ext.kind==="daily"&&FT.ext.day===P.day&&FT.ext.res;
+  const mine=L.filter(o=>!o.start),starts=L.filter(o=>o.start);
+  const when=new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+  return`<div class="card dlcard"><h3>Daily challenge <small class="hint">${esc(when)}</small></h3>
+    <p>Today: a ${esc(c.name.toLowerCase())} against <b>${esc(opp.name)}</b> in the <b>${esc(SIM.ARENAS[P.arena].name)}</b>. The same fight for everyone today, and you drive. Sandbox rules: nothing costs, nothing carries over.</p>
+    <div class="field"><span class="lbl">Bring</span>${mine.length?ftChips("dlbring","Your bots",mine.map(o=>[o.id,esc(o.name)]),cur.id):""}${ftChips("dlbring","Starting points",starts.map(o=>[o.id,esc(o.name)]),cur.id)}
+      ${mine.length?"":`<p class="hint">No ${esc(c.name.toLowerCase())} of yours yet: bring a starting point, or fit or save one on the Build tab.</p>`}</div>
+    ${ex?`<p class="ftres ${ex.won?"ok":""}" role="status">${esc(ex.txt)} · <span class="readout">${ex.score.toLocaleString("en-GB")}</span> points${ex.newBest?" · today's best":""}</p>`:""}
+    <p class="hint">${today&&D.best?`Today's best: ${esc(D.best.txt)} (<span class="readout">${D.best.score.toLocaleString("en-GB")}</span> points, ${esc(D.best.bring||"")}) · ${D.tries} ${D.tries===1?"try":"tries"}`:"Not fought yet today."}
+      ${run?` · <b>${run}-day streak</b>`:""}${(D.top|0)>1?` (best ${D.top})`:""}</p>
+    <div class="row"><button type="button" class="btn pri" data-dl="go">Fight the daily</button></div></div>`;}
+
+/* ---- replay codes ---- */
+const RC_V=1,RC_PREFIX="SCRRP"+RC_V+":";
+const RC_MSG={empty:"Paste a replay code into the box first.",damaged:"That code is damaged or cut off. Copy the whole code again, from SCRRP1: to the end.",
+  newer:"That code was made by a newer version of the game. Reload the page to update, then try again.",
+  save:"That's a save backup, not a replay. Restore it in Settings → Saves.",notcode:"That doesn't look like a replay code. They start with \"SCRRP1:\".",
+  bad:"That code opened, but the fight inside doesn't look right."};
+function rcCode(log){const d={v:RC_V,ver:VERSION,seed:log.seed,arena:log.arena,rules:log.rules||{},steps:log.steps,bots:log.bots,inputs:log.inputs||{}};
+  const body=buZip(new TextEncoder().encode(JSON.stringify(d)));return RC_PREFIX+body+buSum(body);}
+function rcOk(d){if(!buObj(d)||d.v!==RC_V||!buNum(d.seed)||!SIM.ARENAS[d.arena]||!buObj(d.rules)||!buNum(d.steps)||d.steps<1||d.steps>60*600||!buObj(d.inputs))return false;
+  if(!Array.isArray(d.bots)||d.bots.length<2||d.bots.length>6)return false;
+  for(const b of d.bots){if(!buObj(b)||!buObj(b.cfg)||!SIM.CLASSES[b.cfg.cls]||SIM.unknownIds(b.cfg).length||(b.name!=null&&typeof b.name!=="string"))return false;}
+  for(const k in d.inputs){const p=d.inputs[k];if(!buObj(p)||!buNum(p.n)||typeof p.d!=="string")return false;}
+  return true;}
+function rcRead(text){const s=String(text==null?"":text).replace(/[\s​-‍⁠﻿]+/g,"");if(!s)throw new Error("empty");
+  const m=/SCRRP(\d+):/.exec(s);if(!m)throw new Error(/SCR\d+:/.test(s)?"save":"notcode");
+  if(+m[1]!==RC_V)throw new Error(+m[1]>RC_V?"newer":"notcode");
+  const c=s.slice(m.index+m[0].length).replace(/[^A-Za-z0-9_-].*$/,"");if(c.length<7)throw new Error("damaged");
+  const body=c.slice(0,-6);if(buSum(body)!==c.slice(-6))throw new Error("damaged");
+  let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw new Error("damaged");}
+  if(!rcOk(d))throw new Error("bad");
+  d.bots=d.bots.map(b=>Object.assign({},b,{cfg:SIM.normCfg(Object.assign({},b.cfg)),name:String(b.name||"Bot").slice(0,40)}));
+  return d;}
+function rcShareOpen(){const R=FT.rounds[FT.rv];if(!R||!ftReplayOk(R.F)){toast("This fight can't be shared");return;}let code="";try{code=rcCode(R.log);}catch(e){}
+  if(!code){toast("Couldn't make a replay code on this device");return;}
+  openSheet("Share replay",`<p class="hint" style="margin-top:0">This code is the whole fight: both builds, the arena and every move you made. Send it to a friend; they paste it on the Fight tab under <b>Replay codes</b> to watch it and read the post-mortem.</p>
+<textarea class="code" id="rcOut" readonly spellcheck="false" aria-label="Replay code"></textarea>
+<p class="hint">${code.length.toLocaleString("en-GB")} characters, starting with ${RC_PREFIX}</p>
+<div class="row"><button class="btn pri" id="rcCopy">Copy code</button></div>`);
+  const ta=$("rcOut");ta.value=code;ta.addEventListener("focus",()=>buSelect(ta));
+  $("rcCopy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(ta.value);toast("Copied");return;}catch(e){}
+    ta.focus();buSelect(ta);let ok=false;try{ok=document.execCommand("copy");}catch(e){}toast(ok?"Copied":"Code selected. Long-press it and tap Copy.");});}
+function rcWatchOpen(){if(FT.on){toast("Let the fight finish first");return;}
+  openSheet("Watch a replay",`<p class="hint" style="margin-top:0">Paste a replay code (it starts with ${RC_PREFIX}). It plays the fight and shows its post-mortem; nothing in your game changes.</p>
+<textarea class="code" id="rcIn" placeholder="${RC_PREFIX}…" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Replay code" aria-describedby="rcErr"></textarea>
+<p class="hint buerr" id="rcErr" role="alert"></p>
+<div class="row"><button class="btn pri" id="rcGo">Watch</button></div>`);
+  const ta=$("rcIn"),err=$("rcErr");ta.addEventListener("input",()=>{err.textContent="";});
+  $("rcGo").addEventListener("click",()=>{let d;try{d=rcRead(ta.value);}catch(e){err.textContent=RC_MSG[e.message]||RC_MSG.damaged;return;}rcWatch(d);});
+  if(window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches)ta.focus({preventScroll:true});}
+function rcWatch(d){const log={seed:d.seed,arena:d.arena,rules:d.rules,steps:d.steps,bots:d.bots,inputs:d.inputs};let F;
+  try{F=ftRpFight(log,d.steps);}catch(e){toast("That fight wouldn't play on this version");return;}
+  F.recorded=true;FT.rounds=[{F,log}];FT.rv=0;FT.bout=null;FT.rp=null;FT.ext={kind:"code",ver:d.ver};FT.sig=bnSig(d.bots[0].cfg);
+  closeSheet();showTab("fight");if(d.ver!==VERSION)toast(`Made on v${String(d.ver).slice(0,12)}: it may play out a little differently here`);ftReplay(0);}
+function rcCard(){return`<div class="card"><h3>Replay codes</h3><p>Got a code from a friend? Paste it to watch their fight and read its post-mortem. Share your own from any post-mortem.</p>
+  <div class="row"><button type="button" class="btn" data-dl="watch">Watch a replay code</button></div></div>`;}
+
+if(typeof document!=="undefined")document.addEventListener("click",e=>{const t=e.target;if(!t.closest)return;let x;
+  if((x=t.closest("[data-dlbring]"))){DL.bring=x.dataset.dlbring;ftRender();return;}
+  if((x=t.closest("[data-dl]"))){const a=x.dataset.dl;if(a==="go")dlStart();else if(a==="watch")rcWatchOpen();}});
 /* ===================== app/shop.js: the Shop tab =====================
    The career's spending outside the bot (plan section 11): the workshop (WORKSHOP_STAGES: move up for its price; rent
    and hours a week change), tools (TOOLS: unlock parts and cut build and repair hours), R&D and the team (app/team.js

@@ -38,6 +38,7 @@ app/controls.js
 app/fight.js
 app/pit.js
 app/report.js
+app/daily.js
 app/shop.js
 app/career.js
 app/team.js
