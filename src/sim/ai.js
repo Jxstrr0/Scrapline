@@ -10,7 +10,7 @@
      push        get behind the enemy and drive it into a goal: the nearest wall (box-rush), or a hazard, the open pit
                  first (hazard-pusher)
    Every style keeps itself out of an open pit, backs off when stuck, and self-rights when it needs to. On top of the style
-   (0.1.17.2, AI_NAV and AI_SKILL.tactics):
+   (0.1.17.4, AI_NAV and AI_SKILL.tactics):
      paths       the way to where it wants to go bends round the pit (open, or opening within AI_NAV.pitSoonS), the floor
                  spinners and the pusher slabs (unless it's shoving the enemy into one), and round the enemy itself when
                  it wants a point on the far side (lining up a push, circling)
@@ -47,7 +47,7 @@ const aiLerp=(a,s)=>a[0]+(a[1]-a[0])*s;
    hammers wait for the enemy to come to them, flippers and crushers go in */
 function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&&arena.def?arena.def:arena,
     haz=!!(A&&(A.pit||(A.hazards&&A.hazards.length))),t=b.weapon.type;
-  /* 0.1.17.2, from each build's record per style against the auto field in every class: an undercutter and a wedge do best
+  /* 0.1.17.4, from each build's record per style against the auto field in every class: an undercutter and a wedge do best
      going in (rush, aggressive). The other spinners keep away: a disc or a drum on counter wins more still, but ran the
      balance past the 35-65% target, so the counter stays a style to pick (the opponents and the Fight tab's picker) */
   if(b.weapon.id==="under")return"rush";
