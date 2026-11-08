@@ -133,7 +133,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - **opportunist:** goes for the most damaged enemy.
   
   `"auto"` picks a style from the build (changed in 0.1.17.2, see there):
-  - horizontal discs counter; undercutters rush; vertical discs, drums and saws keep away;
+  - undercutters rush; the other spinners and saws keep away;
   - wedges go aggressive;
   - lifters, flippers and pushers push to hazards (to the wall in a plain box);
   - everything else goes aggressive.
