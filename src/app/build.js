@@ -95,6 +95,10 @@ const bName=(slot,id)=>{const p=SIM.part(slot,id);return p?p.name:id;};
 
 /* ---- each section: title, a one-line summary, and its body ---- */
 const B_SECS=[
+  /* your bot's name and your team (0.1.24, app/livery.js): the name is per class, the team (colours, badge) is shared */
+  {id:"team",t:"Name & team",sum:()=>lvBotName(bCls())+" · "+lvMine().name,
+    body:()=>{const t=lvMine();return`<div class="field"><label class="lbl" for="bName">Bot name</label><input id="bName" type="text" maxlength="${LIVERY.maxName}" autocomplete="off" value="${esc(lvBotName(bCls()))}"></div>
+      <div class="lvrow">${lvBadge(t,44)}<div><b>${esc(t.name)}</b><small>Team colours and badge, on every bot you field</small></div><button type="button" class="btn sm" data-act="team">Edit team</button></div>`;}},
   {id:"cls",t:"Class",sum:()=>SIM.CLASSES[bCls()].name+" · "+fmtG(crLimitG(bCls())),
     body:()=>`<div class="seg" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>{const c=SIM.CLASSES[id],on=id===bCls(),f=S.bots[id]&&S.bots[id].cfg;
       return`<button type="button" data-cls="${id}" class="${on?"on":""}" aria-pressed="${on}">${c.name.replace("weight","")}<small>${fmtG(crLimitG(id))}${f?" ·&nbsp;fitted":""}</small></button>`;}).join("")}</div>
@@ -255,6 +259,7 @@ function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))
 
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
+  if(t.closest('[data-act="team"]')){lvOpen();return;}
   if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec;B.open[id]=!B.open[id];bRender();return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
@@ -296,14 +301,17 @@ document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]')
 /* the workshop stage the 3D room is dressed for (props on Full / Ultra, vis/props.js): the career's, else the rented corner */
 function visStage(){if(window.SCRAP_VIS&&SCRAP_VIS.setStage)SCRAP_VIS.setStage(typeof crOn==="function"&&crOn()?crStage().id:"corner");}
 function visBot(){if(!window.SCRAP_VIS)return;visStage();const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
-  SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
-  if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
+  if(typeof lvVis==="function")lvVis();SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
+  if(tag&&ftGL())tag.textContent=`${lvBotName(bCls())} · ${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
   if(!bRender.bound){bRender.bound=true;const tb=$("tab-build");
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});
     tb.addEventListener("pointerdown",bDown);tb.addEventListener("pointermove",bMove);tb.addEventListener("pointerup",bUp);
     tb.addEventListener("pointercancel",()=>{B.drag=null;});
-    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}
+    /* the bot's name: kept when it changes (blur, Enter); an empty one goes back to the class default */
+    tb.addEventListener("change",e=>{if(e.target.id!=="bName")return;const b=bBot(),v=e.target.value.trim().slice(0,LIVERY.maxName);if(v&&v!==LIVERY.names[bCls()])b.name=v;else delete b.name;save();bRender();});
+    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="bName"){e.preventDefault();e.target.blur();}
+      if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}
       if(e.key==="Enter"&&e.target.id==="discName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="disc-name"]')});}});
     $("bxRaw").addEventListener("toggle",bRender);
     if(/[?&]sim=1(&|$)/.test(location.search)){$("bxRaw").hidden=false;$("bxRaw").open=true;}

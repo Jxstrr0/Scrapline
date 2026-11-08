@@ -6,6 +6,8 @@
    (app/fight.js) steps it. It stays in the game as the replay thumbnail and an emergency Lite fallback.
    Like the 3D view, it is dark in both themes.
      DEBUGVIEW.draw(canvas, F, flashes, now)   flashes: [{x, y, E, t0, k}] (from F.fxq), now: performance.now() ms */
+/* a bot's colour: its team's main colour (0.1.24), or the accent where the main is too dark for the floor */
+function dvCol(o){const L=o.livery;if(!L)return DV_COL.bots[o.i%DV_COL.bots.length];const v=parseInt(L.main.slice(1),16),y=(0.3*(v>>16)+0.59*(v>>8&255)+0.11*(v&255))/255;return y<0.28?L.accent:L.main;}
 const DV_COL={floor:"#1A1917",grid:"#262421",wall:"#6B665D",text:"#E8E5DE",dim:"#9B978E",zone:"#E2A93B",hit:"#FFE3A6",land:"#9B978E",
   haz:"#8A7A55",hazOn:"rgba(226,169,59,.55)",
   bots:["#D97757","#B48CE8","#4CC38A","#7FB3E6"]};
@@ -26,7 +28,7 @@ const DEBUGVIEW={
     g.strokeStyle=DV_COL.wall;g.lineWidth=3*dpr;g.strokeRect(X(-H),Y(H),2*H*s,2*H*s);
     const font=px=>`${px*dpr}px "JetBrains Mono",ui-monospace,monospace`;
     const placed=[];
-    for(const o of F.bots){if(o.out==="pit")continue;const col=DV_COL.bots[o.i%DV_COL.bots.length],lift=o.z*s*0.6,grow=1+Math.min(o.z,1)*0.35;
+    for(const o of F.bots){if(o.out==="pit")continue;const col=dvCol(o),lift=o.z*s*0.6,grow=1+Math.min(o.z,1)*0.35;
       const at=(lx,ly)=>{const p=toW(o,lx*grow,ly*grow);return[X(p[0]),Y(p[1])-lift];};
       /* shadow in the air */
       if(o.z>0.005){g.fillStyle="rgba(0,0,0,.45)";g.beginPath();o.poly.forEach((p,k)=>{const q=toW(o,p[0],p[1]);k?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1]));});g.closePath();g.fill();}

@@ -525,3 +525,13 @@ Kelbo's pick: PEW's way. The first-visit intro is the home screen.
 - **Bent weapons.** A bent disc, drum or saw (`flags.bent`) wobbles as it spins, half as much under reduced motion.
 - The Blender shell and weapon copies carry float positions (`shellAdd` in `vis/bot.js`): r128's raycast and bounds read a quantized attribute's raw integers.
 
+## 0.1.24.0: teams
+
+`src/app/livery.js` (tables and the Team sheet) and `src/vis/badge.js` (the drawing). A livery is `{name, main, accent, shape, emblem, text}`; the sim carries it on each bot as data and never reads it.
+
+- **Your team.** `S.team`, edited from Build → Name & team → Edit team: a team name (24 characters), main and accent from `LIVERY.colours` (14), a shape (shield, round, hex, diamond, gear, square), an emblem (bolt, saw, wrench, hammer, skull, crown, flame, star, claw, none) and up to three letters. The start is Eckwerkstatt, clay on coal, a shield with a bolt.
+- **Bot names.** `S.bots[cls].name`, from the same row; blank means the class default (Tack, Splinter, Crowbar, Anvil, Foundry). The name shows on the Build tag, the fight tags, the battle card and the log.
+- **On the bot.** The side stripe takes the main colour, two thin pinstripes the accent, and the badge sits on the top as a decal with an accent rim (so it shows on a stripe of its own colour), reading upright from in front. Lite: a 64 px texture on a Lambert material; Full and Ultra: 128 px on a standard material. One texture per livery, shared.
+- **Opponents.** `OPP_TEAMS`: the 15 named opponents (`op:`), the 4 rivals (`rv:`) and the 12 test builds (`tb:`, a club regular with a persona name, e.g. Keilbau Fasel's Türkeil for the wedge, Schmiede Koller's Vorschlag for the hammer). Sparring, career events, rumbles and the daily challenge all use them.
+- **Colour clashes.** `lvField`: a bot whose main colour is within 70 (RGB distance) of an earlier bot's switches to its own accent, else to the first palette colour clear of everyone. The 2D view and the card border use the accent when the main is too dark to see (`dvCol`).
+- **Replay codes** keep each bot's livery (checked with `lvNorm` on the way in).

@@ -99,6 +99,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Effects pack (0.1.17.1) | Kelbo's ElevenLabs sound effects (`sounds/sfx/`, 52 files from 40 prompts, two takes each, the better kept). **Which tier plays what** (decided while building; Kelbo can change it): the crowd (a looped bed per arena: club for the box, tabletop and club box, regional, a big hall for the Eisenhalle; cheer, ooh, groan, applause), the bell, the pit opening and the workshop's ratchet (fit), clamp (bench), drill (repair) and charger (Close week) play **on every tier**, like the voices; the weapon sounds (spin-ups, flippers, hammer, lifter, crusher), the material layers under a hit (plywood, HDPE, titanium, steel, tyre), scrapes, bends, snaps and the rest are **Full and Ultra only**, like the recorded clangs. The countdown clip was dropped (its beeps ran together; the announcer counts down). |
 | Voice pack (0.1.16) | Kelbo's ElevenLabs pack (`docs/voice/`, 214 lines in `sounds/voice/`): **Duncan Steiner** on the PA (announcer) and **Jess Moser** on Radio Velmark (commentator). Rivals renamed for it: Ottilie Brandt is now **Kayla Rauch**, Rudi Kessler **Mitch Gerber** (ids unchanged). **On every tier, Lite included** (Kelbo): the announcer's core calls load first when the Fight tab opens, the rest stream in. **Captions** when sound or voices are off, with a setting to turn them off (Kelbo). Settings: Voices, Commentary, Captions beside Sound. Custom names are never voiced: the player is "The challenger!" or "The home workshop!". Lines pick with seeded `SCRAP_SIM.rng` streams, so two replays say the same thing |
 
+| Teams (0.1.24, Kelbo) | Asked for after 0.1.23 ("more creative than the You and Wedge names"). **Team, bot names and paint** (over names only, or names plus colour): a team name, a name per bot, two team colours painted on the bot (the side stripe in the main colour, two pinstripes in the accent) and a badge on its top. **Badge builder** (over preset badges or letters only): a shape (shield, round, hex, diamond, gear, square), an emblem (bolt, saw, wrench, hammer, skull, crown, flame, star, claw or none), the two colours and up to three letters, all drawn in code. Every opponent gets a team too: named opponents and rivals their own, test builds a club regular with a persona name. Two bots too close in colour: the later one wears its accent. **Put in now as 0.1.24**: slow-motion replays move to 0.1.25 and the bracket screen to 0.1.26 (paint is covered here) |
 ---
 
 ## 2. Direction
@@ -409,7 +410,8 @@ Bots stay parametric. Assets are for the world around them:
 ```
 { v, settings,
   career: { year, week, act, money, loan, hours, driverXp, rep, events, results },
-  bots:    { <classId>: { cfg, damage } },      // one fitted bot per class
+  team:    { name, main, accent, shape, emblem, text },   // your team and badge (0.1.24)
+  bots:    { <classId>: { cfg, damage, name } },  // one fitted bot per class; name optional (0.1.24)
   designs: { <classId>: [ { name, cfg } ] },
   unlocks: { tools, rnd },
   staff, sponsors, rivals,                       // rivals remember past fights
@@ -466,5 +468,6 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.21: arena visual pass (floor markings, lighting, near wall, prop scale)
 - [x] 0.1.22: Blender weapon parts on Full and Ultra (Lite unchanged)
 - [x] 0.1.23: visible damage on Full and Ultra (scars, wear, askew plates, bent weapons; Lite unchanged)
-- [ ] 0.1.24: slow-motion replays
-- [ ] 0.1.25: paint and a bracket screen
+- [x] 0.1.24: teams (team and bot names, two colours, badge builder, opponent teams)
+- [ ] 0.1.25: slow-motion replays
+- [ ] 0.1.26: bracket screen
