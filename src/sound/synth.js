@@ -52,15 +52,15 @@ const FX={buf:{},got:{},last:{},until:0,resting:false,want:false,   // want: pre
     scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1},
   BEDS:{club:"crowd_club",reg:"crowd_reg",big:"crowd_big"},WORK:["ratchet","drill","clamp","charger"]};
 const fxFiles=(id,n)=>n>1?Array.from({length:n},(_,i)=>id+(i+1)):[id];
-function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;
+function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;   // got: 1 asked for, -1 failed (only prep() asks again)
   fetch("sounds/sfx/"+f+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status))
-    .then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej))).then(b=>{FX.buf[f]=b;}).catch(()=>{FX.got[f]=0;});}   // a failed fetch may try again next prep()
-function prep(){FX.want=true;if(!ctx)return;for(const id in FX.ALL)fxFiles(id,FX.ALL[id]).forEach(fxGet);
+    .then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej))).then(b=>{FX.buf[f]=b;}).catch(()=>{FX.got[f]=-1;});}
+function prep(){FX.want=true;if(!ctx)return;for(const f in FX.got)if(FX.got[f]<0)FX.got[f]=0;/* a failed file: try once more */for(const id in FX.ALL)fxFiles(id,FX.ALL[id]).forEach(fxGet);
   if(SAMP.on)for(const id in FX.FULL)fxFiles(id,FX.FULL[id]).forEach(fxGet);}
 /* after stop(), a stinger (the bell, the cheer) may still be ringing: the nap waits for it as it waits for a voice */
 function fxDoze(){if(!FX.resting||!ctx)return;if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(nap,600);}
 function sfx(id,v){if(!ctx)return false;const n=FX.ALL[id]||(SAMP.on&&FX.FULL[id]);if(!n)return false;
-  if(ctx.state==="suspended"){ctx.resume().catch(()=>{});if(FX.WORK.indexOf(id)<0)return false;}   // the workshop's sounds wake a sleeping context
+  if(ctx.state==="suspended")ctx.resume().catch(()=>{});   // a sleeping context wakes for it (the bell of a rematch, the workshop); start(0) plays it as soon as it runs
   const t=ctx.currentTime;if(t-(FX.last[id]||-1)<0.06)return false;
   const fs=fxFiles(id,n).filter(f=>FX.buf[f]);if(!fs.length){fxFiles(id,n).forEach(fxGet);return false;}
   FX.last[id]=t;const b=FX.buf[fs[Math.random()*fs.length|0]],s=ctx.createBufferSource(),g=ctx.createGain();

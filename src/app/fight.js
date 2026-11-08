@@ -116,7 +116,7 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
     if(kind==="duel"){cues.push("name:you");if(rv)cues.push("rival:"+rv);else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
   else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
   cues.push("countdown");
-  const bell=()=>{if(ST().sound!==false)SCRAP_SOUND.sfx("bell",0.7);};   // the bell opens the round (sounds/sfx/, every tier)
+  const bell=()=>{if(ST().sound!==false&&FT.F===F&&FT.on&&!FT.paused&&!F.over&&!document.hidden&&curTab==="fight")SCRAP_SOUND.sfx("bell",0.7);};   // the bell opens the round (sounds/sfx/, every tier); not when a pause, a scrub or leaving cut the intro short
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
   else{SCRAP_VOICE.seq(cues);bell();}}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
 /* the bell: the result calls, then (in a career) a first win or the Open title */
@@ -187,7 +187,7 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
   else if(e.k==="haz")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);
   else if(e.k==="pitopen")SS.sfx("pitopen",0.7);
-  else if(e.k==="right"||(e.k==="self"&&e.what==="flip"))SS.sfx("selfright",0.6);
+  else if(e.k==="right")SS.sfx("selfright",0.6);
   else if(e.k==="self"&&(e.what==="bent"||e.what==="shear")){SS.sfx(e.what==="bent"?"bend":"snap",0.7);crowd("groan");}
   else if(e.k==="fail"){if(e.what==="smoke")SS.sfx("smoke",0.55);else if(e.what==="dead"||e.what==="flat"||e.what==="cell"){SS.sfx("powerdown",0.6);if(V&&!V.mini)crowd("groan");}
     else if(e.what==="weapon")crowd("groan");}
