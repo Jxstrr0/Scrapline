@@ -4345,7 +4345,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.24.0";
+const VERSION="0.1.24.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -5342,10 +5342,12 @@ function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))
     else if(s==="extras")hit(x=>x===l.id);
     else hit(x=>x===s);}}
 
+/* One section open at a time: after opening one, bring its header up under the weight bar so the closed ones above it do not push it off screen. */
+function bToHead(id){const r=document.querySelector(`#bRows [data-sec="${id}"]`),P=$("panel"),bar=$("bwBar");if(!r||!P)return;const d=r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8;if(d)P.scrollTo({top:P.scrollTop+d,behavior:"auto"});}
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
   if(t.closest('[data-act="team"]')){lvOpen();return;}
-  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec;B.open[id]=!B.open[id];bRender();return;}
+  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was)bToHead(id);return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
@@ -6257,7 +6259,7 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
     else if(a==="rcode")rcShareOpen();
-    else if(a==="fix"){const id=x.dataset.sec;B.open[id]=true;showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
+    else if(a==="fix"){const id=x.dataset.sec;B.open={[id]:true};showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
     else if(a==="career")showTab("career");
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
@@ -7561,7 +7563,7 @@ function tutCoach(){if($("coach"))return;const el=document.createElement("div");
   $("panel").addEventListener("scroll",()=>{if(TUT_ON)tutPlace();},{passive:true});
   window.addEventListener("resize",()=>{if(TUT_ON)tutPlace();});}
 function tutGo(i){TUT.i=i;const st=TUT_STEPS[i];if(!st){tutStop();return;}
-  if(st.pre)st.pre();if(st.open&&!B.open[st.open]){B.open[st.open]=true;}
+  if(st.pre)st.pre();if(st.open&&!B.open[st.open]){B.open={[st.open]:true};}
   if(st.tab&&curTab!==st.tab)showTab(st.tab);else if(st.tab&&TAB_RENDER[st.tab])TAB_RENDER[st.tab]();
   document.documentElement.classList.add("tut");$("coach").hidden=false;
   $("coachStep").textContent=`Tutorial · ${Math.min(i+1,TUT_STEPS.length)} of ${TUT_STEPS.length}`;$("coachT").textContent=st.t;$("coachX").textContent=st.x();

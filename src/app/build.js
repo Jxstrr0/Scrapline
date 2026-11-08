@@ -257,10 +257,12 @@ function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))
     else if(s==="extras")hit(x=>x===l.id);
     else hit(x=>x===s);}}
 
+/* One section open at a time: after opening one, bring its header up under the weight bar so the closed ones above it do not push it off screen. */
+function bToHead(id){const r=document.querySelector(`#bRows [data-sec="${id}"]`),P=$("panel"),bar=$("bwBar");if(!r||!P)return;const d=r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8;if(d)P.scrollTo({top:P.scrollTop+d,behavior:"auto"});}
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
   if(t.closest('[data-act="team"]')){lvOpen();return;}
-  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec;B.open[id]=!B.open[id];bRender();return;}
+  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was)bToHead(id);return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
