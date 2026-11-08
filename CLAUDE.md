@@ -84,9 +84,9 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.21.0)
+## Current status (0.1.21.1)
 
-The full log from PR 0 to 0.1.21.0 (what each version added, the tables and
+The full log from PR 0 to 0.1.21.1 (what each version added, the tables and
 save fields it brought) is `docs/HISTORY.md`. Read the matching entry before
 changing a system it describes; add each new release there and update this
 section.
@@ -103,7 +103,7 @@ section.
   Sandbox modes (separate garages, `S.mode` / `S.parked`; Mode in Settings),
   labelled Build stats and Fix it buttons on the post-mortem (`RP_FIX`).
   A daily challenge and `SCRRP1:` replay codes
-  (`src/app/daily.js`), arena floor markings and lighting (`arenaDecal`). Money is euros. `SAVE_V` is 10.
+  (`src/app/daily.js`), arena floor markings and lighting (`arenaDecal`), and one dressing scale (`AR.D`) for props, stands and crowd. Money is euros. `SAVE_V` is 10.
 - Next (Kelbo's order, plan section 1): 0.1.22+ the rest of the Full/Ultra graphics push (Blender weapon parts, visible damage;
   Lite unchanged), then slow-motion replays, paint and a bracket screen.
   Merged branches delete themselves on GitHub.

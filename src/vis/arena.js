@@ -31,12 +31,18 @@ function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
+/* the dressing scale: scene units per real metre for everything outside the walls (props, stands, the flat crowd), so they
+   agree with each other. Real size (AR.U) where that is small enough, else capped, so a beetle arena (4 units a metre) isn't
+   ringed by giants (0.1.21.1; the props used it alone from 0.1.21.0 and the people were drawn at about a third of it) */
+const ARENA_PROP_UNITS=1.6;
+/* the flat crowd: heads 0.23 m across on a band CROWD_M tall and CROWD_W wide per repeat (512 x 64 px, a head about 8 px) */
+const CROWD_M=1.85,CROWD_W=14.8;
 function crowdTex(){const c=document.createElement("canvas");c.width=512;c.height=64;const g=c.getContext("2d");
   g.fillStyle="#141311";g.fillRect(0,0,512,64);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;   // fixed pattern, no Math.random
   for(let i=0;i<420;i++){const x=r()*512,y=14+r()*46,l=40+r()*60|0;g.fillStyle=`hsl(${r()*360|0},${10+r()*25|0}%,${l*0.4|0}%)`;g.beginPath();g.arc(x,y,3+r()*2,0,7);g.fill();}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;return t;}
 function buildArena(F){
-  arenaClear();const M=V.mats,lite=V.tier==="lite",U=AR.U=4/F.M.len,A=F.arena,H=A.half*U,g=new THREE.Group();
+  arenaClear();const M=V.mats,lite=V.tier==="lite",U=AR.U=4/F.M.len,D=AR.D=Math.min(U,ARENA_PROP_UNITS),A=F.arena,H=A.half*U,g=new THREE.Group();
   const kit=AR.kit={walls:[],posts:[],crowd:[],pit:null,floor:null,grid:null,H};
   const X=x=>x*U,Z=y=>-y*U;   // sim (x, y) to scene (x, z)
   /* floor and grid */
@@ -60,8 +66,10 @@ function buildArena(F){
   AR.lamps=[];for(const sx of [-1,1])for(const sz of [-1,1]){const ph=sz>0?kh+0.1:kh+sh+0.2,p=new THREE.Mesh(new THREE.BoxGeometry(0.2,ph,0.2),M.wall);p.position.set(sx*(H+t/2),ph/2,sz*(H+t/2));g.add(p);   // the near posts stop at the kerb
     const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),ph+0.06,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);kit.posts.push({p,lamp,near:sz>0});}
   /* the crowd: Full and Ultra */
-  if(!lite){const tex=crowdTex();tex.repeat.set(4,1);const cm=new THREE.MeshBasicMaterial({map:tex,fog:true});cm.userData={};
-    for(const [x,z,ry] of [[0,-H-3,0],[-H-3,0,Math.PI/2],[H+3,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(2*H+6,2.2),cm);c.position.set(x,1.6,z);c.rotation.y=ry;c.userData.own=true;g.add(c);kit.crowd.push(c);}}
+  /* the crowd: Full and Ultra. People standing behind a barrier, heads at real height in the dressing scale; with the stands
+     (vis/props.js kitBuild) it moves back and up behind the top row */
+  if(!lite){const tex=crowdTex(),w=2*H+6,o=H+3;tex.repeat.set(w/(CROWD_W*D),1);const cm=new THREE.MeshBasicMaterial({map:tex,fog:true});cm.userData={};
+    for(const [x,z,ry] of [[0,-o,0],[-o,0,Math.PI/2],[o,0,-Math.PI/2]]){const c=new THREE.Mesh(new THREE.PlaneGeometry(w,CROWD_M*D),cm);c.position.set(x,(0.25+CROWD_M/2)*D,z);c.rotation.y=ry;c.userData.own=true;g.add(c);kit.crowd.push(c);}}
   /* the pit, under a cover until it opens */
   AR.pitCover=null;if(A.pit){const r=A.pit.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
     const hole=new THREE.Mesh(new THREE.PlaneGeometry(w,d),M.pit);hole.rotation.x=-Math.PI/2;hole.position.set(cx,0.012,cz);g.add(hole);
