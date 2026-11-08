@@ -17,7 +17,8 @@
    The frame loop steps the sim at its fixed 60 Hz with an accumulator clamped to 5 steps a frame, so a stall never
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
 const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
-  you:false,on:false,view2d:false,partN:0,buzzT:0};
+  you:false,on:false,view2d:false,partN:0,buzzT:0,
+  ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js)
 const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
@@ -35,7 +36,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
   const bots=[{cfg:bot.cfg,name:"You",driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
   if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,driver:o.driver});
-  FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;
+  FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
   const kit=()=>Object.assign({},PIT_KITS[FT.kit].allow);
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
@@ -43,7 +44,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
-function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
+function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
@@ -251,7 +252,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
   else if(a==="evback")ftEvBack();
-  else if(a==="again"){ftExit();ftStart();}
+  else if(a==="again"){const dl=FT.ext&&FT.ext.kind==="daily";ftExit();if(dl)dlStart();else ftStart();}
   else if(a==="pit")ftPit();
   else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
@@ -353,6 +354,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
 }
 function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
+  if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
   if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
     btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
@@ -437,11 +439,12 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
 /* ---- the tab ---- */
 function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
-  if(!bot.cfg){FT.F=null;FT.rounds=[];FT.bout=null;el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
-    <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`;return;}
-  {const R0=ftShown()||FT.F;if(R0&&!FT.on&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
+  const dl=dlCard(),ext=!!(FT.ext&&ftShown());
+  if(!bot.cfg){if(!ext){FT.F=null;FT.rounds=[];FT.bout=null;}el.innerHTML=chips+ftEvCard()+dl+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+    <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+(ext?ftResHtml(ftShown()):"")+rcCard();if(ext)ftResPost(ftShown());return;}
+  {const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
   const R=ftShown(),drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon),you=FT.style==="you";
-  el.innerHTML=chips+ftEvCard()+`<div class="card"><h3>Sparring</h3>
+  el.innerHTML=chips+ftEvCard()+dl+`<div class="card"><h3>Sparring</h3>
     <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against anyone in the class, in any arena. No stakes: free practice, fresh every time, and the repair bill is shown, never charged.</p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
     ${ftPicker(cls)}
@@ -453,10 +456,14 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
       <p class="hint" id="ftDrvHint">${ftDrvHint()}</p></div>
     <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
     <div class="row"><button type="button" class="btn pri" data-ft="go">Fight</button></div></div>
-    ${R?`<div class="card" id="ftResCard"><h3>${FT.bout?"The bout":"Last fight"}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
+    ${R?ftResHtml(R):""}${rcCard()}`;
+  if(R)ftResPost(R);}
+/* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
+function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":"From a replay code":FT.bout?"The bout":"Last fight";
+  return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
     ${rpHtml(R)}
-    <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`:""}`;
-  if(R){ftHud(R);ftLog(R);rpDraw(R);ftVoicePm(R);}}
+    <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;}
+function ftResPost(R){ftHud(R);ftLog(R);rpDraw(R);ftVoicePm(R);}
 /* while a career event is on: the way back to it */
 function ftEvCard(){const c=S.career;if(!crOn()||!(c.day||CR.end))return"";const nm=c.day?crEv(c.day.ev).name:CR.end.name;
   return`<div class="card crback"><h3>${esc(nm)}</h3><p>${c.day?"You're at an event.":"The event is over."} Sparring here is free practice and changes nothing.</p><div class="row"><button type="button" class="btn pri" data-ft="career">Back to the event</button></div></div>`;}
@@ -484,11 +491,12 @@ function ftClick(e){const t=e.target;let x;
     if(a==="go")ftStart();
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
+    else if(a==="rcode")rcShareOpen();
     else if(a==="fix"){const id=x.dataset.sec;B.open[id]=true;showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
     else if(a==="career")showTab("career");
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
-  if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;save();ftRender();visBot();return;}
+  if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;FT.ext=null;save();ftRender();visBot();return;}
   if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;ftOn("ftopp",x);const l=$("ftOppLine");if(l)l.innerHTML=ftOppLine(ftOpp(bCls()));return;}
   if((x=t.closest("[data-ftarena]"))){FT.arena=x.dataset.ftarena;ftRender();return;}
   if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);const s=$("ftSpeedF");if(s)s.hidden=FT.style==="you";const h=$("ftDrvHint");if(h)h.textContent=ftDrvHint();return;}
