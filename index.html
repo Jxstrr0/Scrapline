@@ -2657,7 +2657,7 @@ const VOICE_LINES={
    one ElevenLabs take per line in sounds/voice/, listed in VOICE_LINES (sound/voicelines.js, built from the sheet by
    tools/make-voicelines.js). Voice reads the fight; it never writes to it, and nothing here is in SCRAP_SIM.
      load()            the first time the Fight tab opens (app/fight.js ftRender): fetch the clips, the announcer's core calls
-                       first (countdowns, result calls), four at a time. Kept as MP3 bytes and decoded when needed (the last
+                       first (countdowns, result calls), four at a time, from VOICE_CDN with sounds/voice/ as the fallback. Kept as MP3 bytes and decoded when needed (the last
                        ~20 decoded stay), so a phone holds ~6 MB, not ~60. A clip that fails is skipped. Every tier.
      set(o)            the app's settings: {sound, voice, comm, captions} (Settings: Sound, Voices, Commentary, Captions)
      intro(cues, done) before a fight: the announcer's calls back to back (venue, event, class, names, the countdown);
@@ -2688,19 +2688,33 @@ let D=null;   // the director's fight
 
 /* ---- the player ---- */
 function audioOn(){return O.sound!==false&&O.voice!==false;}
+/* where the clips come from: Longlight's asset host first (Cloudflare R2, 0.1.17.2), the page's own sounds/voice/ copy as the
+   fallback. Per clip, any failure there (no network, a non-OK status, a CORS refusal, bytes that aren't MP3, a decode that
+   fails) fetches the local copy instead, and the first failure sends the rest of the visit straight to local, so a blocked
+   host never doubles every request. Change VOICE_CDN to move the host ("" = local only). */
+const VOICE_CDN="https://assets.longlight.games/scrapline/voice/",VOICE_LOCAL="sounds/voice/";
+P.from={};P.cdnDead=!VOICE_CDN;
+/* MP3 bytes start with an ID3 tag or a frame sync; an error page from a misbehaving host does not */
+function isMp3(a){const b=new Uint8Array(a,0,Math.min(3,a.byteLength));return b.length>=3&&((b[0]===0x49&&b[1]===0x44&&b[2]===0x33)||(b[0]===0xFF&&(b[1]&0xE0)===0xE0));}
+function getBytes(url){return fetch(url).then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status)).then(a=>isMp3(a)?a:Promise.reject("not mp3"));}
+function fetchLocal(id){return getBytes(VOICE_LOCAL+L[id].f).then(a=>{P.bytes[id]=a;P.from[id]="local";}).catch(()=>{});}
+function fetchClip(id){if(P.cdnDead)return fetchLocal(id);
+  return getBytes(VOICE_CDN+L[id].f).then(a=>{P.bytes[id]=a;P.from[id]="cdn";},()=>{P.cdnDead=true;return fetchLocal(id);});}
 function load(){if(P.started||typeof fetch!=="function"||!Object.keys(L).length)return;P.started=true;
   const ids=Object.keys(L),core=new Set();for(const q of CORE)for(const id of POOL[q]||[])core.add(id);
   const list=[...core].concat(ids.filter(id=>!core.has(id)&&L[id].c==="c"&&!/^pm:/.test(L[id].q)),ids.filter(id=>!core.has(id)&&(L[id].c==="a"||/^pm:/.test(L[id].q))));
   const seen=new Set(),order=list.filter(id=>!seen.has(id)&&seen.add(id));let at=0;
-  const next=()=>{if(at>=order.length)return;const id=order[at++];
-    fetch("sounds/voice/"+L[id].f).then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status)).then(a=>{P.bytes[id]=a;}).catch(()=>{}).then(next);};
-  for(let k=0;k<4;k++)next();}
+  const next=()=>{if(at>=order.length)return;const id=order[at++];fetchClip(id).then(next);};
+  /* the first clip goes alone, so a blocked asset host costs one failed request, not four; then four at a time */
+  if(order.length)fetchClip(order[at++]).then(()=>{for(let k=0;k<4;k++)next();});}
 /* a decoded clip: cb(AudioBuffer) at once when it's decoded, else after decoding (the callback form of decodeAudioData:
    older Safari returns no promise), or cb(null) */
 function decoded(id,cb){const b=P.buf.get(id);if(b){P.buf.delete(id);P.buf.set(id,b);cb(b);return;}
   const io=typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus?SCRAP_SOUND.voiceBus():null,raw=P.bytes[id];
   if(!io||!raw){cb(null);return;}
-  try{io.ctx.decodeAudioData(raw.slice(0),buf=>{P.buf.set(id,buf);while(P.buf.size>20)P.buf.delete(P.buf.keys().next().value);cb(buf);},()=>cb(null));}catch(e){cb(null);}}
+  /* a clip from the asset host that won't decode: drop it, fetch the local copy for next time, and use local from now on */
+  const bad=()=>{if(P.from[id]==="cdn"){P.cdnDead=true;delete P.bytes[id];P.from[id]="retry";fetchLocal(id);}cb(null);};
+  try{const pr=io.ctx.decodeAudioData(raw.slice(0),buf=>{P.buf.set(id,buf);while(P.buf.size>20)P.buf.delete(P.buf.keys().next().value);cb(buf);},bad);if(pr&&pr.catch)pr.catch(()=>{});}catch(e){bad();}}   // the promise newer browsers also return is caught: the callbacks did the work
 function cap(id){const x=L[id];if(!x||O.captions==="off"||audioOn()||!P.onCap)return;P.onCap(x.t,x.c);}
 /* play one line now; false when it can't (muted, not loaded yet). The caption shows instead when muted. */
 function play(id,at){const x=L[id];if(!x)return false;if(x.c==="c"&&O.comm===false)return false;
@@ -2824,7 +2838,7 @@ function end(F,o){if(D)D.pend=null;const cues=endCues(F,o);return cues.length?se
 
 return{load,set(o){Object.assign(O,o||{});if(!audioOn()){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];}},intro,skip,stop,begin,seek,tick,end,endCues,seq,say,
   get onCap(){return P.onCap;},set onCap(f){P.onCap=f;},
-  get loaded(){return Object.keys(P.bytes).length;},get total(){return Object.keys(L).length;},pool:q=>(POOL[q]||[]).slice(),
+  get loaded(){return Object.keys(P.bytes).length;},get sources(){const n={cdn:0,local:0};for(const id in P.bytes)n[P.from[id]==='cdn'?'cdn':'local']++;return n;},get total(){return Object.keys(L).length;},pool:q=>(POOL[q]||[]).slice(),
   _d:()=>D,_pick:(cues)=>D?pickFrom(D.R,D.recent,cues):null};
 })();
 </script>
@@ -3965,7 +3979,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.17.1";
+const VERSION="0.1.17.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
