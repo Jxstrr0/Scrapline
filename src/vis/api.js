@@ -9,6 +9,11 @@ return{
   /* the workshop stage ("corner", "unit", "shop", "hq"): which props dress the room on Full / Ultra */
   setStage(id){id=id||"corner";if(id===(V.stage||"corner")){V.stage=id;return;}V.stage=id;if(started&&V.shop)propShopSwap();},
   setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
+  /* your team's livery ({name, main, accent, shape, emblem, text}: vis/badge.js; 0.1.24) on the workshop's bot. In a fight
+     each bot wears its own (the fight object's o.livery) */
+  setLivery(L){const k=badgeKey(L);if(k===V.liveryK)return;V.liveryK=k;V.livery=L||null;if(started&&V.mats)placeBot();},
+  /* a team badge as a fresh px-square canvas, for the app's cards (no renderer needed) */
+  badge(L,px){return badgeCanvas(L,px||64);},
   /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */

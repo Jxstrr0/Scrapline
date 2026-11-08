@@ -394,7 +394,25 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fsil{width:44px;height:44px;flex:0 0 auto}
 .fmap{width:62px;height:62px;flex:0 0 auto}
 .fbinfo{flex:1;display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center;min-width:0}
-.fbinfo b{grid-column:1/-1;font-size:14px;color:var(--tc,var(--ink));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbinfo b{grid-column:1/-1;font-size:14px;color:#F2EFE8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* light on the always-dark battle screen: a team colour can be anything (0.1.24) */
+/* team badges and the Team sheet (0.1.24, app/livery.js) */
+.lvb{display:inline-block;vertical-align:middle;flex:none}
+.lvb.in{margin:-3px 5px -2px 0}
+.lvdot{border-radius:50%;box-shadow:0 0 0 1px #0008}
+.lvrow,.lvhead{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--card2);border:1px solid var(--rule)}
+.lvrow>div,.lvhead>div{flex:1;min-width:0}
+.lvrow b,.lvhead b{display:block;font-size:15px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lvrow small,.lvhead small{display:block;font-size:12px;color:var(--dim)}
+.lvhead{margin:0 0 16px}
+.lvhead b{font-size:18px}
+.field>.lbl small{font-weight:400;letter-spacing:0;color:var(--dim)}
+.lvsw{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.lvsw button{aspect-ratio:1;min-height:36px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px #0006,0 0 0 1px var(--rule)}
+.lvsw button.on{box-shadow:inset 0 0 0 2px #0008,0 0 0 2px var(--base),0 0 0 4px var(--clay)}
+.lvpk{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.lvpk button{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;padding:6px 2px;border-radius:10px;background:var(--card2);border:1px solid var(--rule);color:var(--muted)}
+.lvpk button small{font-size:11px}
+.lvpk button.on{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay)}
 .fbl{font-size:11px;line-height:1;color:var(--muted)}
 .fbinfo small{grid-column:1/-1;font-size:11.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fbinfo small.none{color:var(--muted)}
@@ -1401,8 +1419,9 @@ const BENCH_RUN={drive:benchDrive,weapon:benchWeapon,impact:benchImpact,gauge:be
 function runBench(x,id){const b=asBuild(x);if(id)return BENCH_RUN[id]?BENCH_RUN[id](b):null;
   const out={};for(const t of BENCH_TESTS)out[t.id]=BENCH_RUN[t.id](b);return out;}
 /* ---- fight.js: the fight, plan section 7a. N bots at a fixed 60 Hz step, deterministic from a seed.
-     newFight({bots, arena, seed, rules, fx})   bots: [{cfg, team, name, driver, damage}]. driver {style, skill} is an AI
+     newFight({bots, arena, seed, rules, fx})   bots: [{cfg, team, name, livery, driver, damage}]. driver {style, skill} is an AI
                                             (sim/ai.js); driver null is the player, who hands in inputs each step.
+                                            livery: the team's looks (0.1.24), carried for the view and the log, never read here.
                                             damage: J already taken per key (S.bots[cls].damage), or nothing for fresh.
                                             flags: {bent, smoke, cell, esc} carries failures in (a best-of-three
                                             round after a pit window that didn't fix them).
@@ -1563,7 +1582,7 @@ function arenaOf(a,cls,seed){const M=classMult(cls),L=M.len;let A=typeof a==="st
   return{id:A.id||"custom",name:A.name||"Arena",half:side/2,wallE:A.wallE!=null?A.wallE:FIGHT.wallE,
     pit:P?{rect:rect(P.rect),openS:P.openS||0}:null,haz,turn:k,def:A};}
 function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cls);
-  const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,cfg,b,driver:spec.driver||null,M,
+  const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,livery:spec.livery||null,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
     zone:weaponZone(b),st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
@@ -1584,7 +1603,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
 function newMini(F,o){const cls=MINIBOT.cls[o.b.cls];if(!cls||o.cfg.extras.indexOf("minibot")<0)return null;
   if(partStates(o.b,o.st).minibot==="destroyed")return null;
   const sk=o.driver&&o.driver.skill!=null?o.driver.skill:0.5,i=F.bots.length;
-  const m=newBot({cfg:Object.assign({},MINIBOT.cfg,{cls}),team:o.team,name:o.name+"'s minibot",driver:Object.assign({},MINIBOT.driver,{skill:sk})},i,F);
+  const m=newBot({cfg:Object.assign({},MINIBOT.cfg,{cls}),team:o.team,name:o.name+"'s minibot",livery:o.livery,driver:Object.assign({},MINIBOT.driver,{skill:sk})},i,F);
   m.mini=true;m.parent=o.i;const d=o.rad+m.rad+0.01*F.M.len;
   m.x=o.x-Math.cos(o.h)*d;m.y=o.y-Math.sin(o.h)*d;m.h=o.h;m.pw=worldPoly(m,m.poly);
   m.ai=aiNew(m,(F.seed^Math.imul(0x85EBCA6B,i+1))>>>0,F);return m;}
@@ -1596,7 +1615,7 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
   const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(opts.arena,cls,seed),rules,bots:[],
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
     spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
-      bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,
+      bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,livery:s.livery?Object.assign({},s.livery):null,
         driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:carryFlags(s.flags)}))}};   // copies: the log is the fight as it started
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
@@ -3044,7 +3063,7 @@ function makeMats(tier){
     team:BOT_TEAM.map(h=>lite?matte(h,.5):surfMat(S.paint,C(h),0,true))
   };
   /* sponsor colours (vis/bot.js), made when first asked for, kept per tier: paint, like the team stripe */
-  if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=lite?matte:(h)=>surfMat(S.paint,C(h),0,true);
+  if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};if(V.badgeMats)for(const k in V.badgeMats){V.badgeMats[k].map.dispose();V.badgeMats[k].dispose();}V.badgeMats={};V.spMatte=lite?matte:(h)=>surfMat(S.paint,C(h),0,true);
   V.mats.botPlate=lite?V.mats.plate.clone():bot("plate",0x6d7177,.55,1);   // the bot's AR500 and hardened plates: mill scale, not the bench plate's photo texture
   propDropTex();if(!lite)propDressMats(V.mats);   // photo textures on Full / Ultra (vis/props.js); old ones freed on every tier
   return V.mats;
@@ -3195,6 +3214,64 @@ function shopEnv(){
   const pm=new THREE.PMREMGenerator(V.r),rt=pm.fromEquirectangular(tex);pm.dispose();tex.dispose();
   return rt.texture;
 }
+/* ---- vis/badge.js: team badges (0.1.24), drawn in code with the 2D canvas, so they cost nothing to load and work on
+   every tier. A livery is {name, main, accent, shape, emblem, text}: the team's name, two "#rrggbb" colours, a badge
+   shape (BADGE_SHAPES), an emblem (BADGE_EMBLEMS, or "none") and up to three letters. badgeDraw paints one into a 2D
+   context; badgeCanvas gives a fresh canvas (the app's cards, the name tags); badgeMat the decal on a bot's top (a
+   texture per livery, shared, cleared with the materials). No three.js needed for the drawing. ---- */
+const BADGE_SHAPES=["shield","round","hex","diamond","gear","square"];
+const BADGE_EMBLEMS=["bolt","saw","wrench","hammer","skull","crown","flame","star","claw","none"];
+const badgeKey=L=>L?[L.main,L.accent,L.shape,L.emblem,L.text||""].join("|"):"";
+/* a badge into context x, centred at (cx, cy), r its half size; halo: a wide accent rim round it (the decal on a bot,
+   which sits on a stripe of its own main colour) */
+function badgeDraw(x,L,cx,cy,r,halo){x.save();x.translate(cx,cy);x.scale(r,r);x.lineJoin="round";x.lineCap="round";
+  const P=pts=>{x.beginPath();pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();};
+  const ring=(n,ro,ri,a0)=>{const o=[];for(let i=0;i<n*(ri==null?1:2);i++){const rr=ri==null||i%2===0?ro:ri,a=a0+i*Math.PI*2/(n*(ri==null?1:2));o.push([Math.cos(a)*rr,Math.sin(a)*rr]);}return o;};
+  /* the shape */
+  const shape=()=>{const s=L.shape;
+    if(s==="round"){x.beginPath();x.arc(0,0,0.9,0,7);}
+    else if(s==="hex")P(ring(6,0.93,null,-Math.PI/2));
+    else if(s==="diamond")P(ring(4,0.96,null,-Math.PI/2));
+    else if(s==="gear"){const o=[];for(let i=0;i<40;i++){const a=i*Math.PI*2/40-Math.PI/2,t=(i%4)<2?0.95:0.79;o.push([Math.cos(a)*t,Math.sin(a)*t]);}P(o);}
+    else if(s==="square"){const q=0.84,c=0.2;x.beginPath();x.moveTo(-q+c,-q);x.arcTo(q,-q,q,q,c);x.arcTo(q,q,-q,q,c);x.arcTo(-q,q,-q,-q,c);x.arcTo(-q,-q,q,-q,c);x.closePath();}
+    else{x.beginPath();x.moveTo(-0.8,-0.86);x.lineTo(0.8,-0.86);x.lineTo(0.8,0.02);x.quadraticCurveTo(0.78,0.66,0,0.96);x.quadraticCurveTo(-0.78,0.66,-0.8,0.02);x.closePath();}};
+  if(halo){x.save();x.scale(1.2,1.2);shape();x.fillStyle=L.accent;x.fill();x.strokeStyle="rgba(10,10,10,0.6)";x.lineWidth=0.08;x.stroke();x.restore();}
+  shape();x.strokeStyle="rgba(10,10,10,0.6)";x.lineWidth=0.2;x.stroke();   // a dark edge, so a pale badge shows on a pale bot
+  x.fillStyle=L.main;x.fill();x.strokeStyle=L.accent;x.lineWidth=0.1;x.stroke();
+  shape();x.clip();
+  /* the emblem, in the accent colour with a dark outline; holes are cut in the main colour */
+  const txt=String(L.text||"").slice(0,3),em=L.emblem&&L.emblem!=="none"?L.emblem:null;
+  if(em){x.save();if(txt){x.translate(0,-0.17);x.scale(0.72,0.72);}
+    const ink=()=>{x.fillStyle=L.accent;x.strokeStyle="rgba(10,10,10,0.55)";x.lineWidth=0.07;x.stroke();x.fill();},
+      hole=f=>{x.fillStyle=L.main;f();x.fill();};
+    if(em==="bolt"){P([[0.14,-0.62],[-0.32,0.08],[-0.03,0.08],[-0.15,0.62],[0.33,-0.1],[0.04,-0.1]]);ink();}
+    else if(em==="saw"){P(ring(14,0.56,0.42,0));ink();hole(()=>{x.beginPath();x.arc(0,0,0.13,0,7);});}
+    else if(em==="wrench"){x.save();x.rotate(-Math.PI/4);x.beginPath();x.rect(-0.08,-0.2,0.16,0.78);x.moveTo(0.27,-0.36);x.arc(0,-0.36,0.27,0,7);ink();
+      hole(()=>{x.beginPath();x.rect(-0.1,-0.7,0.2,0.32);});x.restore();}
+    else if(em==="hammer"){x.beginPath();x.rect(-0.07,-0.16,0.14,0.76);x.rect(-0.44,-0.56,0.88,0.36);ink();}
+    else if(em==="skull"){x.beginPath();x.arc(0,-0.1,0.44,0,7);x.rect(-0.25,0.18,0.5,0.3);ink();
+      hole(()=>{x.beginPath();x.arc(-0.17,-0.07,0.12,0,7);x.arc(0.17,-0.07,0.12,0,7);});hole(()=>P([[0,0.07],[-0.06,0.18],[0.06,0.18]]));
+      hole(()=>{x.beginPath();x.rect(-0.12,0.34,0.05,0.14);x.rect(0.07,0.34,0.05,0.14);});}
+    else if(em==="crown"){P([[-0.52,0.36],[-0.52,-0.28],[-0.26,0.04],[0,-0.48],[0.26,0.04],[0.52,-0.28],[0.52,0.36]]);ink();}
+    else if(em==="flame"){x.beginPath();x.moveTo(0.02,-0.64);x.bezierCurveTo(0.36,-0.26,0.5,0.06,0.42,0.28);x.bezierCurveTo(0.36,0.52,0.18,0.62,0,0.62);
+      x.bezierCurveTo(-0.2,0.62,-0.4,0.5,-0.44,0.26);x.bezierCurveTo(-0.48,0.02,-0.3,-0.12,-0.16,-0.34);x.bezierCurveTo(-0.1,-0.12,0.02,-0.08,0.02,-0.64);x.closePath();ink();
+      hole(()=>{x.beginPath();x.moveTo(0,0.04);x.bezierCurveTo(0.16,0.2,0.18,0.36,0.1,0.46);x.bezierCurveTo(0.02,0.52,-0.14,0.5,-0.16,0.38);x.bezierCurveTo(-0.18,0.24,-0.06,0.16,0,0.04);x.closePath();});}
+    else if(em==="star"){P(ring(5,0.6,0.25,-Math.PI/2));ink();}
+    else if(em==="claw"){for(const dx of [-0.3,0,0.3]){x.beginPath();x.moveTo(dx+0.2,-0.56);x.quadraticCurveTo(dx+0.18,0.1,dx-0.2,0.56);
+      x.strokeStyle="rgba(10,10,10,0.55)";x.lineWidth=0.24;x.stroke();x.strokeStyle=L.accent;x.lineWidth=0.14;x.stroke();}}
+    x.restore();}
+  if(txt){const big=!em,fs=big?(txt.length>2?0.62:txt.length>1?0.78:1.0):0.34;
+    x.save();x.translate(0,big?0.04:0.5);x.scale(1/r,1/r);   /* text in real pixels: canvases round tiny font sizes */
+    x.font=`700 ${Math.max(4,fs*r).toFixed(1)}px "Space Grotesk", sans-serif`;x.textAlign="center";x.textBaseline="middle";
+    const w=x.measureText(txt).width/r,k=Math.min(1,(big?1.4:1.1)/Math.max(w,0.01));x.scale(k,1);
+    x.lineWidth=0.08*r;x.strokeStyle="rgba(10,10,10,0.55)";x.strokeText(txt,0,0);x.fillStyle=L.accent;x.fillText(txt,0,0);x.restore();}
+  x.restore();}
+/* a fresh canvas with the badge on it, px square (transparent round it) */
+function badgeCanvas(L,px,halo){const c=document.createElement("canvas");c.width=c.height=px;if(L)badgeDraw(c.getContext("2d"),L,px/2,px/2,px*(halo?0.39:0.47),halo);return c;}
+/* the badge as a decal material: cut out on its alpha, lit like the paint; one per livery and tier, cleared with the materials */
+function badgeMat(L){const k=badgeKey(L);let m=V.badgeMats[k];if(m)return m;
+  const t=new THREE.CanvasTexture(badgeCanvas(L,V.tier==="lite"?64:128,true));t.encoding=THREE.sRGBEncoding;t.anisotropy=V.tier==="lite"?1:4;
+  m=V.badgeMats[k]=V.tier==="lite"?new THREE.MeshLambertMaterial({map:t,alphaTest:0.5}):new THREE.MeshStandardMaterial({map:t,alphaTest:0.5,roughness:0.45,metalness:0});return m;}
 /* ---- vis/bot.js: the robot mesh, made from the build (an evalBuild() result the app passes in; the vis only looks up the
    wheel size in SCRAP_SIM's parts table). Everything is code, on every tier:
      chassis   the build's polygon, extruded from the clearance to the chassis height, in the chassis material
@@ -3218,16 +3295,16 @@ function shopEnv(){
 const BOT_TEAM=[0xd97757,0xb48ce8,0x4cc38a,0x7fb3e6];
 const BOT_CACHE=new Map();   // hash -> group; kept to BOT_CACHE_MAX, oldest first out
 const BOT_CACHE_MAX=6;
-function botHash(b,team,paint){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+shellsReady()+"|"+(paint?(paint.side||"")+(paint.top||""):"");}
+function botHash(b,team,paint,liv){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+shellsReady()+"|"+(paint?(paint.side||"")+(paint.top||""):"")+"|"+badgeKey(liv);}
 /* a sponsor colour ("#rrggbb") as a material, shared and never disposed with a bot (core.js makeMats clears them) */
 function spMat(hex){let m=V.spMats[hex];if(!m)m=V.spMats[hex]=V.spMatte(parseInt(String(hex).slice(1),16)||0x888888,.45);return m;}
 function disposeTree(g){g.traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();if(o.material&&o.userData.own){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});}
 /* a clone leaving the scene: its geometry belongs to the cached source, only its own (damage-tinted) materials go */
 function disposeClone(g){if(g.parent)g.parent.remove(g);g.traverse(o=>{if(o.material&&o.userData.own)o.material.dispose();});}
 /* a mesh from the cache, or a new one. The workshop and the arena each get their own clone (same geometry, shared materials) */
-function botMesh(b,team,paint){const k=botHash(b,team,paint);let g=BOT_CACHE.get(k);
+function botMesh(b,team,paint,liv){const k=botHash(b,team,paint,liv);let g=BOT_CACHE.get(k);
   if(g){BOT_CACHE.delete(k);BOT_CACHE.set(k,g);}   // most recently used last
-  else{g=buildBot(b,team,paint);BOT_CACHE.set(k,g);
+  else{g=buildBot(b,team,paint,liv);BOT_CACHE.set(k,g);
     while(BOT_CACHE.size>BOT_CACHE_MAX){const [k0,g0]=BOT_CACHE.entries().next().value;BOT_CACHE.delete(k0);disposeTree(g0);}}   // a clone still on screen re-uploads it
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
@@ -3242,7 +3319,7 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
 
-function buildBot(b,team,sp){
+function buildBot(b,team,sp,liv){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?20:40,cfg=b.cfg,cx=b.com.x,cy=b.com.y;
   const L=b.lengthM,Wd=b.widthM,hw=Wd/2,hl=L/2,len=L/0.27;   // len: rough class scale from the length, for small fixed sizes
   const clr=Math.max(0.001,b.height.clearanceMm/1000),H=Math.max(clr+0.01,b.height.heightMm/1000),bodyH=H-clr;
@@ -3306,10 +3383,15 @@ function buildBot(b,team,sp){
     for(const sx of [-1,1]){const t=add(tg,M.steel,sx*(hw+r)-cx,H+tt+r,cy,"chassis");t.rotation.x=Math.PI/2;
       for(const sz of [-1,1])add(pg,M.steel,sx*(hw+r)-cx,clr+bodyH/2,cy+sz*(hl+r),"chassis");}
     for(const sz of [-1,1]){const t=add(cg2,M.steel,-cx,H+tt+r,cy+sz*(hl+r),"chassis");t.rotation.z=Math.PI/2;}}
-  /* team paint: a stripe down the top, so you can tell the bots apart from above; it stops short of an open bay */
+  /* team paint: a stripe down the top, so you can tell the bots apart from above; it stops short of an open bay. With a
+     livery (0.1.24) the stripe is the team's main colour, two pinstripes beside it the accent, and the badge sits on it */
   let ys0=-0.4*L,ys1=0.3*L;if(body==="dome"){ys0=-0.26*L;ys1=0.16*L;}
   if(reg&&(topCut||(raisedCut&&(body==="wedge"||body==="dome"||(S&&SHELL_TOPS[body]))))&&bay.rect[0]<Wd*0.14&&bay.rect[2]>-Wd*0.14)ys1=Math.max(ys0+0.12*L,Math.min(ys1,bay.rect[1]-0.03*L));
-  const yc=(ys0+ys1)/2,paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,ys1-ys0),M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy-yc);if(body==="wedge"){const tl=Math.atan2(drop,L*0.98);paint.position.y=H-drop/2-yc*Math.tan(tl)+wt+0.0008*len;paint.rotation.x=-tl;}else if(body==="dome")paint.position.y=H+bodyH*0.5;g.add(paint);
+  const yc=(ys0+ys1)/2,paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,ys1-ys0),liv?spMat(liv.main):M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy-yc);if(body==="wedge"){const tl=Math.atan2(drop,L*0.98);paint.position.y=H-drop/2-yc*Math.tan(tl)+wt+0.0008*len;paint.rotation.x=-tl;}else if(body==="dome")paint.position.y=H+bodyH*0.5;g.add(paint);
+  if(liv){const pg=new THREE.BoxGeometry(Wd*0.035,0.0015*len,ys1-ys0),am=spMat(liv.accent);
+    for(const s of [-1,1]){const p=new THREE.Mesh(pg,am);p.position.copy(paint.position);p.position.x+=s*Wd*0.18;p.rotation.copy(paint.rotation);g.add(p);}
+    const bs=Math.min(Wd*0.56,L*0.42,(ys1-ys0)*1.1),bd=new THREE.Mesh(new THREE.PlaneGeometry(bs,bs),badgeMat(liv));
+    bd.position.copy(paint.position);bd.position.y+=0.0012*len;bd.rotation.set(-Math.PI/2+paint.rotation.x,0,Math.PI);   /* the badge reads upright from in front of the bot */g.add(bd);}
   /* sponsors: a panel on each side, a patch at the back of the top plate */
   if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bh*0.5,L*0.5),spMat(sp.side));
     m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*0.5,cy);g.add(m);}
@@ -3650,9 +3732,9 @@ function buildArena(F){
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
     return{h,m,R,bar};});
   /* bots */
-  AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
+  AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null,o.livery||null);g.add(mesh);mesh.scale.setScalar(U);
     const B={o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
-    if(!o.mini){B.tag=botTag(o.name,team,lite);g.add(B.tag);}
+    if(!o.mini){B.tag=botTag(o.name,team,lite,o.livery);g.add(B.tag);}
     return B;});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
   const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.34));
@@ -3666,13 +3748,14 @@ function buildArena(F){
   V.scene.add(g,L);propArena(F);return g;}
 
 const botR=o=>0.5*Math.hypot(o.b.widthM,o.b.lengthM);   // the body's half diagonal (o.rad reaches out to the weapon)
-/* a name tag over a bot: a sprite with the name on a dark pill and a team-coloured dot; it keeps its size on screen */
-function botTag(name,team,lite){const W=lite?192:256,Hh=W/4,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/256;
+/* a name tag over a bot: a sprite with the name on a dark pill and a team-coloured dot (the team's badge with a livery,
+   0.1.24); it keeps its size on screen */
+function botTag(name,team,lite,liv){const W=lite?192:256,Hh=W/4,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/256;
   const fam=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif";x.font=`600 ${30*k}px ${fam}`;
   let t=String(name||"");while(t.length>3&&x.measureText(t).width>W-64*k)t=t.slice(0,-2).trimEnd()+"…";   // shortened to fit
   const tw=x.measureText(t).width,pw=Math.min(W-4*k,tw+56*k),x0=(W-pw)/2,r=Hh*0.42;
   x.fillStyle="rgba(20,20,19,0.82)";x.beginPath();x.moveTo(x0+r,4*k);x.arcTo(x0+pw,4*k,x0+pw,Hh-4*k,r);x.arcTo(x0+pw,Hh-4*k,x0,Hh-4*k,r);x.arcTo(x0,Hh-4*k,x0,4*k,r);x.arcTo(x0,4*k,x0+pw,4*k,r);x.fill();
-  x.fillStyle="#"+BOT_TEAM[team%BOT_TEAM.length].toString(16).padStart(6,"0");x.beginPath();x.arc(x0+22*k,Hh/2,8*k,0,7);x.fill();
+  if(liv)badgeDraw(x,liv,x0+21*k,Hh/2,14*k);else{x.fillStyle="#"+BOT_TEAM[team%BOT_TEAM.length].toString(16).padStart(6,"0");x.beginPath();x.arc(x0+22*k,Hh/2,8*k,0,7);x.fill();}
   x.fillStyle="#F2EFE8";x.textBaseline="middle";x.fillText(t,x0+38*k,Hh/2+1*k);
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true}));
@@ -3949,7 +4032,7 @@ function buildLights(){
 }
 /* the workshop's bot: the build passed to setBot, scaled to sit on the plate (a beetle and a heavyweight look the same size) */
 function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
-  if(V.botB){const g=botMesh(V.botB,0,V.paint),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
+  if(V.botB){const g=botMesh(V.botB,0,V.paint,V.livery||null),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
   else V.bot=buildPlaceholderBot();
   V.bot.visible=V.view==="workshop";V.scene.add(V.bot);}
 function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
@@ -4224,6 +4307,11 @@ return{
   /* the workshop stage ("corner", "unit", "shop", "hq"): which props dress the room on Full / Ultra */
   setStage(id){id=id||"corner";if(id===(V.stage||"corner")){V.stage=id;return;}V.stage=id;if(started&&V.shop)propShopSwap();},
   setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
+  /* your team's livery ({name, main, accent, shape, emblem, text}: vis/badge.js; 0.1.24) on the workshop's bot. In a fight
+     each bot wears its own (the fight object's o.livery) */
+  setLivery(L){const k=badgeKey(L);if(k===V.liveryK)return;V.liveryK=k;V.livery=L||null;if(started&&V.mats)placeBot();},
+  /* a team badge as a fresh px-square canvas, for the app's cards (no renderer needed) */
+  badge(L,px){return badgeCanvas(L,px||64);},
   /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */
@@ -4257,7 +4345,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.23.0";
+const VERSION="0.1.24.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4483,13 +4571,15 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=10;
+const SAVE_V=11;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16
+function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   mode:"sandbox",                  // "career" or "sandbox" (0.1.18.0): which garage S.bots is; picked on the home screen and in Settings (setMode, app/career.js)
   parked:{},                      // the other mode's garage, the same shape as bots, swapped in by setMode (0.1.18.0)
   career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit, trophies, fw, actSaid} (rnd, offers, kit: PR 8; trophies: PR 9, app/help.js; fw, actSaid: 0.1.16, the announcer's first-win and new-act calls)
-  bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
+  bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench, name}}: (name: what you call it, 0.1.24) the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
+  team:freshTeam(),               // your team (0.1.24, app/livery.js): {name, main, accent, shape, emblem, text}; each bot's own name is bots[cls].name
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
   staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff: [{id, y, w}] hired (STAFF.people id, when); sponsors: [{id, y, w}] signed (SPONSORS id, when; PR 8)
@@ -4513,7 +4603,8 @@ const MIGRATE={
   7:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){s.voice=s.voice!==false;s.comm=s.comm!==false;if(s.captions!=="off")s.captions="muted";}   // 0.1.16.0: the voices (sound/voice.js)
     if(c&&typeof c==="object"){c.fw=Array.isArray(c.results)&&c.results.some(r=>r&&Array.isArray(r.fights)&&r.fights.some(f=>f&&f.won));c.actSaid=c.act|0;}return o;},   // fw: a fight already won at an event (the announcer won't call a first win); actSaid: the act he last welcomed you to
   8:o=>{o.mode=o.career&&typeof o.career==="object"?"career":"sandbox";o.parked={};return o;},   // 0.1.18.0: modes. A save with a career stays in it (its bots are the career's garage); one without was sparring, so its bots become the Sandbox's
-  9:o=>{o.daily={last:null,streak:0,top:0,best:null,tries:0};return o;}   // 0.1.20.0: the daily challenge starts empty
+  9:o=>{o.daily={last:null,streak:0,top:0,best:null,tries:0};return o;},   // 0.1.20.0: the daily challenge starts empty
+  10:o=>{o.team=freshTeam();return o;}   // 0.1.24.0: teams. Everyone starts as the Eckwerkstatt in clay; bots[cls].name is optional (a default per class)
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -4529,6 +4620,7 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   for(const k of ["designs","rivals","parked"])if(!buObjS(n[k]))n[k]={};
   if(n.mode!=="career")n.mode="sandbox";
   if(!buObjS(n.daily))n.daily={last:null,streak:0,top:0,best:null,tries:0};
+  if(!buObjS(n.team))n.team=freshTeam();   // checked in full where it's used (lvMine)
   for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
   S=n;return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
@@ -5088,6 +5180,10 @@ const bName=(slot,id)=>{const p=SIM.part(slot,id);return p?p.name:id;};
 
 /* ---- each section: title, a one-line summary, and its body ---- */
 const B_SECS=[
+  /* your bot's name and your team (0.1.24, app/livery.js): the name is per class, the team (colours, badge) is shared */
+  {id:"team",t:"Name & team",sum:()=>lvBotName(bCls())+" · "+lvMine().name,
+    body:()=>{const t=lvMine();return`<div class="field"><label class="lbl" for="bName">Bot name</label><input id="bName" type="text" maxlength="${LIVERY.maxName}" autocomplete="off" value="${esc(lvBotName(bCls()))}"></div>
+      <div class="lvrow">${lvBadge(t,44)}<div><b>${esc(t.name)}</b><small>Team colours and badge, on every bot you field</small></div><button type="button" class="btn sm" data-act="team">Edit team</button></div>`;}},
   {id:"cls",t:"Class",sum:()=>SIM.CLASSES[bCls()].name+" · "+fmtG(crLimitG(bCls())),
     body:()=>`<div class="seg" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>{const c=SIM.CLASSES[id],on=id===bCls(),f=S.bots[id]&&S.bots[id].cfg;
       return`<button type="button" data-cls="${id}" class="${on?"on":""}" aria-pressed="${on}">${c.name.replace("weight","")}<small>${fmtG(crLimitG(id))}${f?" ·&nbsp;fitted":""}</small></button>`;}).join("")}</div>
@@ -5248,6 +5344,7 @@ function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))
 
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
+  if(t.closest('[data-act="team"]')){lvOpen();return;}
   if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec;B.open[id]=!B.open[id];bRender();return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
@@ -5289,14 +5386,17 @@ document.addEventListener("click",e=>{if(e.target.closest('[data-act="fit-ok"]')
 /* the workshop stage the 3D room is dressed for (props on Full / Ultra, vis/props.js): the career's, else the rented corner */
 function visStage(){if(window.SCRAP_VIS&&SCRAP_VIS.setStage)SCRAP_VIS.setStage(typeof crOn==="function"&&crOn()?crStage().id:"corner");}
 function visBot(){if(!window.SCRAP_VIS)return;visStage();const bot=bBot(),b=curTab==="build"||!bot.cfg?bEval():bEv(bot.cfg);
-  SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
-  if(tag&&ftGL())tag.textContent=`${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
+  if(typeof lvVis==="function")lvVis();SCRAP_VIS.setBot(b);const w=SIM.part("weapon",b.cfg.weapon),tag=$("tag");
+  if(tag&&ftGL())tag.textContent=`${lvBotName(bCls())} · ${b.className} · ${w?w.name.toLowerCase():""}${curTab==="build"&&bot.cfg&&!SIM.sameParts(bot.cfg,b.cfg)?" · draft":""}`;}
 TAB_RENDER.build=function(){
   if(!bRender.bound){bRender.bound=true;const tb=$("tab-build");
     tb.addEventListener("click",e=>{if(e.target.closest("#lGrid"))return;bClick(e);});
     tb.addEventListener("pointerdown",bDown);tb.addEventListener("pointermove",bMove);tb.addEventListener("pointerup",bUp);
     tb.addEventListener("pointercancel",()=>{B.drag=null;});
-    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}
+    /* the bot's name: kept when it changes (blur, Enter); an empty one goes back to the class default */
+    tb.addEventListener("change",e=>{if(e.target.id!=="bName")return;const b=bBot(),v=e.target.value.trim().slice(0,LIVERY.maxName);if(v&&v!==LIVERY.names[bCls()])b.name=v;else delete b.name;save();bRender();});
+    tb.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="bName"){e.preventDefault();e.target.blur();}
+      if(e.key==="Enter"&&e.target.id==="dName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="design-save"]')});}
       if(e.key==="Enter"&&e.target.id==="discName"){e.preventDefault();bClick({target:tb.querySelector('[data-act="disc-name"]')});}});
     $("bxRaw").addEventListener("toggle",bRender);
     if(/[?&]sim=1(&|$)/.test(location.search)){$("bxRaw").hidden=false;$("bxRaw").open=true;}
@@ -5484,6 +5584,8 @@ TAB_RENDER.bench=function(){
    (app/fight.js) steps it. It stays in the game as the replay thumbnail and an emergency Lite fallback.
    Like the 3D view, it is dark in both themes.
      DEBUGVIEW.draw(canvas, F, flashes, now)   flashes: [{x, y, E, t0, k}] (from F.fxq), now: performance.now() ms */
+/* a bot's colour: its team's main colour (0.1.24), or the accent where the main is too dark for the floor */
+function dvCol(o){const L=o.livery;if(!L)return DV_COL.bots[o.i%DV_COL.bots.length];const v=parseInt(L.main.slice(1),16),y=(0.3*(v>>16)+0.59*(v>>8&255)+0.11*(v&255))/255;return y<0.28?L.accent:L.main;}
 const DV_COL={floor:"#1A1917",grid:"#262421",wall:"#6B665D",text:"#E8E5DE",dim:"#9B978E",zone:"#E2A93B",hit:"#FFE3A6",land:"#9B978E",
   haz:"#8A7A55",hazOn:"rgba(226,169,59,.55)",
   bots:["#D97757","#B48CE8","#4CC38A","#7FB3E6"]};
@@ -5504,7 +5606,7 @@ const DEBUGVIEW={
     g.strokeStyle=DV_COL.wall;g.lineWidth=3*dpr;g.strokeRect(X(-H),Y(H),2*H*s,2*H*s);
     const font=px=>`${px*dpr}px "JetBrains Mono",ui-monospace,monospace`;
     const placed=[];
-    for(const o of F.bots){if(o.out==="pit")continue;const col=DV_COL.bots[o.i%DV_COL.bots.length],lift=o.z*s*0.6,grow=1+Math.min(o.z,1)*0.35;
+    for(const o of F.bots){if(o.out==="pit")continue;const col=dvCol(o),lift=o.z*s*0.6,grow=1+Math.min(o.z,1)*0.35;
       const at=(lx,ly)=>{const p=toW(o,lx*grow,ly*grow);return[X(p[0]),Y(p[1])-lift];};
       /* shadow in the air */
       if(o.z>0.005){g.fillStyle="rgba(0,0,0,.45)";g.beginPath();o.poly.forEach((p,k)=>{const q=toW(o,p[0],p[1]);k?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1]));});g.closePath();g.fill();}
@@ -5685,9 +5787,9 @@ const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
 /* the opponent picked: a named one in this class, else a test build */
 function ftOpp(cls,id){id=id||FT.opp;const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
-  if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op};
+  if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op,livery:lvOpp("op:"+id)};
   const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
-  return{id:t.id,name:t.name,cfg,driver:{style:"auto",skill:0.7}};}
+  return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.7},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24)
 /* a rumble's other two bots: picked from the class's named opponents and the test builds by the seed */
 function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>o.id).concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy").map(t=>t.id)).filter(id=>id!==skip),out=[];
   let k=seed>>>3;while(out.length<2&&pool.length){const id=pool.splice(k%pool.length,1)[0];out.push(ftOpp(cls,id));k=(k*2654435761>>>7)+1;}return out;}
@@ -5695,8 +5797,9 @@ function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls)
 function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const opp=ftOpp(cls),you=FT.style==="you";
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
-  const bots=[{cfg:bot.cfg,name:"You",driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
-  if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,driver:o.driver});
+  const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
+  if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,livery:o.livery,driver:o.driver});
+  lvField(bots);
   FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
   const kit=()=>Object.assign({},PIT_KITS[FT.kit].allow);
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
@@ -5865,7 +5968,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
       ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
-    <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${esc(o.name)}</b>
+    <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${o.livery?lvBadge(o.livery,18,"in"):""}${esc(o.name)}</b>
       ${ftArmed(o)?'<span class="fbl">Weapon</span><span class="fbar"><i data-b="w"></i></span>':'<span class="fbl" data-nil="1">Weapon</span><span class="fnil">none</span>'}<span class="fbl">Drive</span><span class="fbar"><i data-b="dr"></i></span><span class="fbl">Battery</span><span class="fbar"><i data-b="bat"></i></span>
       <small data-b="worst"></small><small class="fbst" data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
@@ -5961,7 +6064,7 @@ function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),
 const FT_ST={intact:"ok",damaged:"worn",destroyed:"broke"};
 const FT_SHORT=window.matchMedia?matchMedia("(max-height:560px) and (orientation:landscape)"):{matches:false};   // the status line is hidden there (style.css)
 const ftArmed=o=>o.b.weapon.type!=="none"&&o.b.weapon.type!=="wedge";   // a wedge or a pusher has no weapon bar
-function ftTeamCol(o){return DV_COL.bots[(o.team!=null?o.team:o.i)%DV_COL.bots.length];}   // the colour of its ring and stripe in the arena
+function ftTeamCol(o){return o.livery?dvCol(o):DV_COL.bots[(o.team!=null?o.team:o.i)%DV_COL.bots.length];}   // its team's main colour (0.1.24), else the colour of its ring and stripe in the arena
 /* drive: what is left of the motors and wheels on each side (a side whose controller is dead counts as none) */
 function ftDrive(o,states){const b=o.b,side={left:[0,0],right:[0,0]};let worst=0;
   for(const p of b.parts){if(p.slot!=="drive"&&p.slot!=="wheels"||!(p.hpJ>0))continue;const s=side[p.pos&&p.pos[0]<0?"left":"right"];s[0]+=Math.max(0,o.st.parts[p.key]);s[1]+=p.hpJ;
@@ -6143,10 +6246,11 @@ function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watc
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
   return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),FT.opp):""}
-    ${ftChips("ftopp","Test builds",SIM.TEST_BUILDS.map(t=>[t.id,esc(t.name)]),FT.opp)}
+    ${ftChips("ftopp","Club regulars",SIM.TEST_BUILDS.map(t=>[t.id,`${esc(lvOppName("tb:"+t.id,t.name))} <small>${esc(t.name.toLowerCase())}</small>`]),FT.opp)}
     <p class="hint" id="ftOppLine">${ftOppLine(cur)}</p></div>`;}
-function ftOppLine(o){if(!o.op)return`A test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
-  const v=WORLD.venues[o.op.from];return`<b>${esc(o.op.name)}</b>${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
+function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.name)}</b> · ${esc(o.livery.name)}`:`<b>${esc(o.name)}</b>`;
+  if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
+  const v=WORLD.venues[o.op.from];return`${tm}${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
   if((x=t.closest("[data-ft]"))){const a=x.dataset.ft;
     if(a==="go")ftStart();
@@ -6453,7 +6557,7 @@ function dlRecord(F){if(F.reason==="stopped")return;const D=dlState(),day=FT.ext
   const nb=!D.best||r.score>D.best.score;if(nb)D.best={score:r.score,txt:r.txt,bring:FT.ext.bring};
   FT.ext.res=Object.assign(r,{newBest:nb});save();}
 function dlStart(){if(FT.on)return;const P=dlPick(dlDay()),b=dlBring(P.cls),opp=ftOpp(P.cls,P.opp);
-  const bots=[{cfg:clone(b.cfg),name:"You",driver:null},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
+  const bots=lvField([{cfg:clone(b.cfg),name:/^d\d/.test(b.id)?b.name:lvBotName(P.cls),livery:lvMine(),driver:null},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}]);
   FT.you=true;FT.sig=bnSig(b.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.bout=null;FT.ext={kind:"daily",day:P.day,bring:b.name};
   ftGo(SIM.newFight({seed:P.seed,fx:true,arena:P.arena,bots}));}
 function dlCard(){const P=dlPick(dlDay()),c=SIM.CLASSES[P.cls],opp=ftOpp(P.cls,P.opp),D=dlState(),today=D.last===P.day,L=dlBrings(P.cls),cur=dlBring(P.cls);
@@ -6489,7 +6593,7 @@ function rcRead(text){const s=String(text==null?"":text).replace(/[\s​-‍⁠�
   const body=c.slice(0,-6);if(buSum(body)!==c.slice(-6))throw new Error("damaged");
   let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw new Error("damaged");}
   if(!rcOk(d))throw new Error("bad");
-  d.bots=d.bots.map(b=>Object.assign({},b,{cfg:SIM.normCfg(Object.assign({},b.cfg)),name:String(b.name||"Bot").slice(0,40)}));
+  d.bots=d.bots.map(b=>Object.assign({},b,{cfg:SIM.normCfg(Object.assign({},b.cfg)),name:String(b.name||"Bot").slice(0,40),livery:lvNorm(b.livery)}));   // a bad livery is dropped, not fatal
   return d;}
 function rcShareOpen(){const R=FT.rounds[FT.rv];if(!R||!ftReplayOk(R.F)){toast("This fight can't be shared");return;}let code="";try{code=rcCode(R.log);}catch(e){}
   if(!code){toast("Couldn't make a replay code on this device");return;}
@@ -6701,7 +6805,7 @@ function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crH
   const skill=Math.min(EVENT_SKILL_MAX,k.skill+EVENT_SKILL_ACT*e.act),out=[];
   const rv=RIVALS.filter(r=>r.bots[cls]).map(r=>({id:"rv:"+r.id,rival:r.id,name:r.bots[cls].name,who:r.name,cfg:crRivalCfg(r,cls),driver:{style:"auto",skill:Math.min(EVENT_SKILL_MAX,Math.max(skill,r.skill+0.03*crRivalLevel(r)))}}));
   let pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
-    .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:t.name,cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
+    .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:lvOppName("tb:"+t.id,t.name),cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=pool[i];pool[i]=pool[j];pool[j]=t;}
   pool=crMetaOrder(pool,c.season);   // the season's meta (META_WAVES) comes first
   /* rivals come to the bigger days; a club meet gets one of them at most */
@@ -6732,14 +6836,15 @@ const crEvals=new Map();
 function crB(e){const k=JSON.stringify(e.cfg);let b=crEvals.get(k);if(!b){b=SIM.evalBuild(e.cfg);crEvals.set(k,b);if(crEvals.size>40)crEvals.delete(crEvals.keys().next().value);}return b;}
 const crFlags=f=>{const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;if(f.esc)o.esc=f.esc;return o;};
 /* a bot spec for newFight from a field entry: you are the AI at your driver skill in a quick sim, else the player */
-function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:e.name,team,driver:i===0?(quick?{style:"auto",skill:crSimSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
+/* a fighter on the day as a newFight spec: you under your bot's name and team; the others in their team's colours (0.1.24) */
+function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:i===0?lvBotName(day.cls):lvOppName(e.id,e.name),livery:i===0?lvMine():lvOpp(e.id),team,driver:i===0?(quick?{style:"auto",skill:crSimSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
 /* a finished bout: the winning team (most rounds; level goes to the smaller damage share, then the first) */
 function crBoutWinner(wins,F,teams){let best=null,bw=-1,tie=false;for(const t of teams){const w=wins[t]||0;if(w>bw){bw=w;best=t;tie=false;}else if(w===bw)tie=true;}
   if(!tie)return best;const top=teams.filter(t=>(wins[t]||0)===bw),sh=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+SIM.damageShare(o.b,o.st)+(o.out?1:0),0)/Math.max(1,os.length);};
   return top.sort((a,b)=>sh(a)-sh(b)||a-b)[0];}
 /* a whole match without anyone watching: rounds to the bo, the crews' pit work between */
 function crSimMatch(day,idx,teams,bo,quick){const T=teams||idx.map((_,k)=>k),wins={},Fs=[],need=Math.ceil(bo/2);
-  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),rules:crRulesOf(day),bots:idx.map((i,k)=>crSpec(day,i,T[k],quick))});
+  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),rules:crRulesOf(day),bots:lvField(idx.map((i,k)=>crSpec(day,i,T[k],quick)))});
     const cap=Math.ceil(F.rules.roundS*SIM.STEP_HZ)+2;let s=0;while(!F.over&&s++<cap)SIM.stepFight(F,null);
     Fs.push(F);crCarry(day,idx,F);if(F.winner!=null)wins[F.winner]=(wins[F.winner]||0)+1;
     if(Object.keys(wins).some(t=>wins[t]>=need))break;
@@ -6825,7 +6930,7 @@ function crVoice(day,nx,e){const c=S.career,rv={},first=!day.said;day.said=1;
    fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
 function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
   const nx=crNext(day);delete day.live;if(!nx){save();return;}const T=nx.teams||[0,1];
-  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
+  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),rules:crRulesOf(day),bots:lvField(nx.idx.map((i,k)=>crSpec(day,i,T[k],false)))});
   const res={wt:T.find(t=>t!==T[0]),wins:{},Fs:[F],teams:T};
   crRecord(day,nx,res,true);for(const i of nx.idx)if(i!==0)crCrew(day,i);crAdvance(day);save();hud();
   toast(`The ${nx.label} was left unfinished: counted as a forfeit`);}
@@ -7189,6 +7294,115 @@ function tmClick(e){const x=e.target.closest&&e.target.closest("[data-tm]");if(!
     if(k[0]==="fit"&&S.bots[k[1]])cfg=S.bots[k[1]].cfg;else if(k[0]==="d"&&S.designs[k[1]]&&S.designs[k[1]][+k[2]])cfg=Object.assign({},S.designs[k[1]][+k[2]].cfg,{cls:k[1]});
     if(cfg)tmKitPublish(nm,SIM.normCfg(cfg));}
   TM.ask=null;tmRedraw();return true;}
+/* ---- app/livery.js: teams (0.1.24, Kelbo). Your team has a name, two colours and a badge (a shape, an emblem and up
+   to three letters, drawn in code by vis/badge.js); each of your bots has its own name (S.bots[cls].name). Every bot in
+   a fight carries a livery {name, main, accent, shape, emblem, text}: it paints the stripe, pinstripes and badge on the
+   bot, the badge on its name tag and the colour of its card. Opponents have teams too (OPP_TEAMS), and the test builds a
+   regular's name when they fight, so nobody is called "Wedge" any more.
+     LIVERY      the palette, the badge parts, the default team and bot names, the length limits
+     OPP_TEAMS   every named opponent, rival and test build: [team, main, accent, shape, emblem, letters, bot name]
+     lvNorm      a livery from anywhere (a save, a replay code) checked, or null
+     lvField     the liveries for a fight's bots, so no two share a main colour
+     lvOpen      the Team sheet (from the Build tab's Name & team row)
+   The team lives in S.team (inside scr-save, SAVE_V 11); the names never reach the sim's maths. ---- */
+const LIVERY={
+  cols:[["clay","#D97757","Clay"],["sand","#E8C547","Sand"],["rose","#E87FB4","Rose"],["wine","#8E3B5A","Wine"],["lilac","#B48CE8","Lilac"],["violet","#6A33AD","Violet"],["navy","#2F4A80","Navy"],
+    ["sky","#7FB3E6","Sky"],["teal","#3FB8AF","Teal"],["green","#4CC38A","Green"],["forest","#2E6B45","Forest"],["steel","#9AA3AD","Steel"],["bone","#EDEBE6","Bone"],["coal","#2B2B2A","Coal"]],
+  shapes:{shield:"Shield",round:"Round",hex:"Hex",diamond:"Diamond",gear:"Gear",square:"Square"},
+  emblems:{bolt:"Bolt",saw:"Saw",wrench:"Wrench",hammer:"Hammer",skull:"Skull",crown:"Crown",flame:"Flame",star:"Star",claw:"Claw",none:"None"},
+  team:{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""},   // "corner workshop": where the career starts
+  names:{ant:"Tack",beetle:"Splinter",hobby:"Crowbar",feather:"Anvil",heavy:"Foundry"},
+  maxName:24,maxText:3,
+  near:70};   // two main colours closer than this (RGB distance) clash in a fight
+const LV_C=Object.fromEntries(LIVERY.cols.map(c=>[c[0],c[1]]));
+const OPP_TEAMS={
+  "op:zahnrad":["Uhrmacherschule Haldis","sky","bone","round","star",""],
+  "op:kiesel":["Kieswerk Sutter","steel","coal","hex","hammer",""],
+  "op:feierabend":["Mittwochsrunde","sand","coal","square","none","MR"],
+  "op:holzwurm":["Sägerei Lenz","forest","sand","shield","saw",""],
+  "op:kehrschaufel":["Hauswart Brunner","teal","bone","square","wrench",""],
+  "op:schraubstock":["Werkbank Stahlbrück","navy","steel","gear","hammer",""],
+  "op:uhrwerk":["Pendel & Co.","wine","sand","round","crown",""],
+  "op:faehrmann":["Fährbetrieb Eisenau","sky","navy","diamond","none","FE"],
+  "op:prellbock":["Rangierbahnhof Grauwald","sand","coal","hex","bolt",""],
+  "op:walzwerk":["Walzstraße 3","steel","wine","square","none","W3"],
+  "op:hochofen":["Abstichkolonne","wine","sand","shield","flame",""],
+  "op:nachtschicht":["Kohlenkeller Grauwald","violet","lilac","round","skull",""],
+  "op:glockenschlag":["Glockengießerei Imhof","sand","wine","shield","crown",""],
+  "op:lawine":["Bergwacht Velmark","bone","sky","diamond","claw",""],
+  "op:zange":["Zangenwerk Riedel","rose","coal","gear","wrench",""],
+  "rv:ottilie":["Rauch Feinmechanik","lilac","bone","round","star","R"],
+  "rv:rudi":["Gerber Walzblech","steel","sand","hex","hammer",""],
+  "rv:mira":["Hafenkran Vogt","teal","coal","diamond","saw",""],
+  "rv:anselm":["Stellwerk Huber","forest","bone","shield","none","SH"],
+  "tb:wedge":["Keilbau Fasel","sand","coal","diamond","none","KF","Türkeil"],
+  "tb:lifter":["Lagerhalle 7","sky","sand","square","none","L7","Hubwagen"],
+  "tb:flipper":["Sprungfeder","rose","bone","round","bolt","","Katapult"],
+  "tb:hsp":["Drehwerk Kunz","teal","coal","gear","saw","","Wirbelwind"],
+  "tb:vsp":["Erntehelfer","forest","sand","shield","claw","","Sense"],
+  "tb:drum":["Garage Grauwald","wine","bone","hex","flame","","Trommelfeuer"],
+  "tb:hammer":["Schmiede Koller","steel","wine","shield","hammer","","Vorschlag"],
+  "tb:under":["Tiefgang","navy","sky","diamond","saw","","Sichel"],
+  "tb:glass":["Robotik Eisenau","lilac","coal","round","star","","Seifenblase"],
+  "tb:brick":["Bauhof Nord","coal","sand","square","none","BN","Ziegelstein"],
+  "tb:invert":["Wendeplatz","violet","sand","hex","wrench","","Kehrwoche"],
+  "tb:sloppy":["Schrottplatz Moser","steel","sand","square","skull","","Restposten"]};
+/* a livery from anywhere, checked: null if it isn't one */
+function lvNorm(o){if(!o||typeof o!=="object")return null;const hex=v=>typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v);
+  if(!hex(o.main)||!hex(o.accent)||!LIVERY.shapes[o.shape]||!LIVERY.emblems[o.emblem])return null;
+  return{name:String(o.name||"").trim().slice(0,LIVERY.maxName),main:o.main.toUpperCase(),accent:o.accent.toUpperCase(),shape:o.shape,emblem:o.emblem,text:lvText(o.text)};}
+const lvText=t=>String(t||"").toUpperCase().replace(/[^A-Z0-9ÄÖÜ&]/g,"").slice(0,LIVERY.maxText);
+/* your team's livery (S.team, put right if it isn't one) */
+function lvMine(){const t=lvNorm(S.team)||Object.assign({},LIVERY.team);if(!t.name)t.name=LIVERY.team.name;return t;}
+/* your bot's name in a class */
+function lvBotName(cls){const b=S.bots[cls],n=b&&typeof b.name==="string"?b.name.trim():"";return n||LIVERY.names[cls]||"Bot";}
+/* an opponent's team, from its id: "op:", "rv:" or "tb:" plus the id, or a bare opponent or test build id */
+function lvOppRow(id){id=String(id||"");if(OPP_TEAMS[id])return OPP_TEAMS[id];for(const p of ["op:","tb:","rv:"])if(OPP_TEAMS[p+id])return OPP_TEAMS[p+id];return null;}
+function lvOpp(id){const r=lvOppRow(id);if(!r)return null;return{name:r[0],main:LV_C[r[1]],accent:LV_C[r[2]],shape:r[3],emblem:r[4],text:r[5]};}
+/* a test build's regular's name when it fights (its archetype name otherwise) */
+function lvOppName(id,fallback){const r=lvOppRow(id);return r&&r[6]?r[6]:fallback;}
+/* the liveries for a fight's bot specs, in place: none for a bot that has none, and no two main colours alike (a later bot
+   swaps to its accent, or takes the first palette colour clear of everyone) */
+function lvField(bots){const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),d=(a,b)=>{const x=rgb(a),y=rgb(b);return Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]);};
+  const used=[];for(const s of bots){const L=s.livery;if(!L)continue;const far=c=>used.every(u=>d(u,c)>=LIVERY.near);
+    if(!far(L.main)){if(far(L.accent))s.livery=Object.assign({},L,{main:L.accent,accent:L.main});
+      else{const c=LIVERY.cols.find(c=>far(c[1])&&d(c[1],L.accent)>=LIVERY.near);if(c)s.livery=Object.assign({},L,{main:c[1]});}}
+    used.push(s.livery.main);}
+  return bots;}
+/* a badge as an <img> (cached data URL); a plain dot where the 3D code didn't load */
+const LV_IMG=new Map();
+function lvBadge(L,px,cls){if(!L)return"";const k=badgeKeyApp(L)+"|"+px;let u=LV_IMG.get(k);
+  if(u==null){try{u=window.SCRAP_VIS&&SCRAP_VIS.badge?SCRAP_VIS.badge(L,px*2).toDataURL():"";}catch(e){u="";}LV_IMG.set(k,u);if(LV_IMG.size>120)LV_IMG.delete(LV_IMG.keys().next().value);}
+  return u?`<img class="lvb${cls?" "+cls:""}" src="${u}" width="${px}" height="${px}" alt="">`:`<span class="lvb lvdot${cls?" "+cls:""}" style="background:${L.main};width:${px*0.6}px;height:${px*0.6}px"></span>`;}
+const badgeKeyApp=L=>[L.main,L.accent,L.shape,L.emblem,L.text||""].join("|");
+/* the workshop's bot wears your team */
+function lvVis(){if(window.SCRAP_VIS&&SCRAP_VIS.setLivery)SCRAP_VIS.setLivery(lvMine());}
+
+/* ---- the Team sheet ---- */
+function lvSheetHtml(){const t=lvMine(),sw=(which)=>`<div class="lvsw" role="group" aria-label="${which==="main"?"Main colour":"Accent colour"}">${LIVERY.cols.map(c=>{const on=t[which]===c[1];
+      return`<button type="button" data-lvc="${which}" data-v="${c[1]}" class="${on?"on":""}" aria-pressed="${on}" aria-label="${c[2]}" title="${c[2]}" style="--sw:${c[1]}"></button>`;}).join("")}</div>`,
+    pick=(attr,map)=>`<div class="lvpk" role="group">${Object.keys(map).map(k=>{const on=t[attr]===k,L=Object.assign({},t,{[attr]:k});
+      return`<button type="button" data-lvp="${attr}" data-v="${k}" class="${on?"on":""}" aria-pressed="${on}">${lvBadge(L,34)}<small>${map[k]}</small></button>`;}).join("")}</div>`;
+  return`<div class="lvhead" id="lvHead">${lvBadge(t,72)}<div><b id="lvHName">${esc(t.name)}</b><small>Your team, on every bot you field</small></div></div>
+    <div class="field"><label class="lbl" for="lvName">Team name</label><input id="lvName" type="text" maxlength="${LIVERY.maxName}" autocomplete="off" value="${esc(t.name)}"></div>
+    <div class="field"><span class="lbl">Main colour <small>the stripe down the top and your card</small></span>${sw("main")}</div>
+    <div class="field"><span class="lbl">Accent colour <small>pinstripes and the emblem</small></span>${sw("accent")}</div>
+    <div class="field"><span class="lbl">Badge shape</span>${pick("shape",LIVERY.shapes)}</div>
+    <div class="field"><span class="lbl">Emblem</span>${pick("emblem",LIVERY.emblems)}</div>
+    <div class="field"><label class="lbl" for="lvText">Letters <small>up to ${LIVERY.maxText}, on the badge</small></label><input id="lvText" type="text" maxlength="${LIVERY.maxText}" autocomplete="off" autocapitalize="characters" value="${esc(t.text)}"></div>
+    <p class="hint">Opponents bring their own colours. If theirs is too close to yours, they switch to their second colour.</p>`;}
+function lvSet(k,v){const t=lvMine();t[k]=v;S.team=lvNorm(t)||t;save();lvVis();}
+function lvRedraw(){const b=$("sheetBody"),y=b.scrollTop;b.innerHTML=lvSheetHtml();b.scrollTop=y;lvBind();if(typeof curTab!=="undefined"&&curTab==="build"&&typeof bRender==="function")bRender();}
+function lvBind(){const b=$("sheetBody");
+  b.querySelectorAll("[data-lvc],[data-lvp]").forEach(x=>x.addEventListener("click",()=>{lvSet(x.dataset.lvc||x.dataset.lvp,x.dataset.v);lvRedraw();
+    const f=$("sheetBody").querySelector(`[data-${x.dataset.lvc?"lvc":"lvp"}="${x.dataset.lvc||x.dataset.lvp}"][data-v="${x.dataset.v}"]`);if(f)f.focus({preventScroll:true});}));
+  const nm=$("lvName"),tx=$("lvText");
+  nm.addEventListener("input",()=>{const v=nm.value.trim()||LIVERY.team.name;$("lvHName").textContent=v;});
+  nm.addEventListener("change",()=>{lvSet("name",nm.value.trim()||LIVERY.team.name);if(curTab==="build")bRender();});
+  tx.addEventListener("input",()=>{const v=lvText(tx.value);if(tx.value!==v)tx.value=v;lvSet("text",v);const h=$("lvHead").querySelector(".lvb");if(h)h.outerHTML=lvBadge(lvMine(),72);
+    b.querySelectorAll("[data-lvp]").forEach(x=>{const L=Object.assign({},lvMine(),{[x.dataset.lvp]:x.dataset.v}),i=x.querySelector(".lvb");if(i)i.outerHTML=lvBadge(L,34);});});
+  tx.addEventListener("change",()=>{if(curTab==="build")bRender();});}
+function lvOpen(){openSheet("Your team",lvSheetHtml());lvBind();}
 /* ===================== app/help.js: the tutorial, the bot card, trophy cards =====================
    The tutorial (Kelbo, PR 9: coached, on a loaner). PEW's First Fire pattern: a spotlight on the real control and a card
    that waits for you to use it. Fit the starter wedge, run the impact test, spar one club bot, read the post-mortem.

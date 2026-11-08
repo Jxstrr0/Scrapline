@@ -39,7 +39,7 @@ function dlRecord(F){if(F.reason==="stopped")return;const D=dlState(),day=FT.ext
   const nb=!D.best||r.score>D.best.score;if(nb)D.best={score:r.score,txt:r.txt,bring:FT.ext.bring};
   FT.ext.res=Object.assign(r,{newBest:nb});save();}
 function dlStart(){if(FT.on)return;const P=dlPick(dlDay()),b=dlBring(P.cls),opp=ftOpp(P.cls,P.opp);
-  const bots=[{cfg:clone(b.cfg),name:"You",driver:null},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
+  const bots=lvField([{cfg:clone(b.cfg),name:/^d\d/.test(b.id)?b.name:lvBotName(P.cls),livery:lvMine(),driver:null},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}]);
   FT.you=true;FT.sig=bnSig(b.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.bout=null;FT.ext={kind:"daily",day:P.day,bring:b.name};
   ftGo(SIM.newFight({seed:P.seed,fx:true,arena:P.arena,bots}));}
 function dlCard(){const P=dlPick(dlDay()),c=SIM.CLASSES[P.cls],opp=ftOpp(P.cls,P.opp),D=dlState(),today=D.last===P.day,L=dlBrings(P.cls),cur=dlBring(P.cls);
@@ -75,7 +75,7 @@ function rcRead(text){const s=String(text==null?"":text).replace(/[\s​-‍⁠�
   const body=c.slice(0,-6);if(buSum(body)!==c.slice(-6))throw new Error("damaged");
   let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw new Error("damaged");}
   if(!rcOk(d))throw new Error("bad");
-  d.bots=d.bots.map(b=>Object.assign({},b,{cfg:SIM.normCfg(Object.assign({},b.cfg)),name:String(b.name||"Bot").slice(0,40)}));
+  d.bots=d.bots.map(b=>Object.assign({},b,{cfg:SIM.normCfg(Object.assign({},b.cfg)),name:String(b.name||"Bot").slice(0,40),livery:lvNorm(b.livery)}));   // a bad livery is dropped, not fatal
   return d;}
 function rcShareOpen(){const R=FT.rounds[FT.rv];if(!R||!ftReplayOk(R.F)){toast("This fight can't be shared");return;}let code="";try{code=rcCode(R.log);}catch(e){}
   if(!code){toast("Couldn't make a replay code on this device");return;}
