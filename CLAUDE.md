@@ -84,9 +84,9 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.17.3)
+## Current status (0.1.17.4)
 
-The full log from PR 0 to 0.1.17.3 (what each version added, the tables and
+The full log from PR 0 to 0.1.17.4 (what each version added, the tables and
 save fields it brought) is `docs/HISTORY.md`. Read the matching entry before
 changing a system it describes; add each new release there and update this
 section.
@@ -98,7 +98,8 @@ section.
   tools), R&D, staff, sponsors, meta and rules, tutorial, bot card, trophies,
   free assets and Blender props on Full/Ultra, the battle screen, the voice
   pack (from `assets.longlight.games`, local fallback), effects sounds, and
-  material maps on Full/Ultra. Money is euros. `SAVE_V` is 8.
+  material maps on Full/Ultra, smarter AI driving (paths round the pit, pit
+  and shove escapes, flanking, hit-and-run). Money is euros. `SAVE_V` is 8.
 - Next (Kelbo's order, plan section 1): 0.1.18 a home screen with Career and
   Sandbox modes (separate garages), 0.1.19 a readability pass, 0.1.20+ the
   rest of the Full/Ultra graphics push (Blender weapon parts, visible damage;

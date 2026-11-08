@@ -132,9 +132,10 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - **hazard-pusher:** lines up and pushes the enemy into the pit or a hazard;
   - **opportunist:** goes for the most damaged enemy.
   
-  `"auto"` picks a style from the build:
-  - spinners keep away;
-  - wedges, lifters, flippers and pushers push to hazards (to the wall in a plain box);
+  `"auto"` picks a style from the build (changed in 0.1.17.4, see there):
+  - undercutters rush; the other spinners and saws keep away;
+  - wedges go aggressive;
+  - lifters, flippers and pushers push to hazards (to the wall in a plain box);
   - everything else goes aggressive.
   
   Every style keeps off the pit from two seconds before it opens, brakes hard at its edge, backs off when stuck or when two bots are circling each other in contact, and reverses out from under a wedge.
@@ -460,3 +461,14 @@ Kelbo's ElevenLabs effects (`sounds/sfx/`, 52 mp3s, about 1.4 MB, credited in `s
 - **Every tier** (about 300 KB when the Fight tab opens, plus a 200 KB bed per arena when its first fight starts): the crowd bed, an ooh for a hit over 60 J/kg, a groan for a weapon giving out or a bot dying (one crowd reaction every 3.5 s), the bell when the intro ends and at the end, a cheer for a knockout or the pit, applause for the judges, the pit opening; in the workshop the ratchet (Fit), the clamp (a bench test), the drill (a repair, at home or in the pit window) and the charger (Close week), loaded on the first tap (about 60 KB).
 - **Full and Ultra** (loaded with the clangs): a spinner's spin-up each time it climbs past a third of full speed from under a tenth; the flipper (high-pressure for `flipper2`), hammer, lifter and crusher on their hits; a material layer under every hit, picked by the plate on the face hit or the chassis behind it (plywood, HDPE, titanium, anything else steel; a tyre when a wheel took it); scrapes under a wedge and grinding, a bent disc, a sheared shaft, a part torn off (instead of the old part clip), hard landings and wall hits, pushers and floor spinners, self-righting, smoke, a dead battery.
 - **Lite** gets the every-tier list and nothing else; the synth, the motors and the fight are unchanged.
+
+## 0.1.17.4: smarter AI driving
+
+The AI (`sim/ai.js`) drives the opponents, AI spars and the player's quick sims, so both sides get it.
+
+- **Paths** (`AI_NAV`, `aiPath`): the way to the goal bends round the pit (open, or opening within `pitSoonS`), the floor spinners and pushers (unless it is shoving the enemy into one), and round the enemy when the goal is past it.
+- **Pit escape** (`aiPitOut`): a bot over the pit's edge drives out towards open floor, forwards or backwards, whichever end points that way, never reversing into the wall behind a pit.
+- **Shove escape** (`aiShove`): a bot driven back towards the pit (within `pitShove` radii) or a hazard (half that) turns across the shove instead of pushing straight back.
+- **Tactics** (`AI_SKILL.tactics`, 0.25 to 1 by skill, rerolled every 2-4 s): flank a bot with a weapon on its front; a spinner that landed a hit and dropped under `reSpin` of its speed backs off to spin up.
+- **autoStyle:** each build was fought with every style against the auto field in every class. Undercutters do best rushing and wedges going aggressive; discs and drums do best on counter, but that ran them over 65% (vertical disc 80% in beetle, horizontal 70% in hobby), so they keep away.
+- **Results:** new vs old over 4840 fights, 53.3%, with 17% more hits; self pit falls 312 vs 392, pushed in 832 vs 924. `fight-test all` passes in every class.
