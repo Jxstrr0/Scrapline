@@ -141,7 +141,7 @@ function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
-  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;});
+  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;wearClear(B);});
   for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
   for(const n of FX.nums)fxNumDrop(n);FX.nums=[];return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
@@ -197,7 +197,7 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   V.cam.position.set(c.x+sx,Math.sin(pitch)*d+sy,c.z+Math.cos(pitch)*d);V.cam.lookAt(c.x+sx*0.5,0,c.z);}
 
 /* a bot's tag and hit flash, each frame */
-function botMarks(B,dt){const o=B.o,U=AR.U,m=B.mesh,gone=!!o.out;
+function botMarks(B,dt){const o=B.o,U=AR.U,m=B.mesh,gone=!!o.out;wearTick(B,dt);
   if(B.tag){B.tag.visible=!gone;if(!gone)B.tag.position.set(o.x*U,((o.z||0)+(m.userData.H||0.05)*1.3)*U+0.3,-o.y*U);}
   if(B.flash>0||B.flashOn){B.flash=Math.max(0,B.flash-dt*6);B.flashOn=B.flash>0;const parts=m.userData.parts||{};
     const ks=B.flashKeys;

@@ -22,6 +22,7 @@ vis/surface.js
 vis/bot.js
 vis/arena.js
 vis/fx.js
+vis/wear.js
 vis/workshop.js
 vis/props.js
 vis/api.js

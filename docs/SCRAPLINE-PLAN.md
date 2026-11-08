@@ -465,4 +465,6 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.20: daily challenge and replay codes
 - [x] 0.1.21: arena visual pass (floor markings, lighting, near wall, prop scale)
 - [x] 0.1.22: Blender weapon parts on Full and Ultra (Lite unchanged)
-- [ ] 0.1.23: visible damage on Full and Ultra
+- [x] 0.1.23: visible damage on Full and Ultra (scars, wear, askew plates, bent weapons; Lite unchanged)
+- [ ] 0.1.24: slow-motion replays
+- [ ] 0.1.25: paint and a bracket screen
