@@ -18,7 +18,7 @@
    tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
 /* material name -> [texture, repeat u, repeat v, normal strength] */
-const PROP_TEX_USE={floor:["floor",14,14,.8],bench:["ply",2,1.25,.5],plate:["plate",2.4,1.8,.6],arenaFloor:["plate",5,5,.6]};
+const PROP_TEX_USE={floor:["floor",14,14,.8],bench:["ply",2,1.25,.5],plate:["plate",2.4,1.8,.6],arenaFloor:["plate",5,5,.6],arenaOut:["floor",14,14,.8]};
 const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:"models/extinguisher.glb",shelf:"models/shelf.glb",
   oil:"models/oil-tin.glb",lube:"models/lube-spray.glb",chest:"models/tool-chest.glb",weld:"models/welding-cart.glb",
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
@@ -40,8 +40,11 @@ const SHOP_SPOTS={
   hq:[["vice",3.6,0,-1.6,2.6],["meter",-3.5,0,-1.8,.5],["chest",-1.2,-1.4,-4.4,0],["drill",3.0,-1.4,-4.8,-.3],["desk",-5.6,-1.4,-4.4,.2],
     ["stool",-4.4,-1.4,-2.9,.4],["crate",6.2,-1.4,-1.6,.3],["barrel",6.6,-1.4,.6,0],["ext",6.4,-1.4,2.2,-1.2]]};
 /* arenas: [key, fx, dx, fz, dz, turn, metres per unit of size] placed at x = fx*H + dx, z = fz*H + dz (H the half size in
-   scene units, the camera at +z). Props are real size (AR.U units per sim metre), so a heavyweight arena dwarfs them as it
-   should. The test box has none; the ant's tabletop gets bench-top things. */
+   scene units, the camera at +z). Props are at ARENA_PROP_UNITS a metre (about the scale of the
+   stands' crowd) or real size if smaller (AR.U units per sim metre), so a heavyweight arena still dwarfs them; at real size a
+   barrel filled a third of a beetle arena (0.1.21.0). The test box has none; the ant's tabletop gets bench-top things at real
+   size. */
+const ARENA_PROP_UNITS=1.6;
 const ARENA_SPOTS={
   tabletop:[["meter",-.55,0,-1,-.9,.3],["oil",1,.9,-.6,0,.5],["lube",1,.8,-.35,0,1.6]],
   clubbox:[["crate",-.35,0,-1,-1.2,.2],["sign",.45,0,-1,-1.0,-.4],["tyre",1,1.2,.15,0,1.57],["propane",-1,-1.0,-.55,0,0]],
@@ -86,7 +89,7 @@ function propShop(){if(V.tier==="lite"||!V.shop)return;const G=V.shop,stage=V.st
   propPlace(G,(SHOP_SPOTS[stage]||SHOP_SPOTS.corner).map(s=>({key:s[0],x:s[1],y:s[2],z:s[3],turn:s[4],scale:SHOP_UNITS,hang:s[0]==="vice"})),()=>V.shop===G&&PROPS.gen===gen&&V.tier!=="lite"&&(V.stage||"corner")===stage);}
 function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.half*AR.U;
   arenaKit(G);
-  propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:AR.U})),()=>AR.g===G&&V.tier!=="lite");}
+  propPlace(G,(ARENA_SPOTS[F.arena.id]||[]).map(s=>({key:s[0],x:s[1]*H+s[2],y:0,z:s[3]*H+s[4],turn:s[5],scale:F.arena.id==="tabletop"?AR.U:Math.min(AR.U,ARENA_PROP_UNITS)})),()=>AR.g===G&&V.tier!=="lite");}
 /* a new workshop stage: drop this room's props and dress it for the new one */
 function propShopSwap(){const G=V.shop;if(!G)return;for(const o of G.children.filter(c=>c.name.indexOf("prop:")===0))G.remove(o);propShop();}
 /* ---- the arena kit ---- */
@@ -121,7 +124,8 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
       for(const nm of W.near?["kerb"]:["kerb","frame"]){const o=kitPiece(src,nm);o.position.set(W.x+ax[0]*off,0,W.z+ax[1]*off);o.rotation.y=ry;o.scale.set(seg,1,1);walls.push(o);}}}
   kitBake(G,walls,true);
   /* corner posts with their beacons */
-  const lamps=[];for(const P of K.posts){P.p.visible=P.lamp.visible=false;const o=kitPiece(src,"post");o.position.set(P.p.position.x,0,P.p.position.z);
+  const lamps=[];for(const P of K.posts){if(P.near){lamps.push({material:P.lamp.material});continue;}   // the near posts stay short and coded
+    P.p.visible=P.lamp.visible=false;const o=kitPiece(src,"post");o.position.set(P.p.position.x,0,P.p.position.z);
     const lm=kitOwn(o,"post_lamp");o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});G.add(o);if(lm)lamps.push({material:lm});}
   if(lamps.length)AR.lamps=lamps;
   /* hazards: the coded slab or disc stays as the moving thing the tick animates, drawn by the kit piece inside it */
@@ -143,8 +147,7 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
       const fg=new THREE.BufferGeometry();fg.setAttribute("position",new THREE.Float32BufferAttribute(P,3));fg.setAttribute("uv",new THREE.Float32BufferAttribute(UV,2));
       fg.setAttribute("normal",new THREE.Float32BufferAttribute(P.map((v,i)=>i%3===2?1:0),3));fg.setIndex(I);return fg;};
     for(const [m,h] of [[K.floor,H],[K.out,30]]){m.geometry.dispose();m.geometry=holed(h);}   // the arena floor and the room floor under it
-    p.hole.visible=false;p.rim.visible=false;
-    K.grid.geometry.dispose();K.grid.geometry=arenaGrid(H,[x0,z0,x1,z1]);
+    p.hole.visible=false;   // the decal (K.grid) already has the pit cut out
     const well=kitPiece(src,"pitwell");if(well){well.position.set(p.cx,0,p.cz);well.scale.set(p.w,4,p.d);G.add(well);}
     const edges=[];for(const [x,z,len,ry] of [[p.cx,z0-.05,p.w+.2,0],[p.cx,z1+.05,p.w+.2,0],[x0-.05,p.cz,p.d,Math.PI/2],[x1+.05,p.cz,p.d,Math.PI/2]]){
       const o=kitPiece(src,"pitedge");o.position.set(x,0,z);o.rotation.y=ry;o.scale.set(len,1,1);edges.push(o);}
