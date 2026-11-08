@@ -100,6 +100,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Voice pack (0.1.16) | Kelbo's ElevenLabs pack (`docs/voice/`, 214 lines in `sounds/voice/`): **Duncan Steiner** on the PA (announcer) and **Jess Moser** on Radio Velmark (commentator). Rivals renamed for it: Ottilie Brandt is now **Kayla Rauch**, Rudi Kessler **Mitch Gerber** (ids unchanged). **On every tier, Lite included** (Kelbo): the announcer's core calls load first when the Fight tab opens, the rest stream in. **Captions** when sound or voices are off, with a setting to turn them off (Kelbo). Settings: Voices, Commentary, Captions beside Sound. Custom names are never voiced: the player is "The challenger!" or "The home workshop!". Lines pick with seeded `SCRAP_SIM.rng` streams, so two replays say the same thing |
 
 | Teams (0.1.24, Kelbo) | Asked for after 0.1.23 ("more creative than the You and Wedge names"). **Team, bot names and paint** (over names only, or names plus colour): a team name, a name per bot, two team colours painted on the bot (the side stripe in the main colour, two pinstripes in the accent) and a badge on its top. **Badge builder** (over preset badges or letters only): a shape (shield, round, hex, diamond, gear, square), an emblem (bolt, saw, wrench, hammer, skull, crown, flame, star, claw or none), the two colours and up to three letters, all drawn in code. Every opponent gets a team too: named opponents and rivals their own, test builds a club regular with a persona name. Two bots too close in colour: the later one wears its accent. **Put in now as 0.1.24**: slow-motion replays move to 0.1.25 and the bracket screen to 0.1.26 (paint is covered here) |
+| Slow-motion replays (0.1.25, Kelbo) | Asked as "slow-motion replays". **Auto slow-mo on big moments** (over manual speeds only, or the knockout only): the replay eases to about a third of its pace for a big hit, a part, the weapon or a speed controller failing, and to a quarter for the last 1.3 s before a knockout, then speeds back up; a Slow-mo button on the replay bar switches it off (on by default, remembered for the visit, not saved), and the speed button gains ¼× (1×, 2×, ½×, ¼×). Windows come from the fight log, so scrubbing lands on the same pace. Judges' decisions, draws and stopped fights have no knockout window |
 ---
 
 ## 2. Direction
@@ -469,5 +470,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.22: Blender weapon parts on Full and Ultra (Lite unchanged)
 - [x] 0.1.23: visible damage on Full and Ultra (scars, wear, askew plates, bent weapons; Lite unchanged)
 - [x] 0.1.24: teams (team and bot names, two colours, badge builder, opponent teams)
-- [ ] 0.1.25: slow-motion replays
+- [x] 0.1.25: slow-motion replays (automatic slow-mo on big hits, failures and the knockout, a Slow-mo button, a ¼× speed)
 - [ ] 0.1.26: bracket screen

@@ -463,6 +463,8 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fpitopts .btn.off{opacity:.5}
 .frp{position:absolute;z-index:2;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:#0A0A09cc;pointer-events:auto}
 .frp input{flex:1;min-width:0;accent-color:var(--clay)}
+/* slow-motion replays (0.1.25): the readout and the Slow-mo button light up while the replay is in a slow stretch */
+.frp.slow .readout{color:#F2EFE8}.frp.slow [data-fv=rpslow]{background:var(--clay);color:#0A0A09;border-color:var(--clay)}
 /* captions (0.1.16, app/fight.js): the announcer's and commentator's calls as text when sound or voices are off; the
    fight view is dark in both themes. Taps go through to the controls. */
 .fcap{position:absolute;z-index:2;left:50%;bottom:calc(136px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:min(420px,calc(100% - 32px));margin:0;padding:6px 12px;border-radius:10px;background:#0A0A09d9;color:#F2EFE8;font-size:14px;line-height:1.35;text-align:center;pointer-events:none;animation:fcapIn .18s ease-out}
@@ -4345,7 +4347,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.24.1";
+const VERSION="0.1.25.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -5853,7 +5855,21 @@ function ftRpFight(log,n){const play={};for(const k in log.inputs||{})play[k]=SI
   if(F.n>=log.steps&&!F.over){F.over=true;F.endT=F.t;F.reason="stopped";}   // a jump to the end of a stopped round ends there
   return F;}
 function ftReplay(i){const R=FT.rounds[i];if(!R||!ftReplayOk(R.F))return;
-  FT.rp={i,log:R.log,steps:R.log.steps,speed:1};FT.you=false;ftGo(ftRpFight(R.log,0));}
+  const F=ftRpFight(R.log,0);FT.rp={i,log:R.log,steps:R.log.steps,speed:1,slow:ftSlowPlan(R.log,F.M.mass)};FT.you=false;ftGo(F);}
+/* ---- slow-motion replays (0.1.25): the replay eases to a crawl for the big hits, a part or the weapon failing and the
+   knockout, then picks the pace back up. The windows come from the fight log (seconds into the fight), so a scrub lands
+   on the same pace; the manual speed multiplies it. Pure timing: the sim is stepped the same way, only less often. ---- */
+const FT_SLOW={hitEn:70,hit:[0.1,0.5,0.35],fail:[0.15,0.8,0.3],ko:[1.3,0.5,0.25],gap:1.5,maxS:2.5,easeIn:0.15,easeOut:0.4,noKo:["judges","draw","stopped"]};
+function ftSlowPlan(log,mass){const W=[],mm=Math.max(mass,1e-6),add=(t,c)=>{const a=t-c[0],b=t+c[1],L=W[W.length-1];
+    if(L&&a<L.b+FT_SLOW.gap){if(L.b-L.a<FT_SLOW.maxS){L.b=Math.max(L.b,b);L.f=Math.min(L.f,c[2]);}}else W.push({a,b,f:c[2]});};
+  for(const e of log.entries||[]){
+    if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"||e.what==="esc"))add(e.t,FT_SLOW.fail);
+    else if(e.k==="hit"&&e.E/mm>=FT_SLOW.hitEn)add(e.t,FT_SLOW.hit);
+    else if(e.k==="end"&&FT_SLOW.noKo.indexOf(e.why)<0)add(e.t,FT_SLOW.ko);}
+  return W;}
+/* the share of full pace at fight time t: 1 outside the windows, eased down to the window's pace inside */
+function ftSlowAt(W,t){let f=1;for(const w of W){const a=w.a-FT_SLOW.easeIn,b=w.b+FT_SLOW.easeOut;if(t<a||t>b)continue;
+    const k=t<w.a?(t-a)/FT_SLOW.easeIn:t>w.b?1-(t-w.b)/FT_SLOW.easeOut:1;f=Math.min(f,1-(1-w.f)*k);}return f;}
 function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(0,Math.min(rp.steps,n|0)));
   FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
   SCRAP_VOICE.stop();if(F.n===0)ftVoiceBegin(F,true);else SCRAP_VOICE.seek(F);
@@ -5904,7 +5920,8 @@ function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on){SCRAP
 function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
   if(curTab!=="fight"||document.hidden){if(!F.over&&!FT.paused)ftPause(true);return;}
   if(FT.hold&&!FT.paused&&!F.over)FT.last=now;   // the announcer's intro: the clock waits
-  else if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;const sp=FT.rp?FT.rp.speed:FT.you?1:FT.speed;FT.acc+=Math.min(dt,0.25)*sp;
+  else if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;const sp=FT.rp?FT.rp.speed:FT.you?1:FT.speed,slow=FT.rp&&FT.rpAuto!==false&&FT.rp.slow?ftSlowAt(FT.rp.slow,F.t):1;FT.acc+=Math.min(dt,0.25)*sp*slow;
+    if(FT.rp&&(slow<0.9)!==!!FT.rp.dip){FT.rp.dip=slow<0.9;const rb=$("fRp");if(rb)rb.classList.toggle("slow",FT.rp.dip);}
     let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,FT.you&&FT.on&&!FT.rp?{0:CONTROLS.read(F,F.bots[0])}:null);FT.acc-=1/60;k++;
       if(FT.rp&&F.n>=FT.rp.steps&&!F.over){F.over=true;F.endT=F.t;if(!F.reason)F.reason="stopped";}}   // a stopped fight's replay ends where it was stopped
     if(k===5)FT.acc=Math.min(FT.acc,1/60);   // clamped: a slow frame loses time instead of catching up
@@ -5979,7 +5996,8 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
     <div class="fend" id="fEnd" hidden role="alertdialog" aria-labelledby="fEndT"><b id="fEndT"></b><p id="fEndS"></p><div class="row" id="fEndBtns"></div></div>
     ${FT.rp?`<div class="frp" id="fRp"><button type="button" class="fbtn" data-fv="rpplay" aria-pressed="false">Pause</button>
       <input type="range" id="fRpPos" min="0" max="${FT.rp.steps}" step="15" value="0" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(FT.F.rules.roundS)}</span>
-      <button type="button" class="fbtn" data-fv="rpspeed" aria-label="Replay speed">1×</button></div>`:""}`;
+      <button type="button" class="fbtn" data-fv="rpspeed" aria-label="Replay speed">1×</button>
+      <button type="button" class="fbtn" data-fv="rpslow" aria-pressed="${FT.rpAuto!==false}" aria-label="Automatic slow motion on big moments">Slow-mo</button></div>`:""}`;
   $("view").appendChild(el);el.addEventListener("click",ftOvClick);
   const dpr=Math.min(window.devicePixelRatio||1,2);el.querySelectorAll(".fmap").forEach(cv=>{const w=cv.clientWidth||56;cv.width=cv.height=Math.round(w*dpr);});
   ftPinchOn();
@@ -6023,7 +6041,8 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
   else if(a==="rpplay"){if(F.over){ftSeek(0);return;}ftPause(!FT.paused);b.textContent=FT.paused?"Play":"Pause";b.setAttribute("aria-pressed",FT.paused);}
-  else if(a==="rpspeed"){const sp=[1,2,0.5],k=(sp.indexOf(FT.rp.speed)+1)%sp.length;FT.rp.speed=sp[k];b.textContent=(sp[k]===0.5?"½":sp[k])+"×";}
+  else if(a==="rpspeed"){const sp=[1,2,0.5,0.25],k=(sp.indexOf(FT.rp.speed)+1)%sp.length;FT.rp.speed=sp[k];b.textContent=(sp[k]===0.5?"½":sp[k]===0.25?"¼":sp[k])+"×";}
+  else if(a==="rpslow"){FT.rpAuto=FT.rpAuto===false;b.setAttribute("aria-pressed",FT.rpAuto!==false);}
   else if(a==="results")ftExit();
   else if(a==="2d"){FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
 /* the strip per bot, the clock and the notes, a few times a second */

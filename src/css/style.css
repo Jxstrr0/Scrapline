@@ -444,6 +444,8 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fpitopts .btn.off{opacity:.5}
 .frp{position:absolute;z-index:2;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:#0A0A09cc;pointer-events:auto}
 .frp input{flex:1;min-width:0;accent-color:var(--clay)}
+/* slow-motion replays (0.1.25): the readout and the Slow-mo button light up while the replay is in a slow stretch */
+.frp.slow .readout{color:#F2EFE8}.frp.slow [data-fv=rpslow]{background:var(--clay);color:#0A0A09;border-color:var(--clay)}
 /* captions (0.1.16, app/fight.js): the announcer's and commentator's calls as text when sound or voices are off; the
    fight view is dark in both themes. Taps go through to the controls. */
 .fcap{position:absolute;z-index:2;left:50%;bottom:calc(136px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:min(420px,calc(100% - 32px));margin:0;padding:6px 12px;border-radius:10px;background:#0A0A09d9;color:#F2EFE8;font-size:14px;line-height:1.35;text-align:center;pointer-events:none;animation:fcapIn .18s ease-out}
