@@ -19,6 +19,7 @@ sound/voicelines.js
 sound/voice.js
 vis/core.js
 vis/surface.js
+vis/badge.js
 vis/bot.js
 vis/arena.js
 vis/fx.js
@@ -43,5 +44,6 @@ app/daily.js
 app/shop.js
 app/career.js
 app/team.js
+app/livery.js
 app/help.js
 html/tail.html

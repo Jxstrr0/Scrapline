@@ -70,7 +70,7 @@ function makeMats(tier){
     team:BOT_TEAM.map(h=>lite?matte(h,.5):surfMat(S.paint,C(h),0,true))
   };
   /* sponsor colours (vis/bot.js), made when first asked for, kept per tier: paint, like the team stripe */
-  if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};V.spMatte=lite?matte:(h)=>surfMat(S.paint,C(h),0,true);
+  if(V.spMats)for(const k in V.spMats)V.spMats[k].dispose();V.spMats={};if(V.badgeMats)for(const k in V.badgeMats){V.badgeMats[k].map.dispose();V.badgeMats[k].dispose();}V.badgeMats={};V.spMatte=lite?matte:(h)=>surfMat(S.paint,C(h),0,true);
   V.mats.botPlate=lite?V.mats.plate.clone():bot("plate",0x6d7177,.55,1);   // the bot's AR500 and hardened plates: mill scale, not the bench plate's photo texture
   propDropTex();if(!lite)propDressMats(V.mats);   // photo textures on Full / Ultra (vis/props.js); old ones freed on every tier
   return V.mats;

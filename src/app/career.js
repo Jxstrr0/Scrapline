@@ -134,7 +134,7 @@ function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crH
   const skill=Math.min(EVENT_SKILL_MAX,k.skill+EVENT_SKILL_ACT*e.act),out=[];
   const rv=RIVALS.filter(r=>r.bots[cls]).map(r=>({id:"rv:"+r.id,rival:r.id,name:r.bots[cls].name,who:r.name,cfg:crRivalCfg(r,cls),driver:{style:"auto",skill:Math.min(EVENT_SKILL_MAX,Math.max(skill,r.skill+0.03*crRivalLevel(r)))}}));
   let pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
-    .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:t.name,cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
+    .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:lvOppName("tb:"+t.id,t.name),cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=pool[i];pool[i]=pool[j];pool[j]=t;}
   pool=crMetaOrder(pool,c.season);   // the season's meta (META_WAVES) comes first
   /* rivals come to the bigger days; a club meet gets one of them at most */
@@ -165,14 +165,15 @@ const crEvals=new Map();
 function crB(e){const k=JSON.stringify(e.cfg);let b=crEvals.get(k);if(!b){b=SIM.evalBuild(e.cfg);crEvals.set(k,b);if(crEvals.size>40)crEvals.delete(crEvals.keys().next().value);}return b;}
 const crFlags=f=>{const o={};if(f.bent)o.bent=true;if(f.smoke)o.smoke=true;if(f.cell)o.cell=true;if(f.esc)o.esc=f.esc;return o;};
 /* a bot spec for newFight from a field entry: you are the AI at your driver skill in a quick sim, else the player */
-function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:e.name,team,driver:i===0?(quick?{style:"auto",skill:crSimSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
+/* a fighter on the day as a newFight spec: you under your bot's name and team; the others in their team's colours (0.1.24) */
+function crSpec(day,i,team,quick){const e=day.field[i];return{cfg:e.cfg,name:i===0?lvBotName(day.cls):lvOppName(e.id,e.name),livery:i===0?lvMine():lvOpp(e.id),team,driver:i===0?(quick?{style:"auto",skill:crSimSkill()}:null):e.driver,damage:clone(e.dmg),flags:Object.assign({},e.flags)};}
 /* a finished bout: the winning team (most rounds; level goes to the smaller damage share, then the first) */
 function crBoutWinner(wins,F,teams){let best=null,bw=-1,tie=false;for(const t of teams){const w=wins[t]||0;if(w>bw){bw=w;best=t;tie=false;}else if(w===bw)tie=true;}
   if(!tie)return best;const top=teams.filter(t=>(wins[t]||0)===bw),sh=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+SIM.damageShare(o.b,o.st)+(o.out?1:0),0)/Math.max(1,os.length);};
   return top.sort((a,b)=>sh(a)-sh(b)||a-b)[0];}
 /* a whole match without anyone watching: rounds to the bo, the crews' pit work between */
 function crSimMatch(day,idx,teams,bo,quick){const T=teams||idx.map((_,k)=>k),wins={},Fs=[],need=Math.ceil(bo/2);
-  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),rules:crRulesOf(day),bots:idx.map((i,k)=>crSpec(day,i,T[k],quick))});
+  for(let n=0;n<bo;n++){const F=SIM.newFight({seed:crMatchSeed(day,idx,n),arena:crArena(day),rules:crRulesOf(day),bots:lvField(idx.map((i,k)=>crSpec(day,i,T[k],quick)))});
     const cap=Math.ceil(F.rules.roundS*SIM.STEP_HZ)+2;let s=0;while(!F.over&&s++<cap)SIM.stepFight(F,null);
     Fs.push(F);crCarry(day,idx,F);if(F.winner!=null)wins[F.winner]=(wins[F.winner]||0)+1;
     if(Object.keys(wins).some(t=>wins[t]>=need))break;
@@ -258,7 +259,7 @@ function crVoice(day,nx,e){const c=S.career,rv={},first=!day.said;day.said=1;
    fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
 function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
   const nx=crNext(day);delete day.live;if(!nx){save();return;}const T=nx.teams||[0,1];
-  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false))});
+  const F=SIM.newFight({seed:crMatchSeed(day,nx.idx,0),arena:crArena(day),rules:crRulesOf(day),bots:lvField(nx.idx.map((i,k)=>crSpec(day,i,T[k],false)))});
   const res={wt:T.find(t=>t!==T[0]),wins:{},Fs:[F],teams:T};
   crRecord(day,nx,res,true);for(const i of nx.idx)if(i!==0)crCrew(day,i);crAdvance(day);save();hud();
   toast(`The ${nx.label} was left unfinished: counted as a forfeit`);}

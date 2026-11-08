@@ -83,9 +83,9 @@ function buildArena(F){
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
     return{h,m,R,bar};});
   /* bots */
-  AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null);g.add(mesh);mesh.scale.setScalar(U);
+  AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null,o.livery||null);g.add(mesh);mesh.scale.setScalar(U);
     const B={o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
-    if(!o.mini){B.tag=botTag(o.name,team,lite);g.add(B.tag);}
+    if(!o.mini){B.tag=botTag(o.name,team,lite,o.livery);g.add(B.tag);}
     return B;});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
   const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.34));
@@ -99,13 +99,14 @@ function buildArena(F){
   V.scene.add(g,L);propArena(F);return g;}
 
 const botR=o=>0.5*Math.hypot(o.b.widthM,o.b.lengthM);   // the body's half diagonal (o.rad reaches out to the weapon)
-/* a name tag over a bot: a sprite with the name on a dark pill and a team-coloured dot; it keeps its size on screen */
-function botTag(name,team,lite){const W=lite?192:256,Hh=W/4,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/256;
+/* a name tag over a bot: a sprite with the name on a dark pill and a team-coloured dot (the team's badge with a livery,
+   0.1.24); it keeps its size on screen */
+function botTag(name,team,lite,liv){const W=lite?192:256,Hh=W/4,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d"),k=W/256;
   const fam=getComputedStyle(document.documentElement).getPropertyValue("--font")||"sans-serif";x.font=`600 ${30*k}px ${fam}`;
   let t=String(name||"");while(t.length>3&&x.measureText(t).width>W-64*k)t=t.slice(0,-2).trimEnd()+"…";   // shortened to fit
   const tw=x.measureText(t).width,pw=Math.min(W-4*k,tw+56*k),x0=(W-pw)/2,r=Hh*0.42;
   x.fillStyle="rgba(20,20,19,0.82)";x.beginPath();x.moveTo(x0+r,4*k);x.arcTo(x0+pw,4*k,x0+pw,Hh-4*k,r);x.arcTo(x0+pw,Hh-4*k,x0,Hh-4*k,r);x.arcTo(x0,Hh-4*k,x0,4*k,r);x.arcTo(x0,4*k,x0+pw,4*k,r);x.fill();
-  x.fillStyle="#"+BOT_TEAM[team%BOT_TEAM.length].toString(16).padStart(6,"0");x.beginPath();x.arc(x0+22*k,Hh/2,8*k,0,7);x.fill();
+  if(liv)badgeDraw(x,liv,x0+21*k,Hh/2,14*k);else{x.fillStyle="#"+BOT_TEAM[team%BOT_TEAM.length].toString(16).padStart(6,"0");x.beginPath();x.arc(x0+22*k,Hh/2,8*k,0,7);x.fill();}
   x.fillStyle="#F2EFE8";x.textBaseline="middle";x.fillText(t,x0+38*k,Hh/2+1*k);
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true}));

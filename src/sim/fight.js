@@ -1,6 +1,7 @@
 /* ---- fight.js: the fight, plan section 7a. N bots at a fixed 60 Hz step, deterministic from a seed.
-     newFight({bots, arena, seed, rules, fx})   bots: [{cfg, team, name, driver, damage}]. driver {style, skill} is an AI
+     newFight({bots, arena, seed, rules, fx})   bots: [{cfg, team, name, livery, driver, damage}]. driver {style, skill} is an AI
                                             (sim/ai.js); driver null is the player, who hands in inputs each step.
+                                            livery: the team's looks (0.1.24), carried for the view and the log, never read here.
                                             damage: J already taken per key (S.bots[cls].damage), or nothing for fresh.
                                             flags: {bent, smoke, cell, esc} carries failures in (a best-of-three
                                             round after a pit window that didn't fix them).
@@ -161,7 +162,7 @@ function arenaOf(a,cls,seed){const M=classMult(cls),L=M.len;let A=typeof a==="st
   return{id:A.id||"custom",name:A.name||"Arena",half:side/2,wallE:A.wallE!=null?A.wallE:FIGHT.wallE,
     pit:P?{rect:rect(P.rect),openS:P.openS||0}:null,haz,turn:k,def:A};}
 function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cls);
-  const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,cfg,b,driver:spec.driver||null,M,
+  const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,livery:spec.livery||null,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
     zone:weaponZone(b),st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
@@ -182,7 +183,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
 function newMini(F,o){const cls=MINIBOT.cls[o.b.cls];if(!cls||o.cfg.extras.indexOf("minibot")<0)return null;
   if(partStates(o.b,o.st).minibot==="destroyed")return null;
   const sk=o.driver&&o.driver.skill!=null?o.driver.skill:0.5,i=F.bots.length;
-  const m=newBot({cfg:Object.assign({},MINIBOT.cfg,{cls}),team:o.team,name:o.name+"'s minibot",driver:Object.assign({},MINIBOT.driver,{skill:sk})},i,F);
+  const m=newBot({cfg:Object.assign({},MINIBOT.cfg,{cls}),team:o.team,name:o.name+"'s minibot",livery:o.livery,driver:Object.assign({},MINIBOT.driver,{skill:sk})},i,F);
   m.mini=true;m.parent=o.i;const d=o.rad+m.rad+0.01*F.M.len;
   m.x=o.x-Math.cos(o.h)*d;m.y=o.y-Math.sin(o.h)*d;m.h=o.h;m.pw=worldPoly(m,m.poly);
   m.ai=aiNew(m,(F.seed^Math.imul(0x85EBCA6B,i+1))>>>0,F);return m;}
@@ -194,7 +195,7 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
   const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(opts.arena,cls,seed),rules,bots:[],
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
     spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
-      bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,
+      bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,livery:s.livery?Object.assign({},s.livery):null,
         driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:carryFlags(s.flags)}))}};   // copies: the log is the fight as it started
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
