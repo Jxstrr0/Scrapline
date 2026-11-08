@@ -41,7 +41,7 @@ function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=c
   if(c&&h>0){if((c.hours||0)<h){toast(`That takes ${h} h in the workshop; you have ${c.hours||0} h this week`);return;}c.hours-=h;}
   const was=bnDone(bot),done=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>was.indexOf(id)>=0||ids.indexOf(id)>=0);
   bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids){BN.anim[id]=now;BN.open[id]=true;}
-  save();hud();bnRender();buzz(12);
+  save();hud();bnRender();buzz(12);shopSfx("clamp");
   toast(ids.length>1?`All six tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
 
 /* ---- the words under each canvas ---- */

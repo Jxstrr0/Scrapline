@@ -2310,7 +2310,8 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 <script>__ld(.5,"Parts maths loaded")</script>
 <script>
 /* ===================== Scrapline: sound (SCRAP_SOUND) =====================
-   Web Audio, synthesized; on Full / Ultra a few recorded clangs layer on top. The app calls these; the synth never reads game state.
+   Web Audio, synthesized; on Full / Ultra a few recorded clangs layer on top; Kelbo's ElevenLabs effects and crowd beds
+   (sounds/sfx/) play over it, some on every tier. The app calls these; the synth never reads game state.
      unlock()            on the first tap or key (browsers only start audio after a gesture)
      hit(e, kind)        a clang: a noise burst through a band-pass plus three inharmonic partials, louder and lower
                          the harder the hit (e 0..1, already scaled by the app for the class); kind "wall" and "land"
@@ -2326,7 +2327,18 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
                          in sounds/CREDITS.md) are fetched and decoded once, after the first tap, and each hit plays one variant over
                          a quieter synth clang. Kinds: hit, big (a hit over 0.6), wall, land, haz, part (a part torn off; recorded
                          only, the synth has no voice for it). Lite never fetches them and sounds exactly as before. A clip that
-                         fails to load is skipped and the synth plays alone. */
+                         fails to load is skipped and the synth plays alone.
+     sfx(id, v)          one ElevenLabs effect from sounds/sfx/ (0.1.17.1; Kelbo's, credited in sounds/CREDITS.md) at volume v (0..1);
+                         returns false when it isn't decoded yet or the tier doesn't play it. Every tier: the crowd's cheer, ooh,
+                         groan, clap; the bell, the pit opening; the workshop's ratchet, drill, clamp, charger. Full / Ultra only
+                         (with samples(on), like the clangs): spin-ups (spin_h, spin_v, spin_drum, spin_saw, spin_under), flip,
+                         fliphp, hammer, lifter, crush, the material layers (ply, hdpe, ti, ar, tyre), scrape, snap, bend, partoff,
+                         thud, land, pusher, floorspin, selfright, powerdown, smoke. The workshop four load on the first tap;
+                         the rest when prep() is called; a clip still loading is skipped.
+     prep()              the Fight tab opened: fetch the fight's effects (the Full / Ultra ones only on those tiers)
+     crowd(id)           the crowd bed under a fight, looped: "club", "reg", "big" or null (fades out). The same id again is a
+                         no-op, so the app can call it every overlay update; stop() fades it, the next call brings it back.
+                         Each bed is fetched the first time it's asked for. */
 const SCRAP_SOUND=(function(){
 "use strict";
 let ctx=null,master=null,noise=null,lastHit=0,hits=0,sleepT=0,vbus=null,vUntil=0;const motors=[];
@@ -2341,15 +2353,45 @@ function sampLoad(){if(SAMP.started||!SAMP.on||!ctx||typeof fetch!=="function")r
 function sampPlay(kind,v,e,t){if(!SAMP.on)return false;const ids=(SAMP.sets[kind]||[]).filter(id=>SAMP.buf[id]);if(!ids.length)return false;
   const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=SAMP.buf[ids[Math.random()*ids.length|0]];
   s.playbackRate.value=(0.92+Math.random()*0.16)*(1.08-0.16*e);g.gain.value=Math.min(1,v*1.25);s.connect(g);g.connect(master);s.start(t);return true;}
+/* the ElevenLabs pack (sounds/sfx/): id -> variants (1: "<id>.mp3", n: "<id>1.mp3" .. "<id>n.mp3"); ALL plays on every
+   tier, FULL only with samples(on); BEDS are the looped crowds. buf holds decoded files, got the ones asked for. */
+const FX={buf:{},got:{},last:{},until:0,resting:false,want:false,   // want: prep() was asked for before the first tap
+
+  ALL:{cheer:2,ooh:2,groan:2,clap:2,bell:1,pitopen:1,ratchet:1,drill:1,clamp:1,charger:1},
+  FULL:{spin_h:1,spin_v:1,spin_drum:1,spin_saw:1,spin_under:1,flip:2,fliphp:1,hammer:2,lifter:1,crush:1,ply:2,hdpe:1,ti:1,ar:1,tyre:2,
+    scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1},
+  BEDS:{club:"crowd_club",reg:"crowd_reg",big:"crowd_big"},WORK:["ratchet","drill","clamp","charger"]};
+const fxFiles=(id,n)=>n>1?Array.from({length:n},(_,i)=>id+(i+1)):[id];
+function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;   // got: 1 asked for, -1 failed (only prep() asks again)
+  fetch("sounds/sfx/"+f+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status))
+    .then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej))).then(b=>{FX.buf[f]=b;}).catch(()=>{FX.got[f]=-1;});}
+function prep(){FX.want=true;if(!ctx)return;for(const f in FX.got)if(FX.got[f]<0)FX.got[f]=0;/* a failed file: try once more */for(const id in FX.ALL)fxFiles(id,FX.ALL[id]).forEach(fxGet);
+  if(SAMP.on)for(const id in FX.FULL)fxFiles(id,FX.FULL[id]).forEach(fxGet);}
+/* after stop(), a stinger (the bell, the cheer) may still be ringing: the nap waits for it as it waits for a voice */
+function fxDoze(){if(!FX.resting||!ctx)return;if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(nap,600);}
+function sfx(id,v){if(!ctx)return false;const n=FX.ALL[id]||(SAMP.on&&FX.FULL[id]);if(!n)return false;
+  if(ctx.state==="suspended")ctx.resume().catch(()=>{});   // a sleeping context wakes for it (the bell of a rematch, the workshop); start(0) plays it as soon as it runs
+  const t=ctx.currentTime;if(t-(FX.last[id]||-1)<0.06)return false;
+  const fs=fxFiles(id,n).filter(f=>FX.buf[f]);if(!fs.length){fxFiles(id,n).forEach(fxGet);return false;}
+  FX.last[id]=t;const b=FX.buf[fs[Math.random()*fs.length|0]],s=ctx.createBufferSource(),g=ctx.createGain();
+  s.buffer=b;s.playbackRate.value=0.96+Math.random()*0.08;g.gain.value=Math.max(0,Math.min(1,v==null?0.8:v));
+  s.connect(g);g.connect(master);s.start(ctx.state==="running"?t:0);FX.until=Math.max(FX.until,t+b.duration/s.playbackRate.value);fxDoze();return true;}
+const BED={id:null,src:null,g:null};
+function crowd(id){if(!ctx)return;if(id&&!FX.BEDS[id])id=null;if(id===BED.id&&(BED.src||!id))return;
+  const t=ctx.currentTime;if(BED.src){const s=BED.src,g=BED.g;g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(0,t,0.4);setTimeout(()=>{try{s.stop();}catch(e){}},2500);BED.src=BED.g=null;}
+  BED.id=id;if(!id)return;const f=FX.BEDS[id];if(!FX.buf[f]){fxGet(f);BED.id=null;return;}   // not decoded yet: the next call tries again
+  if(ctx.state!=="running"){BED.id=null;return;}
+  const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=FX.buf[f];s.loop=true;g.gain.setValueAtTime(0,t);g.gain.setTargetAtTime(0.2,t,0.6);
+  s.connect(g);g.connect(master);s.start(t,Math.random()*s.buffer.duration);BED.src=s;BED.g=g;}
 /* after stop() the context is suspended (no idle oscillators burning battery); the next hit or whine wakes it */
-function awake(){if(!ctx)return false;if(sleepT){clearTimeout(sleepT);sleepT=0;}if(ctx.state==="suspended"){ctx.resume().catch(()=>{});return false;}return ctx.state==="running";}
+function awake(){if(!ctx)return false;FX.resting=false;if(sleepT){clearTimeout(sleepT);sleepT=0;}if(ctx.state==="suspended"){ctx.resume().catch(()=>{});return false;}return ctx.state==="running";}
 function unlock(){if(ctx){if(ctx.state==="suspended")ctx.resume().catch(()=>{});return;}
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
   try{ctx=new AC();}catch(e){ctx=null;return;}
   master=ctx.createGain();master.gain.value=0.55;
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=6;master.connect(comp);comp.connect(ctx.destination);
   const n=ctx.sampleRate*0.6|0,buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);let s=22222;
-  for(let i=0;i<n;i++){s=(s*16807)%2147483647;d[i]=s/1073741823.5-1;}noise=buf;sampLoad();}
+  for(let i=0;i<n;i++){s=(s*16807)%2147483647;d[i]=s/1073741823.5-1;}noise=buf;sampLoad();FX.WORK.forEach(fxGet);if(FX.want)prep();}
 function hit(e,kind){if(kind==="part"&&!SAMP.on)return;if(!awake())return;const t=ctx.currentTime;
   if(t-lastHit<0.07){if(++hits>3)return;}else hits=0;lastHit=t;
   e=Math.max(0.03,Math.min(1,e||0));const dull=kind==="wall"||kind==="land",vol=0.12+0.6*e;
@@ -2372,17 +2414,18 @@ function whine(i,ws,ds){if(!awake())return;const m=motor(i),t=ctx.currentTime,k=
   ws=Math.max(0,Math.min(1,ws||0));ds=Math.max(0,Math.min(1,ds||0));
   m.w.frequency.setTargetAtTime(90+ws*820+i*23,t,0.15);m.wg.gain.setTargetAtTime(ws>0.02?0.035*k*(0.3+0.7*ws):0,t,0.12);
   m.d.frequency.setTargetAtTime(55+ds*90+i*7,t,0.1);m.dg.gain.setTargetAtTime(ds>0.05?0.05*k*ds:0,t,0.1);}
+function nap(){sleepT=0;if(!ctx||ctx.state!=="running")return;const w=Math.max(vUntil,FX.until)-ctx.currentTime;   // a voice or a stinger still going: wait for it
+  if(w>0){sleepT=setTimeout(nap,w*1000+300);return;}ctx.suspend().catch(()=>{});}
 function stop(){if(!ctx)return;const t=ctx.currentTime;for(const m of motors)if(m){m.wg.gain.setTargetAtTime(0,t,0.08);m.dg.gain.setTargetAtTime(0,t,0.08);}
-  if(sleepT)clearTimeout(sleepT);const nap=()=>{sleepT=0;if(!ctx||ctx.state!=="running")return;const w=vUntil-ctx.currentTime;   // a voice still talking: wait for it
-    if(w>0){sleepT=setTimeout(nap,w*1000+300);return;}ctx.suspend().catch(()=>{});};sleepT=setTimeout(nap,600);}
+  crowd(null);FX.resting=true;if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(nap,600);}
 function voiceBus(){if(!ctx)return null;if(ctx.state==="suspended")ctx.resume().catch(()=>{});
   if(!vbus){vbus=ctx.createGain();vbus.gain.value=0.9;vbus.connect(ctx.destination);}return{ctx,out:vbus};}
 function talk(until){if(!ctx)return;const t=ctx.currentTime;vUntil=Math.max(vUntil,until);
   master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(0.32,t,0.04);master.gain.setTargetAtTime(0.55,vUntil,0.25);}
 const gesture=()=>unlock();
 for(const ev of ["pointerdown","touchend","click","keydown"])window.addEventListener(ev,gesture,{passive:true});
-function samples(on){SAMP.on=!!on;sampLoad();}
-return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples,voiceBus,talk};
+function samples(on){SAMP.on=!!on;sampLoad();if(on&&FX.want)prep();}
+return{get ready(){return!!ctx&&ctx.state==="running";},get loaded(){return Object.keys(SAMP.buf).length;},unlock,hit,whine,stop,samples,voiceBus,talk,sfx,prep,crowd};
 })();
 </script>
 <script>
@@ -3922,7 +3965,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.17.0";
+const VERSION="0.1.17.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4211,6 +4254,9 @@ const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;
   if(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.samples)SCRAP_SOUND.samples(q!=="lite");}   // recorded clangs on Full / Ultra (sound/synth.js)
+/* a workshop sound from the effects pack (the ratchet when a bot is fitted, the clamp on the bench, the drill for a repair,
+   the charger at Close week), when Sound is on; every tier */
+function shopSfx(id){if(ST().sound!==false&&typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.sfx)SCRAP_SOUND.sfx(id,0.6);}
 /* the voices (sound/voice.js) follow Sound, Voices, Commentary and Captions */
 function applyVoice(){if(typeof SCRAP_VOICE==="undefined")return;const s=ST();SCRAP_VOICE.set({sound:s.sound!==false,voice:s.voice!==false,comm:s.comm!==false,captions:s.captions==="off"?"off":"muted"});}
 function applyAll(){applyTheme();applyReduce();applyGfx();applyVoice();hud();if(typeof tmPaint==="function")tmPaint();}
@@ -4875,7 +4921,7 @@ function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const blk=crFitB
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=crOn()?S.career:null,h=crFitHours(bill),blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
   if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}if(c.hours<h){toast(`That takes ${h} h in the workshop; you have ${crR1(c.hours)} h this week`);return;}
     crPay(bill.cost,`Fitted: ${SIM.CLASSES[bCls()].name.toLowerCase()}, ${bill.lines.length} part${bill.lines.length===1?"":"s"}`);c.hours=crR1(c.hours-h);}
-  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
+  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);shopSfx("ratchet");if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
 
 /* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
    are part keys (sim/build.js parts: drive0, wheel1, battery, weapon, selfright ...) or armour_<face> for a plate. */
@@ -4987,7 +5033,7 @@ function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=c
   if(c&&h>0){if((c.hours||0)<h){toast(`That takes ${h} h in the workshop; you have ${c.hours||0} h this week`);return;}c.hours-=h;}
   const was=bnDone(bot),done=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>was.indexOf(id)>=0||ids.indexOf(id)>=0);
   bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids){BN.anim[id]=now;BN.open[id]=true;}
-  save();hud();bnRender();buzz(12);
+  save();hud();bnRender();buzz(12);shopSfx("clamp");
   toast(ids.length>1?`All six tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
 
 /* ---- the words under each canvas ---- */
@@ -5343,7 +5389,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
 /* a fight (a round, or a replay) into fight mode */
-function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};ftFrame.done=null;
+function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
@@ -5391,7 +5437,7 @@ function ftRpFight(log,n){const play={};for(const k in log.inputs||{})play[k]=SI
 function ftReplay(i){const R=FT.rounds[i];if(!R||!ftReplayOk(R.F))return;
   FT.rp={i,log:R.log,steps:R.log.steps,speed:1};FT.you=false;ftGo(ftRpFight(R.log,0));}
 function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(0,Math.min(rp.steps,n|0)));
-  FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
+  FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
   SCRAP_VOICE.stop();if(F.n===0)ftVoiceBegin(F,true);else SCRAP_VOICE.seek(F);
   const e=$("fEnd");if(e)e.hidden=true;
   if(ftGL())SCRAP_VIS.setFight(F,true);if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());
@@ -5400,7 +5446,7 @@ function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.ma
    Voice reads the fight log and the app's state, never the sim. The intro holds the fight (FT.hold) until it ends or
    Skip is pressed; muted, the same calls come up as captions (#fCap) and nothing waits. */
 const ftVoiceOn=()=>ST().sound!==false&&ST().voice!==false;
-function ftVoiceLoad(){if(curTab==="fight"&&ftVoiceOn())SCRAP_VOICE.load();}
+function ftVoiceLoad(){if(curTab==="fight"&&ST().sound!==false)SCRAP_SOUND.prep();if(curTab==="fight"&&ftVoiceOn())SCRAP_VOICE.load();}   // prep: the effects pack
 const ftVKind=F=>{const M=F.bots.filter(o=>!o.mini);if(M.length<=2)return"duel";return new Set(M.map(o=>o.team)).size===M.length?"rumble":"tag";};
 const ftVName=F=>F.bots.filter(o=>!o.mini&&o.team!==F.bots[0].team).length===1?F.bots.find(o=>!o.mini&&o.team!==F.bots[0].team):null;
 function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden=true;
@@ -5419,8 +5465,9 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
     if(kind==="duel"){cues.push("name:you");if(rv)cues.push("rival:"+rv);else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
   else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
   cues.push("countdown");
-  if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
-  else SCRAP_VOICE.seq(cues);}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
+  const bell=()=>{if(ST().sound!==false&&FT.F===F&&FT.on&&!FT.paused&&!F.over&&!document.hidden&&curTab==="fight")SCRAP_SOUND.sfx("bell",0.7);};   // the bell opens the round (sounds/sfx/, every tier); not when a pause, a scrub or leaving cut the intro short
+  if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
+  else{SCRAP_VOICE.seq(cues);bell();}}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
 /* the bell: the result calls, then (in a career) a first win or the Open title */
 function ftVoiceEnd(F){if(F.reason==="stopped")return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
   const bout=!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
@@ -5465,10 +5512,39 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
   const L=F.log,parts=[];for(let n=FT.partN;n<L.length;n++){const e=L[n];
     let key=null;if(e.k==="fail"&&(e.what==="part"||e.what==="weapon"))key=e.key||"weapon";
     else if((e.k==="hit"||e.k==="grind"||e.k==="haz")&&e.pb)key="armour_"+e.f;
-    if(key&&!FT.flung[e.v+":"+key]){FT.flung[e.v+":"+key]=1;parts.push({k:"part",v:e.v,key});}}   // each part flies off once
-  FT.partN=L.length;if(parts.length&&snd)SCRAP_SOUND.hit(0.8,"part");   // recorded only (Full / Ultra); Lite stays silent here as before
+    if(key&&!FT.flung[e.v+":"+key]){FT.flung[e.v+":"+key]=1;parts.push({k:"part",v:e.v,key});}   // each part flies off once
+    if(snd)ftSfx(F,e,now);}
+  FT.partN=L.length;if(parts.length&&snd&&!SCRAP_SOUND.sfx("partoff",0.8))SCRAP_SOUND.hit(0.8,"part");   // recorded only (Full / Ultra); Lite stays silent here as before
   if(parts.length&&FT.on&&!FT.view2d)SCRAP_VIS.fx(parts);}
 
+/* ---- the effects pack (sound/synth.js sfx, sounds/sfx/): one fight log entry's sounds. The weapon's own sound (a hammer,
+   a crusher, a flipper, a lifter), a layer for what the hit landed on (the plate's material, or the chassis's; a tyre when a
+   wheel took it), metal giving way, hazards, the pit, the crowd's ooh and groan (every tier, one every 3.5 s at most).
+   synth.js drops the Full / Ultra ones on Lite. ---- */
+const FT_MAT={ply:"ply",hdpe:"hdpe",hdpe6:"hdpe",hdpe10:"hdpe",hdpe15:"hdpe",ti:"ti"};   // anything else metal rings as steel ("ar")
+const FT_BED={regional:"reg",eisenhalle:"big"};   // the crowd bed by arena; the rest are a club crowd
+const FT_SPIN={hsp:"spin_h",vsp:"spin_v",drum:"spin_drum",saw:"spin_saw",under:"spin_under"};
+function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=null&&e.a>=0?F.bots[e.a]:null,V=e.v!=null&&e.v>=0?F.bots[e.v]:null,wid=A?A.b.cfg.weapon:"";
+  const crowd=k=>{if(now-(FT.crowdT||0)<3500)return;if(SS.sfx(k,0.55))FT.crowdT=now;};
+  if(e.k==="hit"&&V){const En=(e.E||0)/mm,v=0.25+0.5*Math.min(1,En/140);
+    if(wid==="hammer")SS.sfx("hammer",0.7);else if(wid==="crusher")SS.sfx("crush",0.7);
+    const pl=V.b.armourMapJ[e.f],id=pl&&pl.id!=="none"?pl.id:V.b.cfg.chassis;
+    SS.sfx(e.x&&e.x.some(q=>/^wheel/.test(q[0]))?"tyre":FT_MAT[id]||"ar",v*0.8);
+    if(En>60&&!V.mini)crowd("ooh");}
+  else if(e.k==="flip"&&e.a!=null)SS.sfx(wid==="flipper2"?"fliphp":"flip",0.75);
+  else if(e.k==="lift")SS.sfx("lifter",0.6);
+  else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
+  else if(e.k==="haz")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);
+  else if(e.k==="pitopen")SS.sfx("pitopen",0.7);
+  else if(e.k==="right")SS.sfx("selfright",0.6);
+  else if(e.k==="self"&&(e.what==="bent"||e.what==="shear")){SS.sfx(e.what==="bent"?"bend":"snap",0.7);crowd("groan");}
+  else if(e.k==="fail"){if(e.what==="smoke")SS.sfx("smoke",0.55);else if(e.what==="dead"||e.what==="flat"||e.what==="cell"){SS.sfx("powerdown",0.6);if(V&&!V.mini)crowd("groan");}
+    else if(e.what==="weapon")crowd("groan");}
+  else if(e.k==="land"&&(e.E||0)/mm>30)SS.sfx("land",0.5);
+  else if(e.k==="wall"&&(e.E||0)/mm>40)SS.sfx("thud",0.5);}
+/* a spinner coming up to speed (its share of full speed climbs past a third from under a tenth): its spin-up, once each time */
+function ftSpinUp(F,o,i){const id=FT_SPIN[o.b.cfg.weapon];if(!id)return;const w=o.b.weapon,r=o.out||!o.fx.weaponOk?0:o.wp.om/(w.omega||1),m=FT.spin||(FT.spin={});
+  if(r<0.1)m[i]=1;else if(r>0.33&&m[i]){m[i]=0;SCRAP_SOUND.sfx(id,i===0?0.5:0.35);}}
 /* ---- fight mode: the overlay on the 3D view ---- */
 function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
@@ -5552,10 +5628,14 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
     ftMap(el.querySelector(".fmap"),o,states);
     if(FT.on&&!FT.view2d)SCRAP_VIS.damage(i,states);
-    if(snd&&i<4)SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));});
+    if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused)ftSpinUp(F,o,i);}});
+  if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
     const s=FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}
   if(!snd)SCRAP_SOUND.stop();}
+/* the bell at the end, and the crowd: a cheer for a knockout or the pit, applause for the judges (every tier) */
+function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);
+  if(F.reason==="judges"||F.reason==="draw")SCRAP_SOUND.sfx("clap",0.6);else SCRAP_SOUND.sfx("cheer",0.6);}
 /* a bot's damage silhouette: the faces as its outline, the parts as dots where the layout put them, green / amber / cool red */
 const FT_SC={intact:"#4CC38A",damaged:"#E2A93B",destroyed:"#E5484D"};
 function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),k=W/44,b=o.b,s=36*k/Math.max(b.widthM,b.lengthM),hw=b.widthM/2*s,hl=b.lengthM/2*s,cx=W/2,cy=W/2;
@@ -5620,7 +5700,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     g.fillStyle=FT_MC[st];g.strokeStyle="#141413";g.lineWidth=Math.max(1,W/100);g.beginPath();if(g.roundRect)g.roundRect(x-tw*s/2,y-tl*s/2,tw*s,tl*s,tw*s*0.35);else g.rect(x-tw*s/2,y-tl*s/2,tw*s,tl*s);g.fill();g.stroke();
     if(st==="destroyed"){g.beginPath();g.moveTo(x-tw*s/2,y-tl*s/2);g.lineTo(x+tw*s/2,y+tl*s/2);g.stroke();}}
 }
-function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
+function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
@@ -5846,7 +5926,7 @@ PIT.close=function(){if(PIT.raf)cancelAnimationFrame(PIT.raf);PIT.raf=0;if(PIT.e
 function pitEnd(lost){const o=PIT.o,done=PIT.done;PIT.close();if(o&&o.onDone)o.onDone({done,lost:lost||null});}
 function pitFrame(now){PIT.raf=0;if(!PIT.on)return;const dt=Math.min(0.25,Math.max(0,(now-PIT.last)/1000));PIT.last=now;
   if(!document.hidden&&curTab==="fight"){const t0=PIT.t;PIT.t-=dt;
-    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);
+    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);shopSfx("drill");
         pitRender();pitSay(`${PIT_NAMES[j.kind]} done: ${j.name}`);}}   // done in time (even in the frame the clock runs out)
     if(Math.ceil(t0)>10&&Math.ceil(PIT.t)<=10){pitSay("Ten seconds left");SCRAP_VOICE.say("pit10");}
     if(PIT.t<=0){pitEnd(PIT.job?PIT.job:null);return;}}
@@ -6332,7 +6412,7 @@ function crFix(cls,key){const c=S.career;if(c.day){toast("Fix it after the event
   const cost=lines.reduce((a,l)=>a+l.cost,0),h=crR1(lines.reduce((a,l)=>a+l.hours,0));
   if(c.money<cost){toast(`Need ${fmt$(cost-c.money)} more`);return;}if(c.hours<h){toast(`That takes ${h} h; you have ${crR1(c.hours)} h this week`);return;}
   const bot=S.bots[cls];bot.flags=bot.flags||{};for(const l of lines)pitApply(bill.b,bot.damage,bot.flags,l.key,l.key==="weapon"?"disc":l.key==="battery"?"battery":"swap");
-  bot.flags=crFlags(bot.flags);crPay(cost,`Repairs: ${SIM.CLASSES[cls].name.toLowerCase()}${key?", "+lines[0].name:""}`);c.hours=crR1(c.hours-h);save();hud();crRender();toast(`Fixed · ${fmt$(cost)} · ${h} h`);}
+  bot.flags=crFlags(bot.flags);crPay(cost,`Repairs: ${SIM.CLASSES[cls].name.toLowerCase()}${key?", "+lines[0].name:""}`);c.hours=crR1(c.hours-h);save();hud();crRender();toast(`Fixed · ${fmt$(cost)} · ${h} h`);shopSfx("drill");}
 
 /* ---- Close week, the bank, the season ---- */
 function crClose(force){const c=S.career;if(!crOn())return;
@@ -6343,7 +6423,7 @@ function crClose(force){const c=S.career;if(!crOn())return;
   if(c.money<0&&crBroke())return;
   c.week++;if(c.week>TIME.weeks){crSeasonEnd();}
   c.hours=crR1(Math.min(st.hours*TIME.bankWeeks,c.hours+st.hours));save();hud();crRender();
-  const e=crThisWeek();toast(`Week ${c.week}${e?` · ${e.name} this week`:""}`);}
+  const e=crThisWeek();toast(`Week ${c.week}${e?` · ${e.name} this week`:""}`);shopSfx("charger");}
 /* rent you can't pay: the one loan, or the end */
 function crBroke(){const c=S.career;c.broke++;
   if(!c.loan.taken){c.loan={taken:true,owed:Math.round(TIME.loan*(1+TIME.loanRate))};c.money+=TIME.loan;crLedger(TIME.loan,`Loan from ${WORLD.bank}`);save();hud();
