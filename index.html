@@ -108,7 +108,7 @@ h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
 .row+.row{margin-top:10px}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;border-radius:12px;background:var(--card2);border:1px solid var(--rule)}
 .seg button{min-height:44px;padding:4px 6px;border-radius:9px;font-size:14px;font-weight:500;line-height:1.15;color:var(--muted)}
-.seg button small{display:block;font-size:11px;font-weight:400;color:var(--dim)}
+.seg button small{display:block;font-size:12px;font-weight:400;color:var(--dim)}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay)}
 .field{margin:0 0 14px}
 .field>.lbl{display:block;margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted)}
@@ -135,13 +135,18 @@ details.raw{margin-top:12px}
 .bwtrack{height:8px;margin:7px 0;border-radius:4px;background:var(--card2);overflow:hidden}
 .bwtrack i{display:block;width:0;height:100%;border-radius:4px;background:var(--clay);transition:width .25s}
 .bwbar.near .bwtrack i{background:var(--warn)} .bwbar.over .bwtrack i{background:var(--crit)}
-.bcap{display:flex;flex-wrap:wrap;align-items:center;gap:3px 12px;font-size:13px;color:var(--muted)}
-.bcap b{color:var(--ink);font-weight:600;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.bcap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:end;gap:4px 10px;color:var(--muted)}
+.bst{display:flex;flex-direction:column;min-width:0}
+.bst small{font-size:12px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bst b{font-size:15px;line-height:1.25;color:var(--ink);font-weight:600;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bst b i{font-style:normal;font-weight:400;font-size:12px;color:var(--muted)}
+.bcap .chip{align-self:center}
+@media (max-width:380px){.bcap{grid-template-columns:repeat(2,minmax(0,1fr)) auto}.bcap .chip{grid-column:3;grid-row:1}}
 .chip{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid currentColor;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
 .acc{margin:0 0 8px;border:1px solid var(--rule);border-radius:12px;background:var(--card);overflow:hidden}
 .acch{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-height:50px;padding:10px 14px;text-align:left}
 .acch .t{font-size:15px;font-weight:600;white-space:nowrap}
-.acch .sum{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.acch .sum{font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .acch .chev{width:8px;height:8px;margin-right:2px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg);transition:transform .2s}
 .acc.open .acch .chev{transform:rotate(45deg)}
 .accb{display:none;padding:2px 14px 14px;border-top:1px solid var(--rule)}
@@ -156,7 +161,7 @@ details.raw{margin-top:12px}
 .opt .tag{margin-left:6px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--clay-t)}
 .opt.on{border-color:var(--clay);box-shadow:inset 0 0 0 1px var(--clay)}
 .opt.over{border-style:dashed;background:transparent}
-.seg.faces button small{font-size:10px}
+.seg.faces button small{font-size:11px}
 .armap{display:block;width:120px;height:150px;margin:10px auto 0}
 .armap .fc{cursor:pointer}
 .armap .sel{stroke:var(--clay)}
@@ -170,7 +175,7 @@ details.raw{margin-top:12px}
 .lpart.weapon{border-style:dashed}
 .lcom{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid var(--lilac);background:var(--base);pointer-events:none}
 .lcom::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--lilac)}
-.lkey{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--dim)}
+.lkey{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;margin-top:8px;font-size:13px;color:var(--dim)}
 .lkey i{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px;vertical-align:-1px}
 .profile{display:block;width:100%;height:auto;margin-top:12px;border-radius:8px;background:var(--base)}
 .profile .gnd{stroke:var(--dim)} .profile .body{fill:var(--card2);stroke:var(--muted)} .profile .wh{fill:#3a3935;stroke:var(--muted)} .profile .wp{fill:none;stroke:var(--clay-t);stroke-width:2}
@@ -181,7 +186,7 @@ details.raw{margin-top:12px}
 .dlist li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--rule)}
 .dlist li:first-child{border-top:0}
 .dlist .nm{flex:1;min-width:0;font-size:15px}
-.dlist .nm small{display:block;font-size:12px;color:var(--dim)}
+.dlist .nm small{display:block;font-size:13px;color:var(--dim)}
 .dname{display:flex;gap:8px;margin-top:10px}
 .dname input{flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:15px var(--font)}
 .fitbar{position:sticky;bottom:-14px;z-index:5;display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:10px 10px 10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--clay);box-shadow:var(--lift)}
@@ -253,11 +258,11 @@ html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: 
 canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .bnk{list-style:none;margin:0;padding:0;font-size:14px;color:var(--muted)}
 .bnk li{padding:3px 0}
-.bnk small{color:var(--dim);font-size:12px}
+.bnk small{color:var(--dim);font-size:13px}
 .bnk b{color:var(--ink);font-weight:600}
 .bnk b.readout{color:var(--lilac)}
 .bnk b.broke{color:var(--crit-t)}
-.bntag{display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid currentColor;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--lilac);vertical-align:1px}
+.bntag{display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid currentColor;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--lilac);vertical-align:1px}
 .lnk{color:var(--clay-t);text-decoration:underline;font:inherit;padding:0;min-height:0}
 /* ---- Fight tab (app/fight.js, app/debugview.js): the debug view is dark in both themes, like the 3D view ---- */
 .ftopp{display:flex;flex-wrap:wrap;gap:6px}
@@ -302,7 +307,7 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .rpcause li{margin-bottom:4px}
 .rpcause b{color:var(--ink)}
 .rpcause .readout,.rphint .readout,.rpdl .readout{color:var(--lilac);font-family:var(--mono)}
-.rpkey{margin:4px 0 0;font-size:12px;color:var(--dim)}
+.rpkey{margin:4px 0 0;font-size:13px;color:var(--dim)}
 .rphint{margin-top:12px;padding-top:10px;border-top:1px solid var(--rule)}
 .rphint p{margin:0 0 8px;font-size:14px}
 .rpbill{width:100%;border-collapse:collapse;font-size:14px}
@@ -320,7 +325,7 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 /* ---- the career (app/career.js) and the Shop (app/shop.js) ---- */
 .crdl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:4px 0 10px}
 .crdl div{min-width:0}.crdl dt{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
-.crdl dd{margin:0;font-size:16px;color:var(--ink)}.crdl dd small{display:block;font-size:12px;color:var(--muted)}
+.crdl dd{margin:0;font-size:16px;color:var(--ink)}.crdl dd small{display:block;font-size:13px;color:var(--muted)}
 .crdl dd.readout{color:var(--lilac);font-family:var(--mono);font-variant-numeric:tabular-nums}
 .card h3 small{font-weight:500;font-size:13px;color:var(--muted);margin-left:4px}
 .card h4{font-size:14px;margin:10px 0 4px}.card h4 small{margin-left:6px;color:var(--lilac);font-family:var(--mono);font-weight:500}
@@ -342,7 +347,7 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .crtab,.shkits,.shbooks{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 8px}
 .crtab th,.crtab td,.shkits th,.shkits td,.shbooks td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:right}
 .crtab th[scope=row],.crtab thead th:first-child,.shkits th[scope=row],.shbooks td:nth-child(2){text-align:left;font-weight:500}
-.shkits th small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.shkits th small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
 .crtab td.readout,.shkits td.readout,.shbooks td.readout{color:var(--lilac);font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .shbooks td.readout.ok{color:var(--good)}.shbooks td:first-child{width:56px;text-align:left;color:var(--dim)}
 /* R&D, team, sponsors, kit line (app/team.js, PR 8) */
@@ -4096,7 +4101,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.18.0";
+const VERSION="0.1.19.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -5042,7 +5047,9 @@ function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
   $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
   const m=$("bwMeter");m.setAttribute("aria-valuemax",r.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
-  $("bCap").innerHTML=`<span><b>${r.driveSpeed.toFixed(1)}</b> m/s</span><span>${w.energyJ>=1?`<b class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</b> J`:`<b>${w.type==="none"?"no weapon":w.type}</b>`}</span><span>weak <b>${FACE_LBL[bWeak(r)].toLowerCase()}</b></span><span><b class="readout">${fmtS(r.runtimeS)}</b> run</span><span class="chip ${v[0]}">${v[1]}</span>`;
+  const run=r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":`${Math.floor(r.runtimeS/60)}:${String(Math.round(r.runtimeS%60)).padStart(2,"0")}`,cell=(l,v)=>`<span class="bst"><small>${l}</small><b>${v}</b></span>`;
+  $("bCap").innerHTML=cell("Top speed",`${r.driveSpeed.toFixed(1)}<i> m/s</i>`)+(w.energyJ>=1?cell("Hit energy",`<span class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</span><i> J</i>`):cell("Weapon",w.type==="none"?"none":esc(w.type)))
+    +cell("Weak side",FACE_LBL[bWeak(r)])+cell("Battery",run)+`<span class="chip ${v[0]}">${v[1]}</span>`;
   $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
@@ -5977,6 +5984,7 @@ function ftClick(e){const t=e.target;let x;
     if(a==="go")ftStart();
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
+    else if(a==="fix"){const id=x.dataset.sec;B.open[id]=true;showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
     else if(a==="career")showTab("career");
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
@@ -6154,11 +6162,15 @@ function rpCauses(F){const me=F.bots[0],out=[],seen={};
   return out.sort((a,b)=>a.t-b.t);}
 
 /* ---- the redesign hint ---- */
+/* which Build row the Fix it button opens: by stress-report line id, else by the hint's kind (":kind") */
+const RP_FIX={shear:"weapon",spinup:"weapon",flip:"weapon",lift:"weapon",recoil:"weapon",bend:"material",bare:"armour",impact:"armour",
+  runtime:"power",heat:"power",power:"power",brushless:"power",com:"layout",nose:"layout",edgeHigh:"body",drop:"chassis",invert:"extras",righter:"extras",
+  slow:"drive",pusher:"drive",":pit":"drive",":inv":"extras",":under":"body",":face":"armour",":weapon":"weapon"};
 function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...ids)=>{for(const id of ids){const l=lines.find(x=>x.id===id&&x.sev!=="good");if(l)return l;}return null;};
   const L=F.log.filter(e=>e.v===0),faceJ={};let unders=0,shear=false,bent=false,flat=false,hot=false;
   for(const e of L){if((e.k==="hit"||e.k==="grind"||e.k==="haz"||e.k==="ram")&&e.f)faceJ[e.f]=(faceJ[e.f]||0)+(e.E||0);
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
-  const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true}:null;
+  const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true,rid:l.id}:null;
   let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
   if(me.out==="pit")kind="pit",h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
   if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))kind="inv",h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
@@ -6173,8 +6185,8 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
     if(f&&faceJ[f]>0){const a=b.armourMapJ[f],why=`Your ${RP_FACE[f]} took ${Math.round(faceJ[f])} J.`,pl=a&&a.id!=="none"?SIM.part("armour",a.id):null;
       const st=SIM.partStates(b,me.st),gone=st["armour_"+f]==="destroyed"||!pl;
       if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};if(h)kind="face";}}
-  if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
-  h.kind=kind;return h;}
+  if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true,rid:l.id}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
+  h.kind=kind;h.sec=RP_FIX[h.rid]||RP_FIX[":"+kind]||null;return h;}
 
 /* ---- the repair bill ---- */
 function rpPrice(b,key){const cfg=b.cfg,M=SIM.classMult(b.cls),c=(slot,id)=>{const p=SIM.part(slot,id);return p?p.cost*M.cost:0;};
@@ -6226,7 +6238,7 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
       ${c.length?`<ul class="rpcause">${c.map(x=>`<li>${x.html}</li>`).join("")}</ul>`:`<p class="ok">Nothing broke.</p>`}
       <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p></div></div>
     <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
-      <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
+      <div class="row">${h.sec&&B_SECS.some(x=>x.id===h.sec)?`<button type="button" class="btn sm" data-ft="fix" data-sec="${h.sec}">Fix it: ${esc(B_SECS.find(x=>x.id===h.sec).t)}</button>`:'<button type="button" class="btn sm" data-ft="build">Open Build</button>'}<button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
   <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
   <div class="card"><h3>${F.bots.filter(o=>!o.mini).length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0&&!o.mini).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
