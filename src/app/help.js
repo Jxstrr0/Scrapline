@@ -28,7 +28,7 @@ async function cardFonts(){try{if(document.fonts&&document.fonts.load)await Prom
 function cardBase(){const c=document.createElement("canvas");c.width=CARD.W;c.height=CARD.H;const g=c.getContext("2d");
   g.fillStyle=CARD.bg;g.fillRect(0,0,CARD.W,CARD.H);g.strokeStyle=CARD.clay;g.lineWidth=4;g.strokeRect(18,18,CARD.W-36,CARD.H-36);
   g.textBaseline="alphabetic";g.fillStyle=CARD.clay;g.font=`700 30px ${CARD.f}`;cardSpaced(g,"SCRAPLINE",CARD.pad,96,6);
-  g.fillStyle=CARD.muted;g.font=`500 24px ${CARD.m}`;g.textAlign="center";g.fillText(`© ${new Date().getFullYear()} Kelbo / Longlight Interactive · jxstrr0.github.io/Scrapline`,CARD.W/2,CARD.H-52);g.textAlign="left";
+  g.fillStyle=CARD.muted;g.font=`500 24px ${CARD.m}`;g.textAlign="center";g.fillText(`© ${new Date().getFullYear()} Kelbo / Longlight Interactive · scrapline.longlight.games`,CARD.W/2,CARD.H-52);g.textAlign="left";
   return{c,g};}
 function cardSpaced(g,s,x,y,sp){for(const ch of s){g.fillText(ch,x,y);x+=g.measureText(ch).width+sp;}}
 /* text shrunk until it fits w */
