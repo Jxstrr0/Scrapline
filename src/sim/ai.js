@@ -82,7 +82,7 @@ const aiIn=(x,y,r)=>x>r[0]&&x<r[2]&&y>r[1]&&y<r[3];
 function aiObstacles(F,o,t,m,mode){const L=[],P=F.arena.pit;
   if(P&&F.t>=P.openS-AI_NAV.pitSoonS)L.push({rect:aiGrow(P.rect,o.rad*AI_NAV.pitPad)});
   if(mode!=="drive")for(const h of F.arena.haz){if(h.type==="spinner")L.push({x:h.at[0],y:h.at[1],R:h.rM+o.rad*AI_NAV.hazPad});
-    else L.push({rect:aiGrow(h.rect,o.rad*AI_NAV.hazPad*0.5)});}
+    else if(h.rect)L.push({rect:aiGrow(h.rect,o.rad*AI_NAV.hazPad*0.5)});}
   if(t&&(mode==="line"||mode==="orbit"))L.push({x:t.x,y:t.y,R:(o.rad+t.rad)*AI_NAV.botPad,bot:1});
   return L;}
 /* a waypoint that takes o round the first obstacle between it and (px, py): past the nearest usable corner of a rect, out
@@ -103,14 +103,14 @@ function aiPath(F,o,t,m,px,py,mode){const H=F.arena.half,lim=H-o.rad*1.2,L=aiObs
   if(Math.abs((best.x-o.x)*nx+(best.y-o.y)*ny)<best.R*0.05)s=m.dir||1;
   let wx=best.x+s*nx*best.R*1.15,wy=best.y+s*ny*best.R*1.15;
   if(Math.abs(wx)>lim||Math.abs(wy)>lim){wx=best.x-s*nx*best.R*1.15;wy=best.y-s*ny*best.R*1.15;}   // that side is against the wall: the other
-  return[wx,wy];}
+  return[Math.max(-lim,Math.min(lim,wx)),Math.max(-lim,Math.min(lim,wy))];}
 /* o, touching t, being shoved towards something it mustn't go into (the pit within AI_NAV.pitShove radii behind it, a
-   hazard within half that, the wall within AI_NAV.wallShove when wall is on): the heading across the shove that takes it
+   hazard within half that): the heading across the shove that takes it
    away from that thing, or null */
 function aiShove(F,o,t,P){const ux=o.x-t.x,uy=o.y-t.y,ul=Math.hypot(ux,uy)||1,vs=Math.max(o.b.driveSpeed,0.1);
   if((o.vx*ux+o.vy*uy)/ul<0.05*vs)return null;   // not being driven back
   const L=[];if(P)L.push({r:P.rect,k:AI_NAV.pitShove});
-  for(const h of F.arena.haz)if(h.type==="spinner")L.push({c:h.at,R:h.rM,k:AI_NAV.pitShove*0.5});else L.push({r:h.rect,k:AI_NAV.pitShove*0.5});
+  for(const h of F.arena.haz)if(h.type==="spinner")L.push({c:h.at,R:h.rM,k:AI_NAV.pitShove*0.5});else if(h.rect)L.push({r:h.rect,k:AI_NAV.pitShove*0.5});
   for(const q of L){let nx,ny,cx,cy;
     if(q.r){const r=q.r;nx=Math.max(r[0],Math.min(r[2],o.x));ny=Math.max(r[1],Math.min(r[3],o.y));cx=(r[0]+r[2])/2;cy=(r[1]+r[3])/2;}
     else{cx=q.c[0];cy=q.c[1];const d=Math.hypot(o.x-cx,o.y-cy)||1;nx=cx+(o.x-cx)/d*q.R;ny=cy+(o.y-cy)/d*q.R;}
