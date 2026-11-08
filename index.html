@@ -2362,15 +2362,15 @@ const FX={buf:{},got:{},last:{},until:0,resting:false,want:false,   // want: pre
     scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1},
   BEDS:{club:"crowd_club",reg:"crowd_reg",big:"crowd_big"},WORK:["ratchet","drill","clamp","charger"]};
 const fxFiles=(id,n)=>n>1?Array.from({length:n},(_,i)=>id+(i+1)):[id];
-function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;
+function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;   // got: 1 asked for, -1 failed (only prep() asks again)
   fetch("sounds/sfx/"+f+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status))
-    .then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej))).then(b=>{FX.buf[f]=b;}).catch(()=>{FX.got[f]=0;});}   // a failed fetch may try again next prep()
-function prep(){FX.want=true;if(!ctx)return;for(const id in FX.ALL)fxFiles(id,FX.ALL[id]).forEach(fxGet);
+    .then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej))).then(b=>{FX.buf[f]=b;}).catch(()=>{FX.got[f]=-1;});}
+function prep(){FX.want=true;if(!ctx)return;for(const f in FX.got)if(FX.got[f]<0)FX.got[f]=0;/* a failed file: try once more */for(const id in FX.ALL)fxFiles(id,FX.ALL[id]).forEach(fxGet);
   if(SAMP.on)for(const id in FX.FULL)fxFiles(id,FX.FULL[id]).forEach(fxGet);}
 /* after stop(), a stinger (the bell, the cheer) may still be ringing: the nap waits for it as it waits for a voice */
 function fxDoze(){if(!FX.resting||!ctx)return;if(sleepT)clearTimeout(sleepT);sleepT=setTimeout(nap,600);}
 function sfx(id,v){if(!ctx)return false;const n=FX.ALL[id]||(SAMP.on&&FX.FULL[id]);if(!n)return false;
-  if(ctx.state==="suspended"){ctx.resume().catch(()=>{});if(FX.WORK.indexOf(id)<0)return false;}   // the workshop's sounds wake a sleeping context
+  if(ctx.state==="suspended")ctx.resume().catch(()=>{});   // a sleeping context wakes for it (the bell of a rematch, the workshop); start(0) plays it as soon as it runs
   const t=ctx.currentTime;if(t-(FX.last[id]||-1)<0.06)return false;
   const fs=fxFiles(id,n).filter(f=>FX.buf[f]);if(!fs.length){fxFiles(id,n).forEach(fxGet);return false;}
   FX.last[id]=t;const b=FX.buf[fs[Math.random()*fs.length|0]],s=ctx.createBufferSource(),g=ctx.createGain();
@@ -5465,7 +5465,7 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
     if(kind==="duel"){cues.push("name:you");if(rv)cues.push("rival:"+rv);else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
   else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
   cues.push("countdown");
-  const bell=()=>{if(ST().sound!==false)SCRAP_SOUND.sfx("bell",0.7);};   // the bell opens the round (sounds/sfx/, every tier)
+  const bell=()=>{if(ST().sound!==false&&FT.F===F&&FT.on&&!FT.paused&&!F.over&&!document.hidden&&curTab==="fight")SCRAP_SOUND.sfx("bell",0.7);};   // the bell opens the round (sounds/sfx/, every tier); not when a pause, a scrub or leaving cut the intro short
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
   else{SCRAP_VOICE.seq(cues);bell();}}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
 /* the bell: the result calls, then (in a career) a first win or the Open title */
@@ -5536,7 +5536,7 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
   else if(e.k==="haz")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);
   else if(e.k==="pitopen")SS.sfx("pitopen",0.7);
-  else if(e.k==="right"||(e.k==="self"&&e.what==="flip"))SS.sfx("selfright",0.6);
+  else if(e.k==="right")SS.sfx("selfright",0.6);
   else if(e.k==="self"&&(e.what==="bent"||e.what==="shear")){SS.sfx(e.what==="bent"?"bend":"snap",0.7);crowd("groan");}
   else if(e.k==="fail"){if(e.what==="smoke")SS.sfx("smoke",0.55);else if(e.what==="dead"||e.what==="flat"||e.what==="cell"){SS.sfx("powerdown",0.6);if(V&&!V.mini)crowd("groan");}
     else if(e.what==="weapon")crowd("groan");}
