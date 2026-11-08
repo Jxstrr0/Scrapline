@@ -24,9 +24,9 @@ const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
 /* the opponent picked: a named one in this class, else a test build */
 function ftOpp(cls,id){id=id||FT.opp;const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
-  if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op};
+  if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op,livery:lvOpp("op:"+id)};
   const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
-  return{id:t.id,name:t.name,cfg,driver:{style:"auto",skill:0.7}};}
+  return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.7},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24)
 /* a rumble's other two bots: picked from the class's named opponents and the test builds by the seed */
 function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>o.id).concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy").map(t=>t.id)).filter(id=>id!==skip),out=[];
   let k=seed>>>3;while(out.length<2&&pool.length){const id=pool.splice(k%pool.length,1)[0];out.push(ftOpp(cls,id));k=(k*2654435761>>>7)+1;}return out;}
@@ -34,8 +34,9 @@ function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls)
 function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const opp=ftOpp(cls),you=FT.style==="you";
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
-  const bots=[{cfg:bot.cfg,name:"You",driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,driver:opp.driver}];
-  if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,driver:o.driver});
+  const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
+  if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,livery:o.livery,driver:o.driver});
+  lvField(bots);
   FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
   const kit=()=>Object.assign({},PIT_KITS[FT.kit].allow);
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
@@ -204,7 +205,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
       ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
-    <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${esc(o.name)}</b>
+    <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${o.livery?lvBadge(o.livery,18,"in"):""}${esc(o.name)}</b>
       ${ftArmed(o)?'<span class="fbl">Weapon</span><span class="fbar"><i data-b="w"></i></span>':'<span class="fbl" data-nil="1">Weapon</span><span class="fnil">none</span>'}<span class="fbl">Drive</span><span class="fbar"><i data-b="dr"></i></span><span class="fbl">Battery</span><span class="fbar"><i data-b="bat"></i></span>
       <small data-b="worst"></small><small class="fbst" data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
@@ -300,7 +301,7 @@ function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),
 const FT_ST={intact:"ok",damaged:"worn",destroyed:"broke"};
 const FT_SHORT=window.matchMedia?matchMedia("(max-height:560px) and (orientation:landscape)"):{matches:false};   // the status line is hidden there (style.css)
 const ftArmed=o=>o.b.weapon.type!=="none"&&o.b.weapon.type!=="wedge";   // a wedge or a pusher has no weapon bar
-function ftTeamCol(o){return DV_COL.bots[(o.team!=null?o.team:o.i)%DV_COL.bots.length];}   // the colour of its ring and stripe in the arena
+function ftTeamCol(o){return o.livery?dvCol(o):DV_COL.bots[(o.team!=null?o.team:o.i)%DV_COL.bots.length];}   // its team's main colour (0.1.24), else the colour of its ring and stripe in the arena
 /* drive: what is left of the motors and wheels on each side (a side whose controller is dead counts as none) */
 function ftDrive(o,states){const b=o.b,side={left:[0,0],right:[0,0]};let worst=0;
   for(const p of b.parts){if(p.slot!=="drive"&&p.slot!=="wheels"||!(p.hpJ>0))continue;const s=side[p.pos&&p.pos[0]<0?"left":"right"];s[0]+=Math.max(0,o.st.parts[p.key]);s[1]+=p.hpJ;
@@ -482,10 +483,11 @@ function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watc
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
   return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),FT.opp):""}
-    ${ftChips("ftopp","Test builds",SIM.TEST_BUILDS.map(t=>[t.id,esc(t.name)]),FT.opp)}
+    ${ftChips("ftopp","Club regulars",SIM.TEST_BUILDS.map(t=>[t.id,`${esc(lvOppName("tb:"+t.id,t.name))} <small>${esc(t.name.toLowerCase())}</small>`]),FT.opp)}
     <p class="hint" id="ftOppLine">${ftOppLine(cur)}</p></div>`;}
-function ftOppLine(o){if(!o.op)return`A test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
-  const v=WORLD.venues[o.op.from];return`<b>${esc(o.op.name)}</b>${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
+function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.name)}</b> · ${esc(o.livery.name)}`:`<b>${esc(o.name)}</b>`;
+  if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
+  const v=WORLD.venues[o.op.from];return`${tm}${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
   if((x=t.closest("[data-ft]"))){const a=x.dataset.ft;
     if(a==="go")ftStart();

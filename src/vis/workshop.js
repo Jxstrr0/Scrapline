@@ -19,7 +19,7 @@ function buildLights(){
 }
 /* the workshop's bot: the build passed to setBot, scaled to sit on the plate (a beetle and a heavyweight look the same size) */
 function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
-  if(V.botB){const g=botMesh(V.botB,0,V.paint),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
+  if(V.botB){const g=botMesh(V.botB,0,V.paint,V.livery||null),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
   else V.bot=buildPlaceholderBot();
   V.bot.visible=V.view==="workshop";V.scene.add(V.bot);}
 function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}

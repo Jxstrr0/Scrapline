@@ -21,16 +21,16 @@
 const BOT_TEAM=[0xd97757,0xb48ce8,0x4cc38a,0x7fb3e6];
 const BOT_CACHE=new Map();   // hash -> group; kept to BOT_CACHE_MAX, oldest first out
 const BOT_CACHE_MAX=6;
-function botHash(b,team,paint){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+shellsReady()+"|"+(paint?(paint.side||"")+(paint.top||""):"");}
+function botHash(b,team,paint,liv){return JSON.stringify(b.cfg)+"|"+(team||0)+"|"+V.tier+shellsReady()+"|"+(paint?(paint.side||"")+(paint.top||""):"")+"|"+badgeKey(liv);}
 /* a sponsor colour ("#rrggbb") as a material, shared and never disposed with a bot (core.js makeMats clears them) */
 function spMat(hex){let m=V.spMats[hex];if(!m)m=V.spMats[hex]=V.spMatte(parseInt(String(hex).slice(1),16)||0x888888,.45);return m;}
 function disposeTree(g){g.traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();if(o.material&&o.userData.own){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});}
 /* a clone leaving the scene: its geometry belongs to the cached source, only its own (damage-tinted) materials go */
 function disposeClone(g){if(g.parent)g.parent.remove(g);g.traverse(o=>{if(o.material&&o.userData.own)o.material.dispose();});}
 /* a mesh from the cache, or a new one. The workshop and the arena each get their own clone (same geometry, shared materials) */
-function botMesh(b,team,paint){const k=botHash(b,team,paint);let g=BOT_CACHE.get(k);
+function botMesh(b,team,paint,liv){const k=botHash(b,team,paint,liv);let g=BOT_CACHE.get(k);
   if(g){BOT_CACHE.delete(k);BOT_CACHE.set(k,g);}   // most recently used last
-  else{g=buildBot(b,team,paint);BOT_CACHE.set(k,g);
+  else{g=buildBot(b,team,paint,liv);BOT_CACHE.set(k,g);
     while(BOT_CACHE.size>BOT_CACHE_MAX){const [k0,g0]=BOT_CACHE.entries().next().value;BOT_CACHE.delete(k0);disposeTree(g0);}}   // a clone still on screen re-uploads it
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
@@ -45,7 +45,7 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
 
-function buildBot(b,team,sp){
+function buildBot(b,team,sp,liv){
   const M=V.mats,g=new THREE.Group(),lite=V.tier==="lite",seg=lite?20:40,cfg=b.cfg,cx=b.com.x,cy=b.com.y;
   const L=b.lengthM,Wd=b.widthM,hw=Wd/2,hl=L/2,len=L/0.27;   // len: rough class scale from the length, for small fixed sizes
   const clr=Math.max(0.001,b.height.clearanceMm/1000),H=Math.max(clr+0.01,b.height.heightMm/1000),bodyH=H-clr;
@@ -109,10 +109,15 @@ function buildBot(b,team,sp){
     for(const sx of [-1,1]){const t=add(tg,M.steel,sx*(hw+r)-cx,H+tt+r,cy,"chassis");t.rotation.x=Math.PI/2;
       for(const sz of [-1,1])add(pg,M.steel,sx*(hw+r)-cx,clr+bodyH/2,cy+sz*(hl+r),"chassis");}
     for(const sz of [-1,1]){const t=add(cg2,M.steel,-cx,H+tt+r,cy+sz*(hl+r),"chassis");t.rotation.z=Math.PI/2;}}
-  /* team paint: a stripe down the top, so you can tell the bots apart from above; it stops short of an open bay */
+  /* team paint: a stripe down the top, so you can tell the bots apart from above; it stops short of an open bay. With a
+     livery (0.1.24) the stripe is the team's main colour, two pinstripes beside it the accent, and the badge sits on it */
   let ys0=-0.4*L,ys1=0.3*L;if(body==="dome"){ys0=-0.26*L;ys1=0.16*L;}
   if(reg&&(topCut||(raisedCut&&(body==="wedge"||body==="dome"||(S&&SHELL_TOPS[body]))))&&bay.rect[0]<Wd*0.14&&bay.rect[2]>-Wd*0.14)ys1=Math.max(ys0+0.12*L,Math.min(ys1,bay.rect[1]-0.03*L));
-  const yc=(ys0+ys1)/2,paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,ys1-ys0),M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy-yc);if(body==="wedge"){const tl=Math.atan2(drop,L*0.98);paint.position.y=H-drop/2-yc*Math.tan(tl)+wt+0.0008*len;paint.rotation.x=-tl;}else if(body==="dome")paint.position.y=H+bodyH*0.5;g.add(paint);
+  const yc=(ys0+ys1)/2,paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,ys1-ys0),liv?spMat(liv.main):M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy-yc);if(body==="wedge"){const tl=Math.atan2(drop,L*0.98);paint.position.y=H-drop/2-yc*Math.tan(tl)+wt+0.0008*len;paint.rotation.x=-tl;}else if(body==="dome")paint.position.y=H+bodyH*0.5;g.add(paint);
+  if(liv){const pg=new THREE.BoxGeometry(Wd*0.035,0.0015*len,ys1-ys0),am=spMat(liv.accent);
+    for(const s of [-1,1]){const p=new THREE.Mesh(pg,am);p.position.copy(paint.position);p.position.x+=s*Wd*0.18;p.rotation.copy(paint.rotation);g.add(p);}
+    const bs=Math.min(Wd*0.56,L*0.42,(ys1-ys0)*1.1),bd=new THREE.Mesh(new THREE.PlaneGeometry(bs,bs),badgeMat(liv));
+    bd.position.copy(paint.position);bd.position.y+=0.0012*len;bd.rotation.set(-Math.PI/2+paint.rotation.x,0,Math.PI);   /* the badge reads upright from in front of the bot */g.add(bd);}
   /* sponsors: a panel on each side, a patch at the back of the top plate */
   if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bh*0.5,L*0.5),spMat(sp.side));
     m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*0.5,cy);g.add(m);}
