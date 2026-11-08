@@ -132,9 +132,10 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - **hazard-pusher:** lines up and pushes the enemy into the pit or a hazard;
   - **opportunist:** goes for the most damaged enemy.
   
-  `"auto"` picks a style from the build:
-  - spinners keep away;
-  - wedges, lifters, flippers and pushers push to hazards (to the wall in a plain box);
+  `"auto"` picks a style from the build (changed in 0.1.17.2, see there):
+  - horizontal discs counter; undercutters rush; vertical discs, drums and saws keep away;
+  - wedges go aggressive;
+  - lifters, flippers and pushers push to hazards (to the wall in a plain box);
   - everything else goes aggressive.
   
   Every style keeps off the pit from two seconds before it opens, brakes hard at its edge, backs off when stuck or when two bots are circling each other in contact, and reverses out from under a wedge.
