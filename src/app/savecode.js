@@ -23,7 +23,8 @@ const BU_MSG={
   notcode:"That doesn't look like a save code. Backup codes start with \"SCR1:\".",
   bad:"That code opened, but the save inside doesn't look right, so nothing was changed.",
   store:"This browser wouldn't let the game save (storage may be full or blocked), so nothing was changed.",
-  busy:"Let the fight finish first, then restore."
+  busy:"Let the fight finish first, then restore.",
+  replay:"That's a replay code, not a backup. Paste it on the Fight tab, under Replay codes."
 };
 const buFail=k=>{const e=new Error(BU_MSG[k]);e.bu=k;return e;};   // an error with a message that's fine to show the player
 
@@ -82,7 +83,7 @@ const buObj=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 const buNum=v=>typeof v==="number"&&isFinite(v);
 function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
-  for(const k of ["designs","unlocks","rivals","parked"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  for(const k of ["designs","unlocks","rivals","parked","daily"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
   if("mode" in o&&o.mode!=null&&o.mode!=="career"&&o.mode!=="sandbox")return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
   /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */
@@ -107,6 +108,7 @@ function buRead(text){
   if(!s)throw buFail("empty");
   const m=/SCR(\d+):/.exec(s);
   if(!m){
+    if(/SCRRP\d+:/.test(s))throw buFail("replay");
     if(/(^|[^A-Za-z0-9])[A-Za-z]{2,8}\d+:[A-Za-z0-9_-]/.test(s))throw buFail("other");   // e.g. PEW1:... from another game
     throw buFail("notcode");}
   const n=+m[1];
