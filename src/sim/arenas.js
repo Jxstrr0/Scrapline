@@ -24,10 +24,11 @@
    A pin (under a wedge or against a wall) lasts at most FIGHT.holdMaxS in one spell: then the pinner backs off. ---- */
 const ARENAS={
   box:{id:"box",name:"Test box",sizeM:2.4,wallE:0.35,pit:null,hazards:[]},
-  /* the antweights' table at club meets: small, an open pit on one side (narrowed in 0.1.12.0: it decided 79% of ant fights) */
-  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.8,-0.15,1.0,0.15],openS:0},hazards:[]},
-  /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it (narrowed in 0.1.12.0, as the tabletop's) */
-  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.94,-0.2,1.2,0.2],openS:20},
+  /* the antweights' table at club meets: small, an open pit on one side (narrowed in 0.1.12.0: it decided 79% of ant fights; again in 0.1.17.5) */
+  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.84,-0.12,1.0,0.12],openS:0},hazards:[]},
+  /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it (narrowed in 0.1.12.0, as the tabletop's; smaller again
+     and opening at 0:30 from 0.1.17.5) */
+  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.98,-0.17,1.2,0.17],openS:30},
     hazards:[{type:"pusher",rect:[-1.2,-0.3,-0.98,0.3],n:[1,0],kickMs:2.2,J:6,vzMs:0,activeS:0.35,periodS:4,startS:0}]},
   /* the regional arenas (Stahlbrück, Eisenau, Grauwald): the pit opens a third of the way in; two pushers and a floor spinner */
   regional:{id:"regional",name:"Regional arena",sizeM:2.6,wallE:0.35,pit:{rect:[0.7,0.7,1.3,1.3],openS:30},
