@@ -438,3 +438,16 @@ Kelbo's ElevenLabs pack: 214 lines, Duncan Steiner on the PA (the announcer) and
 - A quick sim of a bracket runs every other fight of the round at once: on a slow phone that is a short pause (a beetle fight is about 50 ms of sim on a desktop).
 - Rumbles and tag team are single fights, so they never get a pit window.
 - After the run ends (broke twice, or twenty seasons) fitting is free again until a new career starts.
+
+## 0.1.17.0: the bots' materials on Full and Ultra
+
+Kelbo: "crank the material quality for the bots". The first piece of the plan's graphics push, pulled forward; Lite is untouched.
+
+- **Maps made in code** (`src/vis/surface.js`): every material a bot is drawn in gets a tiling 256 px albedo, normal and roughness set, from seeded value noise and a few drawn marks, so it is the same every visit, costs no download and needs no credit. Steel is brushed along the panel with scratches; aluminium is brushed finer the other way; titanium carries a faint warm and blue heat tint; AR500, hardened steel and the custom chassis are mill scale (dark blotches with flaking edges, pitted); a disc shows turning marks in rings round its hub; plywood has grain and wandering growth rings; HDPE has orange peel; rubber is a tread of blocks and grooves; the clay, team and sponsor paints are a clearcoat (`MeshPhysicalMaterial`) over faint orange peel. The albedo only varies round a light grey and `material.color` is the coded colour divided by the albedo's mean, so each surface still averages its Lite colour.
+- **Made in a worker.** The fields take about half a second to compute, so `surfStart` runs `surfFields` in a blob worker (a sync timeout where blob workers aren't allowed) and `surfLand` turns them into `DataTexture`s and puts them on every material made from the set: the tier's, the cached bots', the workshop's bot, the bots in a fight. Until they land the materials are flat PBR, as before. A tier change drops a late result (`SURF.gen`).
+- **UVs** (`uvProject`): `buildBot` ends by projecting every mesh onto the plane its normal faces most, in the bot's metres, one tile every `SURF.tile` = 0.09 m x the class scale, so grain runs at one density over chassis, plates, cheeks, arms and the Blender shells alike (a shell's geometry is copied per bot for it, and disposed with the bot). A disc keeps the cylinder's cap UVs so the rings centre on the hub; a tyre keeps the cylinder's UVs, repeated so the tread runs round the wheel (`uvRepeat`).
+- **Wheels** on Full and Ultra: an open tyre with the tread round a brushed aluminium hub with a face, both tagged with the wheel's part key so they spin and grey together. Lite keeps its one cylinder.
+- **The reflection** (`shopEnv`): a bigger painted room (512 x 256), with a lighter band at the horizon so bare metal shows a wall line, four strip lights with glow and floor pools, a window and a warm lamp.
+- **Tuning that mattered:** brushed normals at strength 1-1.2 and a roughness spread of ±0.06 to ±0.08; at 3+ and ±0.15 the strip lights broke into black-and-white stripes across every plate. The disc's rings: 22 a tile (60 aliased into noise).
+- **Lite** is byte for byte the same code path: Phong and Lambert, no maps, no projection (`SURF.tile` 0), the single-mesh wheels.
+

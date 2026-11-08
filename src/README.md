@@ -52,7 +52,8 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sound/voicelines.js` | the whole block, **generated** by `tools/make-voicelines.js` from `docs/voice/scrapline_commentary_script_sheet.csv` (never edit by hand): `VOICE_LINES`, every voice clip with its file, speaker, cue, duration and caption |
 | `sound/voice.js` | the whole block: `SCRAP_VOICE`, the announcer and commentator. Loads `sounds/voice/` when the Fight tab opens, plays the intro before a fight, the live calls from the fight log (seeded picks, so replays match), the bell, the pit, the post-mortem line, and captions when muted |
 | **SCRAP_VIS** (three.js) | |
-| `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, the painted workshop reflection, materials (`makeMats`) |
+| `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, materials (`makeMats`: Lite's Phong and Lambert, Full and Ultra's PBR from `vis/surface.js`) |
+| `vis/surface.js` | Full / Ultra surfaces (0.1.17.0): tiling maps made in code (brushed steel and aluminium, titanium, mill scale, a turned disc, plywood, HDPE, tyre tread, clearcoat paint) in a blob worker (`surfFields`, `surfStart`, `surfLand`), `surfMat`, `uvProject` / `uvRepeat` (one grain density over the whole bot), `attrGet` (reads quantized glTF attributes), the painted workshop reflection (`shopEnv`) |
 | `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis and its body style: coded on Lite, the Blender shells from `models/bot-shells.glb` on Full and Ultra via `shellBody`, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
 | `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights), the per-frame draw of the bots, the follow camera, `arenaPick()` |
 | `vis/fx.js` | sparks, flying parts, smoke and camera shake from the sim's fx events |
