@@ -464,3 +464,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.19: readability pass and Fix it buttons on the post-mortem
 - [x] 0.1.20: daily challenge and replay codes
 - [x] 0.1.21: arena visual pass (floor markings, lighting, near wall, prop scale)
+- [x] 0.1.22: Blender weapon parts on Full and Ultra (Lite unchanged)
+- [ ] 0.1.23: visible damage on Full and Ultra
