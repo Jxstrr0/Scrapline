@@ -126,7 +126,7 @@ function swSource(page) {
    each clip is kept once the game has fetched it (the Fight tab loads them all), so a phone that has opened the Fight tab plays them offline. */
 function soundsHash() {
   const h = require("crypto").createHash("sha256");
-  for (const dir of ["sounds", "models", "textures", "sounds/voice"]) {   /* models/ (Full / Ultra props), textures/ (the studio light) and sounds/voice/ (the commentary, every tier, 0.1.16) are cached the same way */
+  for (const dir of ["sounds", "models", "textures", "sounds/voice", "sounds/sfx"]) {   /* models/ (Full / Ultra props), textures/ (the studio light), sounds/voice/ (the commentary, every tier, 0.1.16) and sounds/sfx/ (the effects pack, 0.1.17.1) are cached the same way */
     const d = path.join(ROOT, dir);
     if (fs.existsSync(d)) for (const n of fs.readdirSync(d).sort()) { const st = fs.statSync(path.join(d, n)); if (st.isFile()) h.update((dir === "sounds" ? "" : dir + "/") + n + "\0" + st.size + "\0"); }
   }

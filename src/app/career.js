@@ -276,7 +276,7 @@ function crFix(cls,key){const c=S.career;if(c.day){toast("Fix it after the event
   const cost=lines.reduce((a,l)=>a+l.cost,0),h=crR1(lines.reduce((a,l)=>a+l.hours,0));
   if(c.money<cost){toast(`Need ${fmt$(cost-c.money)} more`);return;}if(c.hours<h){toast(`That takes ${h} h; you have ${crR1(c.hours)} h this week`);return;}
   const bot=S.bots[cls];bot.flags=bot.flags||{};for(const l of lines)pitApply(bill.b,bot.damage,bot.flags,l.key,l.key==="weapon"?"disc":l.key==="battery"?"battery":"swap");
-  bot.flags=crFlags(bot.flags);crPay(cost,`Repairs: ${SIM.CLASSES[cls].name.toLowerCase()}${key?", "+lines[0].name:""}`);c.hours=crR1(c.hours-h);save();hud();crRender();toast(`Fixed · ${fmt$(cost)} · ${h} h`);}
+  bot.flags=crFlags(bot.flags);crPay(cost,`Repairs: ${SIM.CLASSES[cls].name.toLowerCase()}${key?", "+lines[0].name:""}`);c.hours=crR1(c.hours-h);save();hud();crRender();toast(`Fixed · ${fmt$(cost)} · ${h} h`);shopSfx("drill");}
 
 /* ---- Close week, the bank, the season ---- */
 function crClose(force){const c=S.career;if(!crOn())return;
@@ -287,7 +287,7 @@ function crClose(force){const c=S.career;if(!crOn())return;
   if(c.money<0&&crBroke())return;
   c.week++;if(c.week>TIME.weeks){crSeasonEnd();}
   c.hours=crR1(Math.min(st.hours*TIME.bankWeeks,c.hours+st.hours));save();hud();crRender();
-  const e=crThisWeek();toast(`Week ${c.week}${e?` · ${e.name} this week`:""}`);}
+  const e=crThisWeek();toast(`Week ${c.week}${e?` · ${e.name} this week`:""}`);shopSfx("charger");}
 /* rent you can't pay: the one loan, or the end */
 function crBroke(){const c=S.career;c.broke++;
   if(!c.loan.taken){c.loan={taken:true,owed:Math.round(TIME.loan*(1+TIME.loanRate))};c.money+=TIME.loan;crLedger(TIME.loan,`Loan from ${WORLD.bank}`);save();hud();

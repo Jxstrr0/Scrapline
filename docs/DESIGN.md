@@ -451,3 +451,12 @@ Kelbo: "crank the material quality for the bots". The first piece of the plan's 
 - **Tuning that mattered:** brushed normals at strength 1-1.2 and a roughness spread of ±0.06 to ±0.08; at 3+ and ±0.15 the strip lights broke into black-and-white stripes across every plate. The disc's rings: 22 a tile (60 aliased into noise).
 - **Lite** is byte for byte the same code path: Phong and Lambert, no maps, no projection (`SURF.tile` 0), the single-mesh wheels.
 
+
+## 0.1.17.1: the effects pack
+
+Kelbo's ElevenLabs effects (`sounds/sfx/`, 52 mp3s, about 1.4 MB, credited in `sounds/CREDITS.md`), played by `SCRAP_SOUND` (`sound/synth.js`) through the same compressor as the clangs, so a voice ducks them.
+
+- **API:** `sfx(id, v)` plays one effect (a random take where there are two, pitch ±4%, at most one per id every 60 ms); `prep()` fetches the fight's effects (the Fight tab calls it; before the first tap it waits for it); `crowd(id)` loops a crowd bed ("club", "reg", "big", or null to fade out) and is a no-op for the bed already playing, so the overlay calls it with the motors. `stop()` fades the crowd and waits for a stinger (the bell, the cheer) as it waits for a voice before suspending the context.
+- **Every tier** (about 300 KB when the Fight tab opens, plus a 200 KB bed per arena when its first fight starts): the crowd bed, an ooh for a hit over 60 J/kg, a groan for a weapon giving out or a bot dying (one crowd reaction every 3.5 s), the bell when the intro ends and at the end, a cheer for a knockout or the pit, applause for the judges, the pit opening; in the workshop the ratchet (Fit), the clamp (a bench test), the drill (a repair, at home or in the pit window) and the charger (Close week), loaded on the first tap (about 60 KB).
+- **Full and Ultra** (loaded with the clangs): a spinner's spin-up each time it climbs past a third of full speed from under a tenth; the flipper (high-pressure for `flipper2`), hammer, lifter and crusher on their hits; a material layer under every hit, picked by the plate on the face hit or the chassis behind it (plywood, HDPE, titanium, anything else steel; a tyre when a wheel took it); scrapes under a wedge and grinding, a bent disc, a sheared shaft, a part torn off (instead of the old part clip), hard landings and wall hits, pushers and floor spinners, self-righting, smoke, a dead battery.
+- **Lite** gets the every-tier list and nothing else; the synth, the motors and the fight are unchanged.

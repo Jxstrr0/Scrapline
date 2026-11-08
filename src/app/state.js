@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.17.0";
+const VERSION="0.1.17.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -297,6 +297,9 @@ const isPhone=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function gfxTier(){return ST().gfx||(isPhone()?"lite":"full");}
 function applyGfx(){const q=gfxTier();if(window.SCRAP_VIS)SCRAP_VIS.setQuality(q);document.documentElement.dataset.gfx=q;
   if(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.samples)SCRAP_SOUND.samples(q!=="lite");}   // recorded clangs on Full / Ultra (sound/synth.js)
+/* a workshop sound from the effects pack (the ratchet when a bot is fitted, the clamp on the bench, the drill for a repair,
+   the charger at Close week), when Sound is on; every tier */
+function shopSfx(id){if(ST().sound!==false&&typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.sfx)SCRAP_SOUND.sfx(id,0.6);}
 /* the voices (sound/voice.js) follow Sound, Voices, Commentary and Captions */
 function applyVoice(){if(typeof SCRAP_VOICE==="undefined")return;const s=ST();SCRAP_VOICE.set({sound:s.sound!==false,voice:s.voice!==false,comm:s.comm!==false,captions:s.captions==="off"?"off":"muted"});}
 function applyAll(){applyTheme();applyReduce();applyGfx();applyVoice();hud();if(typeof tmPaint==="function")tmPaint();}
