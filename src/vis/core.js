@@ -56,6 +56,7 @@ function makeMats(tier){
     floor:matte(0x232322,1),
     ti:bot("ti",0x9a9da3,.4,1),
     arenaFloor:matte(0x2e2d2a,.9),
+    arenaOut:matte(0x141413,1),         // the floor round the arena: darker, so the arena reads as the lit square
     wall:matte(0x4a4740,.8),
     glass:new THREE.MeshBasicMaterial({color:C(0x8fa3b5),transparent:true,opacity:.12,depthWrite:false}),
     pit:new THREE.MeshBasicMaterial({color:C(0x050505)}),
