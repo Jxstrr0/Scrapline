@@ -25,7 +25,17 @@
    week, sponsor offers after a podium and their check at the season's end, the meta orders each event's field, the
    season's rule changes go into every career fight (crFightRules), and the kit line pays at the season's end. */
 const CR={};   // UI state only, never saved
-const crOn=()=>!!(S.career&&!S.career.over);
+const crSandbox=()=>S.mode!=="career";
+const crOn=()=>!crSandbox()&&!!(S.career&&!S.career.over);
+/* ---- modes (0.1.18.0, Kelbo: like PEW): Career or Sandbox, picked on the home screen (the first-visit intro) and in
+   Settings. Each mode keeps its own garage: S.bots is the active mode's, S.parked the other's, swapped here. Designs,
+   settings and the career itself are shared by both; the Sandbox sees every part, class, arena and opponent, fits for
+   free and has no calendar (crOn() is false in it, so everything the career gates is open). */
+function crModeBlock(){if(TUT_ON)return"Finish the tutorial first";if(typeof FT!=="undefined"&&FT.on)return"Finish the fight first";
+  if(S.mode==="career"&&S.career&&S.career.day)return"You're at an event: finish the day first";return null;}
+function setMode(m,quiet){m=m==="career"?"career":"sandbox";if(S.mode===m)return true;const blk=crModeBlock();if(blk){toast(blk);return false;}
+  const p=buObjS(S.parked)?S.parked:{};S.parked=S.bots;S.bots=p;S.mode=m;crReset();B.sel=null;B.delKey=null;
+  save();applyAll();showTab(curTab);if(!quiet)toast(m==="career"?"Career mode":"Sandbox: every part, free to fit");return true;}
 const crHash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;};
 const crStage=()=>WORKSHOP_STAGES.find(w=>w.id===(S.career&&S.career.stage))||WORKSHOP_STAGES[0];
 const crAct=()=>TIME.acts[S.career?S.career.act:0]||TIME.acts[0];
@@ -87,7 +97,7 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
 function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
-function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
+function crStart(){if(S.mode!=="career"&&!setMode("career",true))return;crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -309,12 +319,20 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
 
 /* ---- the tab ---- */
 function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
+  if(crSandbox()){el.innerHTML=crSandboxCard();return;}
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
-    <p class="hint">A fresh start: what you've fitted while sparring isn't kept (it was free). Your saved designs stay, to load and pay for.</p>
+    <p class="hint">A fresh start with its own garage: your Sandbox bots stay in the Sandbox. Your saved designs come with you, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
   if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${tpShelf()}${crResultsCard()}`;return;}
   el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+
     `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
+/* the Career tab while in the Sandbox: where the career stands, and the way back to it */
+function crSandboxCard(){const c=S.career;
+  const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
+    :c?`<p>Your last career is over. Switch to Career to start a new one.</p>`:`<p>No career yet. Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}, starting with ${fmt$(TIME.startMoney)} and hand tools.</p>`;
+  return`<div class="card"><h3>You're in the Sandbox</h3><p>Every part, class, arena and opponent, fitted for free, with no calendar and no bills. A test bench for ideas.</p>${where}
+    <div class="row"><button type="button" class="btn pri" data-cr="mode-career">Switch to Career</button></div>
+    <p class="hint">Each mode has its own garage. Saved designs are shared, so a build proven here loads in the career (where you pay for it). Settings has the same switch.</p></div>`;}
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
 function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),next=TIME.levels.find(l=>l[1]>(c.driverXp||0));
@@ -391,7 +409,8 @@ function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
 function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
   if(x.dataset.crfix){crFix(x.dataset.crfix,x.dataset.crkey||null);return;}
   const a=x.dataset.cr;
-  if(a==="start"){if(S.career)return;openSheet("Start a career",`<p>You start with ${fmt$(TIME.startMoney)} in ${esc(WORLD.home)}. Bots fitted while sparring are cleared; designs stay.</p><div class="row"><button type="button" class="btn pri" data-cr="start-ok">Start</button></div>`);}
+  if(a==="mode-career"){setMode("career");return;}
+  if(a==="start"){if(S.career)return;openSheet("Start a career",`<p>You start with ${fmt$(TIME.startMoney)} in ${esc(WORLD.home)}, in an empty garage of your own. Your Sandbox bots stay in the Sandbox; designs come with you.</p><div class="row"><button type="button" class="btn pri" data-cr="start-ok">Start</button></div>`);}
   else if(a==="close")crClose(false);
   else if(a==="enter")crEnterOpen();
   else if(a==="drive")crDrive();

@@ -26,6 +26,8 @@ function segHtml(id,attr,opts,cur){return `<div class="seg" id="${id}" role="gro
 function openSettings(){
   const ap=PWA.canInstall(),tip=PWA.iosTip();
   openSheet("Settings",`
+<div class="field"><span class="lbl">Mode</span>${segHtml("modeSeg","mode",[["career","Career",S.career&&!S.career.over?"week "+S.career.week:"twenty seasons"],["sandbox","Sandbox","every part, free"]],S.mode==="career"?"career":"sandbox")}
+<p class="hint">Each mode keeps its own garage. Saved designs are shared, so a build proven in the Sandbox loads in the career.</p></div>
 <div class="field"><span class="lbl">Graphics</span>${segHtml("gfxSeg","gfx",[["lite","Lite","phones"],["full","Full","shadows"],["ultra","Ultra","bloom"]],gfxTier())}
 <p class="hint">Lite is the phone default and always looks finished. Full and Ultra add shadows, metal reflections and glow on sparks.</p></div>
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
@@ -50,6 +52,7 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
 <p class="hint">Scrapline ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
   const pick=(id,attr,fn)=>$(id).addEventListener("click",e=>{const b=e.target.closest(`[data-${attr}]`);if(!b)return;
     fn(b.dataset[attr]);$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});save();});
+  $("modeSeg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;if(setMode(b.dataset.mode))closeSheet();});
   pick("gfxSeg","gfx",v=>{ST().gfx=v;perfManual();applyGfx();});
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
@@ -72,7 +75,11 @@ $("scrim").addEventListener("click",closeSheet);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOn()){closeSheet();e.preventDefault();}});
 
 /* ---- intro (first visit only) ---- */
-$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
+/* the home screen (0.1.18.0, PEW's way): the first visit picks Career or Sandbox; after that it's Settings → Mode */
+$("intro").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;
+  ST().seen=true;document.documentElement.classList.remove("home");$("intro").hidden=true;
+  setMode(b.dataset.mode,true);if(b.dataset.mode==="career"&&!S.career)showTab("career");save();
+  $("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
 
 /* ---- start-up ---- */
 function start(){
@@ -80,7 +87,7 @@ function start(){
   applyAll();   // sets the tier before the 3D view builds, so it builds once
   try{SCRAP_VIS.init($("gl"));}catch(e){$("tag").textContent="3D view unavailable on this device";}
   $("verLbl").textContent="v"+VERSION;
-  $("intro").hidden=!!ST().seen;
+  $("intro").hidden=!!ST().seen;document.documentElement.classList.toggle("home",!ST().seen);
   showTab(ST().tab||"build");
   buStoreLine();
   __ldDone();}

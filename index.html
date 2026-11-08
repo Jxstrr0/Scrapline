@@ -215,6 +215,18 @@ textarea.code{width:100%;min-height:120px;resize:vertical;padding:10px;border-ra
 #intro .sub{margin:0 0 18px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--clay-t)}
 #intro p{margin:0 0 20px;color:var(--muted)}
 #intro .btn{width:100%}
+/* the home screen (0.1.18.0): the workshop and your bot show through the top (the 3D view's share of the screen); the
+   mode cards sit below. The hud's buttons hide while it's up. */
+html.home #intro{align-items:flex-end;overflow-y:auto;background:linear-gradient(180deg,#0E0E0D00 0%,#0E0E0D00 20%,#0E0E0Dcc 31%,#0E0E0D 37%)}
+html.home #hud,html.home #tag,html.home #panel,html.home #tabs{visibility:hidden}
+html.home #intro .box{margin:auto 0 0}
+.modebox{display:grid;gap:10px;margin:0 0 4px}
+.modebox button{display:block;width:100%;text-align:left;padding:14px 16px;border-radius:14px;border:1px solid var(--rule);background:var(--card);color:var(--ink);font:inherit;cursor:pointer;min-height:44px}
+.modebox button b{display:block;font-size:18px;margin-bottom:3px}
+.modebox button small{display:block;font-size:13px;line-height:1.35;color:var(--muted)}
+.modebox button[data-mode=career]{border-color:var(--clay);box-shadow:inset 3px 0 0 var(--clay)}
+.modebox button:hover,.modebox button:focus-visible{border-color:var(--clay);outline:none}
+.modebox button:focus-visible{box-shadow:0 0 0 3px #D9775766}
 #intro .credit{margin-top:22px;font-size:12px;color:var(--dim)}
 
 #pwaBar,#bkBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:60;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--lift);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transform:translate(-50%,16px);transition:opacity .25s,transform .25s}
@@ -225,7 +237,8 @@ html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: 
 
 @media (min-width:700px){#app{border-inline:1px solid var(--rule)}#view{flex-basis:42%}}
 /* a phone on its side (PR 9): the 3D view on the left, the tab and the tab bar on the right, so neither is a sliver */
-@media (max-height:560px) and (orientation:landscape){#app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+@media (max-height:560px) and (orientation:landscape){html.home #intro{align-items:flex-start;justify-content:flex-end;background:linear-gradient(90deg,#0E0E0D00 0%,#0E0E0D00 30%,#0E0E0Dd9 42%,#0E0E0D 48%)}html.home #intro .box{width:min(400px,52%);margin:auto 0}html.home #intro .box>p:not(.sub):not(.hint){display:none}
+  #app{max-width:none;flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
   #view{flex:0 0 44%;min-height:0;height:100%}#panel{height:100%}#tabs{left:calc(env(safe-area-inset-left,0px) + (100% - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))*.44);right:env(safe-area-inset-right,0px)}#tabs button{font-size:11px}}
 
 /* ---- the Bench tab (app/bench.js) ---- */
@@ -551,7 +564,11 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
       <h1>Scrapline</h1>
       <p class="sub">Combat robot builder · The Haldis, Velmark</p>
       <p>Design a fighting robot under a weight limit, prove it on the bench and drive it in the arena. Patch it in the pit, read the post-mortem, and build better. From a plywood box in a rented corner of a machine shop to the Scrapline Open.</p>
-      <button class="btn pri" id="introGo">Open the workshop</button>
+      <div class="modebox" role="group" aria-label="Pick a mode">
+        <button type="button" data-mode="career"><b>Career</b><small>€1,500, hand tools and a rented corner of a machine shop. Twenty seasons to the Scrapline Open.</small></button>
+        <button type="button" data-mode="sandbox"><b>Sandbox</b><small>Every part, class, arena and opponent. Free to fit, no calendar. Break things on purpose.</small></button>
+      </div>
+      <p class="hint">Each has its own garage; saved designs are shared. Switch any time in Settings.</p>
       <div class="credit">A game by Longlight Interactive · <span id="verLbl"></span></div>
     </div>
   </div>
@@ -4079,7 +4096,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.17.5";
+const VERSION="0.1.18.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4305,9 +4322,11 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=8;
+const SAVE_V=9;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
+  mode:"sandbox",                  // "career" or "sandbox" (0.1.18.0): which garage S.bots is; picked on the home screen and in Settings (setMode, app/career.js)
+  parked:{},                      // the other mode's garage, the same shape as bots, swapped in by setMode (0.1.18.0)
   career:null,                    // null until Start career (PR 7); then crFresh()'s shape (app/career.js): {seed, year, week, season, act, money, loan, hours, driverXp, rep, stage, events, entered, day, results, ledger, broke, over, rnd: {cur, put}, offers, kit, trophies, fw, actSaid} (rnd, offers, kit: PR 8; trophies: PR 9, app/help.js; fw, actSaid: 0.1.16, the announcer's first-win and new-act calls)
   bots:{},                        // {<classId>: {cfg, damage, flags, draft, bench}}: the fitted bot per class (cfg null until first fitted), the damage it carries (J per key) and failures (flags: bent, smoke, cell, esc; PR 7), the Build tab's unfitted edits, and which bench tests have run on it ({sig, done}, PR 3)
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
@@ -4330,7 +4349,8 @@ const MIGRATE={
   6:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){if(s.effects!=="reduced")s.effects="full";s.tutDone=!!s.seen;}   // 0.1.10.0: Effects, the tutorial (offered only to a new player), trophies (PR 9)
     if(c&&typeof c==="object"&&!Array.isArray(c.trophies))c.trophies=[];return o;},
   7:o=>{const s=o.settings,c=o.career;if(s&&typeof s==="object"){s.voice=s.voice!==false;s.comm=s.comm!==false;if(s.captions!=="off")s.captions="muted";}   // 0.1.16.0: the voices (sound/voice.js)
-    if(c&&typeof c==="object"){c.fw=Array.isArray(c.results)&&c.results.some(r=>r&&Array.isArray(r.fights)&&r.fights.some(f=>f&&f.won));c.actSaid=c.act|0;}return o;}   // fw: a fight already won at an event (the announcer won't call a first win); actSaid: the act he last welcomed you to
+    if(c&&typeof c==="object"){c.fw=Array.isArray(c.results)&&c.results.some(r=>r&&Array.isArray(r.fights)&&r.fights.some(f=>f&&f.won));c.actSaid=c.act|0;}return o;},   // fw: a fight already won at an event (the announcer won't call a first win); actSaid: the act he last welcomed you to
+  8:o=>{o.mode=o.career&&typeof o.career==="object"?"career":"sandbox";o.parked={};return o;}   // 0.1.18.0: modes. A save with a career stays in it (its bots are the career's garage); one without was sparring, so its bots become the Sandbox's
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -4343,7 +4363,8 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   const n=freshState();Object.assign(n,o);
   n.settings=Object.assign(freshSettings(),o.settings);
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
-  for(const k of ["designs","rivals"])if(!buObjS(n[k]))n[k]={};
+  for(const k of ["designs","rivals","parked"])if(!buObjS(n[k]))n[k]={};
+  if(n.mode!=="career")n.mode="sandbox";
   for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
   S=n;return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
@@ -4382,8 +4403,8 @@ const fmt$=n=>(n<0?"−":"")+"€"+Math.round(Math.abs(n)).toLocaleString("en-GB
 const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
-function hud(){const c=S.career;
-  $("weekLbl").textContent=c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;
+function hud(){const c=S.mode==="career"?S.career:null;
+  $("weekLbl").textContent=S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;
   $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent=c?`rep ${c.rep||0}`:"";}
 
 /* ---- toast ---- */
@@ -4512,7 +4533,8 @@ const buObj=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 const buNum=v=>typeof v==="number"&&isFinite(v);
 function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
-  for(const k of ["designs","unlocks","rivals"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  for(const k of ["designs","unlocks","rivals","parked"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  if("mode" in o&&o.mode!=null&&o.mode!=="career"&&o.mode!=="sandbox")return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
   /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */
   if("career" in o&&o.career!=null){const c=o.career;if(!buObj(c))return false;
@@ -4737,6 +4759,8 @@ function segHtml(id,attr,opts,cur){return `<div class="seg" id="${id}" role="gro
 function openSettings(){
   const ap=PWA.canInstall(),tip=PWA.iosTip();
   openSheet("Settings",`
+<div class="field"><span class="lbl">Mode</span>${segHtml("modeSeg","mode",[["career","Career",S.career&&!S.career.over?"week "+S.career.week:"twenty seasons"],["sandbox","Sandbox","every part, free"]],S.mode==="career"?"career":"sandbox")}
+<p class="hint">Each mode keeps its own garage. Saved designs are shared, so a build proven in the Sandbox loads in the career.</p></div>
 <div class="field"><span class="lbl">Graphics</span>${segHtml("gfxSeg","gfx",[["lite","Lite","phones"],["full","Full","shadows"],["ultra","Ultra","bloom"]],gfxTier())}
 <p class="hint">Lite is the phone default and always looks finished. Full and Ultra add shadows, metal reflections and glow on sparks.</p></div>
 <div class="field"><span class="lbl">Auto-adjust graphics</span>${segHtml("gfxAutoSeg","gauto",[["1","On","lowers it if it stutters"],["0","Off"]],ST().gfxAuto===false?"0":"1")}</div>
@@ -4761,6 +4785,7 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
 <p class="hint">Scrapline ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
   const pick=(id,attr,fn)=>$(id).addEventListener("click",e=>{const b=e.target.closest(`[data-${attr}]`);if(!b)return;
     fn(b.dataset[attr]);$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});save();});
+  $("modeSeg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;if(setMode(b.dataset.mode))closeSheet();});
   pick("gfxSeg","gfx",v=>{ST().gfx=v;perfManual();applyGfx();});
   pick("gfxAutoSeg","gauto",v=>{ST().gfxAuto=v==="1";PERF.dropped=PERF.manual=false;perfReset(true);});
   pick("themeSeg","theme",v=>{ST().theme=v;applyTheme();});
@@ -4783,7 +4808,11 @@ $("scrim").addEventListener("click",closeSheet);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOn()){closeSheet();e.preventDefault();}});
 
 /* ---- intro (first visit only) ---- */
-$("introGo").addEventListener("click",()=>{ST().seen=true;save();$("intro").hidden=true;$("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
+/* the home screen (0.1.18.0, PEW's way): the first visit picks Career or Sandbox; after that it's Settings → Mode */
+$("intro").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;
+  ST().seen=true;document.documentElement.classList.remove("home");$("intro").hidden=true;
+  setMode(b.dataset.mode,true);if(b.dataset.mode==="career"&&!S.career)showTab("career");save();
+  $("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
 
 /* ---- start-up ---- */
 function start(){
@@ -4791,7 +4820,7 @@ function start(){
   applyAll();   // sets the tier before the 3D view builds, so it builds once
   try{SCRAP_VIS.init($("gl"));}catch(e){$("tag").textContent="3D view unavailable on this device";}
   $("verLbl").textContent="v"+VERSION;
-  $("intro").hidden=!!ST().seen;
+  $("intro").hidden=!!ST().seen;document.documentElement.classList.toggle("home",!ST().seen);
   showTab(ST().tab||"build");
   buStoreLine();
   __ldDone();}
@@ -6212,7 +6241,7 @@ function rpDraw(F){const cv=$("rpSil");if(cv&&F){const me=F.bots[0],s=SIM.partSt
    app/savecode.js by their data-bu attribute). */
 const SH={ask:null};   // which slot button is waiting for "Sure?"
 function shRender(){const el=$("shBody");if(!el)return;const c=crOn()?S.career:null;
-  el.innerHTML=(c?shWorkshop(c)+shTools(c)+tmRndCard()+tmTeamCard()+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it.</p></div>`)+shSlots();}
+  el.innerHTML=(c?shWorkshop(c)+shTools(c)+tmRndCard()+tmTeamCard()+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>${crSandbox()?"The Sandbox has every part already. Tools, workshops, the team and the books belong to the career (Settings → Mode).":"Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it."}</p></div>`)+shSlots();}
 function shWorkshop(c){const cur=crStage(),i=WORKSHOP_STAGES.indexOf(cur);
   return`<div class="card"><h3>Workshop</h3><ul class="shlist">${WORKSHOP_STAGES.map((w,k)=>`<li class="${k===i?"on":""}"><span class="nm"><b>${esc(ftCap(w.name))}</b><small>${esc(w.line)}</small>
     <small>${w.hours} h a week · rent ${fmt$(w.rent)} a week · up to ${esc(SIM.CLASSES[w.maxCls].name.toLowerCase())}${w.travel<1?` · travel ${Math.round((1-w.travel)*100)}% cheaper`:""}</small></span>
@@ -6276,7 +6305,17 @@ TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop")
    week, sponsor offers after a podium and their check at the season's end, the meta orders each event's field, the
    season's rule changes go into every career fight (crFightRules), and the kit line pays at the season's end. */
 const CR={};   // UI state only, never saved
-const crOn=()=>!!(S.career&&!S.career.over);
+const crSandbox=()=>S.mode!=="career";
+const crOn=()=>!crSandbox()&&!!(S.career&&!S.career.over);
+/* ---- modes (0.1.18.0, Kelbo: like PEW): Career or Sandbox, picked on the home screen (the first-visit intro) and in
+   Settings. Each mode keeps its own garage: S.bots is the active mode's, S.parked the other's, swapped here. Designs,
+   settings and the career itself are shared by both; the Sandbox sees every part, class, arena and opponent, fits for
+   free and has no calendar (crOn() is false in it, so everything the career gates is open). */
+function crModeBlock(){if(TUT_ON)return"Finish the tutorial first";if(typeof FT!=="undefined"&&FT.on)return"Finish the fight first";
+  if(S.mode==="career"&&S.career&&S.career.day)return"You're at an event: finish the day first";return null;}
+function setMode(m,quiet){m=m==="career"?"career":"sandbox";if(S.mode===m)return true;const blk=crModeBlock();if(blk){toast(blk);return false;}
+  const p=buObjS(S.parked)?S.parked:{};S.parked=S.bots;S.bots=p;S.mode=m;crReset();B.sel=null;B.delKey=null;
+  save();applyAll();showTab(curTab);if(!quiet)toast(m==="career"?"Career mode":"Sandbox: every part, free to fit");return true;}
 const crHash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;};
 const crStage=()=>WORKSHOP_STAGES.find(w=>w.id===(S.career&&S.career.stage))||WORKSHOP_STAGES[0];
 const crAct=()=>TIME.acts[S.career?S.career.act:0]||TIME.acts[0];
@@ -6338,7 +6377,7 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
 function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
-function crStart(){crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
+function crStart(){if(S.mode!=="career"&&!setMode("career",true))return;crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -6560,12 +6599,20 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
 
 /* ---- the tab ---- */
 function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
+  if(crSandbox()){el.innerHTML=crSandboxCard();return;}
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
-    <p class="hint">A fresh start: what you've fitted while sparring isn't kept (it was free). Your saved designs stay, to load and pay for.</p>
+    <p class="hint">A fresh start with its own garage: your Sandbox bots stay in the Sandbox. Your saved designs come with you, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
   if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${tpShelf()}${crResultsCard()}`;return;}
   el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+
     `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
+/* the Career tab while in the Sandbox: where the career stands, and the way back to it */
+function crSandboxCard(){const c=S.career;
+  const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
+    :c?`<p>Your last career is over. Switch to Career to start a new one.</p>`:`<p>No career yet. Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}, starting with ${fmt$(TIME.startMoney)} and hand tools.</p>`;
+  return`<div class="card"><h3>You're in the Sandbox</h3><p>Every part, class, arena and opponent, fitted for free, with no calendar and no bills. A test bench for ideas.</p>${where}
+    <div class="row"><button type="button" class="btn pri" data-cr="mode-career">Switch to Career</button></div>
+    <p class="hint">Each mode has its own garage. Saved designs are shared, so a build proven here loads in the career (where you pay for it). Settings has the same switch.</p></div>`;}
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
 function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),next=TIME.levels.find(l=>l[1]>(c.driverXp||0));
@@ -6642,7 +6689,8 @@ function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
 function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
   if(x.dataset.crfix){crFix(x.dataset.crfix,x.dataset.crkey||null);return;}
   const a=x.dataset.cr;
-  if(a==="start"){if(S.career)return;openSheet("Start a career",`<p>You start with ${fmt$(TIME.startMoney)} in ${esc(WORLD.home)}. Bots fitted while sparring are cleared; designs stay.</p><div class="row"><button type="button" class="btn pri" data-cr="start-ok">Start</button></div>`);}
+  if(a==="mode-career"){setMode("career");return;}
+  if(a==="start"){if(S.career)return;openSheet("Start a career",`<p>You start with ${fmt$(TIME.startMoney)} in ${esc(WORLD.home)}, in an empty garage of your own. Your Sandbox bots stay in the Sandbox; designs come with you.</p><div class="row"><button type="button" class="btn pri" data-cr="start-ok">Start</button></div>`);}
   else if(a==="close")crClose(false);
   else if(a==="enter")crEnterOpen();
   else if(a==="drive")crDrive();
@@ -6993,7 +7041,7 @@ const TUT_STEPS=[
 function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
 function tutStart(){if(TUT_ON||FT.on)return;closeSheet();
   TUT.bak=snapshot();TUT.cls=ST().buildCls;TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
-  S.career=null;S.bots={};S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
+  S.career=null;S.bots={};S.parked={};S.mode="sandbox";S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
   B.open={designs:true};B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;if(typeof crReset==="function")crReset();
   hud();tmPaint();tutCoach();tutGo(0);
   TUT.timer=setInterval(tutTick,300);}

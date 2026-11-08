@@ -137,7 +137,7 @@ const TUT_STEPS=[
 function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
 function tutStart(){if(TUT_ON||FT.on)return;closeSheet();
   TUT.bak=snapshot();TUT.cls=ST().buildCls;TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
-  S.career=null;S.bots={};S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
+  S.career=null;S.bots={};S.parked={};S.mode="sandbox";S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";
   B.open={designs:true};B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;if(typeof crReset==="function")crReset();
   hud();tmPaint();tutCoach();tutGo(0);
   TUT.timer=setInterval(tutTick,300);}
