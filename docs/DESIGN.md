@@ -484,3 +484,12 @@ Kelbo's pick: flippers were the weak build in the small classes and the pit ende
   - Beetle: 74% to 66%, pit 58% to 44%, decisions 26% to 34%. Flipper 41 to 46, Undercutter 63 to 52, Horizontal spinner 59 to 64.
   - Hobby: 67% to 57%, pit 48% to 34%, decisions 33% to 43%. Flipper 35 to 49, Undercutter 55 to 45, Lifter 64 to 58, Wedge 64 to 66.
   - Every test build is inside 35-65% or within the 5-point slack; the harness passes in every class.
+
+## 0.1.18.0: home screen, Career and Sandbox
+
+Kelbo's pick: PEW's way. The first-visit intro is the home screen.
+
+- **Home screen:** the title, the pitch and two cards, **Career** (€1,500, hand tools and a rented corner; twenty seasons to the Scrapline Open) and **Sandbox** (every part, class, arena and opponent, free to fit, no calendar), over the live workshop: the bot shows above the text in portrait and beside it in landscape (the pitch paragraph is hidden on a short landscape screen). The HUD, panel and tabs are hidden until a card is picked (`html.home`). Picking a card sets the mode, then offers the tutorial as before.
+- **Modes:** `S.mode` is `career` or `sandbox`. Sandbox behaves as the game did with no career. Each mode has its own garage: `setMode` (`src/app/career.js`) swaps `S.bots` with `S.parked`; saved designs are shared. Switching is refused mid-fight, in the tutorial, or while you're at an event.
+- **Where to switch:** Settings → Mode; the Career tab in Sandbox (it shows where your career stands, with a Switch to Career button); Start career switches to Career by itself. The Shop's no-career card says which mode you're in.
+- **Save:** `SAVE_V` 9. `MIGRATE[8]` puts a save with a career in Career and any other in Sandbox, with an empty `parked`, so nobody loses a bot. A backup code with a bad `mode` or `parked` is refused.
