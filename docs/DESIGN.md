@@ -68,7 +68,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 - **Weapons,** each with a working zone in front of the bot (a circle round a horizontal disc):
   - **Spinners** spin up on the bench's motor curve and slow with the weapon off. A hit needs a quarter of top speed and lands stored energy x bite (a little random each time). A hit on a plate that deflects, unless the target is lifted, glances off for 30%. The disc loses that share of its energy. The target takes 65% as damage and 35% as a throw (verticals and drums throw upward), and the attacker is kicked back by the weapon's recoil.
   - **Self-damage:** a hit over the material's bend rating bends the disc (half energy from then on, and it spins up slower); a huge hit at full speed can shear the shaft.
-  - **Flippers** fire a shot (18 from 0.1.12.0, was 12; with a second to recharge) and launch anything they can lift, as high as their energy allows. **Lifters** hold a bot up (a tenth of its grip) and tip it over after 0.8 s if the arm is long enough; any hold lets go after 10 s (the league's hold limit), and the lifter needs 2 s before it can grab again. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
+  - **Flippers** fire a shot (18 from 0.1.12.0, was 12; with a second to recharge) and launch anything they can lift, as high as their energy allows. In ant, beetle and hobby (0.1.17.5) a flip also throws the bot further forward (`FIGHT.flipThrow`), leaves it without drive for about half a second when it lands (`flipStunS`), and counts as 2 s of control for the judges (`flipCtrlS`). **Lifters** hold a bot up (a tenth of its grip) and tip it over after 0.8 s if the arm is long enough; any hold lets go after 10 s (the league's hold limit), and the lifter needs 2 s before it can grab again. **Hammers** swing down on the top; **crushers** bite the top and hold the bot while they close.
 - **Damage:** every hit goes through the bench's damage model (absorb, plate, then the most exposed part behind the face). The fight adds the effects:
   - a dead side;
   - a damaged battery that may smoke (power drops to 60%);
@@ -101,8 +101,8 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 
 - **Arenas** (`ARENAS` in `sim/arenas.js`), each a walled square with its hazards' numbers written down like a weapon's:
   - **Test box:** walls only.
-  - **Tabletop** (ants): a small table with an open pit on one side.
-  - **Club box** (beetles and hobbyweights, the Gemeindehalle): a pit by one wall that opens at 0:20, and a wall pusher opposite.
+  - **Tabletop** (ants): a small table with an open pit on one side (0.16 by 0.24 m at beetle scale from 0.1.17.5).
+  - **Club box** (beetles and hobbyweights, the Gemeindehalle): a pit by one wall that opens at 0:30 (0.22 by 0.34 m; 0.1.17.5), and a wall pusher opposite.
   - **Regional arena** (featherweights): two pushers, a floor spinner, and a pit in a corner that opens at 0:30.
   - **The Eisenhalle** (heavyweights, the Scrapline Open): pushers on two walls, two floor spinners, and a pit that opens at 0:45.
   
@@ -472,3 +472,15 @@ The AI (`sim/ai.js`) drives the opponents, AI spars and the player's quick sims,
 - **Tactics** (`AI_SKILL.tactics`, 0.25 to 1 by skill, rerolled every 2-4 s): flank a bot with a weapon on its front; a spinner that landed a hit and dropped under `reSpin` of its speed backs off to spin up.
 - **autoStyle:** each build was fought with every style against the auto field in every class. Undercutters do best rushing and wedges going aggressive; discs and drums do best on counter, but that ran them over 65% (vertical disc 80% in beetle, horizontal 70% in hobby), so they keep away.
 - **Results:** new vs old over 4840 fights, 53.3%, with 17% more hits; self pit falls 312 vs 392, pushed in 832 vs 924. `fight-test all` passes in every class.
+
+## 0.1.17.5: flippers and smaller pits
+
+Kelbo's pick: flippers were the weak build in the small classes and the pit ended most knockouts there. Measured with `node tools/fight-test.js all -m` before and after; feather and heavy are unchanged (none of the new numbers apply there).
+
+- **Flippers** (ant, beetle, hobby; `FIGHT.flipThrow`, `flipStunS`, `flipCtrlS`): a flipper's flip throws 1.6 / 1.8 / 1.8 m/s further forward (x sqrt len), the bot that lands has no drive for 0.6 / 0.6 / 0.5 s, and each flip counts 2 s of control for the judges. A flip near the pit or a wall can finish the fight, and a flipper that keeps flipping wins the decision.
+- **Pits:** the tabletop's pit is 0.16 by 0.24 m (was 0.2 by 0.3); the club box's is 0.22 by 0.34 m (was 0.26 by 0.4) and opens at 0:30 (was 0:20).
+- **Results** (KOs, the pit's share of them, decisions):
+  - Ant: 81% to 71%, pit 68% to 49%, decisions 19% to 29%. Flipper 31 to 53, Undercutter 68 to 52, Lifter 66 to 64, Hammer 39 to 43.
+  - Beetle: 74% to 66%, pit 58% to 44%, decisions 26% to 34%. Flipper 41 to 46, Undercutter 63 to 52, Horizontal spinner 59 to 64.
+  - Hobby: 67% to 57%, pit 48% to 34%, decisions 33% to 43%. Flipper 35 to 49, Undercutter 55 to 45, Lifter 64 to 58, Wedge 64 to 66.
+  - Every test build is inside 35-65% or within the 5-point slack; the harness passes in every class.
