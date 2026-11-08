@@ -18,6 +18,7 @@ sound/synth.js
 sound/voicelines.js
 sound/voice.js
 vis/core.js
+vis/surface.js
 vis/bot.js
 vis/arena.js
 vis/fx.js
