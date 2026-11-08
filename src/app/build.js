@@ -238,7 +238,7 @@ function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const blk=crFitB
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=crOn()?S.career:null,h=crFitHours(bill),blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
   if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}if(c.hours<h){toast(`That takes ${h} h in the workshop; you have ${crR1(c.hours)} h this week`);return;}
     crPay(bill.cost,`Fitted: ${SIM.CLASSES[bCls()].name.toLowerCase()}, ${bill.lines.length} part${bill.lines.length===1?"":"s"}`);c.hours=crR1(c.hours-h);}
-  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
+  bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);shopSfx("ratchet");if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
 
 /* new parts come undamaged, and parts taken off take their damage with them; everything else keeps its damage. Damage keys
    are part keys (sim/build.js parts: drive0, wheel1, battery, weapon, selfright ...) or armour_<face> for a plate. */
