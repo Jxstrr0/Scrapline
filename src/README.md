@@ -57,6 +57,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis and its body style: coded on Lite, the Blender shells from `models/bot-shells.glb` on Full and Ultra via `shellBody`, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
 | `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights), the per-frame draw of the bots, the follow camera, `arenaPick()` |
 | `vis/fx.js` | sparks, flying parts, smoke and camera shake from the sim's fx events |
+| `vis/wear.js` | visible damage on Full / Ultra (0.1.23, `WEAR`): scars where hits land, parts darkening with hp lost, askew armour, a bent weapon's wobble; Lite never runs it |
 | `vis/workshop.js` | the workbench, lights, `rebuild()` per tier, resize, orbit / pinch controls, the frame loop (30 fps cap on Lite) and the fps meter |
 | `vis/props.js` | Full / Ultra dressing (PR 10; the weapon parts' loader since 0.1.22): photo textures on the floor, bench, plate and arena floor (`PROP_TEX`, `PROP_TEX_USE`), glTF props per workshop stage and arena (`PROP_FILES`, `SHOP_SPOTS`, `ARENA_SPOTS`), `propShop`, `propArena`, `propShopSwap`, the arena kit, and `botShells` (loads the body shells); Lite never calls it |
 | `vis/api.js` | **the SCRAP_VIS public object** (`init`, `setQuality`, `setBot`, `setRun`, `setView`, `setStage`, `fps`, `_state`), IIFE close, `</script>` |

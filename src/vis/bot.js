@@ -14,7 +14,7 @@
    The mesh is in metres with its origin at the centre of mass (where the sim puts the bot), front along -z; the app's view
    scales it. On Full and Ultra the materials carry maps (vis/surface.js): buildBot ends by projecting UVs over the whole
    mesh (uvProject, one tile every SURF.tile metres), the wheels become a tyre with a tread round a brushed hub, and the
-   Blender shells get their geometry copied per bot so they take the projection too. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
+   Blender shells get their geometry copied per bot so they take the projection too. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates() (on Full and Ultra the grey is graded by hp lost, with scars and crooked plates: vis/wear.js). Meshes are cached
    by build hash (a few at a time) and their geometry and materials are disposed when they drop out of the cache. A team
    colour paints the side panels: clay for you, lilac, green and blue for the others. Your bot (the workshop's, and bot 0
    in a fight) also wears your sponsors' colours (SCRAP_VIS.setPaint, PR 8): a panel on each side, a patch on the top. ---- */
@@ -152,7 +152,11 @@ const SHELL_VAR={wedge_top:1,wedge_bolts:1,dome_shell:1,dome_bolts:1,pancake_lid
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
   /* each piece's geometry is copied for this bot, so uvProject can give it this bot's UVs (the shared file's stays as loaded;
      the copy gets its own userData, since r128's clone shares it and uvProject marks it done there) */
-  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;const ge=m.geometry.clone();ge.userData={};m.geometry=ge;if(part)m.userData.part=part;}});g.add(o);return o;}
+  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;const ge=m.geometry.clone();ge.userData={};m.geometry=ge;if(part)m.userData.part=part;
+    /* the copy's positions as plain floats: r128's raycast and bounds read a quantized attribute's raw integers (vis/wear.js
+       casts at the bot to place a scar) */
+    const P=ge.attributes.position;if(P&&P.normalized){const f=new Float32Array(P.count*3);for(let i=0;i<P.count;i++){f[i*3]=attrGet(P,i,0);f[i*3+1]=attrGet(P,i,1);f[i*3+2]=attrGet(P,i,2);}
+      ge.setAttribute("position",new THREE.BufferAttribute(f,3));ge.computeBoundingSphere();ge.computeBoundingBox();}}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
   const vn=(n,v)=>v&&SHELL_VAR[n]?n+"__"+v:n;   // a slotted piece for a weapon bay (shellVariant)
   const U=(name,mat,part)=>shellAdd(g,S,vn(name,k.sv),mat,part,-cx,H,cy,Wd,bodyH,L);   // a piece over the whole body
@@ -337,9 +341,10 @@ function wpDiscUV(par,mat){par.traverse(o=>{if(!o.isMesh||o.material!==mat||o.ge
   ge.setAttribute("uv",new THREE.BufferAttribute(uv,2));ge.userData.duv=1;});}
 
 /* parts the sim says are damaged go grey, destroyed ones disappear. states: {key: "intact"|"damaged"|"destroyed"} */
-function botDamage(g,states){const parts=g.userData.parts||{};
+function botDamage(g,states){const parts=g.userData.parts||{},graded=V.tier!=="lite"&&g.userData.wear;   /* Full / Ultra: graded by hp lost (vis/wear.js) */
   for(const key in parts){const s=states[key]||"intact";for(const m of parts[key]){m.visible=s!=="destroyed"||key==="chassis";
-    if(m.userData.base){m.userData.dmul=s==="damaged"?0.55:s==="destroyed"?0.3:1;m.material.color.copy(m.userData.base).multiplyScalar(m.userData.dmul);}}}}   // dmul: the hit flash (arena.js) lerps from here
+    if(m.userData.base){m.userData.dmul=s==="destroyed"?0.3:graded?(m.userData.dmul===0.3?1:m.userData.dmul||1):s==="damaged"?0.55:1;m.material.color.copy(m.userData.base).multiplyScalar(m.userData.dmul);}}}
+  if(graded){wearApply(g);wearHide(g,states);}}   // dmul: the hit flash (arena.js) lerps from here
 
 /* the workshop's bot. Until a build is passed in, the placeholder (a plywood box with clay sides and a horizontal disc) */
 function buildPlaceholderBot(){
