@@ -156,7 +156,7 @@ function tutCoach(){if($("coach"))return;const el=document.createElement("div");
   $("panel").addEventListener("scroll",()=>{if(TUT_ON)tutPlace();},{passive:true});
   window.addEventListener("resize",()=>{if(TUT_ON)tutPlace();});}
 function tutGo(i){TUT.i=i;const st=TUT_STEPS[i];if(!st){tutStop();return;}
-  if(st.pre)st.pre();if(st.open&&!B.open[st.open]){B.open[st.open]=true;}
+  if(st.pre)st.pre();if(st.open&&!B.open[st.open]){B.open={[st.open]:true};}
   if(st.tab&&curTab!==st.tab)showTab(st.tab);else if(st.tab&&TAB_RENDER[st.tab])TAB_RENDER[st.tab]();
   document.documentElement.classList.add("tut");$("coach").hidden=false;
   $("coachStep").textContent=`Tutorial · ${Math.min(i+1,TUT_STEPS.length)} of ${TUT_STEPS.length}`;$("coachT").textContent=st.t;$("coachX").textContent=st.x();
