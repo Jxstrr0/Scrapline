@@ -535,3 +535,11 @@ Kelbo's pick: PEW's way. The first-visit intro is the home screen.
 - **Opponents.** `OPP_TEAMS`: the 15 named opponents (`op:`), the 4 rivals (`rv:`) and the 12 test builds (`tb:`, a club regular with a persona name, e.g. Keilbau Fasel's Türkeil for the wedge, Schmiede Koller's Vorschlag for the hammer). Sparring, career events, rumbles and the daily challenge all use them.
 - **Colour clashes.** `lvField`: a bot whose main colour is within 70 (RGB distance) of an earlier bot's switches to its own accent, else to the first palette colour clear of everyone. The 2D view and the card border use the accent when the main is too dark to see (`dvCol`).
 - **Replay codes** keep each bot's livery (checked with `lvNorm` on the way in).
+
+## 0.1.25.0: slow-motion replays
+
+`ftSlowPlan` and `ftSlowAt` in `src/app/fight.js`, tuned by `FT_SLOW`. Only the replay uses them; a live fight never slows.
+
+- **What slows.** A hit with energy over `hitEn` (70 J per kg of the fight's mass) slows to 0.35 from 0.1 s before it to 0.5 s after; a part, the weapon or a speed controller failing slows to 0.3 from 0.15 s before to 0.8 s after; a knockout (the end entry's reason is not judges, draw or stopped) slows to 0.25 for the last 1.3 s and 0.5 s past it. Windows closer than 1.5 s merge, and one stops growing past 2.5 s, so a flurry is a few slow stretches and not one long crawl.
+- **How.** The windows come from `log.entries` (seconds into the fight), made once when the replay starts. Each frame the clock adds `dt` times the manual speed times `ftSlowAt(windows, F.t)`; the pace eases in over 0.15 s and out over 0.4 s. The sim still steps at 60 Hz, only less often, so scrubbing, the voice calls and replay codes are as before. The voice is given the manual speed, not the dip.
+- **Controls.** The replay bar's Slow-mo button (`FT.rpAuto`, on by default, for the visit only, no new storage) turns it off; the bar gets `.slow` and the button lights while a slow stretch plays. The speed button cycles 1×, 2×, ½×, ¼× and multiplies the automatic pace.
