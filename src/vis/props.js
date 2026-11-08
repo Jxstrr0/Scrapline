@@ -95,10 +95,8 @@ const KIT_STANDS={clubbox:1,regional:1,eisenhalle:1};
 function arenaKit(G){const go=()=>propModel("kit",src=>{if(AR.g===G&&V.tier!=="lite"&&AR.kit)kitBuild(G,src);});
   if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(()=>{if(THREE.GLTFLoader&&AR.g===G)go();});return;}go();}
 /* every mesh in objs, baked into G's space and merged per material: positions and normals turned to plain floats (the
-   packed files store them quantized, which can't be merged as they are) */
-function kitBake(G,objs,shadow){const by=new Map(),v=new THREE.Vector3();
-  const rd=(A,i,c)=>{const arr=A.isInterleavedBufferAttribute?A.data.array:A.array,x=c===0?A.getX(i):c===1?A.getY(i):A.getZ(i);
-    if(!A.normalized)return x;const k=arr instanceof Int16Array?32767:arr instanceof Int8Array?127:arr instanceof Uint16Array?65535:arr instanceof Uint8Array?255:1;return Math.max(-1,x/k);};
+   packed files store them quantized, which can't be merged as they are; attrGet in vis/surface.js reads them) */
+function kitBake(G,objs,shadow){const by=new Map(),v=new THREE.Vector3(),rd=attrGet;   // attrGet: vis/surface.js
   for(const o of objs){o.updateMatrixWorld(true);o.traverse(m=>{if(!m.isMesh)return;
     const mw=m.matrixWorld,nm=new THREE.Matrix3().getNormalMatrix(mw),g=m.geometry,P=g.attributes.position,N=g.attributes.normal,n=P.count;
     let e=by.get(m.material);if(!e)by.set(m.material,e={p:[],n:[],i:[],at:0});

@@ -11,7 +11,9 @@
                On Full and Ultra the shells have slotted variants for the default layout (shellVariant); a bay they
                don't have falls back to these coded shapes
    The mesh is in metres with its origin at the centre of mass (where the sim puts the bot), front along -z; the app's view
-   scales it. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
+   scales it. On Full and Ultra the materials carry maps (vis/surface.js): buildBot ends by projecting UVs over the whole
+   mesh (uvProject, one tile every SURF.tile metres), the wheels become a tyre with a tread round a brushed hub, and the
+   Blender shells get their geometry copied per bot so they take the projection too. botDamage() greys out dented parts and hides destroyed ones, from SCRAP_SIM.partStates(). Meshes are cached
    by build hash (a few at a time) and their geometry and materials are disposed when they drop out of the cache. A team
    colour paints the side panels: clay for you, lilac, green and blue for the others. Your bot (the workshop's, and bot 0
    in a fight) also wears your sponsors' colours (SCRAP_VIS.setPaint, PR 8): a panel on each side, a patch on the top. ---- */
@@ -49,6 +51,7 @@ function buildBot(b,team,sp){
   const P=(x,y)=>[x-cx,-(y-cy)];   // build coords (m, y forward) to mesh (x, z), origin at the centre of mass
   const add=(geo,mat,x,y,z,part)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(part)m.userData.part=part;g.add(m);return m;};
   const body=cfg.body||"plain",drop=body==="wedge"?bodyH*0.6:0,bh=bodyH-drop,boxTop=clr+bh;   /* bh: the box height under a wedge shell's slope */
+  SURF.tile=lite?0:0.09*len;   /* the surfaces' grain: one tile every 9 cm at beetle scale (vis/surface.js; 0 skips the projection) */
   /* the weapon bay (0.1.15.3): evalBuild's b.bay. A slot, pocket or well is cut out of the chassis, its front plate and
      the top over it; a deck is a flat plate on the box top where a raised top (a wedge lid, a dome, a shell) is cut away
      for an arm or a flipper. span: the opening's height in the box, from its bottom */
@@ -119,14 +122,20 @@ function buildBot(b,team,sp){
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
   const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
   if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
-  else{const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
+  else if(lite){const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;}}
+  else{   /* Full and Ultra: a tyre (the tread runs round it: the cylinder's own UVs, repeated) on a brushed hub with a face */
+    const tg=new THREE.CylinderGeometry(wr,wr,ww,seg,1,true);uvRepeat(tg,Math.max(2,Math.round(2*Math.PI*wr/(SURF.tile*0.5))),1);tg.rotateZ(Math.PI/2);
+    const hg=new THREE.CylinderGeometry(wr*0.62,wr*0.62,ww*1.04,seg);hg.rotateZ(Math.PI/2);
+    for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
+      const w=add(tg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;const h=add(hg,M.alu,x-cx,wr,q[1],p.key);h.userData.wheel=1;}}
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
   buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,wellD:bk==="well"||bk==="underwell"?dep:0,
     lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:body==="wedge"?-drop/2:th("top")?tt:0});
-  if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  if(!lite){g.updateMatrixWorld(true);g.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;
+    if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
 
@@ -140,7 +149,9 @@ const SHELL_TOPS={wedge:1,dome:1,pancake:1,invert:1};   // bodies whose shell is
 const SHELL_LID={pancake:.12,invert:.09};   // the wedge lid's plate is .07 thick over its slope
 const SHELL_VAR={wedge_top:1,wedge_bolts:1,dome_shell:1,dome_bolts:1,pancake_lid:1,pancake_bolts:1,invert_plate:1,invert_bolts:1};   // pieces with slotted variants
 function shellAdd(g,S,name,mat,part,x,y,z,sx,sy,sz){const s=S.getObjectByName(name);if(!s)return null;const o=s.clone();
-  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;m.userData.keep=1;if(part)m.userData.part=part;}});g.add(o);return o;}
+  /* each piece's geometry is copied for this bot, so uvProject can give it this bot's UVs (the shared file's stays as loaded;
+     the copy gets its own userData, since r128's clone shares it and uvProject marks it done there) */
+  o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.traverse(m=>{if(m.isMesh){m.material=mat;const ge=m.geometry.clone();ge.userData={};m.geometry=ge;if(part)m.userData.part=part;}});g.add(o);return o;}
 function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topKey,topMat,sideMat,sideKey}=k;
   const vn=(n,v)=>v&&SHELL_VAR[n]?n+"__"+v:n;   // a slotted piece for a weapon bay (shellVariant)
   const U=(name,mat,part)=>shellAdd(g,S,vn(name,k.sv),mat,part,-cx,H,cy,Wd,bodyH,L);   // a piece over the whole body
@@ -258,7 +269,7 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     else{   // vertical disc, drum, saw: spin about the x axis
       const drum=id==="drum",width=drum?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):Math.max(0.005*len,r*0.14);
       const geo=new THREE.CylinderGeometry(r,r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
-      const d=new THREE.Mesh(geo,mat);d.userData.part="weapon";spin.add(d);
+      const d=new THREE.Mesh(geo,drum&&V.tier!=="lite"?M.steel:mat);d.userData.part="weapon";spin.add(d);
       if(drum){for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*0.9,r*0.25,r*0.25),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
       else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
       const cyH=id==="saw"?H+r*0.6:r+Math.max(0.001,(b.height.frontEdgeMm||2)/1000);
@@ -320,7 +331,7 @@ function buildPlaceholderBot(){
   for(const a of [0,Math.PI]){const t=new THREE.Mesh(tooth,M.steel);t.position.set(Math.cos(a)*.62,0,Math.sin(a)*.62);t.rotation.y=-a;disc.add(t);}
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.09,16),M.alu);disc.add(hub);
   disc.position.set(0,Y+H/2+.21,L/2-.25);g.add(disc);
-  if(!lite)g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  if(!lite){SURF.tile=0.09*2.2/0.27*0.6;g.updateMatrixWorld(true);g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material!==M.disc)uvProject(o.geometry,o.matrixWorld);}});}   /* its grain at about the bots' density (it is drawn at 2.2 units a bot) */
   g.userData={disc,placeholder:true};
   return g;
 }
