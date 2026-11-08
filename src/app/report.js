@@ -61,11 +61,15 @@ function rpCauses(F){const me=F.bots[0],out=[],seen={};
   return out.sort((a,b)=>a.t-b.t);}
 
 /* ---- the redesign hint ---- */
+/* which Build row the Fix it button opens: by stress-report line id, else by the hint's kind (":kind") */
+const RP_FIX={shear:"weapon",spinup:"weapon",flip:"weapon",lift:"weapon",recoil:"weapon",bend:"material",bare:"armour",impact:"armour",
+  runtime:"power",heat:"power",power:"power",brushless:"power",com:"layout",nose:"layout",edgeHigh:"body",drop:"chassis",invert:"extras",righter:"extras",
+  slow:"drive",pusher:"drive",":pit":"drive",":inv":"extras",":under":"body",":face":"armour",":weapon":"weapon"};
 function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...ids)=>{for(const id of ids){const l=lines.find(x=>x.id===id&&x.sev!=="good");if(l)return l;}return null;};
   const L=F.log.filter(e=>e.v===0),faceJ={};let unders=0,shear=false,bent=false,flat=false,hot=false;
   for(const e of L){if((e.k==="hit"||e.k==="grind"||e.k==="haz"||e.k==="ram")&&e.f)faceJ[e.f]=(faceJ[e.f]||0)+(e.E||0);
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
-  const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true}:null;
+  const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true,rid:l.id}:null;
   let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
   if(me.out==="pit")kind="pit",h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
   if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))kind="inv",h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
@@ -80,8 +84,8 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
     if(f&&faceJ[f]>0){const a=b.armourMapJ[f],why=`Your ${RP_FACE[f]} took ${Math.round(faceJ[f])} J.`,pl=a&&a.id!=="none"?SIM.part("armour",a.id):null;
       const st=SIM.partStates(b,me.st),gone=st["armour_"+f]==="destroyed"||!pl;
       if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};if(h)kind="face";}}
-  if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
-  h.kind=kind;return h;}
+  if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true,rid:l.id}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
+  h.kind=kind;h.sec=RP_FIX[h.rid]||RP_FIX[":"+kind]||null;return h;}
 
 /* ---- the repair bill ---- */
 function rpPrice(b,key){const cfg=b.cfg,M=SIM.classMult(b.cls),c=(slot,id)=>{const p=SIM.part(slot,id);return p?p.cost*M.cost:0;};
@@ -133,7 +137,7 @@ function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
       ${c.length?`<ul class="rpcause">${c.map(x=>`<li>${x.html}</li>`).join("")}</ul>`:`<p class="ok">Nothing broke.</p>`}
       <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p></div></div>
     <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
-      <div class="row"><button type="button" class="btn sm" data-ft="build">Open Build</button><button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
+      <div class="row">${h.sec&&B_SECS.some(x=>x.id===h.sec)?`<button type="button" class="btn sm" data-ft="fix" data-sec="${h.sec}">Fix it: ${esc(B_SECS.find(x=>x.id===h.sec).t)}</button>`:'<button type="button" class="btn sm" data-ft="build">Open Build</button>'}<button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button></div>
       ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
   <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
   <div class="card"><h3>${F.bots.filter(o=>!o.mini).length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0&&!o.mini).map(o=>rpReveal(F,o.i)).join("")}</div>`;}

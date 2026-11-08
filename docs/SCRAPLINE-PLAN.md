@@ -459,5 +459,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.16: the voice pack (announcer and commentator, captions, Settings rows)
 - [x] 0.1.17: the bots' materials on Full and Ultra (maps made in code, projected UVs, tyres and hubs; Lite unchanged)
 - [x] 0.1.18: home screen with Career and Sandbox, separate garages, Mode switch in Settings
-- [ ] 0.1.19: readability pass and Fix it buttons on the post-mortem
+- [x] 0.1.19: readability pass and Fix it buttons on the post-mortem
 - [ ] 0.1.20: daily challenge and replay codes
