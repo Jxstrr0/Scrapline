@@ -293,7 +293,7 @@ function bToHead(id){const r=document.querySelector(`#bRows [data-sec="${id}"]`)
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
   if(t.closest('[data-act="team"]')){lvOpen();return;}
-  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was)bToHead(id);return;}
+  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was){bToHead(id);const nb=document.querySelector(`#bRows [data-sec="${id}"] .accb`);if(nb&&!reduced())nb.classList.add("pgin");}return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;

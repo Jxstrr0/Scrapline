@@ -74,7 +74,8 @@ function rlCard(){const R=rlState(),car=S.mode==="career";let h="";
   const block=(t,ids,k,btn)=>ids.length?`<div class="rlsec"><div class="rlhd"><h4>${t}</h4>${ids.length>1?`<button type="button" class="btn sm pri" data-rl="${k}">${btn}</button>`:""}</div>${rlRows(ids)}</div>`:"";
   if(car){h=block("This season",R.cur,"cur","Watch all")+block(`${R.lastY||"Last season"}'s reel`,R.last,"last","Watch the reel")+block("Career best",R.best,"best","Watch all");}
   else h=block("Your best spars",R.sb,"sb","Watch all");
-  return`<div class="card" id="rlCard"><h3>Highlights</h3>${h||`<p class="hint">${car?"Knockouts, pit falls, parts torn off and big hits from your event fights land here: the best five of each season, played back in slow motion. At the end of the season they become its reel.":"Knockouts, pit falls, parts torn off and big hits from your spars land here: your best five, played back in slow motion."}</p>`}</div>`;}
+  if(!h)return emptyHtml("film","No highlights yet",car?"Knockouts, pit falls, parts torn off and big hits from your event fights land here: the best five of each season, played back in slow motion. At the end of the season they become its reel.":"Knockouts, pit falls, parts torn off and big hits from your spars land here: your best five, played back in slow motion.",car?[["This week's events","career/week",1]]:[["Set up a spar","fight/spar",1]]).replace('class="card empty"','class="card empty" id="rlCard"');
+  return`<div class="card" id="rlCard"><h3>Highlights</h3>${h}</div>`;}
 const rlSheetBtn=()=>{const R=rlState();return R.last.length?`<div class="row"><button type="button" class="btn pri" data-rl="last">Watch the ${R.lastY||""} reel</button></div>`:"";};
 
 /* ---- playing the reel: one clip after another through the replay ---- */
