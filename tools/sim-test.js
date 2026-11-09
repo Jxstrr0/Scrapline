@@ -283,5 +283,40 @@ for (const cls of SIM.CLASS_IDS) {
   console.log(`0.1.34 checks: shell, ring and meltybrain all round, legs (limit x${L.limitMul}), ${sync} lost syncs in 6 fights; replays match`);
 }
 
+/* 0.1.35: the AI driving audit. A spun-up shell or a heavyweight's disc can still pivot at full lock (the gyro
+   takes most of the turn, never all of it); AI drivers don't drive themselves into the pit; fights replay the same */
+{
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls });
+  for (const [name, cfg] of [["beetle shell", Object.assign(T("hsp", "beetle"), { weapon: "shell", front: "none", back: "none" })],
+    ["heavy vertical disc", T("vsp", "heavy")]]) {
+    const F = SIM.newFight({ seed: 7, arena: "clubbox", bots: [{ cfg }, { cfg: T("brick", cfg.cls), driver: { style: "auto", skill: 0 } }] });
+    const me = F.bots[0];
+    for (let i = 0; i < 120; i++) SIM.stepFight(F, [{ weapon: 1 }, {}]);   // spin it up standing still
+    const h0 = me.h;
+    for (let i = 0; i < 120; i++) SIM.stepFight(F, [{ weapon: 1, steer: 1 }, {}]);
+    const turned = Math.abs(me.h - h0);
+    if (!(turned > 0.3)) fail(`${name}: turned only ${turned.toFixed(2)} rad in 2 s at full lock with the weapon up`);
+    else console.log(`  ${name}: ${turned.toFixed(2)} rad in 2 s at full lock, weapon spun up`);
+  }
+  /* self-inflicted pit falls: a fall with no touch, no air and no hit in the second before */
+  let selfPit = 0, n = 0;
+  const ids = ["wedge", "hsp", "vsp", "flipper", "drum", "invert"];
+  for (let s = 1; s <= 8; s++) {
+    const a = T(ids[s % ids.length], "beetle"), b = T(ids[(s + 2) % ids.length], "beetle");
+    const F = SIM.newFight({ seed: s, arena: s % 2 ? "clubbox" : "tabletop", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+    const last = [-9, -9];let seen = 0;
+    while (!F.over) {
+      SIM.stepFight(F);
+      for (const o of F.bots) { const t = F.bots[1 - o.i]; if (o.touch[t.i] != null && F.t - o.touch[t.i] < 0.05) last[o.i] = F.t; if (o.air) last[o.i] = F.t; }
+      for (; seen < F.log.length; seen++) { const e = F.log[seen]; if (e.k === "pit" && F.t - last[e.v] > 1) selfPit++; }
+    }
+    n++;
+    const r = SIM.fightResult(F), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a 0.1.35 fight replays differently`);
+  }
+  if (selfPit) fail(`${selfPit} self-inflicted pit falls in ${n} AI fights`);
+  console.log(`0.1.35 checks: spun-up spinners pivot; ${selfPit} self-inflicted pit falls in ${n} AI fights; replays match`);
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");
