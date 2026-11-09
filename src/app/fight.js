@@ -145,7 +145,7 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   const cues=[],round=W?W.k:B?B.n:0,opp=ftVName(F),rv=opp?rivals[opp.i]:null;
   if(vc&&vc.first&&!round){const c=S.career;cues.push("intro");if(vc.season)cues.push("career:season");
     if(c&&c.act>(c.actSaid|0)){if(c.act===1)cues.push("career:act1");else if(c.act===2)cues.push("career:act2");c.actSaid=c.act;}
-    if(c&&c.act===3)cues.push("career:defend");
+    if(c&&c.act===3&&crTitle(c).held)cues.push("career:defend");   // only while the title is yours (0.1.39)
     cues.push("venue:"+vc.venue,"event:"+vc.event,vc.venue==="eisenhalle"?"c:tv":"c:intro","class:"+vc.cls,"kind:"+vc.kind);}
   else if(!vc&&!round&&kind!=="duel")cues.push("kind:"+kind);
   if(!round){if(vc&&vc.fmt==="bracket")cues.push("round:"+vc.label);
