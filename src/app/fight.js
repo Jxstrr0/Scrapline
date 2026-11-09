@@ -45,7 +45,8 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
-function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
+function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);
+  if(!FT.ext&&!(FT.bout&&FT.bout.ev)&&S.mode!=="career"){rlConsider(F,{});save();}const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
@@ -103,7 +104,7 @@ function ftSlowPlan(log,mass){const W=[],mm=Math.max(mass,1e-6),add=(t,c)=>{cons
 /* the share of full pace at fight time t: 1 outside the windows, eased down to the window's pace inside */
 function ftSlowAt(W,t){let f=1;for(const w of W){const a=w.a-FT_SLOW.easeIn,b=w.b+FT_SLOW.easeOut;if(t<a||t>b)continue;
     const k=t<w.a?(t-a)/FT_SLOW.easeIn:t>w.b?1-(t-w.b)/FT_SLOW.easeOut:1;f=Math.min(f,1-(1-w.f)*k);}return f;}
-function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(0,Math.min(rp.steps,n|0)));
+function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(rp.s0||0,Math.min(rp.steps,n|0)));
   FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
   SCRAP_VOICE.stop();if(F.n===0)ftVoiceBegin(F,true);else SCRAP_VOICE.seek(F);
   const e=$("fEnd");if(e)e.hidden=true;
@@ -120,7 +121,7 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   const rp=!!FT.rp,B=FT.bout,vc=!rp&&B&&B.ev?B.ev.voice||null:null,src=rp&&FT.rounds[FT.rp.i]?FT.rounds[FT.rp.i].F:null;
   const rivals=rp?(src&&src.vRiv)||{}:vc?vc.rivals||{}:{};F.vRiv=rivals;const kind=ftVKind(F);
   SCRAP_VOICE.begin(F,{speed:rp?FT.rp.speed:FT.you?1:FT.speed,replay:rp,rivals,kind});
-  if(rp){if(!again)SCRAP_VOICE.say("pm:replay");return;}
+  if(rp){if(FT.rp.reel){SCRAP_VOICE.seek(F);if(FT.reel&&FT.reel.k===0)SCRAP_VOICE.say("pm:replay");}else if(!again)SCRAP_VOICE.say("pm:replay");return;}
   /* the intro: the day's welcome (first bout of an event day), the round, the two corners, the countdown */
   const cues=[],round=B?B.n:0,opp=ftVName(F),rv=opp?rivals[opp.i]:null;
   if(vc&&vc.first&&!round){const c=S.career;cues.push("intro");if(vc.season)cues.push("career:season");
@@ -228,9 +229,9 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
     <p class="fcap" id="fCap" aria-live="polite" hidden></p>
     <div class="fend" id="fEnd" hidden role="alertdialog" aria-labelledby="fEndT"><b id="fEndT"></b><p id="fEndS"></p><div class="row" id="fEndBtns"></div></div>
     ${FT.rp?`<div class="frp" id="fRp"><button type="button" class="fbtn" data-fv="rpplay" aria-pressed="false">Pause</button>
-      <input type="range" id="fRpPos" min="0" max="${FT.rp.steps}" step="15" value="0" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(FT.F.rules.roundS)}</span>
-      <button type="button" class="fbtn" data-fv="rpspeed" aria-label="Replay speed">1×</button>
-      <button type="button" class="fbtn" data-fv="rpslow" aria-pressed="${FT.rpAuto!==false}" aria-label="Automatic slow motion on big moments">Slow-mo</button></div>`:""}`;
+      <input type="range" id="fRpPos" min="${FT.rp.s0||0}" max="${FT.rp.steps}" step="15" value="${FT.rp.s0||0}" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(Math.max(0,FT.F.rules.roundS-FT.F.t))}</span>
+      <button type="button" class="fbtn" data-fv="rpspeed" aria-label="Replay speed">${ftSpLbl(FT.rp.speed)}</button>
+      <button type="button" class="fbtn" data-fv="rpslow" aria-pressed="${FT.rpAuto!==false}" aria-label="Automatic slow motion on big moments">Slow-mo</button>${FT.reel&&FT.reel.k<FT.reel.list.length-1?'<button type="button" class="fbtn" data-fv="rlnext" aria-label="Next highlight">Next</button>':""}</div>`:""}${FT.reel?rlBanner():""}`;
   $("view").appendChild(el);el.addEventListener("click",ftOvClick);
   const dpr=Math.min(window.devicePixelRatio||1,2);el.querySelectorAll(".fmap").forEach(cv=>{const w=cv.clientWidth||56;cv.width=cv.height=Math.round(w*dpr);});
   ftPinchOn();
@@ -259,9 +260,9 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   const wheel=e=>{if(!FT.on||skip(e))return;e.preventDefault();set((FT.zoom||1)*(1+Math.sign(e.deltaY)*0.08));};
   v.addEventListener("pointerdown",down);v.addEventListener("pointermove",move);v.addEventListener("pointerup",up);v.addEventListener("pointercancel",up);v.addEventListener("wheel",wheel,{passive:false});
   FT.pinch=()=>{v.removeEventListener("pointerdown",down);v.removeEventListener("pointermove",move);v.removeEventListener("pointerup",up);v.removeEventListener("pointercancel",up);v.removeEventListener("wheel",wheel);P.clear();};}
-function ftExit(){if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
+function ftExit(){const rl=!!FT.reel;FT.reel=null;clearTimeout(RL.t);if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
   if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
-  ftRender();const r=$("ftResCard");if(r)r.scrollIntoView({block:"start"});}
+  ftRender();const r=$(rl?"rlCard":"ftResCard");if(r)r.scrollIntoView({block:"start"});}
 function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
   if(a==="pause")ftPause(!FT.paused);
   else if(a==="skip")SCRAP_VOICE.skip();
@@ -274,10 +275,13 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
   else if(a==="rpplay"){if(F.over){ftSeek(0);return;}ftPause(!FT.paused);b.textContent=FT.paused?"Play":"Pause";b.setAttribute("aria-pressed",FT.paused);}
-  else if(a==="rpspeed"){const sp=[1,2,0.5,0.25],k=(sp.indexOf(FT.rp.speed)+1)%sp.length;FT.rp.speed=sp[k];b.textContent=(sp[k]===0.5?"½":sp[k]===0.25?"¼":sp[k])+"×";}
+  else if(a==="rpspeed"){const sp=[1,2,0.5,0.25],k=(sp.indexOf(FT.rp.speed)+1)%sp.length;FT.rp.speed=sp[k];b.textContent=ftSpLbl(sp[k]);}
+  else if(a==="rlnext"){const e=$("fEnd");if(e)e.hidden=true;rlNext();}
+  else if(a==="rlagain")rlAgain();
   else if(a==="rpslow"){FT.rpAuto=FT.rpAuto===false;b.setAttribute("aria-pressed",FT.rpAuto!==false);}
   else if(a==="results")ftExit();
   else if(a==="2d"){FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
+const ftSpLbl=v=>(v===0.5?"½":v===0.25?"¼":v)+"×";
 /* the strip per bot, the clock and the notes, a few times a second */
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
@@ -370,7 +374,7 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     g.fillStyle=FT_MC[st];g.strokeStyle="#141413";g.lineWidth=Math.max(1,W/100);g.beginPath();if(g.roundRect)g.roundRect(x-tw*s/2,y-tl*s/2,tw*s,tl*s,tw*s*0.35);else g.rect(x-tw*s/2,y-tl*s/2,tw*s,tl*s);g.fill();g.stroke();
     if(st==="destroyed"){g.beginPath();g.moveTo(x-tw*s/2,y-tl*s/2);g.lineTo(x+tw*s/2,y+tl*s/2);g.stroke();}}
 }
-function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
+function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
   if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
@@ -458,7 +462,7 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
 function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   const dl=dlCard(),ext=!!(FT.ext&&ftShown());
-  if(!bot.cfg){if(!ext){FT.F=null;FT.rounds=[];FT.bout=null;}el.innerHTML=chips+ftEvCard()+dl+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+  if(!bot.cfg){if(!ext){FT.F=null;FT.rounds=[];FT.bout=null;}el.innerHTML=chips+ftEvCard()+dl+rlCard()+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+(ext?ftResHtml(ftShown()):"")+rcCard();if(ext)ftResPost(ftShown());return;}
   {const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
   const R=ftShown(),drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon),you=FT.style==="you";
@@ -474,7 +478,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
       <p class="hint" id="ftDrvHint">${ftDrvHint()}</p></div>
     <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
     <div class="row"><button type="button" class="btn pri" data-ft="go">Fight</button></div></div>
-    ${R?ftResHtml(R):""}${rcCard()}`;
+    ${R?ftResHtml(R):""}${rlCard()}${rcCard()}`;
   if(R)ftResPost(R);}
 /* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
 function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":"From a replay code":FT.bout?"The bout":"Last fight";

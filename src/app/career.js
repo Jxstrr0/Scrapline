@@ -97,7 +97,7 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
 function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
-function crStart(){if(S.mode!=="career"&&!setMode("career",true))return;crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};tmPaint();
+function crStart(){if(S.mode!=="career"&&!setMode("career",true))return;crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};rlCareerReset();tmPaint();
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -266,6 +266,8 @@ function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bou
   toast(`The ${nx.label} was left unfinished: counted as a forfeit`);}
 /* after one of your matches: xp, the record, your crew's pit work after a quick sim, then the other fights */
 function crAfterMine(day,nx,res,driven,stopped){const c=S.career,me=res.teams[0];
+  if(!stopped){const e=crEv(day.ev),rv={};nx.idx.forEach((i,k)=>{if(day.field[i]&&day.field[i].rival)rv[k]=true;});   // the highlight reel (app/reel.js)
+    for(const F of res.Fs)rlConsider(F,{ev:e.name,key:day.key,label:nx.label,y:c.year,wk:c.week,rival:rv,final:nx.label==="final",champ:day.kind==="champ"});}
   c.driverXp+=(driven?TIME.xp.drive:TIME.xp.sim)+(res.wt===me&&!stopped?TIME.xp.win:0);
   crRecord(day,nx,res,stopped);
   for(const i of nx.idx)if(i!==0)crCrew(day,i);
@@ -312,9 +314,10 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
   const tl=tmSeasonEnd();   // sponsors renew or go, the kit pays, the new season's rules and meta (app/team.js)
   c.seasons.push({y:c.year,act:c.act,rep:c.rep,money:c.money,best:best?`${best.name}: ${crPlaceTxt(best.kind,best.place)}`:null});
+  rlSeasonEnd(c.year);   // this season's best five become its reel (app/reel.js)
   if(up){c.act++;tpAward("promo",{id:"act"+c.act,name:`Up to the ${TIME.acts[c.act].name} act`,venue:null},null);}c.year++;c.season++;c.week=1;c.repY0=c.rep;
   if(c.season>=WORLD.seasons){c.over=true;c.done=true;}
-  setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>
+  setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
     ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
     ${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>`}`),200);}
