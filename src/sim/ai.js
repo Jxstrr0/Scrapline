@@ -41,7 +41,7 @@ const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12]
    flankR: how far to the side of a front weapon a flanking bot aims (radii of both bots); flankA: how square on the enemy
    must be facing it to bother (rad). reSpin: a spinner below this share of its top speed after a hit backs off; resetS how
    long it reverses. pitShove: the pit this close behind (radii) while being shoved turns it across the shove. */
-const AI_NAV={pitPad:1.3,hazPad:1.1,botPad:1.2,pitSoonS:2,flankR:1.3,flankA:0.7,reSpin:0.55,resetS:[0.3,0.55],pitShove:2.5,
+const AI_NAV={flameSoonS:0.6,pitPad:1.3,hazPad:1.1,botPad:1.2,pitSoonS:2,flankR:1.3,flankA:0.7,reSpin:0.55,resetS:[0.3,0.55],pitShove:2.5,
   escHoldS:0.3,stallS:4,stallGain:0.1,detourS:2.5,arcGyro:0.4,arcSteer:0.6,arcThrottle:0.6};
 /* escHoldS (0.1.35): once it turns away from the pit's edge it keeps going that way this long (it used to flick between the edge
    and its path every few frames). stallS: no touch and no stallGain share closer to the enemy in this long (a deadlock:
@@ -103,10 +103,21 @@ function aiSegCirc(ax,ay,bx,by,cx,cy,R){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy;i
   const u=Math.max(0,Math.min(1,((cx-ax)*dx+(cy-ay)*dy)/L2)),qx=ax+dx*u-cx,qy=ay+dy*u-cy;return qx*qx+qy*qy<R*R?u:-1;}
 const aiGrow=(r,e)=>[r[0]-e,r[1]-e,r[2]+e,r[3]+e];
 const aiIn=(x,y,r)=>x>r[0]&&x<r[2]&&y>r[1]&&y<r[3];
+/* a flame grate (0.1.37) to keep off: its pilot is lit, it burns, or the pilot lights within AI_NAV.flameSoonS */
+function aiFlameHot(F,h){return flamePhase(F,h)>0||flamePhase({t:F.t+AI_NAV.flameSoonS},h)===1;}
+/* the heading off a hot grate for a bot touching it: the shortest of the four ways straight off it that has room for the
+   bot between the grate and the wall (0.1.37: straight away from its middle drove a bot on the wall side into the wall) */
+function aiFlameOut(F,o){const lim=F.arena.half-o.rad*1.05;for(const h of F.arena.haz){if(h.type!=="flame"||!aiFlameHot(F,h)||!inHaz(h,o))continue;
+    const r=h.rect,R=o.rad*1.05;let best=null,bd=1e9;
+    for(const c of [[r[0]-R-o.x,0,Math.PI,r[0]-R>-lim],[r[2]+R-o.x,0,0,r[2]+R<lim],[0,r[1]-R-o.y,-Math.PI/2,r[1]-R>-lim],[0,r[3]+R-o.y,Math.PI/2,r[3]+R<lim]]){
+      const d=Math.abs(c[0])+Math.abs(c[1]);if(c[3]&&d<bd){bd=d;best=c[2];}}
+    return best==null?Math.atan2(-o.y,-o.x):best;}
+  return null;}
 /* the things in o's way: rects (the pit, pusher slabs) and circles (floor spinners, the enemy), each grown by o's size */
 function aiObstacles(F,o,t,m,mode){const L=[],P=F.arena.pit;
   if(P&&F.t>=P.openS-AI_NAV.pitSoonS)L.push({rect:aiGrow(P.rect,o.rad*AI_NAV.pitPad)});
-  if(mode!=="drive")for(const h of F.arena.haz){if(h.type==="spinner")L.push({x:h.at[0],y:h.at[1],R:h.rM+o.rad*AI_NAV.hazPad});
+  for(const h of F.arena.haz)if(h.type==="flame"&&aiFlameHot(F,h))L.push({rect:aiGrow(h.rect,o.rad*AI_NAV.hazPad*0.5)});   // a lit grate is in the way whatever it's doing
+  if(mode!=="drive")for(const h of F.arena.haz){if(h.type==="flame")continue;if(h.type==="spinner")L.push({x:h.at[0],y:h.at[1],R:h.rM+o.rad*AI_NAV.hazPad});
     else if(h.rect)L.push({rect:aiGrow(h.rect,o.rad*AI_NAV.hazPad*0.5)});}
   if(t&&(mode==="line"||mode==="orbit"))L.push({x:t.x,y:t.y,R:(o.rad+t.rad)*AI_NAV.botPad,bot:1});
   return L;}
@@ -231,6 +242,10 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   /* being shoved towards the pit or a hazard: turn across the shove and drive out of it, rather than pushing straight back */
   if(touching&&m.tac&&!(m.back>0)&&!carry){const a=aiShove(F,o,t,P0);
     if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;out.strafe=0;}}
+  /* on a flame grate that is lit or about to be (0.1.37): drive off it by whichever end points away, unless it is carrying
+     a bot there (a pusher shoving one onto it from outside isn't on it; the pit escape below still wins) */
+  if(!carry&&!(m.back>0)){const a=aiFlameOut(F,o);if(a!=null){if(!(m.flT>F.t)||m.flFwd==null)m.flFwd=Math.abs(wrapA(a-o.h))<Math.PI/2;m.flT=F.t+AI_NAV.escHoldS;
+      const fwd=m.flFwd,ef=wrapA(a-o.h),err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-1.6*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.6?1:Math.abs(err)<1.2?0.6:0.25);out.strafe=0;}}
   /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going
      (at least its stopping distance);
      over the edge, drive off it along aiPitOut, by whichever end of the bot points that way */

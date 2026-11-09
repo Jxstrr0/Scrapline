@@ -146,7 +146,9 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
     const lm=kitOwn(o,"post_lamp");o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});G.add(o);if(lm)lamps.push({material:lm});}
   if(lamps.length)AR.lamps=lamps;
   /* hazards: the coded slab or disc stays as the moving thing the tick animates, drawn by the kit piece inside it */
-  for(const z of AR.haz){const isP=z.h.type==="pusher",o=kitPiece(src,isP?"pusher":"spinner");if(!o)continue;
+  for(const z of AR.haz){if(z.fl){const o=kitPiece(src,"flame");if(!o)continue;z.m.material.visible=false;o.scale.set(z.w,1,z.d);o.position.y=0.004;z.glow=kitOwn(o,"flame_glow");
+      o.traverse(m=>{if(m.isMesh)m.receiveShadow=true;});z.m.add(o);continue;}
+    const isP=z.h.type==="pusher",o=kitPiece(src,isP?"pusher":"spinner");if(!o)continue;
     z.m.material.visible=false;if(z.bar)z.bar.visible=false;
     if(isP){const [nx,nz]=z.n,alongX=Math.abs(nx)>=Math.abs(nz);o.rotation.y=Math.atan2(-nz,nx);
       o.scale.set(alongX?z.w:z.d,z.ht,(alongX?z.d:z.w)/3);o.position.y=-z.ht/2;z.glow=kitOwn(o,"pusher_glow");}

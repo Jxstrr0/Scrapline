@@ -50,7 +50,7 @@ function sampPlay(kind,v,e,t){if(!SAMP.on)return false;const ids=(SAMP.sets[kind
    tier, FULL only with samples(on); BEDS are the looped crowds. buf holds decoded files, got the ones asked for. */
 const FX={buf:{},got:{},last:{},until:0,resting:false,want:false,   // want: prep() was asked for before the first tap
 
-  ALL:{cheer:2,ooh:2,groan:2,clap:2,bell:1,pitopen:1,ratchet:1,drill:1,clamp:1,charger:1,dial:2},   // dial: a tuning dial clicks a step (0.1.33)
+  ALL:{cheer:2,ooh:2,groan:2,clap:2,bell:1,pitopen:1,ratchet:1,drill:1,clamp:1,charger:1,dial:2,flame:2},   // dial: a tuning dial clicks a step (0.1.33); flame: a flame grate lights (0.1.37)
   FULL:{spin_h:1,spin_v:1,spin_drum:1,spin_saw:1,spin_under:1,flip:2,fliphp:1,hammer:2,lifter:1,crush:1,ply:2,hdpe:1,ti:1,ar:1,tyre:2,
     scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1,
     mecanum:2,swerve:2,caster:2,grab:2,kick:2,

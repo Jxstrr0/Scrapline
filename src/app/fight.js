@@ -192,7 +192,7 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden&&FT.F&&!FT.
 function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST().sound!==false,me=F.bots[0];
   if(q&&q.length){const ev=[];let bz=0;
     for(const e of q){const En=(e.E||0)/mm;if(e.k==="ram"&&En<=2)continue;FT.flashes.push(Object.assign({t0:now},e));ev.push(e);
-      if(snd&&(e.k!=="land"||En>4))SCRAP_SOUND.hit(Math.sqrt(Math.min(1,En/140)),e.k==="hit"||e.k==="flip"?"hit":e.k);
+      if(snd&&(e.k!=="land"||En>4)&&e.what!=="flame")SCRAP_SOUND.hit(Math.sqrt(Math.min(1,En/140)),e.k==="hit"||e.k==="flip"?"hit":e.k);
       const mine=e.v===0||F.bots.filter(o=>!o.mini).length===2||Math.hypot(e.x-me.x,e.y-me.y)<me.rad*1.5;
       if(mine&&(e.k==="hit"||e.k==="flip"||e.k==="haz"||En>20))bz=Math.max(bz,Math.round(12+40*Math.min(1,En/140)));}
     if(bz&&now-FT.buzzT>140){FT.buzzT=now;buzz(bz);}
@@ -225,7 +225,8 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="grab")SS.sfx("grab",0.7);
   else if(e.k==="kick"&&!e.heavy)SS.sfx("kick",0.7);
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
-  else if(e.k==="haz")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);
+  else if(e.k==="haz"){if(e.what!=="flame")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);}
+  else if(e.k==="flame")SS.sfx("flame",0.55);
   else if(e.k==="pitopen")SS.sfx("pitopen",0.7);
   else if(e.k==="right")SS.sfx("selfright",0.6);
   else if(e.k==="self"&&e.what==="sync")SS.sfx("warble",0.6);
@@ -487,7 +488,8 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
     case"ko":return`${ftCap(N(v))} ${V(v,"is","are")} <span class="broke">counted out</span>`;
     case"pit":return`${ftCap(N(v))} ${V(v,"goes","go")} into the pit`;
     case"pitopen":return"The pit opens";
-    case"haz":{const what=e.what==="pusher"?`The wall pusher shoves ${N(v)}`:`The floor spinner throws ${N(v)}`;
+    case"haz":{if(e.what==="flame")return e.n?`The flames catch ${N(v)}${e.x?" · "+ftParts(F,v,e.x):""}`:null;   // one line a burn, not one a lick
+      const what=e.what==="pusher"?`The wall pusher shoves ${N(v)}`:`The floor spinner throws ${N(v)}`;
       return`${what}: ${J(e.E)}${e.x?" · "+ftParts(F,v,e.x):""}`;}
     case"end":return e.why==="judges"||e.why==="draw"?`Time: it goes to the judges${e.j&&e.j[0]?` · you ${Math.round(e.j[0].total)}, ${esc(F.bots[1].name)} ${Math.round((e.j[1]||{}).total||0)}`:""}`:null;}
   return null;}

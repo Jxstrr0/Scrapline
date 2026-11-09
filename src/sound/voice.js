@@ -126,7 +126,7 @@ function liveCands(F,e,mm){const out=[],En=(e.E||0)/mm,a=e.a!=null?F.bots[e.a]:n
     case"inv":C(e.inv?6:5,e.inv?"c:inv":"c:right");break;
     case"right":C(5,"c:right");break;
     case"heat":C(3,e.what==="drive"?"c:heat:drive":"c:heat:weapon");break;
-    case"haz":C(5,e.what==="pusher"?"c:haz:pusher":"c:haz:spinner","c:haz");break;
+    case"haz":if(e.what==="flame"){if(e.n)C(5,"c:haz");}else C(5,e.what==="pusher"?"c:haz:pusher":"c:haz:spinner","c:haz");break;
     case"pitopen":out.push({who:"a",pri:7,cues:["pitopen"],alt:["c:pitopen"]});break;
     case"pit":if(!F.over)C(8,"c:pit");break;
     case"fail":switch(e.what){

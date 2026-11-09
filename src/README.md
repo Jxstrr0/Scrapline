@@ -45,7 +45,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/fight.js` | `STEP_HZ`, `WEDGE_RULES`, `FIGHT` (the fight's tuning numbers); `newFight`, `stepFight`, `runFight`, `replayFight`, `fightResult`: bodies, drive, the height axis, weapons and their zones, collisions, the wedge rule, the pin limit, `arenaOf` (layout from the seed), the pit and hazards, the judges, knockouts, the log and the packed player inputs |
 | `sim/damage.js` | `DAMAGE`, `PART_STATES`; `damageState` (fresh or with carried damage), `hitOrder`, `hitFace` (the bench uses them too), `landHit`, `damageEffects` (what the damage does), `damageTaken`, `partStates`, `damageShare` |
 | `sim/ai.js` | `AI_STYLES` (rush, keep-away, aggressive, cautious, counter, box-rush, hazard-pusher, opportunist), `AI_SKILL`, `autoStyle`, `aiNew`, `aiThink` |
-| `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the three venues Stahlbrück, Eisenau and Grauwald, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
+| `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the three venues Stahlbrück, Eisenau and Grauwald, the Eisenhalle: pits and their opening times, wall pushers, floor spinners, flame grates), `ARENA_IDS`, `JUDGE_WEIGHTS` |
 | `sim/opponents.js` | `OPPONENTS` (28: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
 | `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap; recorded clangs from `sounds/` layered under it on Full / Ultra (`samples`; the wheel layouts' caster, mecanum and swerve effects since 0.1.31) |

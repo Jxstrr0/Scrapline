@@ -112,3 +112,5 @@ Every tier: crowd_club, crowd_reg, crowd_big (looped beds), cheer1-2, ooh1-2, gr
 | sfx/warble2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
 | sfx/legs1.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
 | sfx/legs2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/flame1.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/flame2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
