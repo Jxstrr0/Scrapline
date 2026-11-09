@@ -126,8 +126,12 @@ function buildBot(b,team,sp,liv){
     m.position.set(-cx,(body==="dome"?H+bodyH*0.27:S&&body==="wedge"?H-drop*(0.5-pz)+wt:H-drop*0.13+lid)+0.0009*len,cy+L*pz);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
-  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
-  if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
+  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key)),wl=b.wheelbase||{id:"std"};   // evalBuild's wheel layout (vis never reads SCRAP_SIM's tables for it)
+  const Wh=!lite&&!wp.tracks&&wl.id!=="std"&&wl.id!=="six"&&wl.id!=="eight"?botWheels():null;   // the Blender wheel parts (models/bot-wheels.glb)
+  const wx=p=>Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
+  if(Wh&&wl.id==="mecanum")for(const p of wheels){const q=P(p.pos[0],p.pos[1]);   // Full / Ultra: the Blender mecanum wheel, both pieces turn
+    for(const [n,m] of [["wh_mec_hub",M.alu],["wh_mec_rollers",M.rubber]]){const o=shellAdd(g,Wh,n,m,p.key,wx(p)-cx,wr,q[1],ww,wr,wr);if(o)o.traverse(x=>{if(x.isMesh)x.userData.wheel=1;});}}
+  else if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
   else if(lite){const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;}}
@@ -136,6 +140,7 @@ function buildBot(b,team,sp,liv){
     const hg=new THREE.CylinderGeometry(wr*0.62,wr*0.62,ww*1.04,seg);hg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(tg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;const h=add(hg,M.alu,x-cx,wr,q[1],p.key);h.userData.wheel=1;}}
+  botWheelParts(g,b,wl,Wh,{P,add,wheels,wx,wr,ww,hw,hl,cx,clr,len,seg,lite});
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
   buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,wellD:bk==="well"||bk==="underwell"?dep:0,
@@ -144,6 +149,31 @@ function buildBot(b,team,sp,liv){
     if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
+
+/* ---- the wheel layouts' extra parts (0.1.31, PARTS.wheelbase): Lite draws them in code, Full and Ultra use the Blender
+   pieces (models/bot-wheels.glb, tools/blender-bot-wheels.py) once loaded.
+     mecanum  Lite: angled roller bars on each tyre, children of it so they turn with it (Full / Ultra: the whole Blender
+              wheel in place of the tyre, drawn by buildBot)
+     swerve   a fork and a turntable over each wheel
+     caster   a small wheel (it turns) at the back, under a swivel fork that reaches up to the chassis ---- */
+function botWheelParts(g,b,wl,Wh,k){const M=V.mats,{P,add,wheels,wx,wr,ww,cx,clr,len,seg,lite}=k;
+  if(wl.id==="mecanum"&&!Wh){const n=lite?6:8,rg=new THREE.BoxGeometry(ww*1.05,wr*0.14,wr*0.32);
+    for(const m of g.children.slice()){if(!m.userData.wheel||m.material!==M.rubber||!/^wheel/.test(m.userData.part||""))continue;
+      for(let i=0;i<n;i++){const a=2*Math.PI*i/n,r=new THREE.Mesh(rg,M.alu);r.position.set(0,Math.cos(a)*wr*1.02,Math.sin(a)*wr*1.02);
+        r.rotation.set(a,0,0);r.rotateY(Math.PI/4*(m.position.x<0?1:-1));r.userData.part=m.userData.part;m.add(r);}}}
+  if(wl.id==="swerve")for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=wx(p)-cx;
+    if(Wh&&shellAdd(g,Wh,"wh_swerve",M.alu,p.key,x,wr,q[1],ww/0.8,wr,wr))continue;
+    const lg=new THREE.BoxGeometry(ww*0.12,wr*1.3,wr*0.6);
+    for(const s of [-1,1])add(lg,M.alu,x+s*ww*0.68,wr*1.5-wr*0.95,q[1],p.key);
+    add(new THREE.BoxGeometry(ww*1.5,wr*0.12,wr*0.9),M.alu,x,wr*2.24,q[1],p.key);
+    add(new THREE.CylinderGeometry(wr*0.5,wr*0.5,wr*0.12,lite?12:24),M.steel,x,wr*2.36,q[1],p.key);}
+  const c=b.parts.find(p=>p.caster);if(!c)return;
+  const cr=Math.max(wr*0.35,Math.min(wr*0.7,clr/1.68)),q=P(0,c.pos[1]),cw=cr*0.62;
+  const wg=new THREE.CylinderGeometry(cr,cr,cw,lite?14:seg);wg.rotateZ(Math.PI/2);const w=add(wg,M.rubber,-cx,cr,q[1],"caster");w.userData.wheel=1;
+  const sy=Math.max(1,clr/(1.68*cr));   // stretched up to the chassis when it rides high
+  if(Wh&&shellAdd(g,Wh,"wh_caster",M.steel,"caster",-cx,cr,q[1],cr,cr*sy,cr))return;
+  const lg=new THREE.BoxGeometry(cr*0.1,cr*1.4*sy,cr*0.4);for(const s of [-1,1])add(lg,M.steel,-cx+s*cr*0.41,cr+cr*0.6*sy,q[1]-cr*0.2,"caster");
+  add(new THREE.BoxGeometry(cr*1.1,cr*0.1,cr*1.1),M.steel,-cx,cr+cr*1.64*sy,q[1]-cr*0.35,"caster");}
 
 /* ---- Full and Ultra: the Blender shells (models/bot-shells.glb, tools/blender-bot-shells.py; loaded by botShells in
    vis/props.js) in place of the coded body shapes above. Each piece is modelled in a unit body (x the width, z the length,

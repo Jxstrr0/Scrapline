@@ -505,6 +505,10 @@ html.reduce .fcap{animation:none}
 .ctlsr{bottom:136px;width:76px;height:76px;border-color:var(--warn);background:#E2A93B40;font-size:12px}
 .ctl.lefty .ctlsr{left:30px}
 .ctl:not(.lefty) .ctlsr{right:30px}
+.ctlsl{bottom:38px;width:76px;height:76px;border-color:var(--lilac);background:#B48CE840;font-size:12px}
+.ctl:not(.lefty) .ctlsl{right:126px}
+.ctl.lefty .ctlsl{left:126px}
+.ctlsl.down{background:var(--lilac);color:#141413}
 .ctltap{position:absolute;inset:0;pointer-events:auto;touch-action:none}
 .ctlmark{position:absolute;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid var(--lilac);pointer-events:none}
 .ctlmark.attack{border-color:var(--clay)} .ctlmark.back{border-color:var(--warn)}

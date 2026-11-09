@@ -194,7 +194,7 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     m.rotation.set(0,o.h-Math.PI/2,0);m.rotateZ(B.inv*Math.PI);
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */
-    const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type==="CylinderGeometry")w.rotation.x=B.wheelA;
+    const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type!=="BoxGeometry")w.rotation.x=B.wheelA;   // not tracks (a box); the Blender mecanum pieces turn too
     /* the weapon */
     const W=o.b.weapon;
     if(u.spin){const r=Math.min(o.wp.om,45);u.spin.rotation[u.spin.userData.axis]+=r*dt*(u.spin.userData.axis==="x"?-1:1);
