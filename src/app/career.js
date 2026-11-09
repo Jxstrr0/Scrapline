@@ -158,8 +158,9 @@ function crNext(day){if(!day||day.done)return null;const k=EVENT_KINDS[day.kind]
   if(day.fights.length)return null;
   if(k.format==="tag")return{idx:[0,1,2,3],teams:[0,0,1,1],bo:1,label:"tag match"};
   return{idx:[0,1,2,3],teams:[0,1,2,3],bo:1,label:"rumble"};}
-const crArena=day=>crFightRules(day.cls).arena;   // the class's arena, with the season's extra hazards (app/team.js)
-const crRulesOf=day=>crFightRules(day.cls).rules;
+const crVenue=day=>(crEv(day.ev)||{}).venue;
+const crArena=day=>crFightRules(day.cls,crVenue(day)).arena;   // the venue's arena (else the class's), with the season's extra hazards (app/team.js)
+const crRulesOf=day=>crFightRules(day.cls,crVenue(day)).rules;
 const crMatchSeed=(day,idx,n)=>(day.seed+crHash(idx.join(",")+"#"+n+"#"+(day.rd||0)))>>>0;
 const crEvals=new Map();
 function crB(e){const k=JSON.stringify(e.cfg);let b=crEvals.get(k);if(!b){b=SIM.evalBuild(e.cfg);crEvals.set(k,b);if(crEvals.size>40)crEvals.delete(crEvals.keys().next().value);}return b;}
@@ -360,7 +361,9 @@ function crEventCard(){const c=S.career;
 function crEvLine(e){const k=EVENT_KINDS[e.kind],v=WORLD.venues[e.venue],t=crTravel(e);
   const fmt=k.format==="league"?"four-bot round robin, three fights":k.format==="bracket"?"eight-bot bracket, best-of-three final":k.format==="rumble"?"four-bot rumble":"you and a partner against two";
   return`<p>${esc(SIM.CLASSES[e.cls].name)} · ${esc(k.name.toLowerCase())} at ${esc(v.name)} · ${fmt}.</p>
-    <p class="hint">Entry ${fmt$(crEntry(e))} · travel ${fmt$(t.cost)}${t.nights?`, ${t.nights} night${t.nights>1?"s":""} away`:""} · ${t.hours} h of your week · first prize ${fmt$(crPrize(e,0))}.</p>`;}
+    ${crArenaLine(e)}<p class="hint">Entry ${fmt$(crEntry(e))} · travel ${fmt$(t.cost)}${t.nights?`, ${t.nights} night${t.nights>1?"s":""} away`:""} · ${t.hours} h of your week · first prize ${fmt$(crPrize(e,0))}.</p>`;}
+/* the arena it is fought in (0.1.28.0: the venue's own) and what is in it */
+function crArenaLine(e){const A=SIM.ARENAS[crArenaId(e.cls,e.venue)];return A?`<p class="hint">Arena: <b>${esc(A.name)}</b>. ${esc(A.line||"")}</p>`:"";}
 function crRivalsAt(e){const rs=RIVALS.filter(r=>r.bots[e.cls]);if(!rs.length)return"";return`<p class="hint">Rivals in the class: ${rs.map(r=>esc(r.name)).join(", ")}.</p>`;}
 function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;const f=EVENT_KINDS[e.kind].format,noPit=f==="rumble"||f==="tag";
   CR.kit=noPit?"none":CR.kitPick||"basic";const t=crTravel(e);
