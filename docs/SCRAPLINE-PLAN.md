@@ -106,6 +106,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Polish list, part one (0.1.29, Kelbo) | Asked, from playing: a skip to the next fight in a class he has a bot for, and a way to watch a simmed fight instead of the text result. **Skip: to the next event this season you can enter, with a sheet showing the weeks and rent** (runs Close week once per week). **Watch it: a third button; the result is recorded first, then played back as a live bout** (the result at the bell, spoiler toasts held). |
 | Polish list, part two (0.1.30, Kelbo) | Asked: a dev mode with +1000 and an unlock-all button in Settings, and a check of the early economy ("it feels hard"). **Dev mode: a Settings switch kept on this phone, showing +€1,000 and Unlock all.** **Unlock all: every tool, every R&D project and the team HQ; the act stays.** **Economy: the "gentler start"** (start €2,500, basic kit €30, club prizes 400/250/150/50, tournament 1,000/500/250/75, Garage act at 45 rep). |
 | Fit hours (0.1.30.1, fix) | Kelbo couldn't fit a new featherweight: 45.5 h against a 44 h bank cap. Fixed without asking (a bug): a fit may run up to one week's hours into next week. |
+| Build features (0.1.31 to 0.1.35, Kelbo) | Asked for ways to make building unique: odd designs, swivel wheels, more wheels (with more power drain), rendered in Blender with ElevenLabs sound effects. **All four groups, in this order:** 0.1.31 wheel layouts (swivel caster, six and eight wheels, mecanum, swerve), 0.1.32 front attachments, a back slot and a grabber, 0.1.33 tuning dials (voltage, ride height and wheel size, weight bias), 0.1.34 odd bodies (shell, ring, meltybrain, walkers). Then **0.1.35: an audit of the AI's driving** once those are in (Kelbo). Strafing layouts get a Slide button (hold to turn steer into sideways); the AI strafes on its own. |
 ---
 
 ## 2. Direction
@@ -482,4 +483,9 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.29: polish from Kelbo's list, part one (skip to the next fight you can enter; Watch it, a sim played out on the Fight tab)
 - [x] 0.1.30: polish from Kelbo's list, part two (dev mode with +€1,000 and Unlock all; an easier first season)
 - [x] 0.1.30.1: fix, a fit can run into next week (a new featherweight needed more hours than the workshop banks)
-- [ ] 0.1.31: more of the polish pass, from Kelbo's list
+- [x] 0.1.31: wheel layouts (swivel caster, six and eight wheels, mecanum, swerve; the Slide button; Blender wheel parts; ElevenLabs effects)
+- [ ] 0.1.32: front attachments, a back slot and a grabber
+- [ ] 0.1.33: tuning dials (voltage, ride height and wheel size, weight bias)
+- [ ] 0.1.34: odd bodies (shell, ring, meltybrain, walkers)
+- [ ] 0.1.35: an audit of the AI's driving
+- [ ] Later: more of the polish pass, from Kelbo's list

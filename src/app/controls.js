@@ -1,6 +1,8 @@
 /* ===================== app/controls.js: driving =====================
-   Turns thumbs, keys and gamepads into the sim's per-step input {throttle, steer, weapon, selfRight} (throttle and steer
-   -1..1; positive steer turns right). Nothing else drives the player's bot.
+   Turns thumbs, keys and gamepads into the sim's per-step input {throttle, steer, weapon, selfRight, slide} (throttle
+   and steer -1..1; positive steer turns right). Nothing else drives the player's bot. With mecanum or swerve wheels
+   (a wheel layout with strafe, 0.1.31) a Slide button shows: while it's held, steering slides sideways instead of
+   turning (the sim's slide flag); Shift or Q on a keyboard, the left shoulder (LB) on a gamepad.
      direct     (Settings → Controls) a floating stick wherever the left thumb lands on the left half of the arena, a
                 weapon button on the right, and a self-right button above it while you're upside down. Left-handed
                 swaps the sides. Spinners: the weapon button switches the disc on and off (on at the bell). Flippers and
@@ -14,22 +16,23 @@
    turn damping (softens the steering, more at speed), and weapon auto-spin (a spinner spins up only when an enemy is
    near, saving battery). Settings → Driving assists turns them off. The level follows the career driver's skill (rookie,
    club, pro: TIME.levels by xp, PR 7); before the career it's the rookie's. PR 8's hired drivers have a fixed skill. */
-const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown:false,wToggle:true,sr:false,keys:{},order:null,steerS:0,
+const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown:false,wToggle:true,sr:false,slide:false,keys:{},order:null,steerS:0,
   pads:false,lastPick:0};
 function ctlAssist(){return ST().assists===false?ASSISTS.off:ASSISTS[CTL.skill||crLevel()]||ASSISTS.rookie;}   // crLevel: the career driver's level (app/career.js), the rookie's before the career
 /* build the overlay inside the arena view; the Fight tab calls it when a fight starts with you driving */
 function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tactical":"direct";CTL.left=!!ST().leftHanded;
-  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.last=null;CTL.order=null;CTL.steerS=0;CTL.keys={};
+  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.slide=false;CTL.last=null;CTL.order=null;CTL.steerS=0;CTL.keys={};
   const el=document.createElement("div");el.id="ctl";el.className="ctl "+CTL.scheme+(CTL.left?" lefty":"");
   el.innerHTML=CTL.scheme==="direct"
     ?`<div class="ctlpad" data-c="pad" aria-hidden="true"><i class="ctlbase"></i><i class="ctlknob"></i><span class="ctlhint">Drive</span></div>
       <button type="button" class="ctlbtn ctlwpn" data-c="wpn" aria-label="Weapon"><span>Weapon</span></button>
-      <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>`
+      <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>
+      <button type="button" class="ctlbtn ctlsl" data-c="sl" aria-label="Slide sideways" hidden><span>Slide</span></button>`
     :`<div class="ctltap" data-c="tap" aria-hidden="true"></div><i class="ctlmark" hidden></i>
       <p class="ctlhint2">Tap the floor to drive there · tap them to attack · tap your bot to back off</p>
       <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>`;
   host.appendChild(el);CTL.el=el;CTL.on=true;
-  const pad=el.querySelector("[data-c=pad]"),wpn=el.querySelector("[data-c=wpn]"),sr=el.querySelector("[data-c=sr]"),tap=el.querySelector("[data-c=tap]");
+  const pad=el.querySelector("[data-c=pad]"),wpn=el.querySelector("[data-c=wpn]"),sr=el.querySelector("[data-c=sr]"),sl=el.querySelector("[data-c=sl]"),tap=el.querySelector("[data-c=tap]");
   const cap=(e)=>{try{e.target.setPointerCapture(e.pointerId);}catch(x){}};
   if(pad){pad.addEventListener("pointerdown",e=>{if(CTL.stick)return;e.preventDefault();cap(e);const r=pad.getBoundingClientRect();
       CTL.stick={id:e.pointerId,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,rx:r.left,ry:r.top};ctlDrawStick();});
@@ -42,6 +45,8 @@ function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tact
     wpn.addEventListener("click",e=>e.preventDefault());}
   if(sr){sr.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.sr=true;sr.classList.add("down");});
     const end=()=>{CTL.sr=false;sr.classList.remove("down");};sr.addEventListener("pointerup",end);sr.addEventListener("pointercancel",end);sr.addEventListener("lostpointercapture",end);}
+  if(sl){sl.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.slide=true;sl.classList.add("down");});
+    const end=()=>{CTL.slide=false;sl.classList.remove("down");};sl.addEventListener("pointerup",end);sl.addEventListener("pointercancel",end);sl.addEventListener("lostpointercapture",end);}
   if(tap)tap.addEventListener("pointerdown",e=>{e.preventDefault();ctlTap(e);});}
 function ctlUnmount(){if(CTL.el&&CTL.el.parentNode)CTL.el.parentNode.removeChild(CTL.el);CTL.el=null;CTL.on=false;CTL.stick=null;CTL.keys={};}
 /* the stick: knob offset from where the thumb landed, at most 56 px */
@@ -70,17 +75,17 @@ function ctlTap(e){const F=FT.F;if(!F||e.isPrimary===false)return;   // a second
     clearTimeout(ctlTap.t);ctlTap.t=setTimeout(()=>{m.hidden=true;},700);}
   buzz(6);}
 /* keyboard: held keys (the Fight tab only listens while a fight is live) */
-const CTL_KEYS={KeyW:"up",ArrowUp:"up",KeyS:"down",ArrowDown:"down",KeyA:"left",ArrowLeft:"left",KeyD:"right",ArrowRight:"right",Space:"wpn",KeyR:"sr"};
+const CTL_KEYS={KeyW:"up",ArrowUp:"up",KeyS:"down",ArrowDown:"down",KeyA:"left",ArrowLeft:"left",KeyD:"right",ArrowRight:"right",Space:"wpn",KeyR:"sr",ShiftLeft:"sl",ShiftRight:"sl",KeyQ:"sl"};
 document.addEventListener("keydown",e=>{if(!CTL.on)return;const k=CTL_KEYS[e.code];if(!k||e.target.closest("input,textarea,select"))return;e.preventDefault();
   if(k==="wpn"&&!CTL.keys.wpn)CTL.wPress=true;CTL.keys[k]=true;});
 document.addEventListener("keyup",e=>{const k=CTL_KEYS[e.code];if(k)CTL.keys[k]=false;});
 window.addEventListener("blur",()=>{CTL.keys={};});
 function ctlPad(){if(!navigator.getGamepads)return null;let gp=null;try{for(const g of navigator.getGamepads())if(g&&g.connected){gp=g;break;}}catch(e){return null;}
   if(!gp)return null;const ax=v=>Math.abs(v)<0.15?0:v,b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed);
-  return{x:ax(gp.axes[0]||0),y:-ax(gp.axes[1]||0),wpn:b(0)||b(7),sr:b(3)||b(1)};}
+  return{x:ax(gp.axes[0]||0),y:-ax(gp.axes[1]||0),wpn:b(0)||b(7),sr:b(3)||b(1),sl:b(4)};}
 
 /* this step's input for bot o in fight F */
-function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CTL.on||!o)return out;
+function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0};if(!CTL.on||!o)return out;
   /* the sim only reads the player on every inputTick-th step: between those, hold the last reading so a tap (a flipper
      shot, the spinner toggle) is kept for the next read instead of being spent on a step the sim ignores */
   if(F.n%SIM.FIGHT.inputTick&&CTL.last)return CTL.last;
@@ -97,14 +102,20 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CT
   else if(W.type==="lifter")wpn=wpn||held;
   else wpn=wpn||CTL.wPress||held&&W.type!=="flipper";
   CTL.wPress=false;
+  /* slide (mecanum, swerve): the stick's sideways push goes straight to the sim as a slide, no turn assists */
+  const canSlide=o.b.wheelbase&&o.b.wheelbase.strafe>0,slide=canSlide&&(CTL.slide||K.sl||(gp&&gp.sl));
+  if(slide){out.throttle=Math.max(-1,Math.min(1,thr));out.steer=Math.max(-1,Math.min(1,st));out.slide=1;CTL.steerS=0;
+    out.weapon=wpn?1:0;out.selfRight=sr?1:0;CTL.last=out;ctlButtons(o,canSlide);return out;}
   /* assists: soften the steering at speed, smooth it, and hold the heading while you're not steering */
   st*=1-A.turnDamp*Math.min(1,Math.abs(thr));
   CTL.steerS+=(st-CTL.steerS)*(1-A.turnDamp*0.6);st=CTL.steerS;
   if(!steering&&Math.abs(thr)>0.2&&A.straighten>0)st=Math.max(-1,Math.min(1,st+A.straighten*o.w*0.25));
   out.throttle=Math.max(-1,Math.min(1,thr));out.steer=Math.max(-1,Math.min(1,st));out.weapon=wpn?1:0;out.selfRight=sr?1:0;
-  /* the self-right button shows only when it's needed */
-  const srb=CTL.el&&CTL.el.querySelector("[data-c=sr]");if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
-  CTL.last=out;return out;}
+  ctlButtons(o,canSlide);CTL.last=out;return out;}
+/* the self-right button shows only when it's needed; Slide only with a wheel layout that can slide */
+function ctlButtons(o,canSlide){if(!CTL.el)return;const srb=CTL.el.querySelector("[data-c=sr]"),slb=CTL.el.querySelector("[data-c=sl]");
+  if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
+  if(slb&&slb.hidden===!!canSlide)slb.hidden=!canSlide;}
 function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}
 /* tactical orders to throttle and steer: point at the target, go when roughly facing it */
 function ctlTactical(F,o,ord){let tx,ty,wpn=false;

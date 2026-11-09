@@ -524,6 +524,10 @@ html.reduce .fcap{animation:none}
 .ctlsr{bottom:136px;width:76px;height:76px;border-color:var(--warn);background:#E2A93B40;font-size:12px}
 .ctl.lefty .ctlsr{left:30px}
 .ctl:not(.lefty) .ctlsr{right:30px}
+.ctlsl{bottom:38px;width:76px;height:76px;border-color:var(--lilac);background:#B48CE840;font-size:12px}
+.ctl:not(.lefty) .ctlsl{right:126px}
+.ctl.lefty .ctlsl{left:126px}
+.ctlsl.down{background:var(--lilac);color:#141413}
 .ctltap{position:absolute;inset:0;pointer-events:auto;touch-action:none}
 .ctlmark{position:absolute;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid var(--lilac);pointer-events:none}
 .ctlmark.attack{border-color:var(--clay)} .ctlmark.back{border-color:var(--warn)}
@@ -688,7 +692,7 @@ const rPick=(r,arr)=>arr[Math.floor(arr.length*r())];
    evalBuild (sim/build.js) is the one place these become kg, m, s, J and W.
 
    A config (cfg) is plain JSON, the same shape for the player, designs and opponents:
-     {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, battery, electronics, weapon, weaponMaterial,
+     {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, wheelbase, battery, electronics, weapon, weaponMaterial,
       extras:[ids], layout:{<part key>:[x,y]}}
    Layout keys: drive0..drive3, battery, electronics, weapon, and extras that take cells (selfright, minibot). x runs
    left to right across the chassis, y from the front row (0) to the back. Missing or illegal places are filled by
@@ -772,6 +776,28 @@ const PARTS={
     {id:"solid", name:"Solid hubs",     massG:60, grip:0.70,radiusMm:24,exposure:0.35,hp:80,cost:30,hours:0.8,unlock:"start"},
     {id:"tracks",name:"Tracks",         massG:110,grip:1.30,radiusMm:16,exposure:0.25,hp:60,cost:90,hours:2,  unlock:"tool:mill",tracks:true}
   ],
+  /* the wheel layout (0.1.31, Kelbo: odd drive, swivel wheels, more wheels for more drain). perSide: driven wheels a side
+     (null: one per drive pod, as before); wheelMul x the wheel set's mass; massG extra (chains, caster, mounts); podG extra
+     per drive pod (swerve's steering servos). The drive in the fight: gripMul x the tyres' grip, latMul x how hard they
+     resist sliding sideways (mecanum rollers let a shove through), scrubMul x the scrub of turning, crrMul x rolling
+     resistance, powerMul x the drive's draw and heat, underMul x the grip kept while sat on a wedge (the back wheels still
+     reach the floor), strafe: the share of top speed it can slide sideways at (0: it can't), podsNeed: drive pods it
+     needs (a mecanum wheel needs its own motor), caster: a swivel wheel at the back that can be hit (casterHp) and, broken,
+     drags (DAMAGE.casterDrag). hpMul x each wheel's hp. Tracks run the whole side, so they only go with "std". */
+  wheelbase:[
+    {id:"std",    name:"Wheel on each pod",   perSide:null,wheelMul:1,  massG:0, podG:0, gripMul:1,   latMul:1,   scrubMul:1,   crrMul:1,   powerMul:1,   underMul:1,  strafe:0,   hpMul:1,  cost:0,  hours:0,  unlock:"start",
+      line:"A wheel on every drive pod. Nothing to add, nothing to go wrong."},
+    {id:"caster", name:"Two wheels + caster", perSide:1,   wheelMul:0.7,massG:25,podG:0, gripMul:0.75,latMul:0.75,scrubMul:0.9, crrMul:0.9, powerMul:1,   underMul:1,  strafe:0,   hpMul:1,  cost:15, hours:1,  unlock:"start",caster:true,casterHp:20,
+      line:"Two driven wheels in the middle and a swivel wheel at the back. Spins on the spot and runs light; pushes less, and a broken caster drags."},
+    {id:"six",    name:"Six wheels",          perSide:3,   wheelMul:1.3,massG:20,podG:0, gripMul:1.1, latMul:1.1, scrubMul:1.15,crrMul:1.2, powerMul:1.12,underMul:2.5,strafe:0,   hpMul:1,  cost:40, hours:3,  unlock:"tool:drillpress",
+      line:"Three chain-driven wheels a side. Pushes harder, keeps driving on a wedge and with a wheel gone; turns slower and drains more."},
+    {id:"eight",  name:"Eight wheels",        perSide:4,   wheelMul:1.5,massG:25,podG:0, gripMul:1.2, latMul:1.2, scrubMul:1.15,crrMul:1.2, powerMul:1.25,underMul:3.5,strafe:0,   hpMul:1,  cost:70, hours:4.5,unlock:"tool:welder",
+      line:"Four wheels a side. Hardest to lift or stop, and the heaviest and thirstiest drive. Turns like a lorry."},
+    {id:"mecanum",name:"Mecanum wheels",      perSide:null,wheelMul:1.4,massG:0, podG:0, gripMul:0.8, latMul:0.35,scrubMul:0.8, crrMul:1.1, powerMul:1.1, underMul:1,  strafe:0.7, hpMul:0.7,cost:80, hours:3,  unlock:"tool:printer",podsNeed:4,
+      line:"Rollers round each wheel let it slide sideways: step round a spinner and hit it in the side. It pushes badly and gets shoved about."},
+    {id:"swerve", name:"Swerve pods",         perSide:null,wheelMul:1.1,massG:0, podG:50,gripMul:0.9, latMul:0.75,scrubMul:0.7, crrMul:1,   powerMul:1.2, underMul:1,  strafe:0.95,hpMul:0.75,cost:260,hours:6,  unlock:"rnd:swerve",
+      line:"Every wheel turns on its own servo: it slides sideways and still pushes. Heavy, dear and hungry."}
+  ],
   /* capacityWs stored energy (W s), dischargeW the most it can deliver at once */
   battery:[
     {id:"small",name:"Small LiPo",          fp:[1,1],massG:45, capacityWs:16000,dischargeW:400,hp:25,cost:25,hours:0.3,unlock:"start"},
@@ -839,14 +865,14 @@ const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite
 const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
   cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
   driver:{style:"rush"}};
-const PART_SLOTS=["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
+const PART_SLOTS=["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
 
 /* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
 const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
-  drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
+  drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
 
 /* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
    part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them
@@ -948,6 +974,7 @@ const TEST_BUILDS=[
      valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
      com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
      driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
+     wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
@@ -989,7 +1016,7 @@ function evalBuild(cfgIn,opts){
   const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),bd=pick("body",cfg.body),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
-    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
+    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial),wb=pick("wheelbase",cfg.wheelbase);
   const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
@@ -1030,11 +1057,22 @@ function evalBuild(cfgIn,opts){
 
   /* drive pods and wheels (the wheels sit at the pod's outer edge) */
   const podKeys=fps.filter(f=>f.slot==="drive").map(f=>f.key);
-  const podG=dr.massG*M.mass/dr.pods,wheelG=wh.massG*M.mass/dr.pods;
-  let leftX=[],rightX=[];
+  const podG=dr.massG*M.mass/dr.pods+wb.podG*M.mass;
+  let leftX=[],rightX=[];const wheelAt=[];   // [key, side, y]
+  const nWheels=wb.perSide?2*wb.perSide:dr.pods,wheelG=wh.massG*M.mass*wb.wheelMul/nWheels;
   for(const k of podKeys){const p=centreOf(k);if(!p)continue;addM(k,"drive",dr.id,podG,p[0],p[1]);
-    const side=p[0]<0?-1:1;addM("wheel"+k.slice(5),"wheels",wh.id,wheelG,side*hw,p[1]);(side<0?leftX:rightX).push(side*hw);}
+    const side=p[0]<0?-1:1;(side<0?leftX:rightX).push(side*hw);
+    if(!wb.perSide){wheelAt.push(["wheel"+k.slice(5),side,p[1]]);addM("wheel"+k.slice(5),"wheels",wh.id,wheelG,side*hw,p[1]);}}
+  /* the wheel layout (0.1.31): perSide wheels a side, spread along it (one sits by the pods), chain-driven from the pods */
+  if(wb.perSide){const n=wb.perSide,ys=n===1?null:Array.from({length:n},(_,i)=>(0.72-1.44*i/(n-1))*hl);
+    for(const side of [-1,1]){const own=podKeys.map(centreOf).filter(p=>p&&(p[0]<0)===(side<0)),my=own.length?own.reduce((a,p)=>a+p[1],0)/own.length:0;
+      for(let i=0;i<n;i++)wheelAt.push(["wheel"+(2*i+(side<0?0:1)),side,ys?ys[i]:my]);}
+    wheelAt.sort((a,b)=>(+a[0].slice(5))-(+b[0].slice(5)));
+    for(const q of wheelAt)addM(q[0],"wheels",wh.id,wheelG,q[1]*hw,q[2]);}
+  if(wb.massG)addM(wb.caster?"caster":"wheelbase","wheelbase",wb.id,wb.massG*M.mass,0,wb.caster?-hl*0.85:0);
   if(podKeys.length&&(!leftX.length||!rightX.length))errors.push("The drive pods need to be on both sides");
+  if(wb.podsNeed&&dr.pods<wb.podsNeed)errors.push(wb.name+" need a motor on every wheel: two motors a side");
+  if(wh.tracks&&wb.id!=="std")errors.push("Tracks run the whole side: they only go on a wheel on each pod");
   const bp=centreOf("battery");if(bp)addM("battery","battery",bt.id,bt.massG*M.mass,bp[0],bp[1]);
   const ep=centreOf("electronics");if(ep)addM("electronics","electronics",el.id,el.massG*M.mass,ep[0],ep[1]);
 
@@ -1068,19 +1106,19 @@ function evalBuild(cfgIn,opts){
 
   /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
   const brushMismatch=!!dr.brushless&&!el.brushless;
-  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1),weaponPowerW=wp.powerW*M.power;
+  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1)*wb.powerMul,weaponPowerW=wp.powerW*M.power;
   const peakW=drivePowerW+weaponPowerW+el.idleW*M.power;
   const capW=Math.min(bt.dischargeW*M.power,el.maxPowerW*M.power);
   const powerScale=peakW>0?Math.min(1,capW/peakW):1;
 
   /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
   const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale),F0=dr.forceN*M.mass*powerScale;
-  const weightN=massKg*K.g,traction=wh.grip*weightN,pushN=Math.min(F0,traction);
-  const resist=K.crr*weightN;
+  const grip=wh.grip*wb.gripMul,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
+  const resist=K.crr*weightN*wb.crrMul;
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
   const trackM=leftX.length&&rightX.length?(rightX.reduce((a,b)=>a+b,0)/rightX.length-leftX.reduce((a,b)=>a+b,0)/leftX.length):W/1000;
-  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub:0;
+  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub/Math.sqrt(wb.scrubMul):0;
   const turnAccel=moi>0?pushN*trackM/2/moi:0;
   /* pull: with the COM off to one side, the light side's wheels slip first and the heavy side pushes it round */
   const pull=clamp(-com.x/(trackM/2||1),-1,1);
@@ -1130,9 +1168,11 @@ function evalBuild(cfgIn,opts){
   const addPart=(key,slot,id,hp,g)=>{const cl=cellsOf(key);let e=0;for(const q of cl)e=Math.max(e,cellE(q[0],q[1]));
     parts.push({key,slot,id,cells:cl,massKg:r3(g/1000),hpJ:hp,exposure:r3(e),pos:centreOf(key)});};
   for(const k of podKeys)addPart(k,"drive",dr.id,dr.hp*M.mass,podG);
-  for(const k of podKeys){const p=centreOf(k);if(!p)continue;const side=p[0]<0?"left":"right";
-    parts.push({key:"wheel"+k.slice(5),slot:"wheels",id:wh.id,cells:cellsOf(k),massKg:r3(wheelG/1000),hpJ:wh.hp*M.mass,
-      exposure:r3(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5),pos:[p[0]<0?-hw:hw,p[1]]});}
+  for(const q of wheelAt){const side=q[1]<0?"left":"right",pk=podKeys.find(k=>"wheel"+k.slice(5)===q[0]);
+    parts.push({key:q[0],slot:"wheels",id:wh.id,cells:pk?cellsOf(pk):[],massKg:r3(wheelG/1000),hpJ:wh.hp*M.mass*wb.hpMul,
+      exposure:r3(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5),pos:[q[1]*hw,q[2]]});}
+  if(wb.caster)parts.push({key:"caster",slot:"wheels",id:"caster",caster:true,cells:[],massKg:r3(wb.massG*M.mass/1000),hpJ:wb.casterHp*M.mass,
+    exposure:r3(0.3*(1-armourMapJ.back.prot*0.5)),pos:[0,-hl*0.85]});
   addPart("battery","battery",bt.id,bt.hp*M.mass,bt.massG*M.mass);
   addPart("electronics","electronics",el.id,el.hp*M.mass,el.massG*M.mass);
   if(wp.type!=="none"){if(wp.fp)addPart("weapon","weapon",wp.id,weapon.hpJ,structG+motorG+discG);
@@ -1164,7 +1204,9 @@ function evalBuild(cfgIn,opts){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip:wh.grip,
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip,
+    wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
+      wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe},
     limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW:el.idleW*M.power,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
@@ -1214,7 +1256,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","body","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
+  for(const s of ["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none")&&!(s==="wheelbase"&&b[s]==="std"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
@@ -1357,8 +1399,9 @@ const asBuild=x=>x&&x.armourMapJ?x:evalBuild(x);
 
 /* a part key in words: "left front drive pod", "Large LiPo", "Vertical spinner" */
 function benchPartName(b,key){const p=b.parts.find(q=>q.key===key);if(!p)return key;
-  if(p.slot==="drive"||p.slot==="wheels"){const side=p.pos[0]<0?"left":"right",same=b.parts.filter(q=>q.slot===p.slot&&(q.pos[0]<0)===(p.pos[0]<0));
-    const fb=same.length>1?(p.pos[1]>=Math.max(...same.map(q=>q.pos[1]))?" front":" rear"):"";
+  if(p.caster)return"swivel caster";
+  if(p.slot==="drive"||p.slot==="wheels"){const side=p.pos[0]<0?"left":"right",same=b.parts.filter(q=>q.slot===p.slot&&!q.caster&&(q.pos[0]<0)===(p.pos[0]<0));
+    const ys=same.map(q=>q.pos[1]),fb=same.length>1?(p.pos[1]>=Math.max(...ys)?" front":p.pos[1]<=Math.min(...ys)?" rear":" middle"):"";
     return side+fb+(p.slot==="drive"?" drive pod":" wheel");}
   const pp=part(p.slot==="extras"?"extras":p.slot,p.id);return pp?pp.name:key;}
 
@@ -1435,7 +1478,7 @@ function benchEndurance(x){const b=asBuild(x),P=b.power,h=b.heat,dt=0.25,cyc=BEN
 
 function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len,E=b.massKg*K.g*hM*BENCH.dropShare;
   const alive=(st,k)=>!(k in st.parts)||st.parts[k]>0;
-  const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
+  const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&!p.caster&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
     return side(-1)&&side(1)&&alive(st,"battery")&&alive(st,"electronics");};
   const skid=b.cfg.extras.indexOf("skid")>=0?part("extras","skid").underAbsorbJ*M.mass:0;
   /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods (landHit, sim/damage.js) */
@@ -1460,8 +1503,9 @@ function runBench(x,id){const b=asBuild(x);if(id)return BENCH_RUN[id]?BENCH_RUN[
                                             flags: {bent, smoke, cell, esc} carries failures in (a best-of-three
                                             round after a pit window that didn't fix them).
                                             fx: keep F.fxq, where hits and landings happened, for a view to flash.
-     stepFight(F, inputs)                   one step. inputs: {botIndex: {throttle, steer, weapon, selfRight}} for the
-                                            player bots (throttle and steer -1..1, weapon and selfRight 0 or 1)
+     stepFight(F, inputs)                   one step. inputs: {botIndex: {throttle, steer, weapon, selfRight, slide}} for the
+                                            player bots (throttle and steer -1..1, weapon, selfRight and slide 0 or 1; with
+                                            slide held a strafing drive slides sideways on the steer instead of turning)
      runFight(opts)                         newFight, then step to the end (AI against AI, or a replay): the result
      replayFight(log)                       the same fight again from its log: seed + builds + the player's inputs
      fightResult(F)                         {over, winner (team or null), reason, timeS, bots:[...], log}
@@ -1739,12 +1783,14 @@ function readInput(F,o,inputs){let u;
   else if(F.n%FIGHT.inputTick)return;   // the player's input holds between ticks
   else if(F.play&&F.play[o.i]){const p=F.play[o.i],k=Math.max(0,Math.min(F.n/FIGHT.inputTick|0,p.n-1)),Q=FIGHT.inputLevels,
       at=c=>{const v=p.ch[c]&&p.ch[c][k];return v>=0?v:c<2?Q+1:0;};   // a missing or damaged stream reads as hands off
-    u={throttle:clamp1((at(0)-Q-1)/Q),steer:clamp1((at(1)-Q-1)/Q),weapon:at(2)&1,selfRight:(at(2)>>1)&1};}
+    u={throttle:clamp1((at(0)-Q-1)/Q),steer:clamp1((at(1)-Q-1)/Q),weapon:at(2)&1,selfRight:(at(2)>>1)&1,slide:(at(2)>>2)&1};}
   else{const raw=(inputs&&inputs[o.i])||{},rec=F.rec[o.i],Q=FIGHT.inputLevels,q=v=>{v=+v||0;return Math.round(clamp1(v)*Q)+Q+1;};
-    let qt=q(raw.throttle),qs=q(raw.steer);const fl=(raw.weapon?1:0)|(raw.selfRight?2:0);
+    let qt=q(raw.throttle),qs=q(raw.steer);const fl=(raw.weapon?1:0)|(raw.selfRight?2:0)|(raw.slide?4:0);
     const h=(v,l)=>(Math.abs(v-l)<FIGHT.inputHyst&&v!==1&&v!==2*Q+1&&v!==Q+1)?l:v;qt=h(qt,rec.last[0]);qs=h(qs,rec.last[1]);
     rec.last=[qt,qs,fl];for(let c=0;c<3;c++)rec.v[c].push(rec.last[c]);
-    u={throttle:(qt-Q-1)/Q,steer:(qs-Q-1)/Q,weapon:fl&1,selfRight:(fl>>1)&1};}
+    u={throttle:(qt-Q-1)/Q,steer:(qs-Q-1)/Q,weapon:fl&1,selfRight:(fl>>1)&1,slide:(fl>>2)&1};}
+  /* slide held (0.1.31, a strafing drive): the stick's left and right slide the bot sideways instead of turning it */
+  if(u.slide){u={throttle:u.throttle,steer:0,strafe:u.steer,weapon:u.weapon,selfRight:u.selfRight};}
   o.input=u;}
 
 function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o)*(o.heat.wDer?BENCH.derate:1),wp=o.wp;
@@ -1830,7 +1876,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
   if(o.air){o.cmd=[0,0];return 0;}
   const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
-  const gripMul=o.held!=null?FIGHT.liftGrip:o.under?(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip):1;
+  const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)*wb.underMul):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
   let cL=go?clamp1(u.throttle+u.steer):0,cR=go?clamp1(u.throttle-u.steer):0;
   o.cmd=[cL,cR];let FL=0,FR=0;
@@ -1840,13 +1886,17 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
     let Fs=d.f0/2*p*sd.push*(cmd-(v0>0?vs/v0:0));const T=b.grip*N/2*sd.grip*gripMul;Fs=Fs>T?T:Fs<-T?-T:Fs;
     if(s)FR=Fs;else FL=Fs;draw+=b.power.driveW*b.powerScale*p*Math.abs(cmd)/2;}
   /* rolling resistance (harder with dead motors), never past a standstill */
-  const crr=K.crr*N*(go?1:FIGHT.deadDrag)*gripMul,Fr=Math.abs(vF)*o.m/dt<crr?-vF*o.m/dt:-Math.sign(vF)*crr;
+  const crr=K.crr*N*(go?1:FIGHT.deadDrag)*gripMul*wb.crrMul*f.drag,Fr=Math.abs(vF)*o.m/dt<crr?-vF*o.m/dt:-Math.sign(vF)*crr;
   const aF=(FL+FR+Fr)/o.m;o.vx+=fw[0]*aF*dt;o.vy+=fw[1]*aF*dt;
-  /* tyres don't slide sideways easily */
-  const vL=o.vx*rt[0]+o.vy*rt[1],lat=Math.min(Math.abs(vL),FIGHT.latGrip*b.grip*g*gripMul*dt);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
+  /* tyres don't slide sideways easily (mecanum rollers do: latMul). A strafing drive (0.1.31: mecanum, swerve) drives the
+     sideways speed to what it's asked for instead of to nothing, as hard as its grip allows; upside down, right is left */
+  let vT=0,lg=FIGHT.latGrip*b.grip*g*gripMul*wb.latMul*dt;
+  if(wb.strafe>0&&go&&u.strafe){const sl=f.sides.left.out||f.sides.right.out?0.5:1;vT=clamp1(u.strafe)*v0*wb.strafe*sl*Math.min(1,f.sides.left.push+f.sides.right.push);
+    lg=Math.max(lg,FIGHT.latGrip*b.grip*g*gripMul*dt*wb.strafe);draw+=b.power.driveW*b.powerScale*p*Math.abs(u.strafe)*0.5;}
+  const vL=o.vx*rt[0]+o.vy*rt[1]-vT,lat=Math.min(Math.abs(vL),lg);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
   /* yaw: the two sides' difference, less the scrub of turning a skid-steer */
   const gy=FIGHT.gyro[b.weapon.id]&&b.weapon.omega>0?1-Math.min(0.9,FIGHT.gyro[b.weapon.id]*(FIGHT.gyroClass[F.cls]||1))*Math.min(1,o.wp.om/b.weapon.omega):1;
-  o.w+=(FR-FL)*half/o.I*dt*gy;const scrub=FIGHT.scrub*b.grip*N*half*gripMul/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
+  o.w+=(FR-FL)*half/o.I*dt*gy;const scrub=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
   return draw;}
 
 function stepHeat(F,o,driveW,weaponW){const h=o.b.heat,q=o.heat,dt=F.dt,full=o.b.power;
@@ -2072,6 +2122,7 @@ function replayFight(log){if(!log||log.noReplay)return null;const play={};for(co
    cell) are rolled by the fight (sim/fight.js) from its seeded generator and handed in as flags. ---- */
 const PART_STATES=["intact","damaged","destroyed"];
 const DAMAGE={
+  casterDrag:1.6,  // a broken swivel caster (0.1.31) drags: turning scrub and rolling resistance x this
   passOn:0.7,      // a destroyed part passes this share of what was left of the hit on to the next part behind it
   frontLead:1.1,   // a weapon or bar with no cells (a wedge plate) sits in front of everything behind the front face
   motorAt:0.35,    // a weapon below this share of its hp has a dead motor (it coasts, can't spin up or fire)
@@ -2146,11 +2197,11 @@ function landHit(b,st,E,inverted){const M=classMult(b.cls);
   return out;}
 /* what the damage does. flags (rolled by the fight): {esc:"left"|"right"|null (the dead controller), smoke, cell (a
    failsafe kept a cell), bent}. Returns {sides:{left:{push, grip, out}, right:{..}}, power, dead (a reason or null),
-   weaponOk, motorOk, bent, righter, absorbMul, flexing} */
+   weaponOk, motorOk, bent, righter, absorbMul, flexing, drag (x scrub and rolling resistance: a broken caster)} */
 function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.parts)||st.parts[k]>0,frac=k=>{const p=b.parts.find(q=>q.key===k);return p&&p.hpJ>0?st.parts[k]/p.hpJ:1;};
   const sides={};
   for(const s of ["left","right"]){const on=p=>(p.pos[0]<0)===(s==="left");
-    const pods=b.parts.filter(p=>p.slot==="drive"&&on(p)),wh=b.parts.filter(p=>p.slot==="wheels"&&on(p));
+    const pods=b.parts.filter(p=>p.slot==="drive"&&on(p)),wh=b.parts.filter(p=>p.slot==="wheels"&&!p.caster&&on(p));
     const push=pods.length?pods.filter(p=>alive(p.key)).length/pods.length:0,grip=wh.length?wh.filter(p=>alive(p.key)).length/wh.length:0;
     sides[s]={push,grip,out:!push||!grip||flags.esc===s};}
   const hasBat=b.parts.some(p=>p.key==="battery"),batDead=hasBat&&!alive("battery");
@@ -2162,7 +2213,8 @@ function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.part
   const sr=b.cfg.extras.indexOf("selfright")>=0&&alive("selfright"),wr=!!part("weapon",b.cfg.weapon).selfRights&&motorOk;
   const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0],cf=Math.max(0,st.chassis)/Math.max(chassisHp(b),1e-9);
   const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*(ch.flex+bodyOf(b).flexAdd)*(1-cf));
-  return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt};}
+  const drag=b.parts.some(p=>p.caster)&&!alive("caster")?DAMAGE.casterDrag:1;
+  return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt,drag};}
 /* J taken per key (only the keys that took any): part keys, armour_<face>, chassis. This is S.bots[cls].damage's shape. */
 function damageTaken(b,st){const out={},r=v=>Math.round(v*100)/100;
   for(const f of FACES){const d=b.armourMapJ[f].hpJ-st.armour[f];if(d>1e-6)out["armour_"+f]=r(d);}
@@ -2239,6 +2291,20 @@ function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&
   return"aggressive";}
 function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;if(!AI_STYLES[st])st=st==="auto"&&F?autoStyle(o.b,F.arena):"rush";
   return{r:rng(seed),style:st,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
+/* a strafing drive's move: face the enemy, and drive and slide towards (px, py) together (orbit, flank, commit), or slide
+   out of the line of a weapon coming at it. null leaves the plain steering as it was. */
+const AI_STRAFE={dodgeR:3,dodgeV:0.3,faceK:2.4};   // dodge within dodgeR x both radii when it closes at dodgeV x its top speed; faceK: how hard it turns to face
+function aiStrafe(F,o,t,m,mode,px,py,facing,sk){const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
+  const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h+m.aim),steer=clamp1(-AI_STRAFE.faceK*e);
+  const vs=Math.max(t.b.driveSpeed,0.1);
+  /* a weapon coming straight at it: slide off its line, away from the side it's turning to */
+  if(t.zone&&facing&&m.dist<(o.rad+t.rad)*AI_STRAFE.dodgeR&&m.tClose>AI_STRAFE.dodgeV*vs&&(m.tac||m.dodging)){
+    m.dodging=F.t+0.4;const fx=Math.cos(t.h),fy=Math.sin(t.h),side=((o.x-t.x)*-fy+(o.y-t.y)*fx)>=0?1:-1,
+      dx=-fy*side,dy=fx*side;return{steer,throttle:clamp1(dx*fw[0]+dy*fw[1]),strafe:clamp1((dx*rt[0]+dy*rt[1])*1.5)};}
+  if(m.dodging&&F.t>m.dodging)m.dodging=0;
+  if(mode!=="orbit"&&mode!=="flank"&&mode!=="commit")return null;
+  const dx=px-o.x,dy=py-o.y,l=Math.hypot(dx,dy)||1,a=Math.abs(e),k=a<0.6?1:a<1.4?0.5:0.2;
+  return{steer,throttle:clamp1((dx*fw[0]+dy*fw[1])/l*1.2)*k,strafe:clamp1((dx*rt[0]+dy*rt[1])/l*1.5)*k};}
 /* where o should point, and how hard to go: steer toward a world point */
 function aiSteer(o,m,px,py,sk){const want=Math.atan2(py-o.y,px-o.x),err=wrapA(want-o.h+m.aim),u=aiLerp(AI_SKILL.kp,sk)*err-aiLerp(AI_SKILL.kd,sk)*o.w;
   const a=Math.abs(err);return{steer:clamp1(-u),throttle:a<0.35?1:a<1.3?Math.cos(a):0,err};}
@@ -2366,15 +2432,20 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   if(m.back>0){m.back-=F.dt;out.throttle=-1;out.steer=m.backSteer;}
   else{if(out.throttle>0.5&&sp<0.1*Math.max(o.b.driveSpeed,0.1)&&!pushing)m.stuck+=F.dt*(touching?(t.under&&t.under.by===o.i?0.2:0.4):1);else m.stuck=Math.max(0,m.stuck-F.dt);
     if(m.stuck>(S.stuckS||1.2)){m.stuck=0;m.back=0.45+0.3*m.r();m.backSteer=m.r()<0.5?-0.6:0.6;}}
+  /* a strafing drive (mecanum, swerve: 0.1.31) keeps its front on the enemy and slides instead of turning away: it circles
+     facing in, slides round to a flank, and side-steps a weapon coming straight at it (that last one the more skilled).
+     Before the shove and pit escapes below, which win over it */
+  if(o.b.wheelbase.strafe>0&&!(m.back>0)&&!hold&&!pushing){const st=aiStrafe(F,o,t,m,mode,px,py,facing,sk);
+    if(st){out.steer=st.steer;out.throttle=st.throttle;out.strafe=st.strafe;}}
   /* being shoved towards the pit or a hazard: turn across the shove and drive out of it, rather than pushing straight back */
   if(touching&&m.tac&&!(m.back>0)){const a=aiShove(F,o,t,P0);
-    if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;}}
+    if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;out.strafe=0;}}
   /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going;
      over the edge, drive off it along aiPitOut, by whichever end of the bot points that way */
   const P=P0;if(P){const r=P.rect,la=aiLerp(AI_SKILL.pitLook,sk),fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
       qx=o.x+o.vx*la+fx*dir*o.rad*0.8,qy=o.y+o.vy*la+fy*dir*o.rad*0.8,e=o.rad*0.4;
     if(aiIn(qx,qy,aiGrow(r,e))){const away=aiPitOut(F,o,r),ef=wrapA(away-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);
-      out.steer=clamp1(-2.5*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.5?1:Math.abs(err)<1?0.5:0.15);m.back=0;}}
+      out.steer=clamp1(-2.5*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.5?1:Math.abs(err)<1?0.5:0.15);out.strafe=0;m.back=0;}}
   /* the weapon */
   const late=aiLerp(AI_SKILL.fireLate,sk)*(S.fireMul||1);
   if(w.type==="spinner"||w.type==="saw")out.weapon=1;
@@ -2536,7 +2607,9 @@ if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
                          groan, clap; the bell, the pit opening; the workshop's ratchet, drill, clamp, charger. Full / Ultra only
                          (with samples(on), like the clangs): spin-ups (spin_h, spin_v, spin_drum, spin_saw, spin_under), flip,
                          fliphp, hammer, lifter, crush, the material layers (ply, hdpe, ti, ar, tyre), scrape, snap, bend, partoff,
-                         thud, land, pusher, floorspin, selfright, powerdown, smoke. The workshop four load on the first tap;
+                         thud, land, pusher, floorspin, selfright, powerdown, smoke, and the wheel layouts' (0.1.31): mecanum
+                         (rollers whirring into a slide), swerve (the pods snapping round), caster (the caster flipping
+                         round as the bot changes direction). The workshop four load on the first tap;
                          the rest when prep() is called; a clip still loading is skipped.
      prep()              the Fight tab opened: fetch the fight's effects (the Full / Ultra ones only on those tiers)
      crowd(id)           the crowd bed under a fight, looped: "club", "reg", "big" or null (fades out). The same id again is a
@@ -2562,7 +2635,8 @@ const FX={buf:{},got:{},last:{},until:0,resting:false,want:false,   // want: pre
 
   ALL:{cheer:2,ooh:2,groan:2,clap:2,bell:1,pitopen:1,ratchet:1,drill:1,clamp:1,charger:1},
   FULL:{spin_h:1,spin_v:1,spin_drum:1,spin_saw:1,spin_under:1,flip:2,fliphp:1,hammer:2,lifter:1,crush:1,ply:2,hdpe:1,ti:1,ar:1,tyre:2,
-    scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1},
+    scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1,
+    mecanum:2,swerve:2,caster:2},
   BEDS:{club:"crowd_club",reg:"crowd_reg",big:"crowd_big"},WORK:["ratchet","drill","clamp","charger"]};
 const fxFiles=(id,n)=>n>1?Array.from({length:n},(_,i)=>id+(i+1)):[id];
 function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;   // got: 1 asked for, -1 failed (only prep() asks again)
@@ -3454,8 +3528,12 @@ function buildBot(b,team,sp,liv){
     m.position.set(-cx,(body==="dome"?H+bodyH*0.27:S&&body==="wedge"?H-drop*(0.5-pz)+wt:H-drop*0.13+lid)+0.0009*len,cy+L*pz);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
   /* wheels (or tracks), from the layout */
   const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},wr=Math.min(H*0.55,(wp.radiusMm||28)/1000*len),ww=Math.max(0.006*len,wr*0.55);
-  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key));
-  if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
+  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key)),wl=b.wheelbase||{id:"std"};   // evalBuild's wheel layout (vis never reads SCRAP_SIM's tables for it)
+  const Wh=!lite&&!wp.tracks&&wl.id!=="std"&&wl.id!=="six"&&wl.id!=="eight"?botWheels():null;   // the Blender wheel parts (models/bot-wheels.glb)
+  const wx=p=>Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
+  if(Wh&&wl.id==="mecanum")for(const p of wheels){const q=P(p.pos[0],p.pos[1]);   // Full / Ultra: the Blender mecanum wheel, both pieces turn
+    for(const [n,m] of [["wh_mec_hub",M.alu],["wh_mec_rollers",M.rubber]]){const o=shellAdd(g,Wh,n,m,p.key,wx(p)-cx,wr,q[1],ww,wr,wr);if(o)o.traverse(x=>{if(x.isMesh)x.userData.wheel=1;});}}
+  else if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
   else if(lite){const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;}}
@@ -3464,6 +3542,7 @@ function buildBot(b,team,sp,liv){
     const hg=new THREE.CylinderGeometry(wr*0.62,wr*0.62,ww*1.04,seg);hg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(tg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;const h=add(hg,M.alu,x-cx,wr,q[1],p.key);h.userData.wheel=1;}}
+  botWheelParts(g,b,wl,Wh,{P,add,wheels,wx,wr,ww,hw,hl,cx,clr,len,seg,lite});
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
   buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,wellD:bk==="well"||bk==="underwell"?dep:0,
@@ -3472,6 +3551,31 @@ function buildBot(b,team,sp,liv){
     if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
+
+/* ---- the wheel layouts' extra parts (0.1.31, PARTS.wheelbase): Lite draws them in code, Full and Ultra use the Blender
+   pieces (models/bot-wheels.glb, tools/blender-bot-wheels.py) once loaded.
+     mecanum  Lite: angled roller bars on each tyre, children of it so they turn with it (Full / Ultra: the whole Blender
+              wheel in place of the tyre, drawn by buildBot)
+     swerve   a fork and a turntable over each wheel
+     caster   a small wheel (it turns) at the back, under a swivel fork that reaches up to the chassis ---- */
+function botWheelParts(g,b,wl,Wh,k){const M=V.mats,{P,add,wheels,wx,wr,ww,cx,clr,len,seg,lite}=k;
+  if(wl.id==="mecanum"&&!Wh){const n=lite?6:8,rg=new THREE.BoxGeometry(ww*1.05,wr*0.14,wr*0.32);
+    for(const m of g.children.slice()){if(!m.userData.wheel||m.material!==M.rubber||!/^wheel/.test(m.userData.part||""))continue;
+      for(let i=0;i<n;i++){const a=2*Math.PI*i/n,r=new THREE.Mesh(rg,M.alu);r.position.set(0,Math.cos(a)*wr*1.02,Math.sin(a)*wr*1.02);
+        r.rotation.set(a,0,0);r.rotateY(Math.PI/4*(m.position.x<0?1:-1));r.userData.part=m.userData.part;m.add(r);}}}
+  if(wl.id==="swerve")for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=wx(p)-cx;
+    if(Wh&&shellAdd(g,Wh,"wh_swerve",M.alu,p.key,x,wr,q[1],ww/0.8,wr,wr))continue;
+    const lg=new THREE.BoxGeometry(ww*0.12,wr*1.3,wr*0.6);
+    for(const s of [-1,1])add(lg,M.alu,x+s*ww*0.68,wr*1.5-wr*0.95,q[1],p.key);
+    add(new THREE.BoxGeometry(ww*1.5,wr*0.12,wr*0.9),M.alu,x,wr*2.24,q[1],p.key);
+    add(new THREE.CylinderGeometry(wr*0.5,wr*0.5,wr*0.12,lite?12:24),M.steel,x,wr*2.36,q[1],p.key);}
+  const c=b.parts.find(p=>p.caster);if(!c)return;
+  const cr=Math.max(wr*0.35,Math.min(wr*0.7,clr/1.68)),q=P(0,c.pos[1]),cw=cr*0.62;
+  const wg=new THREE.CylinderGeometry(cr,cr,cw,lite?14:seg);wg.rotateZ(Math.PI/2);const w=add(wg,M.rubber,-cx,cr,q[1],"caster");w.userData.wheel=1;
+  const sy=Math.max(1,clr/(1.68*cr));   // stretched up to the chassis when it rides high
+  if(Wh&&shellAdd(g,Wh,"wh_caster",M.steel,"caster",-cx,cr,q[1],cr,cr*sy,cr))return;
+  const lg=new THREE.BoxGeometry(cr*0.1,cr*1.4*sy,cr*0.4);for(const s of [-1,1])add(lg,M.steel,-cx+s*cr*0.41,cr+cr*0.6*sy,q[1]-cr*0.2,"caster");
+  add(new THREE.BoxGeometry(cr*1.1,cr*0.1,cr*1.1),M.steel,-cx,cr+cr*1.64*sy,q[1]-cr*0.35,"caster");}
 
 /* ---- Full and Ultra: the Blender shells (models/bot-shells.glb, tools/blender-bot-shells.py; loaded by botShells in
    vis/props.js) in place of the coded body shapes above. Each piece is modelled in a unit body (x the width, z the length,
@@ -3897,7 +4001,7 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     m.rotation.set(0,o.h-Math.PI/2,0);m.rotateZ(B.inv*Math.PI);
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */
-    const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type==="CylinderGeometry")w.rotation.x=B.wheelA;
+    const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type!=="BoxGeometry")w.rotation.x=B.wheelA;   // not tracks (a box); the Blender mecanum pieces turn too
     /* the weapon */
     const W=o.b.weapon;
     if(u.spin){const r=Math.min(o.wp.om,45);u.spin.rotation[u.spin.userData.axis]+=r*dt*(u.spin.userData.axis==="x"?-1:1);
@@ -4231,6 +4335,9 @@ function frame(now){
      weapons    models/bot-weapons.glb (0.1.22), original work built in Blender from tools/blender-bot-weapons.py: disc, saw,
                 drum, uprights, ramp, lifter tines, flipper plate, arm, hammer head, crusher beak and jaw. botWeapons loads
                 it alongside the shells; vis/bot.js buildWeapon uses it.
+     wheels     models/bot-wheels.glb (0.1.31), original work built in Blender from tools/blender-bot-wheels.py: a mecanum
+                wheel's plates and rollers, a swerve pod and a swivel caster. botWheels loads it only for a bot with one of
+                those wheel layouts; vis/bot.js botWheelParts uses it.
    More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
    tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
@@ -4241,7 +4348,8 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
   meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
-  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb"};
+  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb",
+  whls:"models/bot-wheels.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
    [key, x, y, z, turn] in scene units; y 0 is the bench top, -1.4 the floor. The camera starts at -x +z, so the room reads
@@ -4382,10 +4490,11 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
     const o2=off+deep;for(const c of K.crowd){c.position.y=top+(0.4+CROWD_M/2)*D;   // above the back wall (top row + 0.3 m)
       if(Math.abs(c.position.z)>Math.abs(c.position.x))c.position.z=Math.sign(c.position.z)*o2;else c.position.x=Math.sign(c.position.x)*o2;}}}
 /* ---- the body shells and the weapon parts ---- */
-/* a bot model's loaded scene on Full and Ultra ("shells": models/bot-shells.glb, "wpns": models/bot-weapons.glb), or null
+/* a bot model's loaded scene on Full and Ultra ("shells": models/bot-shells.glb, "wpns": models/bot-weapons.glb, "whls":
+   models/bot-wheels.glb), or null
    (and the load starts): when it lands, the workshop's bot is drawn again with it (a bot already in a fight keeps its
    coded shape). Two tries a visit each, then the coded shapes */
-function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":""):"";}
+function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":"")+(r("whls")?"h":""):"";}
 function botModel(key){if(V.tier==="lite")return null;const c=PROPS.models[key];if(c&&c.scene)return c.scene;
   const ask=PROPS.ask||(PROPS.ask={}),tries=PROPS.tries||(PROPS.tries={});if(c||ask[key]||(tries[key]||0)>=2)return null;
   const go=()=>{ask[key]=false;tries[key]=(tries[key]||0)+1;propModel(key,()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
@@ -4393,6 +4502,7 @@ function botModel(key){if(V.tier==="lite")return null;const c=PROPS.models[key];
   return null;}
 function botShells(){return botModel("shells");}
 function botWeapons(){return botModel("wpns");}
+function botWheels(){return botModel("whls");}
 /* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
@@ -4442,7 +4552,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.30.1";
+const VERSION="0.1.31.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -4613,7 +4723,8 @@ const RND={
   saw:       {name:"Overhead saw",          price:1000,hours:20,act:1,needs:"lathe",    line:"A saw on an arm that grinds through top plates."},
   minibot:   {name:"Minibots",              price:1100,hours:22,act:1,needs:"printer",  line:"A little wedge that rides along and drops off at the bell to shove and distract."},
   titanium:  {name:"Exotic armour",         price:1800,hours:28,act:1,needs:"mill",     line:"Titanium plate, chassis and weapon stock. Light, tough and dear."},
-  custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."}};
+  custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."},
+  swerve:    {name:"Swerve drive",          price:1200,hours:24,act:1,needs:"printer",  line:"Wheels that each turn on their own servo: slide sideways and still push."}};
 const RND_IDS=Object.keys(RND);
 /* the team (Shop tab): one person per role, hired from these. salary: euros a season, paid a week at a time at Close
    week (salary / 52). act: from which act they'll talk to you.
@@ -5275,12 +5386,14 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const num=(v,a,b,unit,dp,goodUp,min)=>{const d=v(a)-v(b);if(!isFinite(d)||Math.abs(d)<min)return;cand.push(`<i class="${(d>0)===goodUp?"up":"dn"}">${d>0?"+":"−"}${Math.abs(d).toFixed(dp)}${unit}</i>`);};
   const armour=x=>{let t=0;for(const f of ["front","back","left","right","top"])t+=x.armourMapJ[f].absorbJ+x.armourMapJ[f].hpJ;return t;};
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
-  const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],
+  const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
     battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
     if(k==="inv"&&!!r.height.drivesInverted!==!!base.height.drivesInverted)cand.push(r.height.drivesInverted?'<i class="up">drives upside down</i>':'<i class="dn">can\'t drive upside down</i>');
     if(k==="tall")num(x=>x.height.heightMm,r,base," mm tall",1,false,0.5);
     if(k==="speed")num(x=>x.driveSpeed,r,base," m/s",1,true,0.05);
+    if(k==="turn")num(x=>x.turnRate,r,base," turn",1,true,0.2);
+    if(k==="slide"&&!!r.wheelbase.strafe!==!!base.wheelbase.strafe)cand.push(r.wheelbase.strafe?'<i class="up">slides sideways</i>':'<i class="dn">no sideways slide</i>');
     if(k==="push")num(x=>x.pushN,r,base," N",base.pushN<100?1:0,true,base.pushN*0.03);
     if(k==="wj")num(x=>x.weapon.energyJ||0,r,base," J",0,true,Math.max(1,(base.weapon.energyJ||0)*0.01));
     if(k==="armour")num(armour,r,base," J armour",0,true,Math.max(1,armour(base)*0.01));
@@ -5318,8 +5431,10 @@ const B_SECS=[
       return bArmourMap()+`<div class="seg faces" role="group" aria-label="Face">${["front","back","left","right","top"].map(x=>`<button type="button" data-face="${x}" class="${x===f?"on":""}" aria-pressed="${x===f}">${FACE_LBL[x]}<small>${esc(bName("armour",d.armour[x]).replace("HDPE, ","HDPE "))}</small></button>`).join("")}</div>`
         +bOpts("armour",d.armour[f],bFit("armour",f),(c,id)=>{c.armour[f]=id;})
         +`<div class="row" style="margin-top:10px"><button type="button" class="btn sm" data-act="armour-all">${FACE_LBL[f]} plate on all four sides</button></div>`;}},
-  {id:"drive",t:"Drive & wheels",sum:()=>bName("drive",draft().drive)+" · "+bName("wheels",draft().wheels).toLowerCase(),
-    body:()=>`<h4>Drive</h4>`+bOpts("drive",draft().drive,bFit("drive"),(c,id)=>{c.drive=id;})+`<h4>Wheels</h4>`+bOpts("wheels",draft().wheels,bFit("wheels"),(c,id)=>{c.wheels=id;})},
+  {id:"drive",t:"Drive & wheels",sum:()=>bName("drive",draft().drive)+" · "+bName("wheels",draft().wheels).toLowerCase()+(draft().wheelbase&&draft().wheelbase!=="std"?" · "+bName("wheelbase",draft().wheelbase).toLowerCase():""),
+    body:()=>{const p=SIM.part("wheelbase",draft().wheelbase||"std");
+      return`<h4>Drive</h4>`+bOpts("drive",draft().drive,bFit("drive"),(c,id)=>{c.drive=id;})+`<h4>Wheels</h4>`+bOpts("wheels",draft().wheels,bFit("wheels"),(c,id)=>{c.wheels=id;})
+      +`<h4>Wheel layout</h4>`+(p&&p.line?`<p>${esc(p.line)}</p>`:"")+bOpts("wheelbase",draft().wheelbase||"std",bFit("wheelbase"),(c,id)=>{c.wheelbase=id;});}},
   {id:"power",t:"Power",sum:()=>bName("battery",draft().battery)+" · "+bName("electronics",draft().electronics),
     body:()=>`<h4>Battery</h4>`+bOpts("battery",draft().battery,bFit("battery"),(c,id)=>{c.battery=id;})+`<h4>Speed controllers</h4>`+bOpts("electronics",draft().electronics,bFit("electronics"),(c,id)=>{c.electronics=id;})},
   {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon)+(draft().disc?` · “${draft().disc.name}”`:""),
@@ -5768,8 +5883,10 @@ function toW(o,lx,ly){const c=Math.cos(o.h),s=Math.sin(o.h);return[o.x+lx*s+ly*c
 function mixDark(hex,t){const n=parseInt(hex.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255,m=v=>Math.round(v*(1-t)+0x1A*t);return`rgb(${m(r)},${m(g)},${m(b)})`;}
 function fmtClock(F){const left=Math.max(0,Math.ceil(F.rules.roundS-F.t-1e-6));return`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,"0")}`;}
 /* ===================== app/controls.js: driving =====================
-   Turns thumbs, keys and gamepads into the sim's per-step input {throttle, steer, weapon, selfRight} (throttle and steer
-   -1..1; positive steer turns right). Nothing else drives the player's bot.
+   Turns thumbs, keys and gamepads into the sim's per-step input {throttle, steer, weapon, selfRight, slide} (throttle
+   and steer -1..1; positive steer turns right). Nothing else drives the player's bot. With mecanum or swerve wheels
+   (a wheel layout with strafe, 0.1.31) a Slide button shows: while it's held, steering slides sideways instead of
+   turning (the sim's slide flag); Shift or Q on a keyboard, the left shoulder (LB) on a gamepad.
      direct     (Settings → Controls) a floating stick wherever the left thumb lands on the left half of the arena, a
                 weapon button on the right, and a self-right button above it while you're upside down. Left-handed
                 swaps the sides. Spinners: the weapon button switches the disc on and off (on at the bell). Flippers and
@@ -5783,22 +5900,23 @@ function fmtClock(F){const left=Math.max(0,Math.ceil(F.rules.roundS-F.t-1e-6));r
    turn damping (softens the steering, more at speed), and weapon auto-spin (a spinner spins up only when an enemy is
    near, saving battery). Settings → Driving assists turns them off. The level follows the career driver's skill (rookie,
    club, pro: TIME.levels by xp, PR 7); before the career it's the rookie's. PR 8's hired drivers have a fixed skill. */
-const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown:false,wToggle:true,sr:false,keys:{},order:null,steerS:0,
+const CTL={el:null,on:false,scheme:"direct",left:false,stick:null,wpn:null,wDown:false,wToggle:true,sr:false,slide:false,keys:{},order:null,steerS:0,
   pads:false,lastPick:0};
 function ctlAssist(){return ST().assists===false?ASSISTS.off:ASSISTS[CTL.skill||crLevel()]||ASSISTS.rookie;}   // crLevel: the career driver's level (app/career.js), the rookie's before the career
 /* build the overlay inside the arena view; the Fight tab calls it when a fight starts with you driving */
 function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tactical":"direct";CTL.left=!!ST().leftHanded;
-  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.last=null;CTL.order=null;CTL.steerS=0;CTL.keys={};
+  CTL.stick=null;CTL.wpn=null;CTL.wDown=false;CTL.wToggle=true;CTL.sr=false;CTL.slide=false;CTL.last=null;CTL.order=null;CTL.steerS=0;CTL.keys={};
   const el=document.createElement("div");el.id="ctl";el.className="ctl "+CTL.scheme+(CTL.left?" lefty":"");
   el.innerHTML=CTL.scheme==="direct"
     ?`<div class="ctlpad" data-c="pad" aria-hidden="true"><i class="ctlbase"></i><i class="ctlknob"></i><span class="ctlhint">Drive</span></div>
       <button type="button" class="ctlbtn ctlwpn" data-c="wpn" aria-label="Weapon"><span>Weapon</span></button>
-      <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>`
+      <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>
+      <button type="button" class="ctlbtn ctlsl" data-c="sl" aria-label="Slide sideways" hidden><span>Slide</span></button>`
     :`<div class="ctltap" data-c="tap" aria-hidden="true"></div><i class="ctlmark" hidden></i>
       <p class="ctlhint2">Tap the floor to drive there · tap them to attack · tap your bot to back off</p>
       <button type="button" class="ctlbtn ctlsr" data-c="sr" aria-label="Self-right" hidden><span>Self-right</span></button>`;
   host.appendChild(el);CTL.el=el;CTL.on=true;
-  const pad=el.querySelector("[data-c=pad]"),wpn=el.querySelector("[data-c=wpn]"),sr=el.querySelector("[data-c=sr]"),tap=el.querySelector("[data-c=tap]");
+  const pad=el.querySelector("[data-c=pad]"),wpn=el.querySelector("[data-c=wpn]"),sr=el.querySelector("[data-c=sr]"),sl=el.querySelector("[data-c=sl]"),tap=el.querySelector("[data-c=tap]");
   const cap=(e)=>{try{e.target.setPointerCapture(e.pointerId);}catch(x){}};
   if(pad){pad.addEventListener("pointerdown",e=>{if(CTL.stick)return;e.preventDefault();cap(e);const r=pad.getBoundingClientRect();
       CTL.stick={id:e.pointerId,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,rx:r.left,ry:r.top};ctlDrawStick();});
@@ -5811,6 +5929,8 @@ function ctlMount(host){ctlUnmount();CTL.scheme=ST().controls==="tactical"?"tact
     wpn.addEventListener("click",e=>e.preventDefault());}
   if(sr){sr.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.sr=true;sr.classList.add("down");});
     const end=()=>{CTL.sr=false;sr.classList.remove("down");};sr.addEventListener("pointerup",end);sr.addEventListener("pointercancel",end);sr.addEventListener("lostpointercapture",end);}
+  if(sl){sl.addEventListener("pointerdown",e=>{e.preventDefault();cap(e);CTL.slide=true;sl.classList.add("down");});
+    const end=()=>{CTL.slide=false;sl.classList.remove("down");};sl.addEventListener("pointerup",end);sl.addEventListener("pointercancel",end);sl.addEventListener("lostpointercapture",end);}
   if(tap)tap.addEventListener("pointerdown",e=>{e.preventDefault();ctlTap(e);});}
 function ctlUnmount(){if(CTL.el&&CTL.el.parentNode)CTL.el.parentNode.removeChild(CTL.el);CTL.el=null;CTL.on=false;CTL.stick=null;CTL.keys={};}
 /* the stick: knob offset from where the thumb landed, at most 56 px */
@@ -5839,17 +5959,17 @@ function ctlTap(e){const F=FT.F;if(!F||e.isPrimary===false)return;   // a second
     clearTimeout(ctlTap.t);ctlTap.t=setTimeout(()=>{m.hidden=true;},700);}
   buzz(6);}
 /* keyboard: held keys (the Fight tab only listens while a fight is live) */
-const CTL_KEYS={KeyW:"up",ArrowUp:"up",KeyS:"down",ArrowDown:"down",KeyA:"left",ArrowLeft:"left",KeyD:"right",ArrowRight:"right",Space:"wpn",KeyR:"sr"};
+const CTL_KEYS={KeyW:"up",ArrowUp:"up",KeyS:"down",ArrowDown:"down",KeyA:"left",ArrowLeft:"left",KeyD:"right",ArrowRight:"right",Space:"wpn",KeyR:"sr",ShiftLeft:"sl",ShiftRight:"sl",KeyQ:"sl"};
 document.addEventListener("keydown",e=>{if(!CTL.on)return;const k=CTL_KEYS[e.code];if(!k||e.target.closest("input,textarea,select"))return;e.preventDefault();
   if(k==="wpn"&&!CTL.keys.wpn)CTL.wPress=true;CTL.keys[k]=true;});
 document.addEventListener("keyup",e=>{const k=CTL_KEYS[e.code];if(k)CTL.keys[k]=false;});
 window.addEventListener("blur",()=>{CTL.keys={};});
 function ctlPad(){if(!navigator.getGamepads)return null;let gp=null;try{for(const g of navigator.getGamepads())if(g&&g.connected){gp=g;break;}}catch(e){return null;}
   if(!gp)return null;const ax=v=>Math.abs(v)<0.15?0:v,b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed);
-  return{x:ax(gp.axes[0]||0),y:-ax(gp.axes[1]||0),wpn:b(0)||b(7),sr:b(3)||b(1)};}
+  return{x:ax(gp.axes[0]||0),y:-ax(gp.axes[1]||0),wpn:b(0)||b(7),sr:b(3)||b(1),sl:b(4)};}
 
 /* this step's input for bot o in fight F */
-function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CTL.on||!o)return out;
+function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0};if(!CTL.on||!o)return out;
   /* the sim only reads the player on every inputTick-th step: between those, hold the last reading so a tap (a flipper
      shot, the spinner toggle) is kept for the next read instead of being spent on a step the sim ignores */
   if(F.n%SIM.FIGHT.inputTick&&CTL.last)return CTL.last;
@@ -5866,14 +5986,20 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0};if(!CT
   else if(W.type==="lifter")wpn=wpn||held;
   else wpn=wpn||CTL.wPress||held&&W.type!=="flipper";
   CTL.wPress=false;
+  /* slide (mecanum, swerve): the stick's sideways push goes straight to the sim as a slide, no turn assists */
+  const canSlide=o.b.wheelbase&&o.b.wheelbase.strafe>0,slide=canSlide&&(CTL.slide||K.sl||(gp&&gp.sl));
+  if(slide){out.throttle=Math.max(-1,Math.min(1,thr));out.steer=Math.max(-1,Math.min(1,st));out.slide=1;CTL.steerS=0;
+    out.weapon=wpn?1:0;out.selfRight=sr?1:0;CTL.last=out;ctlButtons(o,canSlide);return out;}
   /* assists: soften the steering at speed, smooth it, and hold the heading while you're not steering */
   st*=1-A.turnDamp*Math.min(1,Math.abs(thr));
   CTL.steerS+=(st-CTL.steerS)*(1-A.turnDamp*0.6);st=CTL.steerS;
   if(!steering&&Math.abs(thr)>0.2&&A.straighten>0)st=Math.max(-1,Math.min(1,st+A.straighten*o.w*0.25));
   out.throttle=Math.max(-1,Math.min(1,thr));out.steer=Math.max(-1,Math.min(1,st));out.weapon=wpn?1:0;out.selfRight=sr?1:0;
-  /* the self-right button shows only when it's needed */
-  const srb=CTL.el&&CTL.el.querySelector("[data-c=sr]");if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
-  CTL.last=out;return out;}
+  ctlButtons(o,canSlide);CTL.last=out;return out;}
+/* the self-right button shows only when it's needed; Slide only with a wheel layout that can slide */
+function ctlButtons(o,canSlide){if(!CTL.el)return;const srb=CTL.el.querySelector("[data-c=sr]"),slb=CTL.el.querySelector("[data-c=sl]");
+  if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
+  if(slb&&slb.hidden===!!canSlide)slb.hidden=!canSlide;}
 function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}
 /* tactical orders to throttle and steer: point at the target, go when roughly facing it */
 function ctlTactical(F,o,ord){let tx,ty,wpn=false;
@@ -5929,7 +6055,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
 /* a fight (a round, or a replay) into fight mode */
-function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.crowdT=0;ftFrame.done=null;
+function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.whl={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);
@@ -6003,7 +6129,7 @@ function ftSlowPlan(log,mass){const W=[],mm=Math.max(mass,1e-6),add=(t,c)=>{cons
 function ftSlowAt(W,t){let f=1;for(const w of W){const a=w.a-FT_SLOW.easeIn,b=w.b+FT_SLOW.easeOut;if(t<a||t>b)continue;
     const k=t<w.a?(t-a)/FT_SLOW.easeIn:t>w.b?1-(t-w.b)/FT_SLOW.easeOut:1;f=Math.min(f,1-(1-w.f)*k);}return f;}
 function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(rp.s0||0,Math.min(rp.steps,n|0)));
-  FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
+  FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.whl={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
   SCRAP_VOICE.stop();if(F.n===0)ftVoiceBegin(F,true);else SCRAP_VOICE.seek(F);
   const e=$("fEnd");if(e)e.hidden=true;
   if(ftGL())SCRAP_VIS.setFight(F,true);if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());
@@ -6114,6 +6240,11 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
 /* a spinner coming up to speed (its share of full speed climbs past a third from under a tenth): its spin-up, once each time */
 function ftSpinUp(F,o,i){const id=FT_SPIN[o.b.cfg.weapon];if(!id)return;const w=o.b.weapon,r=o.out||!o.fx.weaponOk?0:o.wp.om/(w.omega||1),m=FT.spin||(FT.spin={});
   if(r<0.1)m[i]=1;else if(r>0.33&&m[i]){m[i]=0;SCRAP_SOUND.sfx(id,i===0?0.5:0.35);}}
+/* the wheel layouts (0.1.31, Full / Ultra): a mecanum or swerve bot starting a slide, a caster bot changing direction */
+function ftWheelSfx(F,o,i){const wb=o.b.wheelbase;if(!wb||o.out)return;const m=FT.whl||(FT.whl={}),s=m[i]||(m[i]={sl:0,dir:0,t:-9}),v=i===0?0.45:0.3;
+  if(wb.strafe>0){const sl=Math.abs((o.input&&o.input.strafe)||0)>0.3;if(sl&&!s.sl&&F.t-s.t>0.6){s.t=F.t;SCRAP_SOUND.sfx(wb.id==="swerve"?"swerve":"mecanum",v);}s.sl=sl;}
+  else if(wb.caster){const vf=Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy,d=Math.abs(vf)>0.2*Math.max(o.b.driveSpeed,0.1)?Math.sign(vf):0;
+    if(d&&s.dir&&d!==s.dir&&F.t-s.t>0.8){s.t=F.t;SCRAP_SOUND.sfx("caster",v*0.8);}if(d)s.dir=d;}}
 /* ---- fight mode: the overlay on the 3D view ---- */
 function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
@@ -6203,7 +6334,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
     ftMap(el.querySelector(".fmap"),o,states);
     if(FT.on&&!FT.view2d)SCRAP_VIS.damage(i,states);
-    if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused)ftSpinUp(F,o,i);}});
+    if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
     const s=FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}
@@ -6233,7 +6364,10 @@ function ftDrive(o,states){const b=o.b,side={left:[0,0],right:[0,0]};let worst=0
 const FT_FACE_N={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 function ftPartName(b,key){if(key.startsWith("armour_"))return`${FT_FACE_N[key.slice(7)]||key.slice(7)} plate`;if(key==="chassis")return"Chassis";
   const p=b.parts.find(q=>q.key===key);if(!p)return key;
-  if(p.slot==="drive"||p.slot==="wheels"){const x=p.pos||[0,0],n=b.parts.filter(q=>q.slot===p.slot).length;return`${x[0]<0?"Left":"Right"}${n>2?Math.abs(x[1])<1e-3?" middle":x[1]>0?" front":" rear":""} ${p.slot==="drive"?"motor":"wheel"}`;}
+  if(p.caster)return"Caster";
+  if(p.slot==="drive"||p.slot==="wheels"){const x=p.pos||[0,0],same=b.parts.filter(q=>q.slot===p.slot&&!q.caster&&(q.pos&&q.pos[0]<0)===(x[0]<0)).map(q=>q.pos[1]).sort((u,v)=>v-u),
+      i=same.indexOf(x[1]),n=same.length,where=n<2?"":n===2?(i===0?" front":" rear"):n===3?[" front"," middle"," rear"][i]:[" front"," second"," third"," rear"][i]||"";
+    return`${x[0]<0?"Left":"Right"}${where} ${p.slot==="drive"?"motor":"wheel"}`;}
   return{weapon:"Weapon",battery:"Battery",electronics:"Electronics",armour:"Armour",selfright:"Self-righter"}[p.slot]||(p.slot.charAt(0).toUpperCase()+p.slot.slice(1));}
 /* the part in the worst shape: anything destroyed first (the weapon, electronics and battery before the rest), then the
    most worn */
@@ -7005,7 +7139,7 @@ function crPartLock(slot,id){if(!crOn())return null;const p=SIM.part(slot,id);if
 function crDiscLock(){if(!crOn())return null;if(!S.unlocks.rnd.disc)return"needs R&D: your own disc profile";if(!tmHas("fabricator"))return"needs a fabricator";return null;}
 /* every locked part in a cfg: [{slot, id, name, why}] */
 function crCfgLocks(cfg){if(!crOn()||!cfg)return[];const c=SIM.normCfg(cfg),out=[],add=(slot,id)=>{const w=crPartLock(slot,id);if(w&&!out.some(x=>x.slot===slot&&x.id===id))out.push({slot,id,name:SIM.part(slot,id).name,why:w});};
-  for(const s of["chassis","body","drive","wheels","battery","electronics","weapon"])add(s,c[s]);
+  for(const s of["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon"])add(s,c[s]);
   if(c.weapon!=="none")add("weaponMaterial",c.weaponMaterial);
   for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);
   if(c.disc){const w=crDiscLock();if(w)out.push({slot:"disc",id:"disc",name:`Disc profile “${c.disc.name}”`,why:w});}
@@ -7043,9 +7177,9 @@ function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffff
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
   events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0,trophies:[],fw:false,actSaid:0};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
-const CR_START={chassis:"hdpe",body:"plain",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
+const CR_START={chassis:"hdpe",body:"plain",drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
-  for(const s of["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
+  for(const s of["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
   for(const f of SIM.FACES)if(crPartLock("armour",c.armour[f]))c.armour[f]=CR_START.armour;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */

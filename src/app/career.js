@@ -59,7 +59,7 @@ function crPartLock(slot,id){if(!crOn())return null;const p=SIM.part(slot,id);if
 function crDiscLock(){if(!crOn())return null;if(!S.unlocks.rnd.disc)return"needs R&D: your own disc profile";if(!tmHas("fabricator"))return"needs a fabricator";return null;}
 /* every locked part in a cfg: [{slot, id, name, why}] */
 function crCfgLocks(cfg){if(!crOn()||!cfg)return[];const c=SIM.normCfg(cfg),out=[],add=(slot,id)=>{const w=crPartLock(slot,id);if(w&&!out.some(x=>x.slot===slot&&x.id===id))out.push({slot,id,name:SIM.part(slot,id).name,why:w});};
-  for(const s of["chassis","body","drive","wheels","battery","electronics","weapon"])add(s,c[s]);
+  for(const s of["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon"])add(s,c[s]);
   if(c.weapon!=="none")add("weaponMaterial",c.weaponMaterial);
   for(const f of SIM.FACES)add("armour",c.armour[f]);for(const e of c.extras)add("extras",e);
   if(c.disc){const w=crDiscLock();if(w)out.push({slot:"disc",id:"disc",name:`Disc profile “${c.disc.name}”`,why:w});}
@@ -97,9 +97,9 @@ function crFresh(){const st=WORKSHOP_STAGES[0];return{seed:((Date.now()&0x7fffff
   money:TIME.startMoney,loan:{taken:false,owed:0},hours:st.hours*TIME.bankWeeks,driverXp:0,rep:0,stage:st.id,
   events:{},entered:null,day:null,results:[],ledger:[],broke:0,over:false,done:false,seasons:[],rnd:{cur:null,put:{}},offers:[],kit:null,repY0:0,trophies:[],fw:false,actSaid:0};}
 /* the starter bot: the default build with anything a fresh career can't fit swapped for what it can */
-const CR_START={chassis:"hdpe",body:"plain",drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
+const CR_START={chassis:"hdpe",body:"plain",drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",armour:"hdpe15"};
 function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
-  for(const s of["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
+  for(const s of["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","weaponMaterial"])if(crPartLock(s,c[s]))c[s]=CR_START[s];
   for(const f of SIM.FACES)if(crPartLock("armour",c.armour[f]))c.armour[f]=CR_START.armour;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */

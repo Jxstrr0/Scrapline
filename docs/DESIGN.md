@@ -592,3 +592,7 @@ Kelbo's pick: PEW's way. The first-visit intro is the home screen.
 ## 0.1.30.1: a fit can run into next week (fix)
 
 - A full new bot can take more hours than the workshop banks (a featherweight at 45.5 h against Your own unit's 44). A fit now goes ahead when this week's hours plus next week's cover it: the hours go below zero and the next Close week pays them back (`crFitShort`). The Fit sheet shows `The work runs N h into next week` (amber), or, when even that isn't enough, says so in red and greys out Fit. Repairs, R&D, bench tests and entering an event still need the hours in hand, so they wait until the hours are back above what they take.
+
+## 0.1.31.0: wheel layouts
+
+A new Build slot, Wheel layout, under Drive & wheels: a wheel on each pod (the old drive), two wheels and a swivel caster, six or eight chain-driven wheels, mecanum wheels and swerve pods. More wheels push harder and shrug off wedges and lost wheels but turn slower and drain the battery faster; the caster turns on the spot and runs light but pushes less, and drags once broken. Mecanum and swerve slide sideways: the player holds Slide, and the AI uses it to circle facing in, slide round to a flank and step out of a spinner's line. Swerve is the R&D version: stronger and dearer. Blender wheel parts on Full and Ultra, coded ones on Lite, and ElevenLabs effects for each.
