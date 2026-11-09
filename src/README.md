@@ -67,7 +67,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `app/perf.js` | auto-adjust graphics (`PERF`, `perfPoll`, `perfManual`), `?fps=1` meter |
 | `app/savecode.js` | Back up / Restore: `buCode`, `buRead`, `buWrite`, the two sheets; save safety: backup files, `buPersist`, the storage line, the reminder bar |
 | `app/pwa.js` | service worker registration, the "New version ready" bar, `PWA.canInstall` / `install` / `iosTip` |
-| `app/boot.js` | `TABS`, `TAB_RENDER`, `showTab`, the Settings sheet, intro, `start()` (scheduled with `__ldGo`) |
+| `app/boot.js` | `TABS`, `TAB_RENDER`, `showTab`, the Settings sheet (with Dev mode: `devCash`, `devUnlockAll`, 0.1.30), intro, `start()` (scheduled with `__ldGo`) |
 | `app/build.js` | the Build tab: weight bar and summary, section rows with deltas, armour sketch, layout editor, side profile, stress report, designs, the draft and Fit (pay on fit, `SIM.fitBill`); `?sim=1` adds the raw result |
 | `app/bench.js` | the Bench tab: the fitted bot's six tests with canvas readouts, which have run (`bots[cls].bench`), `benchMeasured` for the Build tab's stress report |
 | `app/debugview.js` | `DEBUGVIEW.draw`: the 2D top-down fight view (dark in both themes): bots, zones, the pit (dashed while shut), pushers and floor spinners |
