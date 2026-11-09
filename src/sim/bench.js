@@ -1,4 +1,4 @@
-/* ---- sim/bench.js: the six bench tests, plan section 6, and WEDGE_GAUGES. Each test takes an evalBuild() result (or a
+/* ---- sim/bench.js: the seven bench tests (six from plan section 6, the test dummy from 0.1.38), and WEDGE_GAUGES. Each test takes an evalBuild() result (or a
    cfg) and measures it by running it, mostly at the fight's 60 Hz step, so a measured number can differ from evalBuild's
    prediction: the drive test's bot may not reach top speed on the track, a spinner's motor has less torque at low rpm,
    the endurance run has real bursts and real derating. Nothing here is random and nothing is kept: the rig is safe
@@ -12,6 +12,8 @@
      benchEndurance  fight-pace bursts (drive and weapon) until the battery is flat: runtime, heat, when motors derate
      benchDrop       a drop from a big flipper throw, landing upright and upside down: damage, can it still drive, can
                      it get back on its wheels
+     benchDummy      the bot let loose on three boxes that don't fight back (BENCH_DUMMIES), in the real fight sim: hits,
+                     damage, what breaks and when (0.1.38)
    runBench(x, id) runs one by id; BENCH_TESTS lists them with their workshop hours (the drive and weapon tests are free).
    stressReport(b, measured) (sim/combos.js) uses the results in place of the predictions. ---- */
 const WEDGE_GAUGES={      // the leading-edge heights (mm) of the wedges, lifters and forks common in each class, low to high
@@ -22,6 +24,7 @@ const WEDGE_GAUGES={      // the leading-edge heights (mm) of the wedges, lifter
   heavy:  [2,3,4,6,9,12]
 };
 const BENCH={
+  dummy:{S:20,seed:38,style:"aggressive",skill:0.8,traceS:0.5},   // the test dummy: seconds a dummy, the fight's seed, who drives your bot, the chart's step
   trackM:2.4,        // drive test track, beetle scale (x len)
   pullYaw:0.12,      // heading drift from an off-centre COM: pull x this x speed / track width (rad/s)
   spinTorque:3,      // a spinner motor's torque runs out below 1/3 of top rpm (full power only above it)
@@ -46,7 +49,18 @@ const BENCH_TESTS=[   // hours: workshop hours at beetle scale (x hoursScale), c
   {id:"impact",   name:"Impact",      hours:2},
   {id:"gauge",    name:"Wedge gauge", hours:0.5},
   {id:"endurance",name:"Endurance",   hours:1.5},
-  {id:"drop",     name:"Drop",        hours:1}
+  {id:"drop",     name:"Drop",        hours:1},
+  {id:"dummy",    name:"Test dummy",  hours:1}
+];
+/* the test dummies (0.1.38): three boxes that don't drive and don't fight back, soft to hard. Built from parts like any
+   bot, in the class on the bench, so a hit on one does what it would do to a real opponent built that way. */
+const BENCH_DUMMIES=[
+  {id:"ply",  name:"Plywood box",   line:"a first-season bot",
+    cfg:{chassis:"ply",armour:{front:"hdpe6",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"hdpe6"},drive:"single",wheels:"foam",battery:"small",electronics:"basic",weapon:"none",weaponMaterial:"steel",extras:[]}},
+  {id:"alu",  name:"Aluminium box", line:"a mid-table bot",
+    cfg:{chassis:"alu",armour:{front:"alu",back:"alu",left:"alu",right:"alu",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"med",electronics:"dual",weapon:"none",weaponMaterial:"steel",extras:[]}},
+  {id:"steel",name:"Armoured brick",line:"the hardest box in the class",
+    cfg:{chassis:"steel",armour:{front:"ar500",back:"ar500",left:"ar500",right:"ar500",top:"steel"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",extras:["skid","bar"]}}
 ];
 const asBuild=x=>x&&x.armourMapJ?x:evalBuild(x);
 
@@ -144,7 +158,29 @@ function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len
     upright:{parts:upParts,canDrive:canDrive(up),worst:upParts.reduce((a,p)=>p.frac>(a?a.frac:0)?p:a,null)},
     inverted:{hit,parts:hit.parts.map(p=>({key:p.key,name:benchPartName(b,p.key),dmg:p.dmg,destroyed:p.destroyed})),canDrive:invDrive,righter,outcome}};}
 
-const BENCH_RUN={drive:benchDrive,weapon:benchWeapon,impact:benchImpact,gauge:benchGauge,endurance:benchEndurance,drop:benchDrop};
-/* run one test by id on a build (or cfg); runBench(x) runs all six: {drive, weapon, impact, gauge, endurance, drop} */
+/* the test dummy (0.1.38): the bot is let loose on each of BENCH_DUMMIES for BENCH.dummy.S seconds in the test box, driven
+   by the AI (BENCH.dummy.style at .skill), in the real fight sim with a fixed seed, so the numbers are what the same hits
+   do in a fight. The dummy has no driver and is never counted out; the run stops early once it couldn't carry on (dead,
+   or no drive on either side). For each: hits landed, energy dealt, the biggest hit, the damage as a share of all the
+   dummy has, what broke first and when, when it was first put on its back, what the bot did to itself (recoil, its own
+   weapon), and a trace [t, share] for the chart. spec is the fight (newFight's options) so the app can play it back. */
+function benchDummySpec(b,d){const cls=b.cls;return{seed:BENCH.dummy.seed,arena:"box",rules:{roundS:BENCH.dummy.S,koS:1e9},
+  bots:[{cfg:b.cfg,name:"Your bot",driver:{style:BENCH.dummy.style,skill:BENCH.dummy.skill}},{cfg:Object.assign({},d.cfg,{cls}),name:d.name}]};}
+function benchDummy(x){const b=asBuild(x),rows=[];
+  for(const d of BENCH_DUMMIES){const F=newFight(benchDummySpec(b,d)),me=F.bots[0],t=F.bots[1],trace=[[0,0]];let seen=0,bigJ=0,first=null,invT=null,outT=null,next=BENCH.dummy.traceS;
+    while(!F.over){stepFight(F,null);
+      for(;seen<F.log.length;seen++){const e=F.log[seen];if(e.v!==t.i)continue;
+        if((e.k==="hit"||e.k==="grind"||e.k==="ram")&&e.E>bigJ)bigJ=e.E;
+        if(e.k==="fail"&&e.what==="part"&&!first)first={key:e.key,name:benchPartName(t.b,e.key),t:F.t};}
+      if(invT==null&&t.inverted&&!t.air)invT=F.t;
+      if(F.t>=next-1e-9){trace.push([F.t,damageShare(t.b,t.st)]);next+=BENCH.dummy.traceS;}
+      const sd=t.fx.sides;if(t.fx.dead||(sd&&sd.left&&sd.right&&sd.left.out&&sd.right.out)){outT=F.t;break;}}
+    const share=damageShare(t.b,t.st),st=partStates(t.b,t.st);trace.push([F.t,share]);
+    rows.push({id:d.id,name:d.name,line:d.line,massKg:t.b.massKg,hits:me.stats.hits,dealtJ:me.stats.dealt,bigJ,share,first,invT,outT,ranS:F.t,steps:F.n,
+      why:outT==null?null:t.fx.dead||"drive",broke:Object.keys(st).filter(k=>st[k]==="destroyed").map(k=>benchPartName(t.b,k)),
+      stuck:invT!=null&&t.inverted&&!t.b.height.drivesInverted,selfJ:me.stats.taken,selfShare:damageShare(me.b,me.st),trace});}
+  return{id:"dummy",S:BENCH.dummy.S,rows};}
+const BENCH_RUN={drive:benchDrive,weapon:benchWeapon,impact:benchImpact,gauge:benchGauge,endurance:benchEndurance,drop:benchDrop,dummy:benchDummy};
+/* run one test by id on a build (or cfg); runBench(x) runs them all: {drive, weapon, impact, gauge, endurance, drop, dummy} */
 function runBench(x,id){const b=asBuild(x);if(id)return BENCH_RUN[id]?BENCH_RUN[id](b):null;
   const out={};for(const t of BENCH_TESTS)out[t.id]=BENCH_RUN[t.id](b);return out;}
