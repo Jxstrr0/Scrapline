@@ -5,7 +5,9 @@
      driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
      wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
-     height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
+     height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm, backEdgeMm, frontBareMm (the edge with the front
+            knocked off)}
+     front {id, name, slope, ramMul, underGrip}, back {id, name, ramMul, kick, selfRights} (0.1.32, frontInfo / backInfo)
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
      bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, belowFrac, u} the weapon bay (bayOf, below)
@@ -45,7 +47,10 @@ function evalBuild(cfgIn,opts){
   const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),bd=pick("body",cfg.body),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
-    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial),wb=pick("wheelbase",cfg.wheelbase);
+    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial),wb=pick("wheelbase",cfg.wheelbase),
+    fr=pick("front",cfg.front),bk=pick("back",cfg.back);   // 0.1.32: the swappable front and the back slot
+  const ownFront=OWN_FRONT.indexOf(wp.type)>=0;   // a wedge, lifter, flipper or grabber is its own front
+  if(fr.id!=="none"&&ownFront)errors.push("The "+wp.name.toLowerCase()+" is its own front: no room for "+fr.name.toLowerCase());
   const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
@@ -73,6 +78,7 @@ function evalBuild(cfgIn,opts){
   for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000,gp=f==="top"?g:g/bd.heightMul;
     let absorbJ=a.absorbPerG*gp,hpJ=a.hpPerG*gp,deflect=Math.min(0.8,a.deflect+(bd.deflect[f]||0));
     if(f==="front")for(const e of ex){if(e.frontAbsorbJ)absorbJ+=e.frontAbsorbJ*M.mass;if(e.frontDeflect)deflect=Math.min(0.8,deflect+e.frontDeflect);}
+    if(f==="front"&&fr.absorbJ)absorbJ+=fr.absorbJ*M.mass;if(f==="back"&&bk.absorbJ)absorbJ+=bk.absorbJ*M.mass;
     armourMapJ[f]={id:a.id,name:a.name,thickMm:r3(t),massG:g,absorbJ,hpJ,deflect};
     if(g>0)addM("armour_"+f,"armour",a.id,g,facePos[f][0],facePos[f][1]);}
   for(const f of FACES){const A=armourMapJ[f],eff=A.absorbJ+K.protHp*A.hpJ;A.prot=eff/(eff+K.protRefJ*M.mass);}
@@ -117,6 +123,9 @@ function evalBuild(cfgIn,opts){
   if(motorG)addM("weapon_motor","weapon",wp.id,motorG,wpos[0],wpos[1]);
   if(discG)addM("weapon_disc","weapon",wp.id,discG,discPos[0],discPos[1]);
   for(const e of ex){const p=e.fp?centreOf(e.id):[0,e.id==="bar"?hl:0];if(p)addM(e.id,"extras",e.id,e.massG*M.mass,p[0],p[1]);}
+  /* the front hangs off the front face; the back's plate off the back, a kicker in its cells */
+  if(fr.massG)addM("front","front",fr.id,fr.massG*M.mass,0,hl);
+  const kpos=bk.fp?centreOf("back"):[0,-hl];if(kpos&&bk.massG+bk.motorMassG)addM("back","back",bk.id,(bk.massG+bk.motorMassG)*M.mass,kpos[0],kpos[1]);
 
   /* ---- mass, budget, COM, inertia ---- */
   let totalG=0,mx=0,my=0;for(const it of items){totalG+=it.g;mx+=it.g*it.x;my+=it.g*it.y;}
@@ -136,7 +145,8 @@ function evalBuild(cfgIn,opts){
   /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
   const brushMismatch=!!dr.brushless&&!el.brushless;
   const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1)*wb.powerMul,weaponPowerW=wp.powerW*M.power;
-  const peakW=drivePowerW+weaponPowerW+el.idleW*M.power;
+  const idleW=(el.idleW+bk.powerW)*M.power;   // a kicker's valves and gas (0.1.32) are a small steady draw
+  const peakW=drivePowerW+weaponPowerW+idleW;
   const capW=Math.min(bt.dischargeW*M.power,el.maxPowerW*M.power);
   const powerScale=peakW>0?Math.min(1,capW/peakW):1;
 
@@ -156,13 +166,15 @@ function evalBuild(cfgIn,opts){
   const rWheel=wh.radiusMm*M.len,proud=rWheel-H/2;
   const centred=bd.inverts||!wh.tracks&&proud>=K.proudMm*M.len;
   const clearanceMm=centred?(bd.inverts?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
-  let frontEdgeMm=wp.edgeMm!=null?wp.edgeMm*M.edge:clearanceMm;
-  for(const e of ex)if(e.edgeMm)frontEdgeMm+=e.edgeMm*M.edge;
-  frontEdgeMm+=bd.edgeMm*M.edge;
-  frontEdgeMm=Math.max(0.5*M.edge,frontEdgeMm);
-  const selfRight=has("selfRight")||!!wp.selfRights;
+  /* the leading edge: the weapon's (or the clearance), a fitted front's if lower (0.1.32), then a skid plate and the body.
+     frontBareMm is the same without the front, for when the front is knocked off */
+  const edgeOn=base=>{let e=base;for(const x of ex)if(x.edgeMm)e+=x.edgeMm*M.edge;e+=bd.edgeMm*M.edge;return Math.max(0.5*M.edge,e);};
+  const edge0=wp.edgeMm!=null?wp.edgeMm*M.edge:clearanceMm,frontBareMm=edgeOn(edge0);
+  const frontEdgeMm=edgeOn(fr.edgeMm!=null&&!ownFront?Math.min(edge0,fr.edgeMm*M.edge):edge0);
+  const selfRight=has("selfRight")||!!wp.selfRights||!!bk.selfRights;
+  const backEdgeMm=bk.edgeMm!=null?Math.max(0.5*M.edge,bk.edgeMm*M.edge):clearanceMm;
   const invertible=centred||selfRight;
-  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud)};
+  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm)};
 
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:wpos,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
@@ -175,7 +187,7 @@ function evalBuild(cfgIn,opts){
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
-  if(wp.type==="lifter"){const F=wp.liftN*M.mass*powerScale,liftM=wp.liftMm*M.len/1000;
+  if(wp.type==="lifter"||wp.type==="grabber"){const F=wp.liftN*M.mass*powerScale,liftM=wp.liftMm*M.len/1000;
     Object.assign(weapon,{liftN:F,liftM,energyJ:F*liftM,canLiftKg:F/(K.g*K.liftLever),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
   if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});
   if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale,energyJ:wp.crushJ*M.mass*powerScale,reachM:0.5*L/1000,bite:wm.bite});
@@ -206,6 +218,9 @@ function evalBuild(cfgIn,opts){
   addPart("electronics","electronics",el.id,el.hp*M.mass,el.massG*M.mass);
   if(wp.type!=="none"){if(wp.fp)addPart("weapon","weapon",wp.id,weapon.hpJ,structG+motorG+discG);
     else parts.push({key:"weapon",slot:"weapon",id:wp.id,cells:[],massKg:r3(structG/1000),hpJ:weapon.hpJ,exposure:r3(K.faceWeight.front),pos:[0,hl]});}
+  if(fr.hp&&!ownFront)parts.push({key:"front",slot:"front",id:fr.id,cells:[],massKg:r3(fr.massG*M.mass/1000),hpJ:fr.hp*M.mass,exposure:r3(K.faceWeight.front),pos:[0,hl]});
+  if(bk.hp){if(bk.fp)addPart("back","back",bk.id,bk.hp*M.mass,(bk.massG+bk.motorMassG)*M.mass);
+    else parts.push({key:"back",slot:"back",id:bk.id,cells:[],massKg:r3(bk.massG*M.mass/1000),hpJ:bk.hp*M.mass,exposure:r3(K.faceWeight.back),pos:[0,-hl]});}
   for(const e of ex){if(e.fp)addPart(e.id,"extras",e.id,e.hp*M.mass,e.massG*M.mass);
     else parts.push({key:e.id,slot:"extras",id:e.id,cells:[],massKg:r3(e.massG*M.mass/1000),hpJ:e.hp*M.mass,exposure:0,pos:[0,e.id==="bar"?hl:0]});}
   let es=0,eg=0;for(const p of parts)if(p.cells.length){es+=p.exposure*p.massKg;eg+=p.massKg;}
@@ -213,7 +228,7 @@ function evalBuild(cfgIn,opts){
   let weakestFace="front",wv=1e9;for(const f of ["front","back","left","right"]){const A=armourMapJ[f],v=(A.absorbJ+A.hpJ)/K.faceWeight[f];if(v<wv){wv=v;weakestFace=f;}}
 
   /* ---- runtime and heat ---- */
-  const avgDrawW=(drivePowerW*K.driveDuty+weaponPowerW*K.weaponDuty)*powerScale+el.idleW*M.power;
+  const avgDrawW=(drivePowerW*K.driveDuty+weaponPowerW*K.weaponDuty)*powerScale+idleW;
   const runtimeS=avgDrawW>0?bt.capacityWs*M.mass*K.usableBattery/avgDrawW:Infinity;
   const coolTotal=el.coolingW*M.power;
   const group=(heatW,motorKg,duty,share)=>{const rateW=heatW*M.power,coolW=K.passiveCoolW*M.power+coolTotal*share,budgetJ=K.heatJPerKg*motorKg;
@@ -238,8 +253,8 @@ function evalBuild(cfgIn,opts){
       wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe},
     limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
-    power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW:el.idleW*M.power,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
-    height,weapon,bay,armourMapJ,weakestFace,exposureScore,cells,parts,
+    power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
+    height,weapon,bay,front:frontInfo(fr,ownFront,M),back:backInfo(bk,M,limitKg),armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
   b.stress=stressReport(b);
@@ -270,11 +285,21 @@ function bayOf(wp,w,pos,fp,at,g){const hw=g.W/2,hl=g.L/2,len=g.M.len,bodyH=Math.
     depthM=Math.min(bodyH*0.45,Math.max(0.004*len,r*0.08)*2.2+0.002*len);if(id==="hsp")openTop=true;else openBelow=true;}
   else if(T==="hammer"){kind="deck";const dw=Math.max(fr?fr[2]-fr[0]:0,0.034*len);rect=clip(-dw/2,-0.3*hl-0.01*len,dw/2,hl);}
   else if(T==="flipper"){kind="deck";rect=clip(-0.47*g.W,hl-0.58*g.L,0.47*g.W,hl);}
-  else if((T==="lifter"||T==="crusher")&&fr){kind="deck";rect=clip(fr[0],T==="crusher"?Math.min(fr[1],hl-0.32*g.L):fr[1],fr[2],hl);}
+  else if((T==="lifter"||T==="grabber"||T==="crusher")&&fr){kind="deck";rect=clip(fr[0],T==="crusher"?Math.min(fr[1],hl-0.32*g.L):fr[1],fr[2],hl);}
   const area=rect?Math.max(0,rect[2]-rect[0])*Math.max(0,rect[3]-rect[1])*(circle?Math.PI/4:1):0;
   const frac=clamp(area/(g.W*g.L*g.cellFrac),0,1),topFrac=openTop?frac:0,belowFrac=openBelow?frac:0;
   const u=rect?{rect:[rect[0]/g.W,-rect[3]/g.L,rect[2]/g.W,-rect[1]/g.L],circle:circle?{x:circle.x/g.W,z:-circle.y/g.L,rx:circle.r/g.W,rz:circle.r/g.L}:null,depth:depthM/bodyH}:null;
   return{kind,rect,circle,depthM,openTop,openBelow,topFrac,belowFrac,u};}
+/* ---- the front and the back (0.1.32) as the fight reads them. front {id, name, slope, ramMul, underGrip} (a plain
+   front, or one the weapon has no room for, is all zeros and ones); back {id, name, ramMul, kick} where kick is the
+   kicker's flip {forceN, launchJ, strokeM, canLiftKg, shots, rechargeS, reachM} or null ---- */
+const OWN_FRONT=["wedge","lifter","flipper","grabber"];
+function frontInfo(fr,own,M){const on=!own&&fr.id!=="none";
+  return{id:on?fr.id:"none",name:on?fr.name:"",slope:on?fr.slope:0,ramMul:on?fr.ramMul:1,underGrip:on?fr.underGrip:0};}
+function backInfo(bk,M,limitKg){let kick=null;
+  if(bk.kickN){const F=bk.kickN*M.mass,st=bk.strokeMm*M.len/1000;kick={forceN:F,launchJ:F*st,strokeM:st,canLiftKg:F/(K.g*K.flipLever),
+    shots:bk.shots,rechargeS:bk.rechargeS,reachM:bk.reachMm*M.len/1000};}
+  return{id:bk.id,name:bk.id==="none"?"":bk.name,ramMul:bk.ramMul,kick,selfRights:!!bk.selfRights};}
 /* ---- fitBill(fitted, draft): what fitting the draft costs, part by part. Pay on fit, no refund (plan section 1): every
    part that differs from the fitted bot is bought at full price; what comes off is gone. A new weapon is made of the
    material, so it pays for the material too. fitted null (or another class) means the whole bot.
@@ -285,12 +310,13 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none")&&!(s==="wheelbase"&&b[s]==="std"))add(s,b[s]);
+  for(const s of ["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","front","back"])if((!a||a[s]!==b[s])&&!((s==="weapon"||s==="front"||s==="back")&&b[s]==="none")&&!(s==="wheelbase"&&b[s]==="std"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
   const removed=[],off=(slot,id,face)=>{const p=part(slot,id);if(p)removed.push({slot,face:face||null,id,name:p.name});};
   if(a){if(a.weapon!=="none"&&b.weapon==="none")off("weapon",a.weapon);
+    for(const s of ["front","back"])if(a[s]!=="none"&&b[s]==="none")off(s,a[s]);
     for(const f of FACES)if(a.armour[f]!=="none"&&b.armour[f]==="none")off("armour",a.armour[f],f);
     for(const e of a.extras)if(b.extras.indexOf(e)<0)off("extras",e);}
   return{lines,removed,cost:Math.round(cost),hours:Math.round(hours*10)/10};}

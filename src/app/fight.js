@@ -53,13 +53,18 @@ function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push(
   const need=B.need||2,max=B.max||3;if(Object.keys(B.wins).some(t=>B.wins[t]>=need)||B.n>=max)B.over=true;
   ftEvDone(B,F);}
 /* a career event's bout is over (or stopped): the career records it at once and hands back the bell's banner */
-function ftEvDone(B,F){if(B.over&&B.ev&&!B.reported){B.reported=true;B.banner=B.ev.onDone(B,F);}}
+function ftEvDone(B,F){if(B.over&&B.ev&&!B.reported){B.reported=true;ftFrontBack(B);B.banner=B.ev.onDone(B,F);}}
+/* a front swapped in the pit (0.1.32) was the bout's own spare: the fitted front goes home with the damage it had */
+function ftFrontBack(B){const f=B.front0;if(!f||B.bots[0].cfg.front===f.id)return;if(f.dmg==null)delete B.dmg[0].front;else B.dmg[0].front=f.dmg;}
 function ftBoutWinner(B){const a=B.wins[0]||0,b=B.wins[1]||0;return a>b?0:b>a?1:null;}
 /* the pit between rounds: you fix yours (PIT.open), their crew fixes theirs (pitAuto), then the next round */
 function ftPit(){const B=FT.bout,F=FT.F;if(!B||B.over)return;const e=$("fEnd");if(e)e.hidden=true;
   const theirs=pitAuto(F.bots[1].b,B.dmg[1],B.flags[1],B.left[1]);
   if(!PIT_KITS[B.kit]){B.pits.push({mine:[],lost:null,theirs});ftNextRound();return;}   // an event entered with no kit: nothing to work with
-  PIT.open({host:$("fov"),b:F.bots[0].b,dmg:B.dmg[0],flags:B.flags[0],kit:B.kit,left:B.left[0],title:`Pit window · round ${B.n+1} next`,
+  const fronts=pitFronts(B.bots[0].cfg),onFront=id=>{if(!B.front0)B.front0={id:B.bots[0].cfg.front||"none",dmg:B.dmg[0].front};   // 0.1.32: a front swap, for the rest of the bout
+    B.bots=B.bots.slice();B.bots[0]=Object.assign({},B.bots[0],{cfg:Object.assign({},B.bots[0].cfg,{front:id})});
+    if(B.front0.id===id&&B.front0.dmg!=null)B.dmg[0].front=B.front0.dmg;else delete B.dmg[0].front;};
+  PIT.open({host:$("fov"),b:F.bots[0].b,dmg:B.dmg[0],flags:B.flags[0],kit:B.kit,left:B.left[0],fronts,onFront,title:`Pit window · round ${B.n+1} next`,
     onDone:r=>{B.pits.push({mine:r.done,lost:r.lost,theirs});ftNextRound();}});}
 function ftNextRound(){const B=FT.bout;const seed=B.ev?B.ev.seedN(B.n):(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
   const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:Object.assign({},B.flags[i])}));
@@ -215,6 +220,8 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
     if(En>60&&!V.mini)crowd("ooh");}
   else if(e.k==="flip"&&e.a!=null)SS.sfx(wid==="flipper2"?"fliphp":"flip",0.75);
   else if(e.k==="lift")SS.sfx("lifter",0.6);
+  else if(e.k==="grab")SS.sfx("grab",0.7);
+  else if(e.k==="kick"&&!e.heavy)SS.sfx("kick",0.7);
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
   else if(e.k==="haz")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);
   else if(e.k==="pitopen")SS.sfx("pitopen",0.7);

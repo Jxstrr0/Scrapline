@@ -96,7 +96,7 @@ function buildArena(F){
     return{h,m,R,bar};});
   /* bots */
   AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null,o.livery||null);g.add(mesh);mesh.scale.setScalar(U);
-    const B={o,mesh,flipT:-9,shots:o.wp.shots,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
+    const B={o,mesh,flipT:-9,shots:o.wp.shots,kickT:-9,kshots:o.kick?o.kick.shots:0,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
     if(!o.mini){B.tag=botTag(o.name,team,lite,o.livery);g.add(B.tag);}
     return B;});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
@@ -180,7 +180,7 @@ function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
    it at the new F. Only when the arena and the bots are the same; otherwise false and the caller builds afresh. */
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
-  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.mesh.visible=true;wearClear(B);});
+  AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.kshots=o.kick?o.kick.shots:0;B.kickT=-9;B.mesh.visible=true;wearClear(B);});
   for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
   for(const n of FX.nums)fxNumDrop(n);FX.nums=[];return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
@@ -202,6 +202,9 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
       u.spin.visible=!(o.fx&&o.fx.weaponOk===false&&o.st.parts.weapon<=0);}
     if(u.flip){if(o.wp.shots<B.shots)B.flipT=now;B.shots=o.wp.shots;const k=Math.max(0,1-(now-B.flipT)/350);u.flip.rotation.x=1.1*Math.sin(Math.min(1,k*1.4)*Math.PI/2);}
     if(u.forks){const want=o.wp.held!=null?0.45:0;u.forks.rotation.x+=(want-u.forks.rotation.x)*Math.min(1,dt*8);}
+    if(u.jaw){const want=o.wp.grab?0.05:0.35;u.jaw.rotation.x+=(want-u.jaw.rotation.x)*Math.min(1,dt*12);}   // the grabber's jaw shuts on a bot it holds
+    if(u.kick&&o.kick){if(o.kick.shots<B.kshots)B.kickT=now;B.kshots=o.kick.shots;   // the back-up flipper's plate kicks up when it fires
+      const k=Math.max(0,1-(now-B.kickT)/350),r=u.kick.userData.rest||0;u.kick.rotation.x=r-(r+1.0)*Math.sin(Math.min(1,k*1.4)*Math.PI/2);}
     if(u.arm){const ph=o.wp.phase,S=W.swingS||0.7,t=o.wp.t||0;let a=0.9;
       if(ph===1)a=0.9-1.25*Math.min(1,t/(W.type==="hammer"?S/2:S));else if(ph===2)a=-0.35+1.25*Math.min(1,t/0.5);
       if(W.type==="crusher")a=a*0.4;u.arm.rotation.x=a;}}
