@@ -755,3 +755,15 @@ Bots were boxes with their wheels hidden inside. This release is about the bot i
 - **Fixes.** The side plates flickered against the chassis (two faces in one plane); they now stand a hair proud. The 3D code could not find the sim's tables, so tracks were drawn as four wheels and the gradual wear from 0.1.23 (parts darkening as they lose hp, plates knocked askew) never showed in the browser. Both work now.
 
 `models/bot-detail.glb` and `tools/blender-bot-detail.py`; `botDetail()` in `src/vis/props.js`; `wheelWells`, `wellNotch`, `wellArch`, `sidePlateGeo`, `plateGeo`, `detailGeo`, `detailMerge`, `boltMeshes`, `botTracks`, `DETAIL_TYRE`, `DETAIL_LAMP` in `src/vis/bot.js`; the belt and the light in `arenaTick` (`src/vis/arena.js`). Nothing in the sim or the save changed.
+
+## 0.1.42.0: the arenas (Kelbo's visual pass, part three)
+
+The floor is most of the picture in a fight, and it was one stretched photo with a grid painted on it. This release is about the room the fight happens in.
+
+- **A floor for each venue** (Full and Ultra). Each look has its own floor tile, modelled in Blender and baked to colour, normal and roughness maps: bolted, painted steel panels (the club box, the regional arena, the Eisenhalle), heavy welded plate (Stahlbrück), planks (Eisenau), concrete bays (Grauwald). Screws, joints and scratches catch the light as the camera moves. The painted grid is gone; the panels have real joints.
+- **A floor that has been fought on** (every tier). The painted lines are rubbed through in places; there are tyre marks, soot round the floor spinners, scrapes in front of the rams and grime along the kerbs. A venue always wears the same way.
+- **Hit marks** (every tier). A big hit, a hazard hit or a hard landing leaves a scorch, a gouge, a scuff or chips on the floor where it happened. They stay until the round ends; the oldest go first when there are many (12 on Lite, 32 on Full, 48 on Ultra).
+- **Walls** (Full and Ultra). The kerb has a rub rail and joints; the screen uprights are bolted down and braced, with a small work light on every other one; a lattice lighting mast stands outside each far corner.
+- **Venue boards** (every tier). A strip of printed boards runs along the screens above the kerb: the venue's name between SCRAPLINE panels. Lite has it on the far wall only.
+
+`tools/blender-arena-floors.py` and `textures/floor-*.webp`; `floorDress`, `floorImg`, `FLOOR_TEX` and the new kit pieces in `kitBuild` (`src/vis/props.js`); `arenaWear`, `wallBoards`, `boardTex`, `BOARD`, `ARENA_LOOK[look].plate` and `.sign` (`src/vis/arena.js`); `fxMark`, `markInit`, `markTex`, `MARKS` (`src/vis/fx.js`); `models/arena-kit.glb` from `tools/blender-arena-kit.py`. Nothing in the sim or the save changed.

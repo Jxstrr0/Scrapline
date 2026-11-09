@@ -15,3 +15,12 @@ All from [Poly Haven](https://polyhaven.com), CC0 1.0 (public domain), fetched w
 | File | Asset | Author | Licence | URL | Changes |
 |---|---|---|---|---|---|
 | env-hall.png | Empty Warehouse 01 | Sergej Majboroda | CC0 1.0 | https://polyhaven.com/a/empty_warehouse_01 | 256 by 128, RGBM16 PNG. |
+
+**Arena floors** (0.1.42, `src/vis/props.js` `floorDress`): one tile for each venue look, Scrapline's own. Each is modelled in Blender from code and baked by `tools/blender-arena-floors.py` (geometry rendered straight down in Cycles for the mask, normals, height and occlusion; wear added in numpy), so there is no outside source and nothing to license.
+
+| File | Asset | Author | Licence | URL | Changes |
+|---|---|---|---|---|---|
+| floor-deck_diff.webp, floor-deck_nor.webp, floor-deck_orm.webp | Bolted, painted steel panels (club box, regional arena, the Eisenhalle) | Built in Blender 5.2 from code, `tools/blender-arena-floors.py` | Scrapline's own | none | 1024 px colour and normals, 512 px occlusion / roughness / metalness. |
+| floor-mill_diff.webp, floor-mill_nor.webp, floor-mill_orm.webp | Welded steel plate (Stahlbrück Mill) | Built in Blender 5.2 from code, `tools/blender-arena-floors.py` | Scrapline's own | none | As above. |
+| floor-port_diff.webp, floor-port_nor.webp, floor-port_orm.webp | Planks (Eisenau Harbour) | Built in Blender 5.2 from code, `tools/blender-arena-floors.py` | Scrapline's own | none | As above. |
+| floor-shed_diff.webp, floor-shed_nor.webp, floor-shed_orm.webp | Concrete bays (Grauwald Engine Shed) | Built in Blender 5.2 from code, `tools/blender-arena-floors.py` | Scrapline's own | none | As above. |
