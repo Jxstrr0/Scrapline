@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.38.0";
+const VERSION="0.1.39.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -83,6 +83,22 @@ const EVENT_KINDS={
   tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.6, crewKit:"basic"},
   champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.7,crewKit:"full"}};
 const EVENT_SKILL_ACT=0.08,EVENT_SKILL_MAX=0.92;
+/* life after the Open (0.1.39, the Legacy act). The title: whoever won the Scrapline Open Final (final) last. Your legend
+   level is how many Opens you've won in a row (up to maxLevel); it makes every Legacy field harder and the Final richer.
+   Lose the Final, or don't enter it, and the run and the level go back to nothing. The hall of fame (S.hall) keeps a
+   line for every career that ended, up to hallMax. */
+const LEGACY={
+  final:"h8",         // the SEASON_EVENTS id that carries the title
+  maxLevel:5,
+  skillStep:0.02,     // every driver in a Legacy field is this much sharper a level...
+  skillMax:0.98,      // ...up to this (past EVENT_SKILL_MAX)
+  rivalStep:1,        // and every rival's bot is this many steps further on a level
+  cls:"heavy",        // the title's class: the champion's own bot in it carries...
+  ballast:0.02,       // ...this much less of the weight limit a level (crLimitG, app/team.js): rebuild lighter to defend
+  prizeStep:0.2,      // a defended Final pays this much more a level
+  repDefend:8,        // and this much extra rep
+  names:["Challenger","Champion","Defender","Dynasty","Legend","Immortal"],   // by level
+  hallMax:12};
 /* the season's calendar, the same every season (the year changes). act: the act whose calendar it's on (you see your
    act's and the one before's). venue: a WORLD.venues key. One event a week at most. */
 const SEASON_EVENTS=[
@@ -241,7 +257,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=14;
+const SAVE_V=15;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -256,6 +272,7 @@ function freshState(){return{v:SAVE_V,settings:freshSettings(),
   lastFight:null,                 // the latest fight log, for replay (PR 6)
   reel:{m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0},   // the highlight reel (0.1.27.0, app/reel.js): moments by id, this season's five, last season's reel (and its year), the career's best three, the Sandbox's five
   daily:{last:null,streak:0,top:0,best:null,tries:0},   // the daily challenge (0.1.20.0, app/daily.js): last day fought ("YYYY-MM-DD"), days in a row, longest run, today's best {score, txt, bring}, today's tries
+  hall:[],                        // the hall of fame (0.1.39, app/career.js crHallAdd): a line per career that ended: {team, y0, y1, seasons, events, wins, titles: [years], best, rep, act, end}
   lastBackup:0};}
 let S=freshState();
 const ST=()=>S.settings;
@@ -278,7 +295,8 @@ const MIGRATE={
   10:o=>{o.team=freshTeam();return o;},   // 0.1.24.0: teams. Everyone starts as the Eckwerkstatt in clay; bots[cls].name is optional (a default per class)
   11:o=>{const d=o.career&&typeof o.career==="object"?o.career.day:null;if(d&&typeof d==="object"&&Array.isArray(d.pairs)&&Array.isArray(d.won)){d.hist=[];d.how=d.won.map(()=>null);d.sc=d.won.map(()=>"");}return o;},   // 0.1.26.0: the bracket screen keeps a tournament day's rounds (day.hist, how, sc); a day already under way has none of the earlier rounds
   12:o=>{o.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};return o;},   // 0.1.27.0: the highlight reel starts empty
-  13:o=>{if(o.settings&&typeof o.settings==="object")o.settings.dev=o.settings.dev===true;return o;}   // 0.1.30.0: Dev mode (Settings) starts off
+  13:o=>{if(o.settings&&typeof o.settings==="object")o.settings.dev=o.settings.dev===true;return o;},   // 0.1.30.0: Dev mode (Settings) starts off
+  14:o=>{o.hall=[];return o;}   // 0.1.39.0: the hall of fame starts empty; the title and legend level are worked out from career.events (crTitle), so nothing else to add
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -296,7 +314,7 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   if(!buObjS(n.daily))n.daily={last:null,streak:0,top:0,best:null,tries:0};
   if(!buObjS(n.reel)||!buObjS(n.reel.m))n.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};   // the lists are checked where they're used (rlState)
   if(!buObjS(n.team))n.team=freshTeam();   // checked in full where it's used (lvMine)
-  for(const k of ["staff","sponsors"])if(!Array.isArray(n[k]))n[k]=[];
+  for(const k of ["staff","sponsors","hall"])if(!Array.isArray(n[k]))n[k]=[];
   S=n;return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;

@@ -714,3 +714,19 @@ Kelbo asked, once the build features were in, for the auto-driving to be audited
 - **What it reports,** per dummy: hits landed and the biggest; the damage as a share of everything the dummy has; the first part destroyed and when; "disabled in N s"; when it was first put on its back and whether it was stuck there; and what the test cost the player's own bot (recoil and its own weapon). A bot that breaks nothing is told so plainly: it wins by pushing, flipping and control. The chart is one bar per dummy with a green mark where it was disabled.
 - **Watch.** Each row has a Watch link: the same fight again, as a replay in the fight view (`bnWatch`; the fight is rebuilt from `benchDummySpec`, nothing is stored), with slow-motion on the big hits and the usual scrub bar. It doesn't count for the reel, the career or the daily challenge, and it won't replace a bout that is still being fought.
 - **No save change:** which tests have run is the existing `bots[cls].bench.done`.
+
+## 0.1.39.0: life after the Open (Kelbo's improvements, part four)
+
+Winning the Scrapline Open used to be the end of the story: the Legacy act just repeated the top calendar. Now there is a title to hold.
+
+- **The title.** Win the Open Final and you are the champion. The game reads this from the Finals in your career's results (`crTitle`), so nothing new is saved for it. Win it again next season and that is a defence; the run counts Finals won in a row.
+- **Legend levels.** Each Open in a row is a level, up to 5: Champion, Defender, Dynasty, Legend, Immortal. Each level makes the next defence harder:
+  - **The champion's ballast:** your own heavyweight limit drops 2% a level (110 kg, then 107.8, 105.6, down to 99 kg at level 5). Opponents keep the full class limit. An event refuses a bot that is over its limit and says by how many grams, so each title means a lighter rebuild. This is the lever that bites.
+  - Drivers are a little sharper (+0.02 skill a level, up to 0.98) and each rival's bot is one step further on. On its own the sharper driving made no measurable difference in a node run, so the game does not oversell it.
+- **What a defence pays.** The Final's prize is 20% bigger a level, with +8 rep, and the trophy reads "Title defended".
+- **Losing it.** Lose the Final, forfeit it or skip it and the title goes to someone else. The run and the level go back to nothing, your weight limit goes back to normal, and you are the challenger.
+- **Where you see it.** The Career card (title, level, your limit, what the defence pays), the Final's result card, and the new-season sheet.
+- **Hall of fame.** A career that ends (twenty seasons, bankrupt, or restarted) leaves a line: team, years, events and wins, the Opens it won, its best run and how it ended. The best 12 are kept, most titles first, on the Career tab, with the running career shown beside them.
+- **Dev mode: Win the Open** jumps a career to the Legacy act as champion, one level a press, for testing.
+
+Tables: `LEGACY` (`src/app/state.js`). Save: `S.hall`, `SAVE_V` 15.
