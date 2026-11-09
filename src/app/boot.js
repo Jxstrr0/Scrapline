@@ -1,7 +1,7 @@
 /* ===================== app/boot.js: tabs, Settings, intro, start-up =====================
    showTab(t) switches the five tabs (Build, Bench, Fight, Shop, Career) and remembers the last one in S.settings.tab.
    openSettings() fills the bottom sheet: graphics tier, auto-adjust, theme, motion, effects (PR 9), controls (direct /
-   tactical), hand, assists, sound, voices, commentary and captions (0.1.16), the tutorial again (PR 9), saves, install, version.
+   tactical), hand, assists, sound, voices, commentary and captions (0.1.16), the tutorial again (PR 9), saves, Dev mode (0.1.30: +€1,000 and Unlock all), install, version.
    start() runs once the whole app script has loaded (scheduled through __ldGo at the bottom of this file): it loads
    the save, starts the 3D view, draws the tabs and lifts the loading splash. */
 const TABS=["build","bench","fight","shop","career"];
@@ -48,6 +48,9 @@ function openSettings(){
 <div class="field"><span class="lbl">Tutorial</span><div class="row"><button class="btn" id="tutAgain"${TUT_ON?" disabled":""}>Run the tutorial</button></div><p class="hint">A coached first fight on a loaner bot. Your workshop is put back as it was at the end.</p></div>
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
+<div class="field"><span class="lbl">Dev mode</span>${segHtml("devSeg","dev",[["0","Off"],["1","On","testing buttons"]],ST().dev?"1":"0")}
+<div id="devBox"${ST().dev?"":" hidden"}><div class="row"><button class="btn" id="devCash">+${fmt$(DEV_CASH)}</button><button class="btn" id="devAll">Unlock all</button></div>
+<p class="hint">For testing a career. +${fmt$(DEV_CASH)} goes straight into the tin; Unlock all gives every tool, every R&amp;D project and the team HQ (its rent is ${fmt$(WORKSHOP_STAGES[WORKSHOP_STAGES.length-1].rent)} a week). Your act stays where it is, and custom work still needs a fabricator.</p></div></div>
 ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
 <p class="hint">Scrapline ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
   const pick=(id,attr,fn)=>$(id).addEventListener("click",e=>{const b=e.target.closest(`[data-${attr}]`);if(!b)return;
@@ -65,10 +68,22 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("vocSeg","voc",v=>{ST().voice=v==="1";applyVoice();ftVoiceLoad();});
   pick("comSeg","com",v=>{ST().comm=v==="1";applyVoice();});
   pick("capSeg","capt",v=>{ST().captions=v==="off"?"off":"muted";applyVoice();});
+  pick("devSeg","dev",v=>{ST().dev=v==="1";$("devBox").hidden=!ST().dev;});
+  $("devCash").addEventListener("click",devCash);$("devAll").addEventListener("click",devUnlockAll);
   buStoreLine();
   $("tutAgain").addEventListener("click",()=>{closeSheet();tutStart();});
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
 }
+/* Dev mode (Kelbo, 0.1.30): a switch in Settings (ST().dev, kept on this phone) that shows two testing buttons for a career.
+   Unlock all owns every tool and R&D project and moves into the last workshop stage; the act stays (Kelbo's pick), and a
+   fabricator is a hire, not an unlock */
+const DEV_CASH=1000;
+function devCareer(){if(TUT_ON){toast("Not during the tutorial");return null;}const c=S.mode==="career"?S.career:null;
+  if(!c||c.over){toast(S.mode!=="career"?"Switch to Career mode first (Mode, above)":"Start a career first (Career tab)");return null;}return c;}
+function devRedraw(){save();hud();if(["build","shop","career"].includes(curTab)&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}   // not the Fight tab: a bout may be on
+function devCash(){const c=devCareer();if(!c)return;c.money+=DEV_CASH;crLedger(DEV_CASH,"Dev mode");devRedraw();toast(`+${fmt$(DEV_CASH)} · ${fmt$(c.money)}`);}
+function devUnlockAll(){const c=devCareer();if(!c)return;for(const t of TOOL_IDS)S.unlocks.tools[t]=true;for(const r of RND_IDS)S.unlocks.rnd[r]=true;
+  const r=tmC().rnd;r.cur=null;c.stage=WORKSHOP_STAGES[WORKSHOP_STAGES.length-1].id;devRedraw();toast("Every tool, every R&D project and the team HQ");}
 $("setOpen").addEventListener("click",openSettings);
 $("sheetClose").addEventListener("click",closeSheet);
 $("scrim").addEventListener("click",closeSheet);

@@ -104,6 +104,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Next three (Kelbo, after 0.1.26) | Asked for a highlight reel, more arenas and a polish pass. **Order: reel, arenas, polish** (over polish first, or arenas first). **Reel: season reel + Highlights card** (over season-end only, or manual pins): the best five moments of each season kept automatically, played back to back in slow motion at the season's end and rewatchable from the Fight tab. **Arenas: one per venue** (over a new hazard type as well, or a rotating pool): Stahlbrück, Eisenau and Grauwald each get their own layout, look and lighting from the existing hazards, and the arena follows the venue. **Polish: only Kelbo's list** (over an audit by Claude): Kelbo plays and sends a list; only those get fixed. |
 | Bracket screen (0.1.26, Kelbo) | Asked as the last item of the order. **Drawn bracket + preview** (over the day only, or also a full round-robin fixture list): the tournament day shows its bracket as a tree with results and your path, and the Enter sheet shows the draw (who you meet first) before you pay. Round robins, rumbles and tag days stay as they are. `SAVE_V` 12 keeps a day's rounds |
 | Polish list, part one (0.1.29, Kelbo) | Asked, from playing: a skip to the next fight in a class he has a bot for, and a way to watch a simmed fight instead of the text result. **Skip: to the next event this season you can enter, with a sheet showing the weeks and rent** (runs Close week once per week). **Watch it: a third button; the result is recorded first, then played back as a live bout** (the result at the bell, spoiler toasts held). |
+| Polish list, part two (0.1.30, Kelbo) | Asked: a dev mode with +1000 and an unlock-all button in Settings, and a check of the early economy ("it feels hard"). **Dev mode: a Settings switch kept on this phone, showing +€1,000 and Unlock all.** **Unlock all: every tool, every R&D project and the team HQ; the act stays.** **Economy: the "gentler start"** (start €2,500, basic kit €30, club prizes 400/250/150/50, tournament 1,000/500/250/75, Garage act at 45 rep). |
 ---
 
 ## 2. Direction
@@ -478,4 +479,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.27: highlight reel (the best five moments of each season kept automatically, the season reel, the Fight tab's Highlights card, the Sandbox's best five)
 - [x] 0.1.28: an arena for each regional venue (Stahlbrück Mill, Eisenau Harbour, Grauwald Engine Shed; the arena follows the venue; balanced in each)
 - [x] 0.1.29: polish from Kelbo's list, part one (skip to the next fight you can enter; Watch it, a sim played out on the Fight tab)
-- [ ] 0.1.30: more of the polish pass, from Kelbo's list
+- [x] 0.1.30: polish from Kelbo's list, part two (dev mode with +€1,000 and Unlock all; an easier first season)
+- [ ] 0.1.31: more of the polish pass, from Kelbo's list
