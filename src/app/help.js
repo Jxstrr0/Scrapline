@@ -134,7 +134,7 @@ const TUT_STEPS=[
   {tab:"fight",pre:tutFightPrep,sel:'[data-ft="go"]',t:"Spar a club bot",x:()=>`${SIM.OPPONENTS.find(o=>o.id===TUT_OPP).name} is a careful club bot. Tap Fight and drive: ${ST().controls==="tactical"?"tap the floor to go there, tap them to attack":"the stick steers"}. The wedge has no weapon, so shove them into the wall and keep your front on them. Ninety seconds.`,done:()=>FT.rounds.length>0&&!FT.on},
   {tab:"fight",sel:"#rpCard",t:"Read the post-mortem",x:()=>"Every fight ends with this: the hits on a timeline, the damage map, the chain of causes, and one change to try. In a career, the repair bill under it is real money.",n:"Next"},
   {t:"That's the loop",x:()=>"Build it, prove it on the bench, fight, read why, build better. The loaner goes back now and your workshop is as you left it. The Career tab starts the real thing; Settings has this tutorial again.",n:"Back to my workshop",last:true}];
-function tutFightPrep(){FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
+function tutFightPrep(){FT.sub="spar";FT.open=null;FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
 function tutStart(){if(TUT_ON||FT.on)return;closeSheet();
   TUT.bak=snapshot();TUT.cls=ST().buildCls;TUT.ft={opp:FT.opp,mode:FT.mode,style:FT.style,arena:FT.arena,speed:FT.speed};TUT_ON=true;
   S.career=null;S.bots={};S.parked={};S.mode="sandbox";S.staff=[];S.sponsors=[];S.lastFight=null;ST().buildCls="beetle";

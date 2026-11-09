@@ -69,11 +69,22 @@ h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
 #tag{position:absolute;left:12px;bottom:10px;font:12px var(--mono);color:var(--muted);pointer-events:none}
 #fpsHud{position:absolute;right:10px;bottom:10px;font:11px var(--mono);color:var(--dim);pointer-events:none}
 
+/* Shop and Career don't need the bot: the view drops to a strip there and the panel gets the room (0.1.43, portrait only) */
+@media (orientation:portrait){#view{transition:flex-basis .26s ease,min-height .26s ease}
+  html[data-tab=shop]:not(.home) #app:not(.fighting) #view,html[data-tab=career]:not(.home) #app:not(.fighting) #view{flex-basis:21%;min-height:128px}}
 #panel{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 14px calc(var(--tabh) + 24px + env(safe-area-inset-bottom,0px))}
 .tabpage{display:none}
 .tabpage.on{display:block}
 .tabpage>h2{font-size:22px;margin:2px 0 4px}
 .lede{margin:0 0 14px;font-size:15px;color:var(--muted)}
+/* a tab's own pages (0.1.43): text tabs with a clay underline that stay at the top of the panel as it scrolls */
+.subnav{position:sticky;top:-14px;z-index:6;display:flex;gap:2px;margin:0 -14px 12px;padding:0 8px;background:var(--base);border-bottom:1px solid var(--rule);overflow-x:auto;scrollbar-width:none}
+.subnav::-webkit-scrollbar{display:none}
+.subnav button{position:relative;flex:0 0 auto;min-height:44px;padding:0 10px;font-size:15px;font-weight:600;color:var(--muted);white-space:nowrap}
+.subnav button.on{color:var(--ink)}
+.subnav button.on::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:var(--clay)}
+.subnav .dot{display:inline-block;width:7px;height:7px;margin-left:6px;border-radius:50%;background:var(--clay);vertical-align:2px}
+.tabpage>h2.vh+div>.subnav:first-child{margin-top:-14px}
 
 #tabs{position:absolute;left:0;right:0;bottom:0;z-index:20;display:flex;height:calc(var(--tabh) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--tabbar);border-top:1px solid var(--rule)}
 #tabs button{position:relative;flex:1;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:500;color:var(--dim)}
@@ -185,6 +196,14 @@ details.raw{margin-top:12px}
 .fitbar .ft{flex:1;min-width:0;font-size:13px;color:var(--muted)}
 .fitbar .ft b{display:block;font-size:15px;color:var(--ink)}
 .fitbar .btn{flex:0 0 auto}
+.gobar{margin-bottom:12px}
+.gobar .ft{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gobar .ft b{overflow:hidden;text-overflow:ellipsis}
+.gobar .btn{min-width:88px}
+.ftnote{margin:0 2px 12px}
+.gobar+.ftnote{margin-top:-4px}
+#ftResCard,#rlCard,#rpCard{scroll-margin-top:54px}
+#ftBody .acc .field{margin:12px 0 0}
 .bill{list-style:none;margin:0 0 12px;padding:0;font-size:15px}
 .bill li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--rule)}
 .bill li:first-child{border-top:0}
