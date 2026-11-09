@@ -48,7 +48,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
 ## 0.1.3.0: the bench (PR 3)
 
 - **What it tests:** the fitted bot of the class on the Build tab. Nothing fitted yet: it offers to fit the draft. Draft changes not fitted: it says so. Refit or move a part and the old results go stale.
-- **Six tests,** each with a small chart and the numbers in words:
+- **Six tests (seven from 0.1.38, the test dummy: see its section),** each with a small chart and the numbers in words:
   - **Drive:** a 2.4 m straight (longer in bigger classes) and a spin on the spot: top speed reached (against the prediction), time, how far an off-centre COM pulls it, turn rate, push.
   - **Weapon:** spinners spin up with a real motor curve (less torque at low rpm, a little windage), so the measured spin-up is a touch slower than the prediction; then a hit on a fixed anvil (energy landed, rpm lost, time to recover) and how far the recoil throws you back. Flippers and lifters against four test masses; hammers, crushers and pushers by their energy.
   - **Impact:** a swinging mass hits each face, harder each swing (15% steps), on a fresh bot each time, until a part behind it dies: when the plate gives, which part dies first and at what energy. The weakest side is marked. This uses the first half of the fight's damage model: the plate's absorb, then its hp, then the most exposed part behind that face, a destroyed part passing 70% of what's left to the next.
@@ -698,3 +698,19 @@ Kelbo asked, once the build features were in, for the auto-driving to be audited
 - **Look.** Lite: a dark plate and three see-through cones, pilot-sized while it warns. Full and Ultra: the Blender grate (tray, bars, nozzles; the bars glow while it burns), four outer and four inner additive cones, and bloom on Ultra picks them up for free. No light is added on any tier. The floor paint has a scorched patch and a dashed keep-off box.
 - **Sound and words.** Two takes of a gas burner lighting; the feed says "The flames catch X"; the post-mortem lists "the flame grate"; the announcer's general hazard line covers it (no new voice lines).
 - **Balance.** See the commit: the test builds' win rates in the Eisenhalle and at Stahlbrück stay inside the harness's band.
+
+## 0.1.38.0: the bench test dummy (Kelbo's improvements, part three)
+
+- **Why.** The bench said what a weapon stores and what an anvil takes from it, but not what that does to a robot. The first time a player saw their weapon hit armour was in a fight they had paid to enter.
+- **What it is.** A seventh bench test, **Test dummy** (1 h at beetle scale, `BENCH_TESTS`). The fitted bot is let loose for 20 seconds each on three boxes that don't drive and don't fight back (`BENCH_DUMMIES`, `sim/bench.js`), built from ordinary parts in the class on the bench:
+
+| Dummy | Built from | Stands for |
+|---|---|---|
+| Plywood box | plywood, 6 mm HDPE all round, single motors, small pack | a first-season bot |
+| Aluminium box | aluminium frame and plates, HDPE lid | a mid-table bot |
+| Armoured brick | steel, AR500 all round, steel lid, skid plate, bar | the hardest box in the class |
+
+- **It is a real fight.** `benchDummy` runs the fight sim itself (`newFight`, the test box, seed `BENCH.dummy.seed`, the aggressive AI at 0.8 driving the player's bot, the dummy never counted out), so a hit does exactly what it would do in a fight: the same armour, bays, deflection, recoil and self-damage. It stops early once the dummy is dead or has no drive on either side.
+- **What it reports,** per dummy: hits landed and the biggest; the damage as a share of everything the dummy has; the first part destroyed and when; "disabled in N s"; when it was first put on its back and whether it was stuck there; and what the test cost the player's own bot (recoil and its own weapon). A bot that breaks nothing is told so plainly: it wins by pushing, flipping and control. The chart is one bar per dummy with a green mark where it was disabled.
+- **Watch.** Each row has a Watch link: the same fight again, as a replay in the fight view (`bnWatch`; the fight is rebuilt from `benchDummySpec`, nothing is stored), with slow-motion on the big hits and the usual scrub bar. It doesn't count for the reel, the career or the daily challenge, and it won't replace a bout that is still being fought.
+- **No save change:** which tests have run is the existing `bots[cls].bench.done`.
