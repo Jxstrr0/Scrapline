@@ -35,6 +35,7 @@ const WEDGE_RULES={
   underBiteBy:{vsp:0.9,drum:0.75},   // ... except a vertical disc, which still bites the wedge it's sitting on
   discGuard:{vsp:0.5,drum:0.6},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
                     // nothing gets under its front, and the disc bites the wedge's lip instead (plan 8e: vertical beats wedge)
+  allGuard:{shell:0.35,ring:0.5,melty:0.35},   // 0.1.34: a shell, ring or meltybrain spinning above this share guards every face
   holdS:0.25,       // it stays lifted this long after the contact ends
   liftMm:12         // how high it rides up the wedge (beetle scale, x len), for the views
 };
@@ -57,13 +58,13 @@ const FIGHT={
                               // (a fitted front, 0.1.32, adds its own slope instead: b.front.slope)
   horizontal:{hsp:1,under:1}, // the spinners whose hits a sloped front turns (a vertical bites the edge instead) ...
   lip:{vsp:1.8,drum:1.3},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
-  gyro:{vsp:0.3,drum:0.24},   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
+  gyro:{vsp:0.3,drum:0.24,shell:0.5,ring:0.25},   // (0.1.34: a shell is the heaviest gyroscope of all)   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
   gyroClass:{heavy:1.35},     // ... x this in a class (a heavyweight's disc is a flywheel the size of a manhole cover)
   selfFlip:{vsp:0.01,drum:0.005},   // a full-power hit can throw a vertical spinner onto its back: this chance x the hit's share of full energy
   damageShare:0.4,            // a spinner hit's energy that goes into damage ...
   throwShare:0.15,            // ... and into throwing the target
   recoilShare:0.5,            // the attacker takes this x the throw impulse x the weapon's recoil, the other way
-  up:{hsp:0,vsp:0.6,drum:0.5,under:0.3,saw:0},   // share of a spinner's throw that goes upward
+  up:{hsp:0,vsp:0.6,drum:0.5,under:0.3,saw:0,shell:0.1,ring:0.05,melty:0},   // share of a spinner's throw that goes upward
   flipDmg:0.15,               // a flipper's arm hit: this x launchJ x bite in damage
   flipFwd:1,                  // m/s forward a flipped bot carries (x sqrt len)
   flipThrow:{ant:1.6,beetle:1.8,hobby:1.8},   // 0.1.17.5: a flipper's own flip throws this much further again (m/s, x sqrt len), in the
@@ -104,11 +105,18 @@ const FIGHT={
      footprint width (full: the chassis width), reach x the bot's length (or the weapon's own reachM); top: it hits the
      top of what it lands on */
   zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
-    hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1}},
+    hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1},
+    shell:{circle:1},ring:{circle:1},melty:{circle:1}},   // 0.1.34: the all-round ones, a circle round the middle (mountM [0, 0])
   /* 0.1.32: a kicker (the back-up flipper, b.back.kick) works a box behind the back face, kickW x the width; it throws
      backwards and kickFwd m/s (x sqrt len) further. A grabber's clamp does grabJ (x mass) to what it closes on, and it
      carries what it holds at its front: the pair drive as one, at the grabber's push over both their masses */
-  kickW:0.8,kickFwd:0.8,grabJ:2,grabHoldS:3,grabRechargeS:4,grabCloseS:0.5,grabSlip:0.6,grabDrag:0.8
+  kickW:0.8,kickFwd:0.8,grabJ:2,grabHoldS:3,grabRechargeS:4,grabCloseS:0.5,grabSlip:0.6,grabDrag:0.8,
+  /* 0.1.34, the odd bodies. slick: a shell or meltybrain spinning above this share of full speed can't be lifted, grabbed
+     or crushed (the jaws skate off). melty: a spun-up meltybrain steers its heading light at turn rad/s, drives along it
+     at speed x top speed, picking up speed at accel x grip x g and holding its line sideways with lat x the usual grip;
+     a hit of syncJ (x mass) or more knocks it out of sync for syncS, when its heading wanders by up to wobble rad/s */
+  slick:{shell:0.35,melty:0.35},
+  melty:{turn:3.5,speed:0.7,accel:0.45,lat:0.4,syncJ:6,syncS:1.4,wobble:9}
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
@@ -265,6 +273,8 @@ function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};F.fxHit=null;if(E<=0|
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
   const s0=F.fxq&&(kind==="hit"||kind==="haz")?damageShare(o.b,st):-1;   // fx only: the damage number over the bot
   const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
+  /* a meltybrain hit hard while it spins loses its heading for a moment (0.1.34) */
+  const mw=o.b.weapon;if(mw.melty&&kind!=="land"&&E>=FIGHT.melty.syncJ*F.M.mass&&o.wp.om>=FIGHT.minSpin*mw.omega&&!(o.desync>F.t)){o.desync=F.t+FIGHT.melty.syncS;logIt(F,{k:"self",v:o.i,what:"sync"});}
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
   if(res.hit){res.plate=res.hit.plate;res.plateBroken=res.hit.plateBroken;res.through=res.hit.through;}
   if(res.through>0)st.chassis=Math.max(0,st.chassis-res.through);
@@ -322,7 +332,7 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
       else{if(!grab&&wp.t>=FIGHT.tipS&&w.liftM>=FIGHT.tipM*o.M.len){const flip=F.rng()<FIGHT.tipP;t.held=null;wp.held=null;
         launch(F,t,1.5*Math.sqrt(o.M.len),flip,o);logIt(F,{k:"tip",a:o.i,v:t.i,inv:flip?1:0});}}}
     else if(u.weapon&&f.motorOk&&upright&&!o.air&&!(wp.recharge>0)){let near=false;
-      for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&zoneTouch(o,t)){near=true;
+      for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&!slick(t)&&zoneTouch(o,t)){near=true;
       if(grab&&(wp.ct=(wp.ct||0)+dt)<FIGHT.grabCloseS)break;   // the jaws take a moment to close: it has to stay in reach
       wp.held=t.i;wp.ct=0;wp.t=0;t.held=o.i;
       if(grab){const l=toLocal(o,t.x,t.y);wp.grab={lx:l[0],ly:l[1],dh:wrapA(t.h-o.h)};t.under=null;
@@ -334,12 +344,14 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
   if(w.type==="hammer"||w.type==="crusher"){const S=w.type==="hammer"?(w.swingS||0.7):FIGHT.crushS/Math.max(o.b.powerScale,0.2),
       O=w.type==="hammer"?S/2:FIGHT.crushOpenS;
     if(wp.phase===0){if(u.weapon&&f.motorOk&&upright&&!o.air){wp.phase=1;wp.t=0;
-      if(w.type==="crusher")for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&zoneTouch(o,t)){wp.held=t.i;t.held=o.i;break;}}}
+      if(w.type==="crusher")for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&!slick(t)&&zoneTouch(o,t)){wp.held=t.i;t.held=o.i;break;}}}
     else if(wp.phase===1){wp.t+=dt;if(wp.t>=(w.type==="hammer"?S/2:S)){strike(F,o);wp.phase=2;wp.t=0;if(wp.held!=null){F.bots[wp.held].held=null;wp.held=null;}}}
     else{wp.t+=dt;if(wp.t>=O){wp.phase=0;wp.t=0;}}
     return wp.phase===1?o.b.power.weaponW*o.b.powerScale*p:0;}
   return 0;}
 
+/* a shell or meltybrain spun up (0.1.34): nothing can get a grip on it */
+function slick(t){const s=FIGHT.slick[t.b.weapon.id];return!!s&&t.b.weapon.omega>0&&t.wp.om>=s*t.b.weapon.omega;}
 /* a bot sent up: vz, a forward push, and whether it will land upside down */
 function launch(F,t,vz,flip,by,att,fwd){t.air=true;t.stunNext=0;t.vz=vz;t.z=Math.max(t.z,0.001);t.zPeak=t.z;t.flipNext=!!flip;t.under=null;t.held=null;
   t.airBy=by?by.i:att!=null?att:null;
@@ -416,6 +428,14 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
   const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,((WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)+(o.under.grip||0))*wb.underMul):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
+  /* a meltybrain spun up (0.1.34): the whole bot is the weapon, so it can't skid-steer; it drives by pulsing its wheels once
+     a turn. Its heading is the light the driver steers by: steer turns it at FIGHT.melty.turn, the throttle drives along
+     it. Out of sync (a hard hit) the heading wanders */
+  if(b.weapon.melty&&b.weapon.omega>0&&o.wp.om>=FIGHT.minSpin*b.weapon.omega){const Mt=FIGHT.melty;o.w=0;o.cmd=[0,0];
+    if(go){o.h=wrapA(o.h-clamp1(u.steer)*Mt.turn*dt);if(o.desync>F.t)o.h=wrapA(o.h+(2*F.rng()-1)*Mt.wobble*dt);}
+    const vt=go?clamp1(u.throttle)*v0*Mt.speed:0,am=Mt.accel*b.grip*g*gripMul*dt,dv=Math.max(-am,Math.min(am,vt-vF));o.vx+=fw[0]*dv;o.vy+=fw[1]*dv;
+    const vL=o.vx*rt[0]+o.vy*rt[1],lt=Math.min(Math.abs(vL),FIGHT.latGrip*Mt.lat*b.grip*g*gripMul*dt);o.vx-=rt[0]*Math.sign(vL)*lt;o.vy-=rt[1]*Math.sign(vL)*lt;
+    return go?b.power.driveW*b.powerScale*p*Math.abs(u.throttle)/2:0;}
   let cL=go?clamp1(u.throttle+u.steer):0,cR=go?clamp1(u.throttle-u.steer):0;
   o.cmd=[cL,cR];let FL=0,FR=0;
   const sL=o.inverted?f.sides.right:f.sides.left,sR=o.inverted?f.sides.left:f.sides.right;   // upside down, the chassis's left wheels are on the right
@@ -477,7 +497,7 @@ function slopeOf(t){const f=t.b.front;return f.slope>0&&t.st.parts.front>0?f.slo
 /* x the damage a ram with this face does (a spike, 0.1.32, while it lasts) */
 function ramOf(o,face){const q=face==="front"?o.b.front:face==="back"?o.b.back:null;return q&&q.ramMul!==1&&o.st.parts[face]>0?q.ramMul:1;}
 function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_RULES.holdS;
-  const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
+  const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id]||WEDGE_RULES.allGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
   const can=(X,Y,fy)=>!(X.inverted&&!X.b.height.drivesInverted)&&!guard(Y,fy);
   const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<edgeOf(Y,fy)-tol;
   const underBack=(X,Y,fy)=>X.b.back.id!=="none"&&can(X,Y,fy)&&edgeOf(X,"back")<edgeOf(Y,fy)-tol;   // a rear wedge (0.1.32) gets under too
