@@ -15,6 +15,7 @@
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
      cost (euros), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
+     tune {volt, wheel, bias} (the dials, 0.1.33: TUNE in sim/parts.js), wheelRadiusMm (after the wheel-size dial)
    Coordinates: chassis centre is the origin, +x right, +y forward (the front face is +y). ---- */
 const K={
   g:9.81,
@@ -51,6 +52,11 @@ function evalBuild(cfgIn,opts){
     fr=pick("front",cfg.front),bk=pick("back",cfg.back);   // 0.1.32: the swappable front and the back slot
   const ownFront=OWN_FRONT.indexOf(wp.type)>=0;   // a wedge, lifter, flipper or grabber is its own front
   if(fr.id!=="none"&&ownFront)errors.push("The "+wp.name.toLowerCase()+" is its own front: no room for "+fr.name.toLowerCase());
+  /* the tuning dials (0.1.33, TUNE in sim/parts.js): each a multiplier at 1 when the dial is stock */
+  const tu=cfg.tune,TV=TUNE.volt,TW=TUNE.wheel,TB=TUNE.bias;
+  const vCell=1+TV.cells*tu.volt,vPow=1+TV.power*tu.volt,vSpd=1+TV.speed*tu.volt,vHeat=Math.max(TV.heatMin,1+TV.heat*tu.volt);
+  const wSize=1+TW.size*tu.wheel,wMass=1+TW.mass*tu.wheel,wSpd=1+TW.speed*tu.wheel,wForce=1+TW.force*tu.wheel,wExp=1+TW.exposure*tu.wheel;
+  const bEdge=1+TB.edge*tu.bias,bPush=1+TB.push*tu.bias;
   const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
@@ -94,7 +100,7 @@ function evalBuild(cfgIn,opts){
   const podKeys=fps.filter(f=>f.slot==="drive").map(f=>f.key);
   const podG=dr.massG*M.mass/dr.pods+wb.podG*M.mass;
   let leftX=[],rightX=[];const wheelAt=[];   // [key, side, y]
-  const nWheels=wb.perSide?2*wb.perSide:dr.pods,wheelG=wh.massG*M.mass*wb.wheelMul/nWheels;
+  const nWheels=wb.perSide?2*wb.perSide:dr.pods,wheelG=wh.massG*M.mass*wb.wheelMul*wMass/nWheels;
   for(const k of podKeys){const p=centreOf(k);if(!p)continue;addM(k,"drive",dr.id,podG,p[0],p[1]);
     const side=p[0]<0?-1:1;(side<0?leftX:rightX).push(side*hw);
     if(!wb.perSide){wheelAt.push(["wheel"+k.slice(5),side,p[1]]);addM("wheel"+k.slice(5),"wheels",wh.id,wheelG,side*hw,p[1]);}}
@@ -108,7 +114,7 @@ function evalBuild(cfgIn,opts){
   if(podKeys.length&&(!leftX.length||!rightX.length))errors.push("The drive pods need to be on both sides");
   if(wb.podsNeed&&dr.pods<wb.podsNeed)errors.push(wb.name+" need a motor on every wheel: two motors a side");
   if(wh.tracks&&wb.id!=="std")errors.push("Tracks run the whole side: they only go on a wheel on each pod");
-  const bp=centreOf("battery");if(bp)addM("battery","battery",bt.id,bt.massG*M.mass,bp[0],bp[1]);
+  const bp=centreOf("battery");if(bp)addM("battery","battery",bt.id,bt.massG*M.mass*vCell,bp[0],bp[1]);
   const ep=centreOf("electronics");if(ep)addM("electronics","electronics",el.id,el.massG*M.mass,ep[0],ep[1]);
 
   /* weapon: structure x material, the motor at the mount, the disc at the mount (a front spinner's disc sits on the
@@ -130,7 +136,8 @@ function evalBuild(cfgIn,opts){
   /* ---- mass, budget, COM, inertia ---- */
   let totalG=0,mx=0,my=0;for(const it of items){totalG+=it.g;mx+=it.g*it.x;my+=it.g*it.y;}
   const massKg=totalG/1000,limitKg=c.limitG/1000;
-  const com={x:totalG?mx/totalG:0,y:totalG?my/totalG:0};
+  /* the weight-bias dial slides ballast along the bot: the centre of mass moves with it (+ forward) */
+  const com={x:totalG?mx/totalG:0,y:(totalG?my/totalG:0)+TB.com*tu.bias*L/1000};
   /* yaw inertia about the COM: points, plus the chassis and top plate as flat plates, plus the disc's own inertia */
   let moi=0;for(const it of items){const dx=it.x-com.x,dy=it.y-com.y;moi+=it.g/1000*(dx*dx+dy*dy);}
   const plate=g=>g/1000*((W/1000)*(W/1000)+(L/1000)*(L/1000))/12;
@@ -144,15 +151,15 @@ function evalBuild(cfgIn,opts){
 
   /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
   const brushMismatch=!!dr.brushless&&!el.brushless;
-  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1)*wb.powerMul,weaponPowerW=wp.powerW*M.power;
+  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1)*wb.powerMul*vPow,weaponPowerW=wp.powerW*M.power*vPow;
   const idleW=(el.idleW+bk.powerW)*M.power;   // a kicker's valves and gas (0.1.32) are a small steady draw
   const peakW=drivePowerW+weaponPowerW+idleW;
-  const capW=Math.min(bt.dischargeW*M.power,el.maxPowerW*M.power);
+  const capW=Math.min(bt.dischargeW*M.power*vCell,el.maxPowerW*M.power);
   const powerScale=peakW>0?Math.min(1,capW/peakW):1;
 
   /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
-  const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale),F0=dr.forceN*M.mass*powerScale;
-  const grip=wh.grip*wb.gripMul,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
+  const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale)*vSpd*wSpd,F0=dr.forceN*M.mass*powerScale*vSpd*wForce;
+  const grip=wh.grip*wb.gripMul*bPush,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
   const resist=K.crr*weightN*wb.crrMul;
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
@@ -163,12 +170,12 @@ function evalBuild(cfgIn,opts){
   const pull=clamp(-com.x/(trackM/2||1),-1,1);
 
   /* ---- height profile ---- */
-  const rWheel=wh.radiusMm*M.len,proud=rWheel-H/2;
+  const rWheel=wh.radiusMm*M.len*wSize,proud=rWheel-H/2;
   const centred=bd.inverts||!wh.tracks&&proud>=K.proudMm*M.len;
   const clearanceMm=centred?(bd.inverts?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
   /* the leading edge: the weapon's (or the clearance), a fitted front's if lower (0.1.32), then a skid plate and the body.
      frontBareMm is the same without the front, for when the front is knocked off */
-  const edgeOn=base=>{let e=base;for(const x of ex)if(x.edgeMm)e+=x.edgeMm*M.edge;e+=bd.edgeMm*M.edge;return Math.max(0.5*M.edge,e);};
+  const edgeOn=base=>{let e=base;for(const x of ex)if(x.edgeMm)e+=x.edgeMm*M.edge;e+=bd.edgeMm*M.edge;return Math.max(0.5*M.edge,e*bEdge);};   // a heavy nose sits it down
   const edge0=wp.edgeMm!=null?wp.edgeMm*M.edge:clearanceMm,frontBareMm=edgeOn(edge0);
   const frontEdgeMm=edgeOn(fr.edgeMm!=null&&!ownFront?Math.min(edge0,fr.edgeMm*M.edge):edge0);
   const selfRight=has("selfRight")||!!wp.selfRights||!!bk.selfRights;
@@ -179,7 +186,7 @@ function evalBuild(cfgIn,opts){
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:wpos,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
-  if(isSpin){const rpm=wp.rpmMax/M.len,omega=rpm*2*Math.PI/60,I=shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
+  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
     Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
       recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*(DP?DP.t.bite:1),profile:cfg.disc||null,
@@ -187,10 +194,10 @@ function evalBuild(cfgIn,opts){
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
-  if(wp.type==="lifter"||wp.type==="grabber"){const F=wp.liftN*M.mass*powerScale,liftM=wp.liftMm*M.len/1000;
+  if(wp.type==="lifter"||wp.type==="grabber"){const F=wp.liftN*M.mass*powerScale*vSpd,liftM=wp.liftMm*M.len/1000;
     Object.assign(weapon,{liftN:F,liftM,energyJ:F*liftM,canLiftKg:F/(K.g*K.liftLever),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
-  if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});
-  if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale,energyJ:wp.crushJ*M.mass*powerScale,reachM:0.5*L/1000,bite:wm.bite});
+  if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale*vPow,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});
+  if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale*vSpd,energyJ:wp.crushJ*M.mass*powerScale*vPow,reachM:0.5*L/1000,bite:wm.bite});
   if(wp.type==="wedge")Object.assign(weapon,{reachM:wp.reachMm*M.len/1000,bite:wm.bite});
 
   const bay=bayOf(wp,weapon,wpos,fpOf("weapon"),lay.place.weapon,{W:W/1000,L:L/1000,H:H/1000,clr:clearanceMm/1000,cell:cellMm/1000,c,M,cellFrac});
@@ -211,10 +218,10 @@ function evalBuild(cfgIn,opts){
   for(const k of podKeys)addPart(k,"drive",dr.id,dr.hp*M.mass,podG);
   for(const q of wheelAt){const side=q[1]<0?"left":"right",pk=podKeys.find(k=>"wheel"+k.slice(5)===q[0]);
     parts.push({key:q[0],slot:"wheels",id:wh.id,cells:pk?cellsOf(pk):[],massKg:r3(wheelG/1000),hpJ:wh.hp*M.mass*wb.hpMul,
-      exposure:r3(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5),pos:[q[1]*hw,q[2]]});}
+      exposure:r3(wExp*(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5)),pos:[q[1]*hw,q[2]]});}
   if(wb.caster)parts.push({key:"caster",slot:"wheels",id:"caster",caster:true,cells:[],massKg:r3(wb.massG*M.mass/1000),hpJ:wb.casterHp*M.mass,
     exposure:r3(0.3*(1-armourMapJ.back.prot*0.5)),pos:[0,-hl*0.85]});
-  addPart("battery","battery",bt.id,bt.hp*M.mass,bt.massG*M.mass);
+  addPart("battery","battery",bt.id,bt.hp*M.mass,bt.massG*M.mass*vCell);
   addPart("electronics","electronics",el.id,el.hp*M.mass,el.massG*M.mass);
   if(wp.type!=="none"){if(wp.fp)addPart("weapon","weapon",wp.id,weapon.hpJ,structG+motorG+discG);
     else parts.push({key:"weapon",slot:"weapon",id:wp.id,cells:[],massKg:r3(structG/1000),hpJ:weapon.hpJ,exposure:r3(K.faceWeight.front),pos:[0,hl]});}
@@ -229,14 +236,14 @@ function evalBuild(cfgIn,opts){
 
   /* ---- runtime and heat ---- */
   const avgDrawW=(drivePowerW*K.driveDuty+weaponPowerW*K.weaponDuty)*powerScale+idleW;
-  const runtimeS=avgDrawW>0?bt.capacityWs*M.mass*K.usableBattery/avgDrawW:Infinity;
+  const batWs=bt.capacityWs*M.mass*K.usableBattery*vCell,runtimeS=avgDrawW>0?batWs/avgDrawW:Infinity;
   const coolTotal=el.coolingW*M.power;
   const group=(heatW,motorKg,duty,share)=>{const rateW=heatW*M.power,coolW=K.passiveCoolW*M.power+coolTotal*share,budgetJ=K.heatJPerKg*motorKg;
     const full=rateW>coolW?budgetJ/(rateW-coolW):null,fight=rateW*duty>coolW?budgetJ/(rateW*duty-coolW):null;
     return{rateW,coolW,budgetJ,secsToDerate:full,fightDerateS:fight};};
   const weaponMotorKg=motorG/1000;
-  const heatD=group(dr.heatW+el.heatW,dr.massG*dr.motorFrac*M.mass/1000,K.driveDuty,weaponMotorKg&&wp.heatW?0.5:1);
-  const heatW_=wp.heatW&&weaponMotorKg?group(wp.heatW,weaponMotorKg,K.weaponDuty,0.5):null;
+  const heatD=group((dr.heatW+el.heatW)*vHeat,dr.massG*dr.motorFrac*M.mass/1000,K.driveDuty,weaponMotorKg&&wp.heatW?0.5:1);
+  const heatW_=wp.heatW&&weaponMotorKg?group(wp.heatW*vHeat,weaponMotorKg,K.weaponDuty,0.5):null;
   const minN=(a,b)=>a==null?b:b==null?a:Math.min(a,b);
   const heat={rateW:heatD.rateW+(heatW_?heatW_.rateW:0),coolingW:heatD.coolW+(heatW_?heatW_.coolW:0),drive:heatD,weapon:heatW_,
     secsToDerate:minN(heatD.secsToDerate,heatW_&&heatW_.secsToDerate),fightDerateS:minN(heatD.fightDerateS,heatW_&&heatW_.fightDerateS),
@@ -251,11 +258,11 @@ function evalBuild(cfgIn,opts){
     driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip,
     wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
       wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe},
-    limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
+    limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
-    power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
+    power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:batWs},
     height,weapon,bay,front:frontInfo(fr,ownFront,M),back:backInfo(bk,M,limitKg),armourMapJ,weakestFace,exposureScore,cells,parts,
-    runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,
+    runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,tune:Object.assign({},tu),wheelRadiusMm:r3(rWheel),
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
   b.stress=stressReport(b);
   b.verdict=!b.valid?(totalG>c.limitG?"over":"invalid"):b.stress.some(s=>s.sev==="bad"||s.sev==="warn")?"flaws":"valid";
