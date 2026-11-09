@@ -46,7 +46,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/damage.js` | `DAMAGE`, `PART_STATES`; `damageState` (fresh or with carried damage), `hitOrder`, `hitFace` (the bench uses them too), `landHit`, `damageEffects` (what the damage does), `damageTaken`, `partStates`, `damageShare` |
 | `sim/ai.js` | `AI_STYLES` (rush, keep-away, aggressive, cautious, counter, box-rush, hazard-pusher, opportunist), `AI_SKILL`, `autoStyle`, `aiNew`, `aiThink` |
 | `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the three venues Stahlbrück, Eisenau and Grauwald, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
-| `sim/opponents.js` | `OPPONENTS` (15: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
+| `sim/opponents.js` | `OPPONENTS` (28: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
 | `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap; recorded clangs from `sounds/` layered under it on Full / Ultra (`samples`; the wheel layouts' caster, mecanum and swerve effects since 0.1.31) |
 | `sound/voicelines.js` | the whole block, **generated** by `tools/make-voicelines.js` from `docs/voice/scrapline_commentary_script_sheet.csv` (never edit by hand): `VOICE_LINES`, every voice clip with its file, speaker, cue, duration and caption |
