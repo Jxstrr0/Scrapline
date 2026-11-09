@@ -139,7 +139,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   - everything else goes aggressive.
   
   Every style keeps off the pit from two seconds before it opens, brakes hard at its edge, backs off when stuck or when two bots are circling each other in contact, and reverses out from under a wedge.
-- **15 opponents** (`OPPONENTS` in `sim/opponents.js`), three per class, each with a build within its weight limit, a driver (style and skill), a home venue and a one-line personality.
+- **15 opponents, 28 from 0.1.36** (`OPPONENTS` in `sim/opponents.js`), three per class, each with a build within its weight limit, a driver (style and skill), a home venue and a one-line personality.
 - **The Fight tab** now has:
   - pickers for the opponent (the named ones and the test builds), the arena (the class's own first) and your bot's driving style;
   - the opponent's personality line;
@@ -532,7 +532,7 @@ Kelbo's pick: PEW's way. The first-visit intro is the home screen.
 - **Your team.** `S.team`, edited from Build → Name & team → Edit team: a team name (24 characters), main and accent from `LIVERY.colours` (14), a shape (shield, round, hex, diamond, gear, square), an emblem (bolt, saw, wrench, hammer, skull, crown, flame, star, claw, none) and up to three letters. The start is Eckwerkstatt, clay on coal, a shield with a bolt.
 - **Bot names.** `S.bots[cls].name`, from the same row; blank means the class default (Tack, Splinter, Crowbar, Anvil, Foundry). The name shows on the Build tag, the fight tags, the battle card and the log.
 - **On the bot.** The side stripe takes the main colour, two thin pinstripes the accent, and the badge sits on the top as a decal with an accent rim (so it shows on a stripe of its own colour), reading upright from in front. Lite: a 64 px texture on a Lambert material; Full and Ultra: 128 px on a standard material. One texture per livery, shared.
-- **Opponents.** `OPP_TEAMS`: the 15 named opponents (`op:`), the 4 rivals (`rv:`) and the 12 test builds (`tb:`, a club regular with a persona name, e.g. Keilbau Fasel's Türkeil for the wedge, Schmiede Koller's Vorschlag for the hammer). Sparring, career events, rumbles and the daily challenge all use them.
+- **Opponents.** `OPP_TEAMS`: the 28 named opponents (`op:`), the 4 rivals (`rv:`) and the 12 test builds (`tb:`, a club regular with a persona name, e.g. Keilbau Fasel's Türkeil for the wedge, Schmiede Koller's Vorschlag for the hammer). Sparring, career events, rumbles and the daily challenge all use them.
 - **Colour clashes.** `lvField`: a bot whose main colour is within 70 (RGB distance) of an earlier bot's switches to its own accent, else to the first palette colour clear of everyone. The 2D view and the card border use the accent when the main is too dark to see (`dvCol`).
 - **Replay codes** keep each bot's livery (checked with `lvNorm` on the way in).
 
@@ -661,3 +661,27 @@ Kelbo asked, once the build features were in, for the auto-driving to be audited
 - **Results.** No self-inflicted pit falls for any style on the stock builds. Beetle pit knockouts went from 45% of knockouts to 33%. A grabber's own pit falls 10 to 6 in 96. A meltybrain still gets shoved in often (its grip is low); that is its weakness.
 - **Balance** (K = 6, % won against the test builds, beetle / heavy). Shell 50 / 64 (disc 380 to 210 g, bite 0.42 to 0.36), ring 59 / 50 (bite 0.4 to 0.36), meltybrain 65 / 65, legs under a vertical disc 55 / 83 (the heavy disc's own strength; noted, not changed). `fight-test all` passes every class.
 - **Saves.** No `SAVE_V` change.
+
+## 0.1.36.0: more opponents (Kelbo's improvements, part one)
+
+- **Why.** The wheel layouts, fronts and backs, the grabber, the saw and the odd bodies (0.1.31 to 0.1.34) only ever turned up on the player's own bots: the 15 named opponents were all built from the first parts list.
+- **Who.** 13 more, 28 in all (`OPPONENTS`, `sim/opponents.js`), each with its own driver, venue, line and team (`OPP_TEAMS`):
+
+| Class | Bot | Built round | Driver |
+|---|---|---|---|
+| Ant | Kreisel | meltybrain | aggressive |
+| Ant | Tausendfüßler | shuffler legs, plow, rear wedge, no weapon | box rush |
+| Beetle | Topfdeckel | shell spinner | aggressive |
+| Beetle | Krebsgang | mecanum, horizontal spinner | counter |
+| Hobby | Ladebaum | grabber, six wheels, rear wedge | hazard |
+| Hobby | Achtachser | eight wheels, forks, overhead saw | aggressive |
+| Hobby | Ringelnatter | ring spinner | keep-away |
+| Feather | Drehscheibe | shell spinner | aggressive |
+| Feather | Schneepflug | six wheels, plow, back-up flipper, no weapon | box rush |
+| Feather | Weichensteller | swerve pods, brushless, drum | opportunist |
+| Heavy | Lindwurm | shuffler legs, high-pressure flipper, rear spike | hazard |
+| Heavy | Schrottkran | grabber, six wheels, rear wedge | hazard |
+| Heavy | Mühlstein | meltybrain | cautious |
+
+- **The meta.** `META_WAVES`: the spinner era also favours shell, ring and melty; the undercutter era the saw; the armour era the grabber.
+- **Balance.** Opponents are printed by `tools/fight-test.js`, not held to the 35-65% band (that is for the test builds, whose numbers did not move). Against their class's field: Topfdeckel 70%, Krebsgang 70%, Ladebaum 50%, Achtachser 46%, Ringelnatter 58%, Drehscheibe 68%, Schneepflug 51%, Weichensteller 63%, Lindwurm 70%, Schrottkran 67%, Mühlstein 64%.
