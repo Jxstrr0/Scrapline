@@ -84,7 +84,7 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.26.0)
+## Current status (0.1.27.0)
 
 The full log from PR 0 to 0.1.26.0 (what each version added, the tables and
 save fields it brought) is `docs/HISTORY.md`. Read the matching entry before
@@ -103,14 +103,14 @@ section.
   Sandbox modes (separate garages, `S.mode` / `S.parked`; Mode in Settings),
   labelled Build stats and Fix it buttons on the post-mortem (`RP_FIX`).
   A daily challenge and `SCRRP1:` replay codes
-  (`src/app/daily.js`), arena floor markings and lighting (`arenaDecal`), one dressing scale (`AR.D`) for props, stands and crowd, and Blender weapon parts on Full/Ultra (`models/bot-weapons.glb`), visible damage on Full/Ultra (`src/vis/wear.js`), and teams: team and bot names, two colours and a badge built in code, opponents with teams of their own (`src/app/livery.js`, `src/vis/badge.js`), Build sections that open one at a time, automatic slow-motion on big moments in replays (`ftSlowPlan`, `src/app/fight.js`), and a drawn bracket for tournament days with the draw shown before you enter (`crBracketHtml`, `src/app/career.js`). Money is euros. `SAVE_V` is 12.
-- Next: nothing queued; the plan is built. Ask Kelbo what comes next.
+  (`src/app/daily.js`), arena floor markings and lighting (`arenaDecal`), one dressing scale (`AR.D`) for props, stands and crowd, and Blender weapon parts on Full/Ultra (`models/bot-weapons.glb`), visible damage on Full/Ultra (`src/vis/wear.js`), and teams: team and bot names, two colours and a badge built in code, opponents with teams of their own (`src/app/livery.js`, `src/vis/badge.js`), Build sections that open one at a time, automatic slow-motion on big moments in replays (`ftSlowPlan`, `src/app/fight.js`), a drawn bracket for tournament days with the draw shown before you enter (`crBracketHtml`, `src/app/career.js`), and a highlight reel: each season's best five moments, the season reel and the Fight tab's Highlights card (`src/app/reel.js`, `S.reel`). Money is euros. `SAVE_V` is 13.
+- Next (Kelbo, plan section 1): 0.1.28 an arena for each regional venue (Stahlbrück, Eisenau, Grauwald; the arena follows the venue), then 0.1.29 a polish pass from Kelbo's list only.
   Merged branches delete themselves on GitHub.
 - What to test on a phone after any change: the loading bar finishes and the
   workshop renders on Lite; every tab opens; a spar starts, drives and ends,
   with sound (crowd, bells, the announcer's intro and Skip, captions with
   Sound off); a best of three reaches the pit and the next round; a replay
-  plays and scrubs, slows for big hits and the knockout, and Slow-mo switches off; a tournament day draws its bracket (the draw shows in the Enter sheet) and fills it in as you win; Build changes show in the workshop; a career event is
+  plays and scrubs, slows for big hits and the knockout, and Slow-mo switches off; a tournament day draws its bracket (the draw shows in the Enter sheet) and fills it in as you win; a fight's best moment shows on the Fight tab's Highlights card and Watch all plays the clips back to back; Build changes show in the workshop; a career event is
   fought and a week closes; a save slot saves and loads; Back up then Restore
   round trips; the Daily challenge fights and keeps a score; a Share code from a
   post-mortem plays back through Watch a code; Settings opens and the theme switches; on Full, no "Graphics

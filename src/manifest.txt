@@ -41,6 +41,7 @@ app/fight.js
 app/pit.js
 app/report.js
 app/daily.js
+app/reel.js
 app/shop.js
 app/career.js
 app/team.js
