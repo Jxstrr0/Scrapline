@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.28.0";
+const VERSION="0.1.29.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -332,7 +332,9 @@ function hud(){const c=S.mode==="career"?S.career:null;
   $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent=c?`rep ${c.rep||0}`:"";}
 
 /* ---- toast ---- */
-function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2600);}
+/* toast.hold (0.1.29): while a simmed fight plays back, news it would spoil (a trophy, a sponsor) waits for the bell */
+function toastHold(on){toast.hold=on;if(on)return;const q=toast.q||[];toast.q=[];q.forEach((m,i)=>setTimeout(()=>toast(m),i*2800));}
+function toast(msg){if(toast.hold){(toast.q=toast.q||[]).push(msg);return;}const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2600);}
 
 /* ---- the bottom sheet (Settings, Back up, Restore …) ---- */
 let sheetBack=null;
