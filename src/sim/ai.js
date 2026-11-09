@@ -41,7 +41,12 @@ const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12]
    flankR: how far to the side of a front weapon a flanking bot aims (radii of both bots); flankA: how square on the enemy
    must be facing it to bother (rad). reSpin: a spinner below this share of its top speed after a hit backs off; resetS how
    long it reverses. pitShove: the pit this close behind (radii) while being shoved turns it across the shove. */
-const AI_NAV={pitPad:1.3,hazPad:1.1,botPad:1.2,pitSoonS:2,flankR:1.3,flankA:0.7,reSpin:0.55,resetS:[0.3,0.55],pitShove:2.5};
+const AI_NAV={pitPad:1.3,hazPad:1.1,botPad:1.2,pitSoonS:2,flankR:1.3,flankA:0.7,reSpin:0.55,resetS:[0.3,0.55],pitShove:2.5,
+  escHoldS:0.3,stallS:4,stallGain:0.1,detourS:2.5,arcGyro:0.4,arcSteer:0.6,arcThrottle:0.6};
+/* escHoldS (0.1.35): once it turns away from the pit's edge it keeps going that way this long (it used to flick between the edge
+   and its path every few frames). stallS: no touch and no stallGain share closer to the enemy in this long (a deadlock:
+   two bots at either end of a narrow gap by the pit, or a pusher lining up somewhere it can't reach) and it heads for
+   the open middle for detourS, then tries again. arcGyro, arcSteer, arcThrottle: see aiSteer */
 const aiLerp=(a,s)=>a[0]+(a[1]-a[0])*s;
 /* a style for a build: spinners circle up to speed, pushers and lifters work the hazards (or the walls in a bare box),
    hammers wait for the enemy to come to them, flippers and crushers go in */
@@ -63,8 +68,8 @@ const AI_STRAFE={dodgeR:3,dodgeV:0.3,faceK:2.4};   // dodge within dodgeR x both
 function aiStrafe(F,o,t,m,mode,px,py,facing,sk){const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
   const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h+m.aim),steer=clamp1(-AI_STRAFE.faceK*e);
   const vs=Math.max(t.b.driveSpeed,0.1);
-  /* a weapon coming straight at it: slide off its line, away from the side it's turning to */
-  if(t.zone&&facing&&m.dist<(o.rad+t.rad)*AI_STRAFE.dodgeR&&m.tClose>AI_STRAFE.dodgeV*vs&&(m.tac||m.dodging)){
+  /* a weapon coming straight at it (an all-round spinner's always is): slide off its line, away from the side it's turning to */
+  if(t.zone&&(facing||t.zone.circle)&&m.dist<(o.rad+t.rad)*AI_STRAFE.dodgeR&&m.tClose>AI_STRAFE.dodgeV*vs&&(m.tac||m.dodging)){
     m.dodging=F.t+0.4;const fx=Math.cos(t.h),fy=Math.sin(t.h),side=((o.x-t.x)*-fy+(o.y-t.y)*fx)>=0?1:-1,
       dx=-fy*side,dy=fx*side;return{steer,throttle:clamp1(dx*fw[0]+dy*fw[1]),strafe:clamp1((dx*rt[0]+dy*rt[1])*1.5)};}
   if(m.dodging&&F.t>m.dodging)m.dodging=0;
@@ -72,8 +77,15 @@ function aiStrafe(F,o,t,m,mode,px,py,facing,sk){const fw=[Math.cos(o.h),Math.sin
   const dx=px-o.x,dy=py-o.y,l=Math.hypot(dx,dy)||1,a=Math.abs(e),k=a<0.6?1:a<1.4?0.5:0.2;
   return{steer,throttle:clamp1((dx*fw[0]+dy*fw[1])/l*1.2)*k,strafe:clamp1((dx*rt[0]+dy*rt[1])/l*1.5)*k};}
 /* where o should point, and how hard to go: steer toward a world point */
-function aiSteer(o,m,px,py,sk){const want=Math.atan2(py-o.y,px-o.x),err=wrapA(want-o.h+m.aim),u=aiLerp(AI_SKILL.kp,sk)*err-aiLerp(AI_SKILL.kd,sk)*o.w;
-  const a=Math.abs(err);return{steer:clamp1(-u),throttle:a<0.35?1:a<1.3?Math.cos(a):0,err};}
+/* an all-round spinner with a strong gyro (0.1.35, a shell: FIGHT.gyro at least arcGyro) has no front to point but turns slowly spun up (it sat turning on
+   the spot): it drives at its point with whichever end is nearer, backwards included, and spun up it arcs round,
+   keeping some throttle and easing the lock */
+function aiSteer(o,m,px,py,sk){const want=Math.atan2(py-o.y,px-o.x);let err=wrapA(want-o.h+m.aim),dir=1;
+  const round=o.b.weapon.allRound&&(FIGHT.gyro[o.b.weapon.id]||0)>=AI_NAV.arcGyro;if(round&&Math.abs(err)>Math.PI/2){err=wrapA(err+Math.PI);dir=-1;}
+  const u=aiLerp(AI_SKILL.kp,sk)*err-aiLerp(AI_SKILL.kd,sk)*o.w,a=Math.abs(err);
+  if(round&&o.wp.om>o.b.weapon.omega*0.5)
+    return{steer:clamp1(-u)*AI_NAV.arcSteer,throttle:dir*Math.max(AI_NAV.arcThrottle,a<0.35?1:Math.cos(Math.min(a,1.3))),err};
+  return{steer:clamp1(-u),throttle:dir*(a<0.35?1:a<1.3?Math.cos(a):0),err};}
 /* the goal a pusher drives its enemy at: the open pit, else the nearest hazard, else the nearest wall (goal "wall": the wall) */
 function aiGoal(F,S,t){const H=F.arena.half;
   if(S.goal==="hazard"){const P=F.arena.pit;if(P&&F.t>=P.openS){const r=P.rect;return[(r[0]+r[2])/2,(r[1]+r[3])/2];}
@@ -185,11 +197,20 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   /* carrying a bot in a grabber (0.1.32): take it to the pit (or the nearest hazard, or the nearest wall) by the
      straightest way, nose first */
   const carry=!!(o.wp.grab&&o.wp.held!=null);if(carry){const P=F.arena.pit,g=P?[(P.rect[0]+P.rect[2])/2,(P.rect[1]+P.rect[3])/2]:aiGoal(F,{goal:"hazard"},F.bots[o.wp.held]);px=g[0];py=g[1];mode="carry";hold=false;}
+  /* the stall watchdog (0.1.35, AI_NAV.stallS): getting nowhere, go to the open floor between it and the middle, then
+     come again from there */
+  const tch0=o.touch[t.i]!=null&&F.t-o.touch[t.i]<0.5;
+  if(tch0||hold||carry||mode==="orbit"||mode==="wait"||m.dist<m.stallD*(1-AI_NAV.stallGain)||m.stallD==null){m.stallD=m.dist;m.stallT=F.t;}
+  else if(F.t-m.stallT>AI_NAV.stallS&&!(m.detour>F.t)){m.detour=F.t+AI_NAV.detourS;m.stallT=F.t+AI_NAV.detourS;m.stallD=null;}
+  if(m.detour>F.t&&!carry){px=o.x*0.35;py=o.y*0.35;mode="detour";}
   m.mode=mode;
   const lim=H-o.rad*1.2;if(!carry){px=Math.max(-lim,Math.min(lim,px));py=Math.max(-lim,Math.min(lim,py));}
   if(!hold&&!carry){const q=aiPath(F,o,t,m,px,py,mode);px=q[0];py=q[1];}
-  const c=aiSteer(o,m,px,py,sk);out.steer=c.steer;out.throttle=hold?0:mode==="orbit"?Math.max(c.throttle,0.5):c.throttle;
+  const c=aiSteer(o,m,px,py,sk);out.steer=c.steer;out.throttle=hold?0:mode==="orbit"?(c.throttle<0?Math.min(c.throttle,-0.5):Math.max(c.throttle,0.5)):c.throttle;
   if(hold){const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h);out.steer=clamp1(-2.2*e);out.throttle=Math.abs(e)<0.3?0.15:0;}
+  /* carrying (0.1.35): ease off as its own nose nears the pit's edge, so it drops the bot in and doesn't follow it */
+  if(carry&&F.arena.pit){const r=F.arena.pit.rect,nx=o.x+Math.cos(o.h)*o.rad,ny=o.y+Math.sin(o.h)*o.rad,
+      de=Math.hypot(Math.max(r[0]-nx,0,nx-r[2]),Math.max(r[1]-ny,0,ny-r[3]));out.throttle*=Math.min(1,0.25+de/(o.rad*2));}
   /* sat on an enemy's wedge for half a second: reverse out and come again (a pusher on a pusher keeps shoving) */
   if(o.under&&!(S.mode==="push"&&w.type==="none")){m.underT=(m.underT||0)+F.dt;if(m.underT>0.5&&!(m.back>0)){m.underT=0;m.back=0.35+0.25*m.r();m.backSteer=m.r()<0.5?-0.5:0.5;}}else m.underT=0;
   const P0=F.arena.pit&&F.t>=F.arena.pit.openS-AI_NAV.pitSoonS?F.arena.pit:null;
@@ -210,11 +231,15 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   /* being shoved towards the pit or a hazard: turn across the shove and drive out of it, rather than pushing straight back */
   if(touching&&m.tac&&!(m.back>0)&&!carry){const a=aiShove(F,o,t,P0);
     if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;out.strafe=0;}}
-  /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going;
+  /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going
+     (at least its stopping distance);
      over the edge, drive off it along aiPitOut, by whichever end of the bot points that way */
-  const P=P0;if(P){const r=P.rect,la=carry?0.05:aiLerp(AI_SKILL.pitLook,sk),fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
+  const P=P0;if(P){const r=P.rect,sp0=Math.hypot(o.vx,o.vy),brake=(w.melty?FIGHT.melty.accel:1)*o.b.grip*K.g,
+      la=carry?0.05:Math.max(aiLerp(AI_SKILL.pitLook,sk),sp0/(2*Math.max(brake,0.1))),   // 0.1.35: at least as far as it takes to stop (a meltybrain brakes softly)
+      fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
       ah=o.rad*(carry?0.3:0.8),qx=o.x+o.vx*la+fx*dir*ah,qy=o.y+o.vy*la+fy*dir*ah,e=o.rad*0.4;
-    if(aiIn(qx,qy,aiGrow(r,e))){const away=aiPitOut(F,o,r),ef=wrapA(away-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);
+    if(aiIn(qx,qy,aiGrow(r,e))){m.escT=F.t+AI_NAV.escHoldS;m.escA=aiPitOut(F,o,r);}
+    if(m.escT>F.t){const away=m.escA,ef=wrapA(away-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);
       out.steer=clamp1(-2.5*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.5?1:Math.abs(err)<1?0.5:0.15);out.strafe=0;m.back=0;}}
   /* the weapon */
   const late=aiLerp(AI_SKILL.fireLate,sk)*(S.fireMul||1);

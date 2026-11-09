@@ -646,3 +646,18 @@ Kelbo's pick: PEW's way. The first-visit intro is the home screen.
 - **Sound.** `spin_shell` (the shell, ring and meltybrain spin hum), `warble` (lost sync, two takes), `legs` (a step, two takes); Full and Ultra.
 - **Balance** (beetle and heavy, % won against the test builds, K = 8, armour filled to the limit). Beetle: horizontal 64, vertical 56, shell 58, ring 61, meltybrain 50 to 60, legs under a vertical 57, legs on a brick 36. Heavy: horizontal 60, vertical 56, shell 66, ring 48, meltybrain 70 to 75, legs under a vertical 77 (strong in heavy, accepted for now: they're slow and cost an R&D project). `fight-test` (beetle) unchanged: no stock build or opponent uses them.
 - **Saves.** No `SAVE_V` change: the new ids are only in new builds.
+
+## 0.1.35.0: an audit of the AI's driving (Kelbo's build features, part five)
+
+Kelbo asked, once the build features were in, for the auto-driving to be audited and made good. It was measured first (a harness that drives every AI style on every test build and the new bodies, in every arena) and then fixed where the numbers were bad.
+
+- **What was counted.** Pit falls with no touch, no air time and no hit in the second before (self-inflicted); pit falls after a shove; seconds a fight stuck (full throttle, under 8% of top speed, touching nothing); share of time by a wall, close in, far off and near the pit.
+- **Spun-up gyros.** A spinning shell or a heavyweight's disc took so much of the turning torque that full lock could not beat the tyre scrub: a shell sat stuck 21 to 27 s a fight, a heavy vertical disc about 7 s. Now the gyro can cut the turn, but full lock always keeps 1.02 times the scrub (`FIGHT.gyroFloor`), 1.05 for an all-round spinner (`gyroFloorRound`, it has nothing to aim): it pivots, slowly. A higher floor for everything made the heavy vertical disc too strong.
+- **Driving a shell.** A spinner with a strong gyro and no front (`AI_NAV.arcGyro`: the shell) drives at its point with whichever end is nearer, backwards included, and spun up it arcs round (`arcSteer`, `arcThrottle`) instead of pivoting on the spot. Stuck time 0.13 s a fight in beetle, 0.58 s in heavy. The ring's gyro is light and it already turned, so it is left alone (with the reverse it won 88%).
+- **The pit.** The pit check looks ahead at least its stopping distance (a meltybrain's slow grip included), and once it starts an escape it holds it for 0.3 s (`AI_NAV.escHoldS`) instead of dithering at the edge. A grabber eases off as it nears the pit's edge, so it drops its catch in and stays out.
+- **Stalls.** If it hasn't closed in for 4 s with no contact, it takes a 2.5 s detour towards the middle (`AI_NAV.stallS`, `stallGain`, `detourS`). That broke the Grauwald deadlock, a flipper and a spinner by the long pit stuck 4.1 s a fight (now 0.3 s).
+- **Dodging.** A strafing drive dodges an all-round spinner from any side, not only when it faces it.
+- **Tried and dropped.** Swinging round before a push so the pit is never behind it: it cut a meltybrain's shoved falls a little, but made hobbyweight wedges (70%) and featherweight vertical spinners (71%) too strong.
+- **Results.** No self-inflicted pit falls for any style on the stock builds. Beetle pit knockouts went from 45% of knockouts to 33%. A grabber's own pit falls 10 to 6 in 96. A meltybrain still gets shoved in often (its grip is low); that is its weakness.
+- **Balance** (K = 6, % won against the test builds, beetle / heavy). Shell 50 / 64 (disc 380 to 210 g, bite 0.42 to 0.36), ring 59 / 50 (bite 0.4 to 0.36), meltybrain 65 / 65, legs under a vertical disc 55 / 83 (the heavy disc's own strength; noted, not changed). `fight-test all` passes every class.
+- **Saves.** No `SAVE_V` change.
