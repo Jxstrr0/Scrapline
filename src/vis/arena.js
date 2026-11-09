@@ -217,6 +217,11 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */
     const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type!=="BoxGeometry")w.rotation.x=B.wheelA;   // not tracks (a box); the Blender mecanum pieces turn too
+    /* tracks (0.1.41, Full / Ultra): the belt's sections move one link and snap back, the sprockets turn at the belt's speed */
+    if(u.trk&&u.trk.length){const d=-B.wheelA*0.028*o.M.len;for(const G of u.trk){const t=G.userData.tk;
+      if(t.kind==="spr"){G.rotation.x=-d/t.r;continue;}const pr=t.kind==="arc"?t.pr:t.p,f0=d/pr,f=f0-Math.floor(f0);
+      if(t.kind==="arc")G.rotation.x=-f*t.p;else G.position.z=t.z0+(t.kind==="top"?-1:1)*f*t.p;}}
+    if(u.lamp)u.lamp.material.emissiveIntensity=o.out?0:DETAIL_LAMP;   // the power light goes out with the bot
     /* shuffler legs (0.1.34): each foot lifts and swings in turn, at the walking pace (turning on the spot walks too) */
     if(u.legs&&u.legs.length){B.legA=(B.legA||0)+(Math.abs(sp)/(0.028*o.M.len)+Math.abs(o.w||0)*2)*dt*0.5;
       for(const L of u.legs){const s=Math.sin(B.legA+L.userData.ph),H=u.H||0.05;L.position.y=Math.max(0,s)*H*0.18;L.rotation.x=Math.cos(B.legA+L.userData.ph)*0.25;}}

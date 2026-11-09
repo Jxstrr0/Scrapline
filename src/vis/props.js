@@ -27,6 +27,9 @@
      odd        models/bot-odd.glb (0.1.34), original work built in Blender from tools/blender-bot-odd.py: the shell
                 spinner's dome, the ring spinner's toothed ring, the meltybrain's tooth and a shuffler leg. botOdd loads
                 it only for a bot with one of those; vis/bot.js buildWeapon and botLegs use it.
+     bot-detail the bots' detail parts (0.1.41, built by tools/blender-bot-detail.py): tyres for each wheel type, a spoked
+                hub and a solid disc, a track link and sprocket, a screw and a hex head, the power light and the removable
+                link. botDetail loads it for every bot; vis/bot.js buildBot, botTracks and boltMeshes use it.
    More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
    tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
@@ -37,7 +40,7 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
   meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
-  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb",
+  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb",dtl:"models/bot-detail.glb",
   whls:"models/bot-wheels.glb",atch:"models/bot-attach.glb",odd:"models/bot-odd.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
@@ -185,7 +188,7 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
    models/bot-wheels.glb, "atch": models/bot-attach.glb, "odd": models/bot-odd.glb), or null
    (and the load starts): when it lands, the workshop's bot is drawn again with it (a bot already in a fight keeps its
    coded shape). Two tries a visit each, then the coded shapes */
-function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":"")+(r("whls")?"h":"")+(r("atch")?"a":"")+(r("odd")?"o":""):"";}
+function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":"")+(r("whls")?"h":"")+(r("atch")?"a":"")+(r("odd")?"o":"")+(r("dtl")?"d":""):"";}
 function botModel(key){if(V.tier==="lite")return null;const c=PROPS.models[key];if(c&&c.scene)return c.scene;
   const ask=PROPS.ask||(PROPS.ask={}),tries=PROPS.tries||(PROPS.tries={});if(c||ask[key]||(tries[key]||0)>=2)return null;
   const go=()=>{ask[key]=false;tries[key]=(tries[key]||0)+1;propModel(key,()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
@@ -196,3 +199,4 @@ function botWeapons(){return botModel("wpns");}
 function botWheels(){return botModel("whls");}
 function botAttach(){return botModel("atch");}
 function botOdd(){return botModel("odd");}
+function botDetail(){return botModel("dtl");}   // 0.1.41: tyres, hubs, track links, bolts, the power light and the link (every bot on Full / Ultra)
