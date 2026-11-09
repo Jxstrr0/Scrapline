@@ -105,6 +105,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Bracket screen (0.1.26, Kelbo) | Asked as the last item of the order. **Drawn bracket + preview** (over the day only, or also a full round-robin fixture list): the tournament day shows its bracket as a tree with results and your path, and the Enter sheet shows the draw (who you meet first) before you pay. Round robins, rumbles and tag days stay as they are. `SAVE_V` 12 keeps a day's rounds |
 | Polish list, part one (0.1.29, Kelbo) | Asked, from playing: a skip to the next fight in a class he has a bot for, and a way to watch a simmed fight instead of the text result. **Skip: to the next event this season you can enter, with a sheet showing the weeks and rent** (runs Close week once per week). **Watch it: a third button; the result is recorded first, then played back as a live bout** (the result at the bell, spoiler toasts held). |
 | Polish list, part two (0.1.30, Kelbo) | Asked: a dev mode with +1000 and an unlock-all button in Settings, and a check of the early economy ("it feels hard"). **Dev mode: a Settings switch kept on this phone, showing +€1,000 and Unlock all.** **Unlock all: every tool, every R&D project and the team HQ; the act stays.** **Economy: the "gentler start"** (start €2,500, basic kit €30, club prizes 400/250/150/50, tournament 1,000/500/250/75, Garage act at 45 rep). |
+| Fit hours (0.1.30.1, fix) | Kelbo couldn't fit a new featherweight: 45.5 h against a 44 h bank cap. Fixed without asking (a bug): a fit may run up to one week's hours into next week. |
 ---
 
 ## 2. Direction
@@ -480,4 +481,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.28: an arena for each regional venue (Stahlbrück Mill, Eisenau Harbour, Grauwald Engine Shed; the arena follows the venue; balanced in each)
 - [x] 0.1.29: polish from Kelbo's list, part one (skip to the next fight you can enter; Watch it, a sim played out on the Fight tab)
 - [x] 0.1.30: polish from Kelbo's list, part two (dev mode with +€1,000 and Unlock all; an easier first season)
+- [x] 0.1.30.1: fix, a fit can run into next week (a new featherweight needed more hours than the workshop banks)
 - [ ] 0.1.31: more of the polish pass, from Kelbo's list

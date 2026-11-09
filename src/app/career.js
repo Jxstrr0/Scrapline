@@ -77,6 +77,12 @@ function crFitBlock(cfg){if(!crOn())return null;if(S.career.day)return"You're at
 /* tools cut build and repair hours: x (1 - cut) for each owned tool that names the slot, down to half */
 function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m)*(1-tmEngCut());}   // the engineer's cut on top of the tools'
 function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot)*(tmFab(l.slot,l.id)?1-tmFabCut():1),0));}
+/* a fit may run on into next week (0.1.30.1): a full new bot can take more hours than the workshop banks, so the hours
+   can go below zero, by up to one week's worth; the next week's hours pay it back. Hours still missing after that, or 0 */
+function crFitShort(h){const c=S.career;return Math.max(0,crR1(h-(c.hours+crStage().hours)));}
+function crFitHoursHint(h){const c=S.career,sh=crFitShort(h),over=crR1(h-c.hours);
+  return sh>0?`<p class="hint broke">That's ${sh} h more than this week and next can give. Fit fewer parts now and the rest next week.</p>`
+    :over>0?`<p class="hint worn">The work runs ${over} h into next week: you start next week with ${crR1(crStage().hours-over)} h.</p>`:"";}
 const CR_KIND_SLOT={wheel:"wheels",pod:"drive",armour:"armour",battery:"battery",electronics:"electronics",weapon:"weapon",extras:"extras",chassis:"chassis"};
 
 /* ---- money ---- */

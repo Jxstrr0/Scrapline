@@ -4442,7 +4442,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.30.0";
+const VERSION="0.1.30.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -5446,9 +5446,10 @@ function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const blk=crFitB
   openSheet("Fit these parts",`<ul class="bill">${bill.lines.map(l=>`<li><span>${esc(l.name)}${face(l)}</span><span>${fmt$(l.cost)}</span></li>`).join("")}${bill.removed.map(l=>`<li><span>${esc(l.name)}${face(l)} taken off</span><span>—</span></li>`).join("")}
     <li class="tot"><span>Total · ${h} h</span><span>${fmt$(bill.cost)}</span></li></ul>
     <p class="hint">${free?"No charge: money starts with the career (Career tab).":`Paid in full; parts taken off are gone. You have ${fmt$(c.money||0)} and ${crR1(c.hours)} h this week.`}</p>
-    <div class="row"><button type="button" class="btn pri" data-act="fit-ok">${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
+    ${c?crFitHoursHint(h):""}
+    <div class="row"><button type="button" class="btn pri" data-act="fit-ok"${c&&crFitShort(h)>0?" disabled":""}>${free?"Fit":"Fit · "+fmt$(bill.cost)}</button></div>`);}
 function bFitDo(){const b=bBot(),bill=SIM.fitBill(b.cfg,b.draft),c=crOn()?S.career:null,h=crFitHours(bill),blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
-  if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}if(c.hours<h){toast(`That takes ${h} h in the workshop; you have ${crR1(c.hours)} h this week`);return;}
+  if(c){if((c.money||0)<bill.cost){toast(`Need ${fmt$(bill.cost-(c.money||0))} more`);return;}const sh=crFitShort(h);if(sh>0){toast(`That takes ${h} h in the workshop: ${sh} h more than you can find before next week ends`);return;}
     crPay(bill.cost,`Fitted: ${SIM.CLASSES[bCls()].name.toLowerCase()}, ${bill.lines.length} part${bill.lines.length===1?"":"s"}`);c.hours=crR1(c.hours-h);}
   bClearDamage(b,bill);b.cfg=clone(b.draft);bNormed.add(b.cfg);save();hud();closeSheet();bRender();toast(c?`Fitted · ${fmt$(bill.cost)}`:"Fitted");buzz([10,30,10]);shopSfx("ratchet");if((curTab==="bench"||curTab==="fight")&&TAB_RENDER[curTab])TAB_RENDER[curTab]();}
 
@@ -7022,6 +7023,12 @@ function crFitBlock(cfg){if(!crOn())return null;if(S.career.day)return"You're at
 /* tools cut build and repair hours: x (1 - cut) for each owned tool that names the slot, down to half */
 function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m)*(1-tmEngCut());}   // the engineer's cut on top of the tools'
 function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot)*(tmFab(l.slot,l.id)?1-tmFabCut():1),0));}
+/* a fit may run on into next week (0.1.30.1): a full new bot can take more hours than the workshop banks, so the hours
+   can go below zero, by up to one week's worth; the next week's hours pay it back. Hours still missing after that, or 0 */
+function crFitShort(h){const c=S.career;return Math.max(0,crR1(h-(c.hours+crStage().hours)));}
+function crFitHoursHint(h){const c=S.career,sh=crFitShort(h),over=crR1(h-c.hours);
+  return sh>0?`<p class="hint broke">That's ${sh} h more than this week and next can give. Fit fewer parts now and the rest next week.</p>`
+    :over>0?`<p class="hint worn">The work runs ${over} h into next week: you start next week with ${crR1(crStage().hours-over)} h.</p>`:"";}
 const CR_KIND_SLOT={wheel:"wheels",pod:"drive",armour:"armour",battery:"battery",electronics:"electronics",weapon:"weapon",extras:"extras",chassis:"chassis"};
 
 /* ---- money ---- */
