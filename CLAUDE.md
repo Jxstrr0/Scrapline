@@ -84,9 +84,9 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.28.0)
+## Current status (0.1.29.0)
 
-The full log from PR 0 to 0.1.28.0 (what each version added, the tables and
+The full log from PR 0 to 0.1.29.0 (what each version added, the tables and
 save fields it brought) is `docs/HISTORY.md`. Read the matching entry before
 changing a system it describes; add each new release there and update this
 section.
@@ -103,14 +103,14 @@ section.
   Sandbox modes (separate garages, `S.mode` / `S.parked`; Mode in Settings),
   labelled Build stats and Fix it buttons on the post-mortem (`RP_FIX`).
   A daily challenge and `SCRRP1:` replay codes
-  (`src/app/daily.js`), arena floor markings and lighting (`arenaDecal`), one dressing scale (`AR.D`) for props, stands and crowd, and Blender weapon parts on Full/Ultra (`models/bot-weapons.glb`), visible damage on Full/Ultra (`src/vis/wear.js`), and teams: team and bot names, two colours and a badge built in code, opponents with teams of their own (`src/app/livery.js`, `src/vis/badge.js`), Build sections that open one at a time, automatic slow-motion on big moments in replays (`ftSlowPlan`, `src/app/fight.js`), a drawn bracket for tournament days with the draw shown before you enter (`crBracketHtml`, `src/app/career.js`), and a highlight reel: each season's best five moments, the season reel and the Fight tab's Highlights card (`src/app/reel.js`, `S.reel`). An arena for each regional venue: the Stahlbrück Mill, Eisenau Harbour and the Grauwald Engine Shed, with their own hazards, look and lighting; a career event fights in its venue's arena (`WORLD.venues[v].arena`, `crArenaId`; `ARENA_LOOK` in `src/vis/arena.js`). Money is euros. `SAVE_V` is 13.
-- Next (Kelbo, plan section 1): 0.1.29 a polish pass from Kelbo's list only (wait for the list; don't audit).
+  (`src/app/daily.js`), arena floor markings and lighting (`arenaDecal`), one dressing scale (`AR.D`) for props, stands and crowd, and Blender weapon parts on Full/Ultra (`models/bot-weapons.glb`), visible damage on Full/Ultra (`src/vis/wear.js`), and teams: team and bot names, two colours and a badge built in code, opponents with teams of their own (`src/app/livery.js`, `src/vis/badge.js`), Build sections that open one at a time, automatic slow-motion on big moments in replays (`ftSlowPlan`, `src/app/fight.js`), a drawn bracket for tournament days with the draw shown before you enter (`crBracketHtml`, `src/app/career.js`), and a highlight reel: each season's best five moments, the season reel and the Fight tab's Highlights card (`src/app/reel.js`, `S.reel`). An arena for each regional venue: the Stahlbrück Mill, Eisenau Harbour and the Grauwald Engine Shed, with their own hazards, look and lighting; a career event fights in its venue's arena (`WORLD.venues[v].arena`, `crArenaId`; `ARENA_LOOK` in `src/vis/arena.js`). From Kelbo's polish list: Skip to the next week with an event you can enter (`crSkip`), and Watch it, a simmed career fight played back like a live bout with the result at the bell (`ftWatch`, `toastHold`). Money is euros. `SAVE_V` is 13.
+- Next (Kelbo, plan section 1): more of the polish pass from Kelbo's list only (wait for the list; don't audit).
   Merged branches delete themselves on GitHub.
 - What to test on a phone after any change: the loading bar finishes and the
   workshop renders on Lite; every tab opens; a spar starts, drives and ends,
   with sound (crowd, bells, the announcer's intro and Skip, captions with
   Sound off); a best of three reaches the pit and the next round; a replay
-  plays and scrubs, slows for big hits and the knockout, and Slow-mo switches off; a tournament day draws its bracket (the draw shows in the Enter sheet) and fills it in as you win; a fight's best moment shows on the Fight tab's Highlights card and Watch all plays the clips back to back; an event at Stahlbrück, Eisenau or Grauwald fights in its own arena; Build changes show in the workshop; a career event is
+  plays and scrubs, slows for big hits and the knockout, and Slow-mo switches off; a tournament day draws its bracket (the draw shows in the Enter sheet) and fills it in as you win; a fight's best moment shows on the Fight tab's Highlights card and Watch all plays the clips back to back; an event at Stahlbrück, Eisenau or Grauwald fights in its own arena; Skip to week N closes the weeks to the next fight you can enter; Watch it plays a simmed fight out and the result only shows at the bell; Build changes show in the workshop; a career event is
   fought and a week closes; a save slot saves and loads; Back up then Restore
   round trips; the Daily challenge fights and keeps a score; a Share code from a
   post-mortem plays back through Watch a code; Settings opens and the theme switches; on Full, no "Graphics
