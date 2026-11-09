@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.29.0";
+const VERSION="0.1.30.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -44,10 +44,10 @@ const WORLD={
    acts: the classes each act's events are in. You move up an act at the end of a season if you placed top two at that
    act's championship, or your rep reached repTo; out of the Heavyweight act only by winning the Open Final. */
 const TIME={weeks:52,bankWeeks:2,eventHours:6,nightHours:4,perKm:0.3,night:45,
-  startMoney:1500,loan:1000,loanRate:0.1,loanShare:0.5,
+  startMoney:2500,loan:1000,loanRate:0.1,loanShare:0.5,
   xp:{drive:3,sim:1,win:2},levels:[["rookie",0],["club",25],["pro",70]],skill:{base:0.5,perXp:0.002,max:0.9},
   acts:[
-    {id:"garage", name:"Garage",     classes:["ant","beetle"],  repTo:60, line:"Club meets at the Haldis Gemeindehalle, a tournament or two, and the club championship."},
+    {id:"garage", name:"Garage",     classes:["ant","beetle"],  repTo:45, line:"Club meets at the Haldis Gemeindehalle, a tournament or two, and the club championship."},
     {id:"circuit",name:"Circuit",    classes:["hobby","feather"],repTo:160,line:"Regional tournaments in Stahlbrück, Eisenau and Grauwald, rumbles and tag team, and the Regional Final."},
     {id:"heavy",  name:"Heavyweight",classes:["heavy"],          repTo:320,line:"The Scrapline Open at the Eisenhalle, on television."},
     {id:"legacy", name:"Legacy",     classes:["heavy"],          repTo:0,  line:"You've won the Open. Defend it, run the team, and sell your best design as a kit."}]};
@@ -77,8 +77,8 @@ const TOOL_IDS=Object.keys(TOOLS);
    prizeScale; a bracket's are 1st, 2nd, the semi-finals, the rest), rep by placing, the other drivers' skill (+ skillAct
    per act), the pit kit the other crews bring */
 const EVENT_KINDS={
-  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[300,150,75,0],  rep:[5,3,1,0], skill:0.45,crewKit:"basic"},
-  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[900,450,200,0], rep:[12,7,3,0],skill:0.6, crewKit:"full"},
+  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.45,crewKit:"basic"},
+  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.6, crewKit:"full"},
   rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.55,crewKit:"basic"},
   tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.6, crewKit:"basic"},
   champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.7,crewKit:"full"}};
@@ -148,7 +148,7 @@ const REPAIR_HOURS={wheel:0.5,pod:1.5,armour:1,battery:0.5,electronics:1,weapon:
    (bought before each event from PR 7; free to pick when sparring) says which repairs you may do and how many, for the
    whole event. price x the class's prizeScale. */
 const PIT_KITS={
-  basic:{name:"Basic kit",price:60, allow:{wheel:2,bodge:2},                                   line:"Spare wheels and a roll of tape."},
+  basic:{name:"Basic kit",price:30, allow:{wheel:2,bodge:2},                                   line:"Spare wheels and a roll of tape."},
   full: {name:"Full kit", price:180,allow:{wheel:4,bodge:3,belt:2,armour:2,battery:1},          line:"Adds belts, armour panels and a spare battery."},
   pro:  {name:"Pro kit",  price:420,allow:{wheel:4,bodge:4,belt:2,armour:4,battery:2,pod:2,disc:1},line:"Adds drive pods and a spare weapon disc."}
 };
@@ -235,8 +235,8 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=13;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16
+const SAVE_V=14;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   mode:"sandbox",                  // "career" or "sandbox" (0.1.18.0): which garage S.bots is; picked on the home screen and in Settings (setMode, app/career.js)
@@ -271,7 +271,8 @@ const MIGRATE={
   9:o=>{o.daily={last:null,streak:0,top:0,best:null,tries:0};return o;},   // 0.1.20.0: the daily challenge starts empty
   10:o=>{o.team=freshTeam();return o;},   // 0.1.24.0: teams. Everyone starts as the Eckwerkstatt in clay; bots[cls].name is optional (a default per class)
   11:o=>{const d=o.career&&typeof o.career==="object"?o.career.day:null;if(d&&typeof d==="object"&&Array.isArray(d.pairs)&&Array.isArray(d.won)){d.hist=[];d.how=d.won.map(()=>null);d.sc=d.won.map(()=>"");}return o;},   // 0.1.26.0: the bracket screen keeps a tournament day's rounds (day.hist, how, sc); a day already under way has none of the earlier rounds
-  12:o=>{o.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};return o;}   // 0.1.27.0: the highlight reel starts empty
+  12:o=>{o.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};return o;},   // 0.1.27.0: the highlight reel starts empty
+  13:o=>{if(o.settings&&typeof o.settings==="object")o.settings.dev=o.settings.dev===true;return o;}   // 0.1.30.0: Dev mode (Settings) starts off
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */

@@ -34,6 +34,7 @@ function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
   if(!b||typeof b!=="object")b=S.bots[cls]={cfg:null,damage:{},draft:null};
   if(!b.damage||typeof b.damage!=="object")b.damage={};
   if(b.cfg&&!bNormed.has(b.cfg)){b.cfg=typeof b.cfg==="object"?SIM.normCfg(Object.assign({},b.cfg,{cls})):null;if(b.cfg)bNormed.add(b.cfg);}
+  if(!b.draft&&!b.cfg&&crOn()){b.draft=crStarter(cls);bNormed.add(b.draft);}   // a class's first draft in a career is the starter bot: nothing on it is locked yet (0.1.30)
   if(!b.draft||!bNormed.has(b.draft)){b.draft=SIM.normCfg(Object.assign({},b.draft&&typeof b.draft==="object"?b.draft:b.cfg||SIM.DEFAULT_CFG,{cls}));bNormed.add(b.draft);}
   return b;}
 const draft=()=>bBot().draft;
