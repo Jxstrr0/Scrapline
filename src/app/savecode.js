@@ -238,7 +238,7 @@ function buRemind(tries){if(buReminded||!buRemindDue())return;
     bar.innerHTML='<span id="bkBarTxt"></span><button type="button" class="btn sm pri" id="bkBarGo">Saves</button><button type="button" class="pwalater" id="bkBarLater" aria-label="Dismiss the backup reminder">Later</button>';
     ($("app")||document.body).appendChild(bar);
     $("bkBarLater").addEventListener("click",buRemindHide);
-    $("bkBarGo").addEventListener("click",()=>{buRemindHide();if(buBusy())return;showTab("shop");
+    $("bkBarGo").addEventListener("click",()=>{buRemindHide();if(buBusy())return;SH.sub="saves";showTab("shop");
       const c=$("savesCard");if(c)c.scrollIntoView({block:"center",behavior:reduced()?"auto":"smooth"});});}
   const d=buNum(S.lastBackup)&&S.lastBackup>0?Math.floor((Date.now()-S.lastBackup)/864e5):-1;
   $("bkBarTxt").textContent=d<0?"No backup yet. Keep a copy off this phone.":`Last backup ${d} days ago. Time for a fresh one.`;
