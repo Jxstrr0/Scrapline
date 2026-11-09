@@ -318,5 +318,41 @@ for (const cls of SIM.CLASS_IDS) {
   console.log(`0.1.35 checks: spun-up spinners pivot; ${selfPit} self-inflicted pit falls in ${n} AI fights; replays match`);
 }
 
+/* ---------- 0.1.37: flame grates ---------- */
+{
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls });
+  let grates = 0;
+  for (const arena of SIM.ARENA_IDS) {
+    const F = SIM.newFight({ seed: 3, arena, bots: [{ cfg: Object.assign(T("brick", "beetle"), { extras: [] }) }, { cfg: T("wedge", "beetle") }] });   // no skid plate: that soaks the burn up (not the heat)
+    const gi = F.arena.haz.findIndex((h) => h.type === "flame"); if (gi < 0) continue;
+    grates++;
+    const h = F.arena.haz[gi], me = F.bots[0], cx = (h.rect[0] + h.rect[2]) / 2, cy = (h.rect[1] + h.rect[3]) / 2;
+    const ph = (t) => SIM.flamePhase({ t }, h);
+    if (ph(h.startS - 0.1) !== 0 || ph(h.startS + 0.1) !== 1 || ph(h.startS + h.warnS + 0.1) !== 2 || ph(h.startS + h.warnS + h.activeS + 0.1) !== 0)
+      fail(`${arena}: the flame grate's cold / pilot / burn timing is off`);
+    let hp0 = null, heat0 = null, licks = 0;
+    while (F.t < h.startS + h.periodS && !F.over) {
+      me.x = cx; me.y = cy; me.vx = 0; me.vy = 0;
+      if (hp0 == null && F.t >= h.startS) { hp0 = me.stats.taken; heat0 = me.heat.d; }
+      SIM.stepFight(F, [{}, {}]);
+    }
+    for (const e of F.log) if (e.k === "flame") licks++;
+    const lost = me.stats.taken - hp0, heat = me.heat.d - heat0, bud = me.b.heat.drive.budgetJ;
+    if (licks !== 1) fail(`${arena}: ${licks} flame bursts logged in one cycle, expected 1`);
+    if (!(lost > 0)) fail(`${arena}: a bot parked on the burning grate took no damage`);
+    if (!(heat > 0.3 * bud)) fail(`${arena}: a bot parked on the burning grate only gained ${(100 * heat / bud).toFixed(0)}% of its drive heat budget`);
+    if (me.heat.d > bud * SIM.FIGHT.flameCap + 1e-6) fail(`${arena}: flame heat ran past the cap`);
+    console.log(`  ${arena}: one burn costs a parked beetle brick ${lost.toFixed(1)} J of damage and ${(100 * heat / bud).toFixed(0)}% of its drive heat budget`);
+  }
+  if (grates < 2) fail(`only ${grates} arenas have a flame grate, expected 2`);
+  let n = 0;
+  for (let s = 1; s <= 6; s++) {
+    const r = SIM.runFight({ seed: s, arena: s % 2 ? "stahl" : "eisenhalle", bots: [{ cfg: T(s % 2 ? "hsp" : "drum", "beetle"), driver: { style: "auto", skill: 0.8 } }, { cfg: T("wedge", "beetle"), driver: { style: "auto", skill: 0.8 } }] });
+    const rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log))); n++;
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a flame-grate fight replays differently`);
+  }
+  console.log(`0.1.37 checks: ${grates} flame grates burn on time, heat and damage a parked bot, stay under the cap; ${n}/${n} replays match`);
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");

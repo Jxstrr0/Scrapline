@@ -42,7 +42,7 @@ function rpHow(F,e,f){const me=F.bots[0],mm=Math.max(F.M.mass,1e-6),J=`<span cla
       return s;}
     case"ram":return`a hard knock on your ${RP_FACE[e.f]||e.f}, ${J}`;
     case"wall":return`slammed into the wall, ${J}`;
-    case"haz":return`${e.what==="pusher"?"the wall pusher":"the floor spinner"}, ${J}`;
+    case"haz":return`${e.what==="pusher"?"the wall pusher":e.what==="flame"?"the flame grate":"the floor spinner"}, ${J}`;
     case"land":{const tot=(e.x||[]).reduce((q,p)=>q+p[1],0),fl=rpBefore(F,"flip",null,0,e.t,4);
       return`a hard landing${e.inv?" upside down, onto the top":""} (<span class="readout">${Math.round(tot)} J</span>)${fl&&fl.a!=null?`: ${rpWho(F,fl.a)} flipped you ${Math.round((fl.h||0)*100)} cm up`:""}`;}}
   return"";}
