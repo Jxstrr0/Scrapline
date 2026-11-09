@@ -53,7 +53,7 @@ function fxNum(B,d){const lite=V.tier==="lite",max=lite?3:6;while(FX.nums.length
   x.lineWidth=8*k;x.strokeStyle="rgba(20,20,19,0.9)";x.strokeText(t,W/2,Hh/2+2*k);
   x.fillStyle=d>=0.08?"#FF8F93":"#F2EFE8";x.fillText(t,W/2,Hh/2+2*k);   // a big bite in a light cool red (damage colours never go clay)
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true}));
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true,toneMapped:false}));
   const side=FX.nums.filter(n=>n.B===B).length%2?0.85:0.15;   // two at once on one bot sit side by side
   sp.center.set(side,-1.1);sp.renderOrder=7;sp.userData.own=true;sp.userData.asp=W/Hh;AR.g.add(sp);FX.nums.push({sp,B,t:0});fxNumPlace(FX.nums[FX.nums.length-1]);}
 function fxNumDrop(n){n.sp.parent&&n.sp.parent.remove(n.sp);n.sp.material.map.dispose();n.sp.material.dispose();}

@@ -730,3 +730,15 @@ Winning the Scrapline Open used to be the end of the story: the Legacy act just 
 - **Dev mode: Win the Open** jumps a career to the Legacy act as champion, one level a press, for testing.
 
 Tables: `LEGACY` (`src/app/state.js`). Save: `S.hall`, `SAVE_V` 15.
+
+## 0.1.40.0: the look (Kelbo's visual pass, part one)
+
+Kelbo asked for a Blender deep dive and better visuals all round, with frame rate to spare. This first part is the rendering under everything else; the models come next. Full and Ultra only, except the contact shadow.
+
+- **A tone curve.** Bright metal and paint used to clip to flat white. Now anything brighter than about three quarters of full white is eased towards white, and everything darker is left exactly as written, so team colours and the palette don't shift. (Khronos' PBR Neutral curve; ACES was tried and it washed the team colours out.) Name tags and damage numbers are left alone.
+- **Real reflections.** Metal now mirrors a real hall under strip lights, a Poly Haven HDRI (CC0), in place of the room painted in code. The painted room is still the stand-in while the file loads or when it can't.
+- **Light and shadow.** The hall adds soft light of its own, so the fill lights came down and the key lights went up: more shape, less flat grey. Shadow maps are bigger (1536 on Full, 2048 on Ultra). Every bot has a contact shadow, a soft dark patch under it, on every tier; on Lite it is the only shadow, and it fades as a bot is thrown.
+- **Ultra.** Ultra had lost Full's smooth edges and came out darker than Full (it tone mapped twice). It now has 4x anti-aliasing where the phone supports it, matches Full's colours, and darkens the corners a little.
+- **Lite** gains the contact shadow and nothing else: no tone curve, no reflections.
+
+The numbers are in `LOOK` (`src/vis/core.js`).

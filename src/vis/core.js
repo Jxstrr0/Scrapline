@@ -16,7 +16,38 @@ const V={r:null,scene:null,cam:null,canvas:null,tier:"lite",w:0,h:0,mats:null,en
   bot:null,shop:null,lights:null,run:{spin:1},t0:performance.now(),last:0,ang:0,
   frames:0,fpsAt:performance.now(),fpsObj:{fps:0,at:0},orbit:{yaw:-.7,pitch:.62,dist:7.5,tx:0,ty:.35,tz:0}};
 const TAU=Math.PI*2;
+/* the look (0.1.40), Full and Ultra only: filmic tone mapping (bright metal rolls off, it doesn't clip to white), how
+   strongly each kind of material reflects the room (vis/surface.js envApply), the shadow map sizes and Ultra's final
+   grade. Lite has none of it: no tone mapping, no reflections, a painted blob for a shadow */
+const LOOK={exposure:1.05,env:{metal:0.85,bot:0.8,paint:0.4,matte:0.2,soft:0.2,prop:0.35,room:0.13,floor:0.1},shadow:{full:1536,ultra:2048},
+  blob:{lite:.5,full:.3,grow:1.9},bloom:[.34,.45,.82],vignette:.3,msaa:4};
+/* a contact shadow (0.1.40): a soft dark patch under a bot, on every tier. Lite's only shadow; on Full and Ultra it
+   sits under the cast shadow and ties the bot to the floor. One small texture, drawn once */
+const BLOB={tex:null,geo:null};
+function blobMake(w,l){const lite=V.tier==="lite";
+  if(!BLOB.tex){const c=document.createElement("canvas");c.width=c.height=64;const g=c.getContext("2d");
+    g.shadowColor="#000";g.shadowBlur=11;g.fillStyle="#000";for(let i=0;i<2;i++)g.fillRect(19,19,26,26);
+    BLOB.tex=new THREE.CanvasTexture(c);BLOB.geo=new THREE.PlaneGeometry(1,1);BLOB.geo.rotateX(-Math.PI/2);}
+  const m=new THREE.Mesh(BLOB.geo,new THREE.MeshBasicMaterial({map:BLOB.tex,color:0x000000,transparent:true,opacity:lite?LOOK.blob.lite:LOOK.blob.full,
+    depthWrite:false,toneMapped:false,fog:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  m.userData.keep=true;m.userData.op=m.material.opacity;m.scale.set(w*LOOK.blob.grow,1,l*LOOK.blob.grow);m.raycast=()=>{};return m;}
+function blobDrop(m){if(!m)return;if(m.parent)m.parent.remove(m);m.material.dispose();}
 
+/* the tone curve: Khronos' PBR Neutral without its toe, put in where three.js r128 leaves room for a custom one. Colours up to about 0.76
+   pass through untouched, so team paint and the palette stay exactly as written; only what is brighter is eased towards
+   white (ACES would wash every bright colour out). False if this three.js has no such slot: the caller falls back */
+function toneCurve(){const C=THREE.ShaderChunk,at="vec3 CustomToneMapping( vec3 color ) { return color; }";
+  if(V.tone!=null)return V.tone;if(!C||!C.tonemapping_pars_fragment||C.tonemapping_pars_fragment.indexOf(at)<0)return V.tone=false;
+  C.tonemapping_pars_fragment=C.tonemapping_pars_fragment.replace(at,`vec3 CustomToneMapping( vec3 color ) {
+    color *= toneMappingExposure;
+    float peak = max( color.r, max( color.g, color.b ) );
+    if ( peak < 0.76 ) return color;
+    float d = 0.24;
+    float newPeak = 1.0 - d * d / ( peak + d - 0.76 );
+    color *= newPeak / peak;
+    float g = 1.0 - 1.0 / ( 0.15 * ( peak - newPeak ) + 1.0 );
+    return mix( color, vec3( newPeak ), g );
+  }`);return V.tone=true;}
 function initRenderer(canvas){
   V.canvas=canvas;
   V.r=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
@@ -31,17 +62,16 @@ function initRenderer(canvas){
 function makeMats(tier){
   const lite=tier==="lite";
   if(V.mats)for(const k in V.mats)(Array.isArray(V.mats[k])?V.mats[k]:[V.mats[k]]).forEach(m=>m.dispose());
-  if(!lite&&!V.env)V.env=shopEnv();
   if(lite)surfDrop();   // vis/surface.js: frees Full's maps and drops a worker result still on its way
   const C=h=>new THREE.Color(h).convertSRGBToLinear(),S=lite?null:surfMaps();
   /* Lite has no reflection to darken bare metal, so its Phong base colour runs at 55% with a soft highlight, or polished
      steel under the overhead light reads as white plastic */
   const metal=(color,rough)=>(color=C(color),lite)
     ?new THREE.MeshPhongMaterial({color:color.multiplyScalar(.55),specular:C(0x5a5e64),shininess:Math.round(60*(1-rough))+12})
-    :new THREE.MeshStandardMaterial({color,roughness:rough,metalness:1,envMap:V.env,envMapIntensity:1.5});
-  const matte=(color,rough)=>(color=C(color),lite)
+    :new THREE.MeshStandardMaterial({color,roughness:rough,metalness:1,envMapIntensity:LOOK.env.metal});
+  const matte=(color,rough,env)=>(color=C(color),lite)
     ?new THREE.MeshLambertMaterial({color})
-    :new THREE.MeshStandardMaterial({color,roughness:rough,metalness:0,envMap:V.env,envMapIntensity:.4});
+    :new THREE.MeshStandardMaterial({color,roughness:rough,metalness:0,envMapIntensity:env==null?LOOK.env.matte:env});
   const bot=(key,color,rough,isMetal)=>lite?(isMetal?metal(color,rough):matte(color,rough)):surfMat(S[key],C(color),isMetal?1:0,key==="paint");
   V.mats={
     steel:bot("steel",0xb4b9bf,.3,1),
@@ -51,12 +81,12 @@ function makeMats(tier){
     hdpe:bot("hdpe",0x2b2b2a,.7),
     paint:bot("paint",0xd97757,.5),      // clay: the starter bot wears the studio accent
     rubber:bot("rubber",0x1a1a1a,.95),
-    bench:matte(0x55493c,.8),
+    bench:matte(0x55493c,.8,LOOK.env.room),
     plate:metal(0x6d7177,.55),
-    floor:matte(0x232322,1),
+    floor:matte(0x232322,1,LOOK.env.room),
     ti:bot("ti",0x9a9da3,.4,1),
-    arenaFloor:matte(0x2e2d2a,.9),
-    arenaOut:matte(0x141413,1),         // the floor round the arena: darker, so the arena reads as the lit square
+    arenaFloor:matte(0x2e2d2a,.9,LOOK.env.floor),
+    arenaOut:matte(0x141413,1,LOOK.env.floor*.4),         // the floor round the arena: darker, so the arena reads as the lit square
     wall:matte(0x4a4740,.8),
     glass:new THREE.MeshBasicMaterial({color:C(0x8fa3b5),transparent:true,opacity:.12,depthWrite:false}),
     pit:new THREE.MeshBasicMaterial({color:C(0x050505)}),

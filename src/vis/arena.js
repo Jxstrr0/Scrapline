@@ -38,7 +38,7 @@ const ARENA_LOOK={
   shed:{floor:["#43443a","#33352d","#1d1e19"],wash:"rgba(92,100,60,.17)",sky:0xc8d0bc,gnd:0x181a14,key:0xf2f6e4,rim:[0xffd9a0,.4],spot:0xf4f0dc}};
 const arenaLook=F=>ARENA_LOOK[F.arena.def&&F.arena.def.look]||ARENA_LOOK.base;
 const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
-function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
+function arenaClear(){fxClear();for(const B of AR.bots){disposeClone(B.mesh);blobDrop(B.blob);}
   if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
@@ -98,14 +98,15 @@ function buildArena(F){
   AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null,o.livery||null);g.add(mesh);mesh.scale.setScalar(U);
     const B={o,mesh,flipT:-9,shots:o.wp.shots,kickT:-9,kshots:o.kick?o.kick.shots:0,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
     if(!o.mini){B.tag=botTag(o.name,team,lite,o.livery);g.add(B.tag);}
+    B.blob=blobMake(o.b.widthM*U,o.b.lengthM*U);B.blob.position.y=0.008;g.add(B.blob);
     return B;});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
-  const LK=arenaLook(F),L=new THREE.Group();L.add(new THREE.HemisphereLight(LK.sky,LK.gnd,lite?.85:.34));
-  const key=new THREE.DirectionalLight(LK.key,lite?1.0:1.1);key.position.set(-H*0.6,H*2.2,H*0.9);
-  if(!lite){key.castShadow=true;key.shadow.mapSize.set(1024,1024);const c=key.shadow.camera;c.left=c.bottom=-H-1;c.right=c.top=H+1;c.near=1;c.far=H*5;key.shadow.bias=-.0008;key.shadow.radius=2;}
+  const LK=arenaLook(F),L=new THREE.Group();L.add(new THREE.HemisphereLight(LK.sky,LK.gnd,lite?.85:.24));
+  const key=new THREE.DirectionalLight(LK.key,lite?1.0:1.0);key.position.set(-H*0.6,H*2.2,H*0.9);
+  if(!lite){key.castShadow=true;key.shadow.mapSize.set(LOOK.shadow[V.tier],LOOK.shadow[V.tier]);const c=key.shadow.camera;c.left=c.bottom=-H-1;c.right=c.top=H+1;c.near=1;c.far=H*5;key.shadow.bias=-.0008;key.shadow.radius=2;}
   L.add(key);const rim=new THREE.DirectionalLight(LK.rim[0],LK.rim[1]);rim.position.set(H,H*0.6,-H*1.5);L.add(rim);
   /* Full and Ultra: the rig over the arena, a warm white spot that lights the square and lets the floor round it fall away */
-  if(!lite){const sp=new THREE.SpotLight(LK.spot,1.25,0,Math.atan(1.25/2.6),0.55,0);sp.position.set(0,H*2.6,0);sp.target.position.set(0,0,0);L.add(sp,sp.target);}
+  if(!lite){const sp=new THREE.SpotLight(LK.spot,1.45,0,Math.atan(1.25/2.6),0.7,0);sp.position.set(0,H*2.6,0);sp.target.position.set(0,0,0);L.add(sp,sp.target);}
   AR.lights=L;AR.g=g;AR.F=F;AR.pitOpenAt=null;
   AR.cam={x:0,z:0,d:H*3,shake:0};
   V.scene.add(g,L);propArena(F);return g;}
@@ -121,7 +122,7 @@ function botTag(name,team,lite,liv){const W=lite?192:256,Hh=W/4,c=document.creat
   if(liv)badgeDraw(x,liv,x0+21*k,Hh/2,14*k);else{x.fillStyle="#"+BOT_TEAM[team%BOT_TEAM.length].toString(16).padStart(6,"0");x.beginPath();x.arc(x0+22*k,Hh/2,8*k,0,7);x.fill();}
   x.fillStyle="#F2EFE8";x.textBaseline="middle";x.fillText(t,x0+38*k,Hh/2+1*k);
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true}));
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,sizeAttenuation:false,depthTest:false,depthWrite:false,transparent:true,toneMapped:false}));
   sp.center.set(0.5,0);sp.renderOrder=6;sp.userData.own=true;sp.userData.asp=W/Hh;return sp;}
 const FLASH_COL=new THREE.Color(0xfff1d6).convertSRGBToLinear();
 /* the floor markings as a canvas texture over the arena square (S px a side, the top row the far wall): a grid every 30 cm
@@ -206,12 +207,13 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
     /* falling into the pit: sink and fade out over half a second */
     botMarks(B,dt);
-    if(o.out==="pit"){B.fall=Math.min(1,B.fall+dt*2);m.position.y=-B.fall*3;m.visible=B.fall<1;continue;}
+    if(o.out==="pit"){B.fall=Math.min(1,B.fall+dt*2);m.position.y=-B.fall*3;m.visible=B.fall<1;if(B.blob)B.blob.visible=false;continue;}
     B.inv+=((o.inverted?1:0)-B.inv)*Math.min(1,dt*10);   // roll over smoothly when the sim flips it
     m.position.set(o.x*U,(o.z||0)*U+B.inv*(u.H||0.05)*U,-o.y*U);
     /* a meltybrain (0.1.34) turns as a whole, at its weapon's speed (capped like a disc's); o.h stays its heading */
     if(u.melty&&!(o.fx&&o.fx.weaponOk===false))B.meltA=((B.meltA||0)+Math.min(o.wp.om,45)*dt)%(2*Math.PI);
     m.rotation.set(0,o.h-Math.PI/2+(u.melty?B.meltA||0:0),0);m.rotateZ(B.inv*Math.PI);
+    if(B.blob){const bl=B.blob,up=(o.z||0)*U;bl.visible=m.visible;bl.position.x=m.position.x;bl.position.z=m.position.z;bl.rotation.y=o.h-Math.PI/2;bl.material.opacity=bl.userData.op/(1+up*2.5);}   // fainter the higher the bot is thrown
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */
     const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type!=="BoxGeometry")w.rotation.x=B.wheelA;   // not tracks (a box); the Blender mecanum pieces turn too
