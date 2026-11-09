@@ -15,7 +15,8 @@ const PART_STATES=["intact","damaged","destroyed"];
 const DAMAGE={
   casterDrag:1.6,  // a broken swivel caster (0.1.31) drags: turning scrub and rolling resistance x this
   passOn:0.7,      // a destroyed part passes this share of what was left of the hit on to the next part behind it
-  frontLead:1.1,   // a weapon or bar with no cells (a wedge plate) sits in front of everything behind the front face
+  frontLead:1.1,   // a weapon or bar with no cells (a wedge plate), or a front (0.1.32), sits in front of everything behind the front
+                   // face; a rear wedge or spike the same on the back
   motorAt:0.35,    // a weapon below this share of its hp has a dead motor (it coasts, can't spin up or fire)
   escSideAt:0.5,   // the speed controllers below this share: one side's controller is dead
   smokeP:0.15,     // a hit that damages the battery makes it smoke this often (power drops to smokePower)
@@ -49,7 +50,8 @@ function damageState(b,dmg){const st={armour:{},parts:{},chassis:chassisHp(b)};
 function hitOrder(b,face){const c=CLASSES[b.cls],fp=c.fp,out=[];
   for(const p of b.parts){if(!(p.hpJ>0))continue;let s=null;
     if(p.slot==="wheels"){if((face==="left"&&p.pos[0]<0)||(face==="right"&&p.pos[0]>0))s=p.exposure;}
-    else if(!p.cells.length){if(face==="front"&&(p.slot==="weapon"||p.key==="bar"))s=DAMAGE.frontLead+(p.key==="bar"?0.01:0);}
+    else if(!p.cells.length){if(face==="front"&&(p.slot==="weapon"||p.key==="bar"||p.key==="front"))s=DAMAGE.frontLead+(p.key==="bar"?0.01:p.key==="front"?0.02:0);
+      else if(face==="back"&&p.key==="back")s=DAMAGE.frontLead;}   // a front or a rear plate (0.1.32) takes the hit first too
     else if(face==="top")s=p.exposure;
     else{let d=1e9;for(const q of p.cells){const v=face==="front"?q[1]:face==="back"?c.gridH-1-q[1]:face==="left"?q[0]:c.gridW-1-q[0];if(v<d)d=v;}
       d=Math.floor(d/fp);s=1/((1+d)*(1+d));}
@@ -101,11 +103,12 @@ function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.part
   else if(b.parts.some(p=>p.key==="electronics")&&!alive("electronics"))dead="electronics";
   else if(st.chassis<=0)dead="chassis";
   const hasW=b.weapon.type!=="none",wf=hasW?frac("weapon"):0,weaponOk=hasW&&wf>0,motorOk=weaponOk&&wf>=DAMAGE.motorAt;
-  const sr=b.cfg.extras.indexOf("selfright")>=0&&alive("selfright"),wr=!!part("weapon",b.cfg.weapon).selfRights&&motorOk;
+  const sr=b.cfg.extras.indexOf("selfright")>=0&&alive("selfright"),wr=!!part("weapon",b.cfg.weapon).selfRights&&motorOk,
+    kr=!!(b.back&&b.back.selfRights)&&alive("back");   // a kicker (0.1.32) pushes it back over
   const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0],cf=Math.max(0,st.chassis)/Math.max(chassisHp(b),1e-9);
   const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*(ch.flex+bodyOf(b).flexAdd)*(1-cf));
   const drag=b.parts.some(p=>p.caster)&&!alive("caster")?DAMAGE.casterDrag:1;
-  return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt,drag};}
+  return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr||kr,righterBy:sr?"selfright":wr?"weapon":kr?"back":null,absorbMul,flexing:cf<DAMAGE.flexAt,drag};}
 /* J taken per key (only the keys that took any): part keys, armour_<face>, chassis. This is S.bots[cls].damage's shape. */
 function damageTaken(b,st){const out={},r=v=>Math.round(v*100)/100;
   for(const f of FACES){const d=b.armourMapJ[f].hpJ-st.armour[f];if(d>1e-6)out["armour_"+f]=r(d);}

@@ -466,6 +466,8 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fpitopts{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .fpitopts .btn small{font-weight:500;opacity:.85}
 .fpitopts .btn.off{opacity:.5}
+.fpitfront{margin:0 0 10px;padding-top:8px;border-top:1px solid var(--rule);font-size:14px}   /* 0.1.32: the front swap row */
+.fpitfront .btn.on{border-color:var(--clay);opacity:1}
 .frp{position:absolute;z-index:2;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:#0A0A09cc;pointer-events:auto}
 .frp input{flex:1;min-width:0;accent-color:var(--clay)}
 .frp input[hidden]+.readout{margin-left:auto}   /* a watched sim: no scrub bar, the clock to the right */

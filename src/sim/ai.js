@@ -53,7 +53,7 @@ function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&
   if(b.weapon.id==="under")return"rush";
   if(t==="spinner"||t==="saw")return"keepaway";
   if(t==="wedge")return"aggressive";
-  if(t==="none"||t==="lifter"||t==="flipper")return haz?"hazard":"boxrush";
+  if(t==="none"||t==="lifter"||t==="grabber"||t==="flipper")return haz?"hazard":"boxrush";
   return"aggressive";}
 function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;if(!AI_STYLES[st])st=st==="auto"&&F?autoStyle(o.b,F.arena):"rush";
   return{r:rng(seed),style:st,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
@@ -153,7 +153,7 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   /* a trigger weapon's driver watches its reach all the time (a thumb on the button), firing a skill-dependent beat late */
   const z=zoneTouch(o,t);if(z&&m.zoneT<0)m.zoneT=F.t;if(!z)m.zoneT=-1;m.inZone=!!z;
   /* upside down and stuck: self-right if it can (a flipper, lifter or hammer also rights to use its weapon) */
-  const needUp=o.inverted&&(!o.b.height.drivesInverted||["flipper","lifter","hammer","crusher"].indexOf(w.type)>=0);
+  const needUp=o.inverted&&(!o.b.height.drivesInverted||["flipper","lifter","grabber","hammer","crusher"].indexOf(w.type)>=0);
   if(needUp&&o.fx.righter){out.selfRight=1;return out;}
   let px=m.tx,py=m.ty,mode="close",hold=false;
   const toMe=Math.atan2(o.y-t.y,o.x-t.x),facing=Math.abs(wrapA(toMe-t.h))<(S.flankA||1.1);
@@ -182,9 +182,12 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
     if(sq&&m.dist>rr*2){const fx=Math.cos(t.h),fy=Math.sin(t.h);let s=((o.x-t.x)*-fy+(o.y-t.y)*fx)>=0?1:-1;const k=rr*AI_NAV.flankR*Math.min(1,(m.dist-rr*2)/(rr*2)+0.5),
         side=sg=>[t.x-fy*sg*k,t.y+fx*sg*k],lim2=H-o.rad*1.5;let q=side(s);if(Math.abs(q[0])>lim2||Math.abs(q[1])>lim2){q=side(-s);}
       px=q[0];py=q[1];mode=mode==="commit"?"commit":"flank";}}
+  /* carrying a bot in a grabber (0.1.32): take it to the pit (or the nearest hazard, or the nearest wall) by the
+     straightest way, nose first */
+  const carry=!!(o.wp.grab&&o.wp.held!=null);if(carry){const P=F.arena.pit,g=P?[(P.rect[0]+P.rect[2])/2,(P.rect[1]+P.rect[3])/2]:aiGoal(F,{goal:"hazard"},F.bots[o.wp.held]);px=g[0];py=g[1];mode="carry";hold=false;}
   m.mode=mode;
-  const lim=H-o.rad*1.2;px=Math.max(-lim,Math.min(lim,px));py=Math.max(-lim,Math.min(lim,py));
-  if(!hold){const q=aiPath(F,o,t,m,px,py,mode);px=q[0];py=q[1];}
+  const lim=H-o.rad*1.2;if(!carry){px=Math.max(-lim,Math.min(lim,px));py=Math.max(-lim,Math.min(lim,py));}
+  if(!hold&&!carry){const q=aiPath(F,o,t,m,px,py,mode);px=q[0];py=q[1];}
   const c=aiSteer(o,m,px,py,sk);out.steer=c.steer;out.throttle=hold?0:mode==="orbit"?Math.max(c.throttle,0.5):c.throttle;
   if(hold){const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h);out.steer=clamp1(-2.2*e);out.throttle=Math.abs(e)<0.3?0.15:0;}
   /* sat on an enemy's wedge for half a second: reverse out and come again (a pusher on a pusher keeps shoving) */
@@ -195,21 +198,22 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   /* circling an enemy it's touching, full lock, for a second and a half (two bots chasing each other's tails): break off */
   if(touching&&Math.abs(out.steer)>0.9&&!(m.back>0)){m.spin+=F.dt;if(m.spin>1.5){m.spin=0;m.back=0.4+0.3*m.r();m.backSteer=out.steer>0?-0.4:0.4;}}
   else m.spin=Math.max(0,m.spin-F.dt*0.5);
+  if(carry){m.back=0;m.stuck=0;m.spin=0;}
   if(m.back>0){m.back-=F.dt;out.throttle=-1;out.steer=m.backSteer;}
   else{if(out.throttle>0.5&&sp<0.1*Math.max(o.b.driveSpeed,0.1)&&!pushing)m.stuck+=F.dt*(touching?(t.under&&t.under.by===o.i?0.2:0.4):1);else m.stuck=Math.max(0,m.stuck-F.dt);
     if(m.stuck>(S.stuckS||1.2)){m.stuck=0;m.back=0.45+0.3*m.r();m.backSteer=m.r()<0.5?-0.6:0.6;}}
   /* a strafing drive (mecanum, swerve: 0.1.31) keeps its front on the enemy and slides instead of turning away: it circles
      facing in, slides round to a flank, and side-steps a weapon coming straight at it (that last one the more skilled).
      Before the shove and pit escapes below, which win over it */
-  if(o.b.wheelbase.strafe>0&&!(m.back>0)&&!hold&&!pushing){const st=aiStrafe(F,o,t,m,mode,px,py,facing,sk);
+  if(o.b.wheelbase.strafe>0&&!(m.back>0)&&!hold&&!pushing&&!carry){const st=aiStrafe(F,o,t,m,mode,px,py,facing,sk);
     if(st){out.steer=st.steer;out.throttle=st.throttle;out.strafe=st.strafe;}}
   /* being shoved towards the pit or a hazard: turn across the shove and drive out of it, rather than pushing straight back */
-  if(touching&&m.tac&&!(m.back>0)){const a=aiShove(F,o,t,P0);
+  if(touching&&m.tac&&!(m.back>0)&&!carry){const a=aiShove(F,o,t,P0);
     if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;out.strafe=0;}}
   /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going;
      over the edge, drive off it along aiPitOut, by whichever end of the bot points that way */
-  const P=P0;if(P){const r=P.rect,la=aiLerp(AI_SKILL.pitLook,sk),fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
-      qx=o.x+o.vx*la+fx*dir*o.rad*0.8,qy=o.y+o.vy*la+fy*dir*o.rad*0.8,e=o.rad*0.4;
+  const P=P0;if(P){const r=P.rect,la=carry?0.05:aiLerp(AI_SKILL.pitLook,sk),fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
+      ah=o.rad*(carry?0.3:0.8),qx=o.x+o.vx*la+fx*dir*ah,qy=o.y+o.vy*la+fy*dir*ah,e=o.rad*0.4;
     if(aiIn(qx,qy,aiGrow(r,e))){const away=aiPitOut(F,o,r),ef=wrapA(away-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);
       out.steer=clamp1(-2.5*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.5?1:Math.abs(err)<1?0.5:0.15);out.strafe=0;m.back=0;}}
   /* the weapon */
@@ -217,5 +221,7 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   if(w.type==="spinner"||w.type==="saw")out.weapon=1;
   else if(w.type==="flipper"||w.type==="hammer"||w.type==="crusher")out.weapon=m.inZone&&m.zoneT>=0&&F.t-m.zoneT>=late&&
     !(w.type==="flipper"&&t.inverted&&!t.b.height.drivesInverted&&!t.fx.righter)?1:0;   // a flipper leaves a stranded bot upside down
-  else if(w.type==="lifter")out.weapon=m.inZone||o.wp.held!=null?1:0;
+  else if(w.type==="lifter"||w.type==="grabber")out.weapon=m.inZone||o.wp.held!=null?1:0;
+  /* a kicker (0.1.32): a bot at its back gets flicked away (the same button as the weapon) */
+  if(o.kz&&o.kick.shots>0&&!(o.kick.recharge>0)&&zoneTouch(o,t,o.kz))out.weapon=1;
   return out;}

@@ -71,9 +71,10 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const armour=x=>{let t=0;for(const f of ["front","back","left","right","top"])t+=x.armourMapJ[f].absorbJ+x.armourMapJ[f].hpJ;return t;};
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
   const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
-    battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
+    battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],front:["edge","armour","speed"],back:["right","armour","run","speed"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
     if(k==="inv"&&!!r.height.drivesInverted!==!!base.height.drivesInverted)cand.push(r.height.drivesInverted?'<i class="up">drives upside down</i>':'<i class="dn">can\'t drive upside down</i>');
+    if(k==="right"&&!!r.height.selfRight!==!!base.height.selfRight)cand.push(r.height.selfRight?'<i class="up">self-rights</i>':'<i class="dn">no self-righter</i>');
     if(k==="tall")num(x=>x.height.heightMm,r,base," mm tall",1,false,0.5);
     if(k==="speed")num(x=>x.driveSpeed,r,base," m/s",1,true,0.05);
     if(k==="turn")num(x=>x.turnRate,r,base," turn",1,true,0.2);
@@ -125,6 +126,13 @@ const B_SECS=[
     body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;})+bDisc()},
   {id:"material",t:"Weapon material",sum:()=>draft().weapon==="none"?"no weapon":bName("weaponMaterial",draft().weaponMaterial),
     body:()=>draft().weapon==="none"?"<p>No weapon fitted, so there is nothing to make out of anything.</p>":bOpts("weaponMaterial",draft().weaponMaterial,bFit("weaponMaterial"),(c,id)=>{c.weaponMaterial=id;})+"<p>The disc, arm or wedge plate. Tougher stock bends later and bites harder; lighter stock stores less energy.</p>"},
+  /* 0.1.32: a front attachment (not on a bot whose weapon is its own front) and the back slot */
+  {id:"attach",t:"Front & back",sum:()=>{const d=draft(),f=d.front&&d.front!=="none"?bName("front",d.front):"",k=d.back&&d.back!=="none"?bName("back",d.back):"";
+      return f||k?[f,k].filter(Boolean).join(" · ").toLowerCase().replace(/^./,c=>c.toUpperCase()):"nothing fitted";},
+    body:()=>{const d=draft(),own=SIM.OWN_FRONT.indexOf(SIM.part("weapon",d.weapon).type)>=0,pf=SIM.part("front",d.front||"none"),pk=SIM.part("back",d.back||"none");
+      return`<h4>Front</h4>`+(own?`<p>The ${esc(bName("weapon",d.weapon).toLowerCase())} is its own front: there is no room for an attachment.</p>`:(pf&&pf.line?`<p>${esc(pf.line)}</p>`:"")+bOpts("front",d.front||"none",bFit("front"),(c,id)=>{c.front=id;}))
+      +`<h4>Back</h4>`+(pk&&pk.line?`<p>${esc(pk.line)}</p>`:"")+bOpts("back",d.back||"none",bFit("back"),(c,id)=>{c.back=id;})
+      +`<p class="hint">Swap the front between rounds in the pit to suit the bot you're fighting.</p>`;}},
   {id:"extras",t:"Extras",sum:()=>draft().extras.length?draft().extras.map(e=>bName("extras",e).toLowerCase()).join(", "):"none",
     body:()=>{const base=bEval(),M=SIM.classMult(bCls()),f=bBot().cfg;
       return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=bEv(c);

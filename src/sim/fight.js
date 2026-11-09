@@ -53,7 +53,8 @@ const FIGHT={
   spinDrag:0.03,              // with the weapon off, the disc slows with this share of its motor's torque
   biteJitter:0.2,             // each hit's bite varies by up to this share
   glance:0.3,                 // a deflected hit lands this share of its energy (and takes that share off the disc)
-  slope:{wedge:0.6,flipper:0.2,lifter:0.2},   // a sloped front adds this to the chance a horizontal disc's hit glances off it
+  slope:{wedge:0.6,flipper:0.2,lifter:0.2,grabber:0.2},   // a sloped front adds this to the chance a horizontal disc's hit glances off it
+                              // (a fitted front, 0.1.32, adds its own slope instead: b.front.slope)
   horizontal:{hsp:1,under:1}, // the spinners whose hits a sloped front turns (a vertical bites the edge instead) ...
   lip:{vsp:1.8,drum:1.3},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
   gyro:{vsp:0.3,drum:0.24},   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
@@ -103,7 +104,11 @@ const FIGHT={
      footprint width (full: the chassis width), reach x the bot's length (or the weapon's own reachM); top: it hits the
      top of what it lands on */
   zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
-    hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1}}
+    hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1}},
+  /* 0.1.32: a kicker (the back-up flipper, b.back.kick) works a box behind the back face, kickW x the width; it throws
+     backwards and kickFwd m/s (x sqrt len) further. A grabber's clamp does grabJ (x mass) to what it closes on, and it
+     carries what it holds at its front: the pair drive as one, at the grabber's push over both their masses */
+  kickW:0.8,kickFwd:0.8,grabJ:2,grabHoldS:3,grabRechargeS:4,grabCloseS:0.5,grabSlip:0.6,grabDrag:0.8
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
@@ -145,8 +150,11 @@ function weaponZone(b){const w=b.weapon,Z=FIGHT.zone[w.id]||FIGHT.zone[w.type];i
   const f=footprints(b.cfg).find(q=>q.key==="weapon"),ww=f?f.w*CLASSES[b.cls].cellMm/1000:b.widthM;
   const width=Z.full?b.widthM:ww*Z.w,reach=Z.reach!=null?Z.reach*b.lengthM:(w.reachM||0.04),back=0.02*b.lengthM;
   return{circle:false,x0:mx-width/2-cx,x1:mx+width/2-cx,y0:hl-back-cy,y1:hl+reach-cy,top:!!Z.top};}
-/* does bot o's weapon zone touch bot t? null, or {px, py} (the point on t it meets) */
-function zoneTouch(o,t){const Z=o.zone;if(!Z||o.air||t.air||t.out==="pit")return null;const P=t.pw;
+/* a kicker's zone (0.1.32): a box behind the back face, in the same frame, or null */
+function kickZone(b){const k=b.back&&b.back.kick;if(!k)return null;const hl=b.lengthM/2,w=b.widthM*FIGHT.kickW/2,cx=b.com.x,cy=b.com.y;
+  return{circle:false,x0:-w-cx,x1:w-cx,y0:-hl-k.reachM-cy,y1:-hl+0.02*b.lengthM-cy,top:false};}
+/* does bot o's weapon zone (or zone Z) touch bot t? null, or {px, py} (the point on t it meets) */
+function zoneTouch(o,t,Zin){const Z=Zin||o.zone;if(!Z||o.air||t.air||t.out==="pit")return null;const P=t.pw;
   if(Z.circle){const c=toWorld(o,Z.x,Z.y),q=closestOnPoly(P,c[0],c[1]);if(q[2]<=Z.r||inPoly(P,c[0],c[1]))return{px:q[0],py:q[1]};return null;}
   const R=worldPoly(o,[[Z.x0,Z.y1],[Z.x1,Z.y1],[Z.x1,Z.y0],[Z.x0,Z.y0]]);if(!sat(R,P))return null;
   const c=toWorld(o,(Z.x0+Z.x1)/2,(Z.y0+Z.y1)/2),q=closestOnPoly(P,c[0],c[1]);return{px:q[0],py:q[1]};}
@@ -166,7 +174,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
   const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,livery:spec.livery||null,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
-    zone:weaponZone(b),st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
+    zone:weaponZone(b),kz:kickZone(b),kick:{shots:b.back.kick?b.back.kick.shots:0,recharge:0},st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,dazed:-1,stunNext:0,
@@ -305,13 +313,23 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     else tq-=FIGHT.spinDrag*tau0;
     wp.om=Math.max(0,Math.min(wm,wp.om+tq/w.inertia*dt));return draw;}
   if(w.type==="flipper"){if(u.weapon&&f.motorOk&&wp.shots>0&&wp.recharge<=0&&!o.air&&upright){wp.shots--;wp.recharge=w.rechargeS||1;fireFlipper(F,o);}return 0;}
-  if(w.type==="lifter"){const h=wp.held;
-    if(h!=null){const t=F.bots[h];if(!u.weapon||!f.motorOk||f.dead||!(p>0)||t.out||!zoneTouch(o,t)||t.air){t.held=null;wp.held=null;}
-      else if((wp.t+=dt)>=FIGHT.holdMaxS){t.held=null;wp.held=null;wp.recharge=2;logIt(F,{k:"drop",a:o.i,v:t.i});}
-      else{if(wp.t>=FIGHT.tipS&&w.liftM>=FIGHT.tipM*o.M.len){const flip=F.rng()<FIGHT.tipP;t.held=null;wp.held=null;
+  if(w.type==="lifter"||w.type==="grabber"){const h=wp.held,grab=w.type==="grabber";
+    /* a grabber (0.1.32) clamps what it lifts and carries it (grabCarry, each step); it never tips it, and only lets go when
+       the button does, the power goes, or the league's hold limit is up */
+    if(h!=null){const t=F.bots[h];if(!u.weapon||!f.motorOk||f.dead||!(p>0)||t.out||(!grab&&!zoneTouch(o,t))||t.air||o.air){t.held=null;wp.held=null;if(grab){wp.grab=null;wp.recharge=FIGHT.grabRechargeS*Math.min(1,wp.t/FIGHT.grabHoldS);}}
+      else if((wp.t+=dt)>=(grab?Math.min(FIGHT.grabHoldS,FIGHT.holdMaxS):FIGHT.holdMaxS)){t.held=null;wp.held=null;wp.grab=null;wp.recharge=grab?FIGHT.grabRechargeS:2;logIt(F,{k:"drop",a:o.i,v:t.i});}
+      else if(grab&&mobile(t)&&F.rng()<FIGHT.grabSlip*dt){t.held=null;wp.held=null;wp.grab=null;wp.recharge=FIGHT.grabRechargeS;logIt(F,{k:"slip",a:o.i,v:t.i});}
+      else{if(!grab&&wp.t>=FIGHT.tipS&&w.liftM>=FIGHT.tipM*o.M.len){const flip=F.rng()<FIGHT.tipP;t.held=null;wp.held=null;
         launch(F,t,1.5*Math.sqrt(o.M.len),flip,o);logIt(F,{k:"tip",a:o.i,v:t.i,inv:flip?1:0});}}}
-    else if(u.weapon&&f.motorOk&&upright&&!o.air&&!(wp.recharge>0)){for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&zoneTouch(o,t)){
-      wp.held=t.i;wp.t=0;t.held=o.i;logIt(F,{k:"lift",a:o.i,v:t.i});break;}}
+    else if(u.weapon&&f.motorOk&&upright&&!o.air&&!(wp.recharge>0)){let near=false;
+      for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&zoneTouch(o,t)){near=true;
+      if(grab&&(wp.ct=(wp.ct||0)+dt)<FIGHT.grabCloseS)break;   // the jaws take a moment to close: it has to stay in reach
+      wp.held=t.i;wp.ct=0;wp.t=0;t.held=o.i;
+      if(grab){const l=toLocal(o,t.x,t.y);wp.grab={lx:l[0],ly:l[1],dh:wrapA(t.h-o.h)};t.under=null;
+        const c=zoneTouch(o,t);if(c){damageBot(F,t,faceAt(t,c.px,c.py),FIGHT.grabJ*o.M.mass*lethalOf(F),"hit",o.i);fxPush(F,{k:"grab",x:c.px,y:c.py,E:FIGHT.grabJ*o.M.mass,v:t.i});}
+        logIt(F,{k:"grab",a:o.i,v:t.i});}
+      else logIt(F,{k:"lift",a:o.i,v:t.i});break;}
+      if(!near)wp.ct=0;}
     return u.weapon&&f.motorOk?o.b.power.weaponW*o.b.powerScale*p:0;}
   if(w.type==="hammer"||w.type==="crusher"){const S=w.type==="hammer"?(w.swingS||0.7):FIGHT.crushS/Math.max(o.b.powerScale,0.2),
       O=w.type==="hammer"?S/2:FIGHT.crushOpenS;
@@ -335,6 +353,23 @@ function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon
     damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
   if(!hit)logIt(F,{k:"flip",a:o.i,v:-1});}
 function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
+/* the kicker (0.1.32, b.back.kick): on the weapon button, a bot touching the back is flicked up and away behind it.
+   Its own gas: shots and a recharge of its own */
+function stepKick(F,o){const k=o.b.back.kick,q=o.kick;if(!k)return;if(q.recharge>0)q.recharge-=F.dt;
+  if(!o.input.weapon||q.shots<=0||q.recharge>0||o.air||o.inverted||o.fx.dead||!(o.st.parts.back>0)||!(powerOf(o)>0))return;
+  let hit=null;for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.held!=null)continue;const c=zoneTouch(o,t,o.kz);if(c){hit=[t,c];break;}}
+  if(!hit)return;q.shots--;q.recharge=k.rechargeS;const[t,c]=hit;
+  if(t.m>k.canLiftKg){logIt(F,{k:"kick",a:o.i,v:t.i,h:0,heavy:1});return;}
+  const h=Math.max(0,k.launchJ*K.flipEff/(t.m*K.g)-k.strokeM),flip=F.rng()<invertChance(F,h);
+  launch(F,t,Math.sqrt(2*K.g*h),flip,null,o.i);t.stunNext=FIGHT.flipStunS[F.cls]||0;if(!o.mini&&!t.mini)o.jd.ctrl+=(FIGHT.flipCtrlS[F.cls]||0)/2;const v=FIGHT.kickFwd*Math.sqrt(o.M.len);t.vx-=Math.cos(o.h)*v;t.vy-=Math.sin(o.h)*v;t.w+=rRange(F.rng,-5,5);
+  logIt(F,{k:"kick",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
+  damageBot(F,t,faceAt(t,c.px,c.py),k.launchJ*FIGHT.flipDmg*lethalOf(F),"hit",o.i);fxPush(F,{k:"kick",x:c.px,y:c.py,E:k.launchJ,v:t.i});o.stats.hits++;}
+/* a grabber carrying what it holds (0.1.32): the held bot is put back where it was clamped, in the grabber's frame, and
+   moves with it */
+function grabCarry(F,o){const g=o.wp.grab,h=o.wp.held;if(!g||h==null)return;const t=F.bots[h];if(!t||t.held!==o.i){o.wp.grab=null;return;}
+  const p=toWorld(o,g.lx,g.ly);t.x=p[0];t.y=p[1];t.h=wrapA(o.h+g.dh);t.vx=o.vx-o.w*(p[1]-o.y);t.vy=o.vy+o.w*(p[0]-o.x);t.w=o.w;t.pw=worldPoly(t,t.poly);}
+/* the grabber holding o, if one is */
+function grabberOf(F,o){if(o.held==null)return null;const a=F.bots[o.held];return a&&a.b.weapon.type==="grabber"&&a.wp.held===o.i?a:null;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;
     let E=w.energyJ*(w.bite||1)*(1+FIGHT.biteJitter*(2*F.rng()-1))*(isC?1:FIGHT.hammerShare)*(o.under?WEDGE_RULES.underBite:1)*lethalOf(F);
@@ -350,8 +385,8 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     if(wp.om<FIGHT.minSpin*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS))continue;
     const stored=0.5*w.inertia*wp.om*wp.om,full=wp.om>=0.98*w.omega;
     let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?(WEDGE_RULES.underBiteBy[w.id]||WEDGE_RULES.underBite):1);
-    const slope=face==="front"&&FIGHT.horizontal[w.id]&&!t.inverted?FIGHT.slope[t.b.weapon.type]||0:0;
-    const lip=face==="front"&&!t.inverted&&FIGHT.slope[t.b.weapon.type]&&FIGHT.lip[w.id]||1;
+    const sl=face==="front"&&!t.inverted?slopeOf(t):0,slope=FIGHT.horizontal[w.id]?sl:0;
+    const lip=sl>0&&FIGHT.lip[w.id]||1;
     const bay=face==="top"&&inBay(F,t),dfl=lip===1&&!bay&&!(t.under&&t.under.by===o.i)&&F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+slope);if(dfl)bite*=FIGHT.glance;
     const E=stored*Math.min(0.98,bite*lip)*(o.flags.bent?DAMAGE.bentMul:1);wp.om*=Math.sqrt(Math.max(0,1-bite));wp.last[t.i]=F.t;o.stats.hits++;
     const shock=E>=FIGHT.shock.minShare*0.5*w.inertia*w.omega*w.omega?FIGHT.shock.p[F.cls]||0:0;
@@ -377,9 +412,9 @@ function releaseInput(F,o){const v=F.bots[o.releaseFrom];if(!v)return{throttle:-
   const c=Math.cos(o.h)*(o.x-v.x)+Math.sin(o.h)*(o.y-v.y);return{throttle:(c<0?-1:1)*FIGHT.releaseThr,steer:0,weapon:0,selfRight:0};}
 function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F.t?releaseInput(F,o):o.input;let draw=0;
   const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
-  if(o.air){o.cmd=[0,0];return 0;}
+  if(o.air||grabberOf(F,o)){o.cmd=[0,0];return 0;}   // carried in a grabber (0.1.32): its wheels are off the floor
   const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
-  const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)*wb.underMul):1;
+  const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,((WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)+(o.under.grip||0))*wb.underMul):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
   let cL=go?clamp1(u.throttle+u.steer):0,cR=go?clamp1(u.throttle-u.steer):0;
   o.cmd=[cL,cR];let FL=0,FR=0;
@@ -390,7 +425,10 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
     if(s)FR=Fs;else FL=Fs;draw+=b.power.driveW*b.powerScale*p*Math.abs(cmd)/2;}
   /* rolling resistance (harder with dead motors), never past a standstill */
   const crr=K.crr*N*(go?1:FIGHT.deadDrag)*gripMul*wb.crrMul*f.drag,Fr=Math.abs(vF)*o.m/dt<crr?-vF*o.m/dt:-Math.sign(vF)*crr;
-  const aF=(FL+FR+Fr)/o.m;o.vx+=fw[0]*aF*dt;o.vy+=fw[1]*aF*dt;
+  /* carrying (0.1.32): the push moves both, and the held bot's back end drags on the floor */
+  const cb=o.wp.grab&&o.wp.held!=null?F.bots[o.wp.held]:null,cw=cb?o.m/(o.m+cb.m):1,
+    cd=cb?FIGHT.grabDrag*cb.m*g:0,Fc=!cd?0:Math.abs(vF)*(o.m+cb.m)/dt<cd?-vF*(o.m+cb.m)/dt:-Math.sign(vF)*cd;
+  const aF=(FL+FR+Fr+Fc)/o.m*cw;o.vx+=fw[0]*aF*dt;o.vy+=fw[1]*aF*dt;
   /* tyres don't slide sideways easily (mecanum rollers do: latMul). A strafing drive (0.1.31: mecanum, swerve) drives the
      sideways speed to what it's asked for instead of to nothing, as hard as its grip allows; upside down, right is left */
   let vT=0,lg=FIGHT.latGrip*b.grip*g*gripMul*wb.latMul*dt;
@@ -399,7 +437,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const vL=o.vx*rt[0]+o.vy*rt[1]-vT,lat=Math.min(Math.abs(vL),lg);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
   /* yaw: the two sides' difference, less the scrub of turning a skid-steer */
   const gy=FIGHT.gyro[b.weapon.id]&&b.weapon.omega>0?1-Math.min(0.9,FIGHT.gyro[b.weapon.id]*(FIGHT.gyroClass[F.cls]||1))*Math.min(1,o.wp.om/b.weapon.omega):1;
-  o.w+=(FR-FL)*half/o.I*dt*gy;const scrub=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
+  o.w+=(FR-FL)*half/o.I*dt*gy*cw;const scrub=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag/o.I*dt*cw;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
   return draw;}
 
 function stepHeat(F,o,driveW,weaponW){const h=o.b.heat,q=o.heat,dt=F.dt,full=o.b.power;
@@ -411,6 +449,7 @@ function stepHeat(F,o,driveW,weaponW){const h=o.b.heat,q=o.heat,dt=F.dt,full=o.b
 
 /* bots touching: push apart, bounce, rub; the wedge rule; small damage from hard knocks */
 function collide(F,A,B){if(A.air||B.air||A.out==="pit"||B.out==="pit")return;
+  if(grabberOf(F,A)===B||grabberOf(F,B)===A){A.touch[B.i]=F.t;B.touch[A.i]=F.t;return;}   // a grabber and what it carries move as one
   const dx=B.x-A.x,dy=B.y-A.y;if(dx*dx+dy*dy>(A.rad+B.rad)*(A.rad+B.rad))return;
   const n=sat(A.pw,B.pw);if(!n)return;const cp=contactPoint(A.pw,B.pw,n),px=cp[0],py=cp[1];
   A.touch[B.i]=F.t;B.touch[A.i]=F.t;
@@ -426,21 +465,35 @@ function collide(F,A,B){if(A.air||B.air||A.out==="pit"||B.out==="pit")return;
     let jt=-vt/kt;const lim=FIGHT.contactMu*jn;jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(A,-tx*jt,-ty*jt,px,py);impulseAt(B,tx*jt,ty*jt,px,py);
     const mu=1/(ima+imb),Elost=0.5*mu*vn*vn*(1-FIGHT.restitution*FIGHT.restitution)*FIGHT.ramShare;
     if(Elost>FIGHT.ramMinJ*F.M.mass){const foe=A.team!==B.team;   // a knock from a teammate still hurts but earns nothing with the judges
-      damageBot(F,A,fa,Elost,"ram",foe?B.i:-1);damageBot(F,B,fb,Elost,"ram",foe?A.i:-1);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
-function edgeOf(o,face){return face==="front"?o.b.height.frontEdgeMm:o.b.height.clearanceMm;}
+      damageBot(F,A,fa,Elost*ramOf(B,fb),"ram",foe?B.i:-1);damageBot(F,B,fb,Elost*ramOf(A,fa),"ram",foe?A.i:-1);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
+/* the edge a face meets the floor with: the front's (its fitted front's while that lasts, 0.1.32), a rear wedge's on the
+   back while it lasts, else the clearance */
+function edgeOf(o,face){const h=o.b.height;
+  if(face==="front")return o.b.front.id!=="none"&&!(o.st.parts.front>0)?h.frontBareMm:h.frontEdgeMm;
+  if(face==="back")return o.b.back.id!=="none"&&o.st.parts.back>0?h.backEdgeMm:h.clearanceMm;
+  return h.clearanceMm;}
+/* how sloped a bot's front is to a disc (FIGHT.slope by weapon, or its fitted front's slope while that lasts) */
+function slopeOf(t){const f=t.b.front;return f.slope>0&&t.st.parts.front>0?f.slope:FIGHT.slope[t.b.weapon.type]||0;}
+/* x the damage a ram with this face does (a spike, 0.1.32, while it lasts) */
+function ramOf(o,face){const q=face==="front"?o.b.front:face==="back"?o.b.back:null;return q&&q.ramMul!==1&&o.st.parts[face]>0?q.ramMul:1;}
 function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_RULES.holdS;
   const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
   const can=(X,Y,fy)=>!(X.inverted&&!X.b.height.drivesInverted)&&!guard(Y,fy);
   const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<edgeOf(Y,fy)-tol;
-  let win=null;
+  const underBack=(X,Y,fy)=>X.b.back.id!=="none"&&can(X,Y,fy)&&edgeOf(X,"back")<edgeOf(Y,fy)-tol;   // a rear wedge (0.1.32) gets under too
+  let win=null,by="front";
   if(fa==="front"&&under(A,B,fb))win=[A,B];else if(fb==="front"&&under(B,A,fa))win=[B,A];
+  else if(fa==="back"&&underBack(A,B,fb)){win=[A,B];by="back";}else if(fb==="back"&&underBack(B,A,fa)){win=[B,A];by="back";}
   else if(fa==="front"&&fb==="front"&&Math.abs(edgeOf(A,"front")-edgeOf(B,"front"))<=tol){
     const sc=o=>(o.cfg.extras.indexOf("skid")>=0?2:0)+(["wedge","lifter","flipper"].indexOf(o.b.weapon.type)>=0?part("weaponMaterial",o.cfg.weaponMaterial).hp/1000:part("chassis",o.cfg.chassis).hp/1000);
     const a=sc(A),b=sc(B);if(Math.abs(a-b)>1e-9)win=a>b?[A,B]:[B,A];if(win&&!can(win[0],win[1],"front"))win=null;}
   if(!win||win[0].team===win[1].team)return;const[X,Y]=win;
   const seen=Y.underLog||(Y.underLog={});if(!(seen[X.i]>F.t-1.5))logIt(F,{k:"under",a:X.i,v:Y.i});seen[X.i]=F.t;   // one line per spell under
-  Y.under={by:X.i,until:F.t+hold};if(X.under&&X.under.by===Y.i)X.under=null;}
-function walls(F,o){const H=F.arena.half;
+  Y.under={by:X.i,until:F.t+hold,grip:by==="front"&&X.st.parts.front>0?X.b.front.underGrip:0};if(X.under&&X.under.by===Y.i)X.under=null;}
+function walls(F,o){const H=F.arena.half,gr=grabberOf(F,o);
+  if(gr){for(const v of o.pw)for(const ax of [0,1]){const p=Math.abs(v[ax])-H;if(p>0){const sg=Math.sign(v[ax]);   // carried into a wall: the pair stop there
+      if(ax){o.y-=sg*p;gr.y-=sg*p;if(gr.vy*sg>0)gr.vy=0;}else{o.x-=sg*p;gr.x-=sg*p;if(gr.vx*sg>0)gr.vx=0;}o.pw=worldPoly(o,o.poly);gr.pw=worldPoly(gr,gr.poly);o.wallT=F.t;}}
+    return;}
   for(const ax of [0,1])for(const sg of [-1,1]){let pen=0,pt=null;for(const v of o.pw){const p=v[ax]*sg-H;if(p>pen){pen=p;pt=v;}}
     if(!pt)continue;o.wallT=F.t;if(ax)o.y-=sg*pen;else o.x-=sg*pen;o.pw=worldPoly(o,o.poly);
     const nx=ax?0:-sg,ny=ax?-sg:0,r=[pt[0]-o.x,pt[1]-o.y],v=[o.vx-o.w*r[1],o.vy+o.w*r[0]],vn=v[0]*nx+v[1]*ny;
@@ -489,8 +542,8 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
       o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
 function outBot(F,o,why,quiet){o.out=why;o.outAt=F.t;
-  if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;}
-  if(o.held!=null){const a=F.bots[o.held];if(a&&a.wp.held===o.i)a.wp.held=null;o.held=null;}
+  if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;o.wp.grab=null;}
+  if(o.held!=null){const a=F.bots[o.held];if(a&&a.wp.held===o.i){a.wp.held=null;a.wp.grab=null;}o.held=null;}
   if(!quiet)logIt(F,{k:why,v:o.i});
   if(!o.mini)for(const m of F.bots)if(m.mini&&m.parent===o.i&&!m.out)outBot(F,m,"parent",true);}   // a minibot stops with its parent
 
@@ -498,7 +551,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots)if(!o.out)readInput(F,o,inputs);else o.input={throttle:0,steer:0,weapon:0,selfRight:0};
   for(const o of F.bots){if(o.out==="pit")continue;
     /* a knocked-out bot still rolls to a stop (its drive is dead, so it draws nothing) but no longer heats or drains */
-    const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out)stepHeat(F,o,dW,wW);
+    const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out){stepHeat(F,o,dW,wW);stepKick(F,o);}
     /* self-righting */
     if(o.inverted&&!o.air&&!o.out){if(o.righting>0){o.righting-=dt;if(o.righting<=0){o.righting=0;o.inverted=false;o.invBy=null;logIt(F,{k:"right",v:o.i});}}
       else if(o.input.selfRight&&o.fx.righter&&!o.fx.dead&&!o.flat){const by=o.fx.righterBy;
@@ -512,6 +565,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
     else o.z=o.under?WEDGE_RULES.liftMm*o.M.len/1000:o.held!=null?((F.bots[o.held].b.weapon.liftM)||0.02)*0.5:0;
     if(o.under&&F.t>o.under.until)o.under=null;
     o.x+=o.vx*dt;o.y+=o.vy*dt;o.h=wrapA(o.h+o.w*dt);o.pw=worldPoly(o,o.poly);}
+  for(const o of F.bots)if(o.wp.grab)grabCarry(F,o);
   for(const o of F.bots)if(!o.out)spinnerHits(F,o);
   for(let i=0;i<F.bots.length;i++)for(let j=i+1;j<F.bots.length;j++){const A=F.bots[i],B=F.bots[j];collide(F,A,B);A.pw=worldPoly(A,A.poly);B.pw=worldPoly(B,B.poly);}
   for(const o of F.bots)if(o.out!=="pit"){walls(F,o);pitCheck(F,o);}
@@ -584,7 +638,7 @@ function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules
      and the player's inputs (the replay) are never dropped, unless the inputs alone can't fit beside the entries that
      are kept (only a stick shaken flat out every tick gets there): then the story stays and the replay goes. */
   const tier=e=>{switch(e.k){case"hit":case"ram":case"wall":case"grind":return e.x?3:0;case"land":return e.x&&e.x.some(p=>p[2])?9:1;
-    case"under":case"lift":case"drop":case"tip":case"right":case"heat":case"inv":case"flip":return 2;default:return 9;}};
+    case"under":case"lift":case"grab":case"drop":case"tip":case"right":case"heat":case"inv":case"flip":case"kick":return 2;default:return 9;}};
   let sz=JSON.stringify(L).length;
   if(sz>FIGHT.logMaxB&&JSON.stringify(Object.assign({},L,{entries:L.entries.filter(e=>tier(e)===9),trimmed:L.entries.length})).length>FIGHT.logMaxB-64){
     L.inputs={};L.noReplay=1;sz=JSON.stringify(L).length;}

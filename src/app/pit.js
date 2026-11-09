@@ -13,8 +13,16 @@
      PIT.open({host, b, dmg, flags, kit, left, title, onDone})   the pit panel in the fight overlay. dmg, flags and left
                                      are changed in place; onDone({done:[{key, kind}], lost}) once you're ready or the
                                      clock runs out. PIT.close() takes it down without calling onDone.
+     pitFronts(cfg)                  0.1.32: the fronts this bot could swap to between rounds of a bout ([{id, name, cur, ok,
+                                     why}], or null when its weapon is its own front). PIT.open's o.fronts and o.onFront(id)
+                                     add a Front row; a swap takes REPAIR_TIMES.front and needs no kit count.
    The voices (0.1.16): the window opening and ten seconds left here; "pit's closed" starts the next round's intro (app/fight.js). */
-const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon"};
+const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon",front:"Front swap"};
+/* 0.1.32: a front attachment to suit the bot you're fighting, any one this bot could be fitted with (unlocked, still under
+   the weight limit); the spare comes in the box, so no kit count. It lasts the rest of the bout (app/fight.js ftPit) */
+function pitFronts(cfg){const w=SIM.part("weapon",cfg.weapon);if(!w||SIM.OWN_FRONT.indexOf(w.type)>=0)return null;
+  return SIM.PARTS.front.map(p=>{const lock=crPartLock("front",p.id),r=SIM.evalBuild(Object.assign({},cfg,{front:p.id}));
+    return{id:p.id,name:p.name,cur:p.id===(cfg.front||"none"),ok:!lock&&!r.errors.length,why:lock||(r.errors.length?"over the limit":"")};});}
 /* hp of a damage key on a build */
 function pitHp(b,key){if(key.indexOf("armour_")===0){const a=b.armourMapJ[key.slice(7)];return a?a.hpJ:0;}
   if(key==="chassis"){const ch=SIM.part("chassis",b.cfg.chassis),bd=SIM.part("body",b.cfg.body);return ch?ch.hp*(bd?bd.hpMul:1)*SIM.classMult(b.cls).mass:0;}
@@ -64,6 +72,7 @@ PIT.open=function(o){PIT.close();Object.assign(PIT,{on:true,o,kit:o.kit,t:PIT_S,
     <p class="fpitkit"><b>${esc(PIT_KITS[o.kit].name)}</b> · <span id="fPitLeft"></span></p>
     <div class="fpitjob" id="fPitJob" hidden><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div>
     <div class="fpitbody"><canvas class="fpitsil" id="fPitSil" width="88" height="88" aria-hidden="true"></canvas><ul class="fpitlist" id="fPitList"></ul></div>
+    ${o.fronts?`<div class="fpitfront"><b>Front</b> <span class="fpitopts" id="fPitFront"></span></div>`:""}
     <p class="vh" id="fPitSay" role="status" aria-live="polite"></p>
     <div class="row"><button type="button" class="btn pri" data-pit="ready" id="fPitReady">Ready</button></div>`;
   o.host.appendChild(el);o.host.classList.add("pitting");el.addEventListener("click",pitClick);PIT.el=el;pitRender();
@@ -73,7 +82,7 @@ PIT.close=function(){if(PIT.raf)cancelAnimationFrame(PIT.raf);PIT.raf=0;if(PIT.e
 function pitEnd(lost){const o=PIT.o,done=PIT.done;PIT.close();if(o&&o.onDone)o.onDone({done,lost:lost||null});}
 function pitFrame(now){PIT.raf=0;if(!PIT.on)return;const dt=Math.min(0.25,Math.max(0,(now-PIT.last)/1000));PIT.last=now;
   if(!document.hidden&&curTab==="fight"){const t0=PIT.t;PIT.t-=dt;
-    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);shopSfx("drill");
+    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;if(j.kind==="front"){o.onFront(j.key);o.fronts=o.fronts.map(f=>Object.assign({},f,{cur:f.id===j.key}));}else pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);shopSfx("drill");
         pitRender();pitSay(`${PIT_NAMES[j.kind]} done: ${j.name}`);}}   // done in time (even in the frame the clock runs out)
     if(Math.ceil(t0)>10&&Math.ceil(PIT.t)<=10){pitSay("Ten seconds left");SCRAP_VOICE.say("pit10");}
     if(PIT.t<=0){pitEnd(PIT.job?PIT.job:null);return;}}
@@ -86,11 +95,14 @@ function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitI
   L.innerHTML=items.length?items.map(it=>`<li><span class="nm">${esc(ftCap(it.name))} <small class="${it.state==="destroyed"?"broke":"worn"}">${it.bent?"bent":it.state==="destroyed"?"destroyed":Math.round(it.frac*100)+"%"}</small></span>
       <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${tmPitS(p.kind)} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
+  const FR=$("fPitFront");if(FR&&o.fronts)FR.innerHTML=o.fronts.map(f=>f.cur?`<button type="button" class="btn sm on" disabled aria-pressed="true">${esc(f.name)} <small>on</small></button>`
+    :`<button type="button" class="btn sm${f.ok?"":" off"}" data-pitkey="${esc(f.id)}" data-pitkind="front"${f.ok&&!busy&&tmPitS("front")<=PIT.t?"":" disabled"} title="${esc(f.why)}">${esc(f.name)} <small>${tmPitS("front")} s${f.why?" · "+esc(f.why):""}</small></button>`).join("");
   ftSil($("fPitSil"),{b:o.b},pitStates(o),88);
   const rb=$("fPitReady");if(rb){rb.textContent=busy?"Ready (stop the repair)":"Ready";if(lost)rb.focus({preventScroll:true});}}   // the list was rebuilt: keep the focus in the panel
 function pitStates(o){const st=SIM.damageState(o.b,o.dmg),s=SIM.partStates(o.b,st);if(o.flags.bent&&s.weapon==="intact")s.weapon="damaged";return s;}
 function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x||!PIT.on)return;
-  if(x.dataset.pit==="ready"){const j=PIT.job;if(j)PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
+  if(x.dataset.pit==="ready"){const j=PIT.job;if(j&&j.kind!=="front")PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
     PIT.job=null;pitEnd(null);return;}
-  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey;if(!(o.left[kind]>0)||tmPitS(kind)>PIT.t)return;
-  o.left[kind]--;PIT.job={key,kind,name:pitName(o.b,key),left:tmPitS(kind),total:tmPitS(kind)};buzz(8);pitRender();pitTick();}
+  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey,fr=kind==="front";
+  if(fr?!(o.fronts&&o.fronts.some(f=>f.id===key&&f.ok&&!f.cur)):!(o.left[kind]>0))return;if(tmPitS(kind)>PIT.t)return;
+  if(!fr)o.left[kind]--;PIT.job={key,kind,name:fr?SIM.part("front",key).name.toLowerCase():pitName(o.b,key),left:tmPitS(kind),total:tmPitS(kind)};buzz(8);pitRender();pitTick();}
