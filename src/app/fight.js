@@ -18,6 +18,7 @@
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
 const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
   you:false,on:false,view2d:false,partN:0,buzzT:0,
+  sub:"spar",open:null,   // the Fight tab's page (spar / daily / reel / codes) and its open picker row
   ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js)
 const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
@@ -293,6 +294,7 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   FT.pinch=()=>{v.removeEventListener("pointerdown",down);v.removeEventListener("pointermove",move);v.removeEventListener("pointerup",up);v.removeEventListener("pointercancel",up);v.removeEventListener("wheel",wheel);P.clear();};}
 function ftExit(){const rl=!!FT.reel;FT.reel=null;if(FT.watch)toastHold(false);FT.watch=null;clearTimeout(RL.t);if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
   if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
+  FT.sub=rl?"reel":ftResSub();
   ftRender();const r=$(rl?"rlCard":"ftResCard");if(r)r.scrollIntoView({block:"start"});}
 function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
   if(a==="pause")ftPause(!FT.paused);
@@ -498,27 +500,50 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
   el.innerHTML=html;FT.logN=L.length;}
 
 /* ---- the tab ---- */
+/* The tab is four short pages behind a strip (0.1.43): Spar, Daily, Highlights, Codes (FT.sub). A shown result sits
+   under the page it came from; ftExit picks that page when a fight ends. On Spar the pickers are rows that open one
+   at a time (FT.open), like the Build tab's, and the Fight bar stays pinned at the bottom of the panel. */
+const FT_SUBS=[["spar","Spar"],["daily","Daily"],["reel","Highlights"],["codes","Codes"]];
+function ftResSub(){return FT.ext?FT.ext.kind==="daily"?"daily":FT.ext.kind==="code"?"codes":"spar":"spar";}
+function ftRow(id,t,sum,body){const o=FT.open===id;return`<div class="acc${o?" open":""}" data-ftrow="${id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${t}</span><span class="sum" data-ftsum="${id}">${sum}</span><span class="chev"></span></button><div class="accb">${body}</div></div>`;}
+/* what each closed row says, and the Fight bar's two lines */
+function ftSum(id){const cls=bCls(),c=SIM.CLASSES[cls];
+  if(id==="opp"){const o=ftOpp(cls);return esc(o.name);}
+  if(id==="format")return FT.mode==="bo3"?"Best of three · "+esc(PIT_KITS[FT.kit].name.toLowerCase()):FT.mode==="rumble"?"Rumble · four bots":"One on one";
+  if(id==="arena")return esc(SIM.ARENAS[FT.arena==="auto"?c.arenaId:FT.arena].name);
+  if(id==="driver")return FT.style==="you"?"You drive":(FT.style==="auto"?"AI: auto":"AI: "+esc(SIM.AI_STYLES[FT.style].name.toLowerCase()))+" · "+FT.speed+"×";
+  return"";}
+function ftBarText(){const cls=bCls();return`<b>${esc(lvBotName(cls))} vs ${ftSum("opp")}</b>${ftSum("format")} · ${ftSum("arena")}${FT.style==="you"?"":" · AI drives"}`;}
+function ftSums(){document.querySelectorAll("#ftBody [data-ftsum]").forEach(x=>{x.innerHTML=ftSum(x.dataset.ftsum);});const b=$("ftBarT");if(b)b.innerHTML=ftBarText();}
 function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
+  if(!FT_SUBS.some(x=>x[0]===FT.sub))FT.sub="spar";
+  const sub=FT.sub,ext=!!(FT.ext&&ftShown());
+  const D=dlState(),nav=subNav("ftSub","ftsub",FT_SUBS.map(x=>x[0]==="daily"&&D.last!==dlDay()?[x[0],x[1]+'<i class="dot" aria-hidden="true"></i><span class="vh"> (not fought today)</span>']:x),sub,"Fight");
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
-  const dl=dlCard(),ext=!!(FT.ext&&ftShown());
-  if(!bot.cfg){if(!ext){FT.F=null;FT.rounds=[];FT.bout=null;}el.innerHTML=chips+ftEvCard()+dl+rlCard()+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
-    <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+(ext?ftResHtml(ftShown()):"")+rcCard();if(ext)ftResPost(ftShown());return;}
-  {const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
-  const R=ftShown(),drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),wp=SIM.part("weapon",bot.cfg.weapon),you=FT.style==="you";
-  el.innerHTML=chips+ftEvCard()+dl+`<div class="card"><h3>Sparring</h3>
-    <p>Your fitted ${esc(c.name.toLowerCase())} (${esc(wp?wp.name.toLowerCase():"")}) against anyone in the class, in any arena. No stakes: free practice, fresh every time, and the repair bill is shown, never charged.</p>
-    ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
-    ${ftPicker(cls)}
-    <div class="field"><span class="lbl">Format</span>${segHtml("ftMode","ftmode",[["duel","One on one"],["bo3","Best of three","pit between"],["rumble","Rumble","four bots"]],FT.mode)}</div>
-    <div class="field" id="ftKitF"${FT.mode==="bo3"?"":" hidden"}><span class="lbl">Pit kit</span>${ftChips("ftkit","Pit kit",Object.keys(PIT_KITS).map(k=>[k,esc(PIT_KITS[k].name)]),FT.kit)}
-      <p class="hint" id="ftKitLine">${ftKitLine()}</p></div>
-    <div class="field"><span class="lbl">Arena</span>${ftChips("ftarena","Arena",[["auto",`${esc(SIM.ARENAS[c.arenaId].name)} <small>(class)</small>`]].concat(SIM.ARENA_IDS.filter(id=>id!==c.arenaId).map(id=>[id,esc(SIM.ARENAS[id].name)])),FT.arena)}</div>
-    <div class="field"><span class="lbl">Driver</span>${ftChips("ftstyle","Driver",[["you","You drive"],["auto",`AI: auto <small>(${esc(SIM.AI_STYLES[ftAuto(bot.cfg,cls)].name.toLowerCase())})</small>`]].concat(SIM.AI_STYLE_IDS.map(id=>[id,"AI: "+esc(SIM.AI_STYLES[id].name.toLowerCase())])),FT.style)}
+  if(!bot.cfg&&!ext){FT.F=null;FT.rounds=[];FT.bout=null;}
+  if(bot.cfg){const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
+  const R=ftShown(),res=R&&ftResSub()===sub?ftResHtml(R):"";
+  let h="";
+  if(sub==="daily")h=dlCard()+res;
+  else if(sub==="reel")h=rlCard();
+  else if(sub==="codes")h=rcCard()+res;
+  else if(!bot.cfg)h=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+    <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+res;
+  else{const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),you=FT.style==="you";
+    h=chips+`${drafted?'<p class="hint ftnote">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
+    ${ftRow("opp","Opponent",ftSum("opp"),ftPicker(cls))}
+    ${ftRow("format","Format",ftSum("format"),`<div class="field">${segHtml("ftMode","ftmode",[["duel","One on one"],["bo3","Best of three","pit between"],["rumble","Rumble","four bots"]],FT.mode)}</div>
+      <div class="field" id="ftKitF"${FT.mode==="bo3"?"":" hidden"}><span class="lbl">Pit kit</span>${ftChips("ftkit","Pit kit",Object.keys(PIT_KITS).map(k=>[k,esc(PIT_KITS[k].name)]),FT.kit)}
+      <p class="hint" id="ftKitLine">${ftKitLine()}</p></div>`)}
+    ${ftRow("arena","Arena",ftSum("arena"),`<div class="field">${ftChips("ftarena","Arena",[["auto",`${esc(SIM.ARENAS[c.arenaId].name)} <small>(class)</small>`]].concat(SIM.ARENA_IDS.filter(id=>id!==c.arenaId).map(id=>[id,esc(SIM.ARENAS[id].name)])),FT.arena)}</div>`)}
+    ${ftRow("driver","Driver",ftSum("driver"),`<div class="field">${ftChips("ftstyle","Driver",[["you","You drive"],["auto",`AI: auto <small>(${esc(SIM.AI_STYLES[ftAuto(bot.cfg,cls)].name.toLowerCase())})</small>`]].concat(SIM.AI_STYLE_IDS.map(id=>[id,"AI: "+esc(SIM.AI_STYLES[id].name.toLowerCase())])),FT.style)}
       <p class="hint" id="ftDrvHint">${ftDrvHint()}</p></div>
-    <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>
-    <div class="row"><button type="button" class="btn pri" data-ft="go">Fight</button></div></div>
-    ${R?ftResHtml(R):""}${rlCard()}${rcCard()}`;
-  if(R)ftResPost(R);}
+      <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>`)}
+    <div class="fitbar gobar"><span class="ft" id="ftBarT">${ftBarText()}</span><button type="button" class="btn pri" data-ft="go">Fight</button></div>
+    <p class="hint ftnote">Sparring is free practice: fresh every time, and the repair bill is shown, never charged.</p>
+    ${res}`;}
+  el.innerHTML=nav+ftEvCard()+h;
+  if(res)ftResPost(R);}
 /* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
 function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?"The bout":"Last fight";
   return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
@@ -549,6 +574,11 @@ function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.
   if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
   const v=WORLD.venues[o.op.from];return`${tm}${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
+  if((x=t.closest("[data-ftsub]"))){FT.sub=x.dataset.ftsub;ftRender();$("panel").scrollTop=0;return;}
+  if((x=t.closest("[data-ftrow]>.acch"))){const id=x.parentNode.dataset.ftrow,was=FT.open===id;FT.open=was?null:id;
+    document.querySelectorAll("#ftBody [data-ftrow]").forEach(r=>{const o=r.dataset.ftrow===FT.open;r.classList.toggle("open",o);r.querySelector(".acch").setAttribute("aria-expanded",o);});
+    if(!was){const P=$("panel"),top=x.getBoundingClientRect().top-P.getBoundingClientRect().top;if(top<0||top>P.clientHeight*0.5)P.scrollTo({top:P.scrollTop+top-64,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});}
+    return;}
   if((x=t.closest("[data-ft]"))){const a=x.dataset.ft;
     if(a==="go")ftStart();
     else if(a==="replay")ftReplay(FT.rv);
@@ -559,14 +589,14 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
   if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;FT.ext=null;save();ftRender();visBot();return;}
-  if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;ftOn("ftopp",x);const l=$("ftOppLine");if(l)l.innerHTML=ftOppLine(ftOpp(bCls()));return;}
+  if((x=t.closest("[data-ftopp]"))){FT.opp=x.dataset.ftopp;ftOn("ftopp",x);const l=$("ftOppLine");if(l)l.innerHTML=ftOppLine(ftOpp(bCls()));ftSums();return;}
   if((x=t.closest("[data-ftarena]"))){FT.arena=x.dataset.ftarena;ftRender();return;}
-  if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);const s=$("ftSpeedF");if(s)s.hidden=FT.style==="you";const h=$("ftDrvHint");if(h)h.textContent=ftDrvHint();return;}
-  if((x=t.closest("[data-ftmode]"))){FT.mode=x.dataset.ftmode;ftSeg("ftMode",x);const k=$("ftKitF");if(k)k.hidden=FT.mode!=="bo3";return;}
-  if((x=t.closest("[data-ftkit]"))){FT.kit=x.dataset.ftkit;ftOn("ftkit",x);const l=$("ftKitLine");if(l)l.innerHTML=ftKitLine();return;}
+  if((x=t.closest("[data-ftstyle]"))){FT.style=x.dataset.ftstyle;ftOn("ftstyle",x);const s=$("ftSpeedF");if(s)s.hidden=FT.style==="you";const h=$("ftDrvHint");if(h)h.textContent=ftDrvHint();ftSums();return;}
+  if((x=t.closest("[data-ftmode]"))){FT.mode=x.dataset.ftmode;ftSeg("ftMode",x);const k=$("ftKitF");if(k)k.hidden=FT.mode!=="bo3";ftSums();return;}
+  if((x=t.closest("[data-ftkit]"))){FT.kit=x.dataset.ftkit;ftOn("ftkit",x);const l=$("ftKitLine");if(l)l.innerHTML=ftKitLine();ftSums();return;}
   if((x=t.closest("[data-ftrv]"))){FT.rv=+x.dataset.ftrv;ftRender();const c=$("ftResCard");if(c)c.scrollIntoView({block:"start"});return;}
   if((x=t.closest("[data-rpcopy]"))){const R=ftShown();if(R)rpCopy(R,+x.dataset.rpcopy);return;}
-  if((x=t.closest("[data-ftspeed]"))){FT.speed=+x.dataset.ftspeed;ftSeg("ftSpeed",x);return;}}
+  if((x=t.closest("[data-ftspeed]"))){FT.speed=+x.dataset.ftspeed;ftSeg("ftSpeed",x);ftSums();return;}}
 function ftOn(attr,b){document.querySelectorAll(`[data-${attr}]`).forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});}
 function ftSeg(id,b){$(id).querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});}
 TAB_RENDER.fight=function(){

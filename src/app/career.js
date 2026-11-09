@@ -406,6 +406,7 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
 
 /* ---- the tab ---- */
 function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
+  {const ld=$("crLede");if(ld)ld.hidden=!!c&&!crSandbox();}   // the pitch is for someone who hasn't started (0.1.43)
   if(crSandbox()){el.innerHTML=crSandboxCard();return;}
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start with its own garage: your Sandbox bots stay in the Sandbox. Your saved designs come with you, to load and pay for.</p>
@@ -536,7 +537,7 @@ function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[da
   else if(a==="quick"){crQuick();crRender();}
   else if(a==="watch")crWatch();
   else if(a==="skip")crSkipAsk();
-  else if(a==="see"){const d=S.career.day,r=S.career.results[0];ST().buildCls=d?d.cls:r?r.cls:ST().buildCls;showTab("fight");const el=$("ftResCard");if(el)el.scrollIntoView({block:"start"});}
+  else if(a==="see"){const d=S.career.day,r=S.career.results[0];ST().buildCls=d?d.cls:r?r.cls:ST().buildCls;FT.sub=ftResSub();showTab("fight");const el=$("ftResCard");if(el)el.scrollIntoView({block:"start"});}
   else if(a==="restart-ask"){if(CR.restartAsk){CR.restartAsk=false;crRestart();}else{CR.restartAsk=true;crRender();}}}
 function crRestart(){crHallAdd("left");S.career=null;closeSheet();crStart();}   // the career you walk away from still goes in the hall of fame
 /* sheet buttons are outside the tab */
