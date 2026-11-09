@@ -88,7 +88,7 @@ function buildArena(F){
     const cov=new THREE.Mesh(new THREE.BoxGeometry(w,0.03,d),M.hatch);cov.position.set(cx,0.03,cz);cov.receiveShadow=!lite;g.add(cov);
     AR.pitCover={m:cov,x0:cx,w};kit.pit={hole,cx,cz,w,d};}   // its striped edge is painted on the floor (arenaDecal)
   /* hazards */
-  AR.haz=A.haz.map(h=>{if(h.type==="pusher"){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]);
+  AR.haz=A.haz.map(h=>{if(h.type==="flame")return flameMesh(g,h,X,Z,lite);if(h.type==="pusher"){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]);
       const m=new THREE.Mesh(new THREE.BoxGeometry(w,kh*0.9,d),M.haz.clone());m.userData.own=true;m.position.set(X((r[0]+r[2])/2),kh*0.45,Z((r[1]+r[3])/2));m.castShadow=!lite;g.add(m);
       return{h,m,base:m.position.clone(),n:[h.n[0],-h.n[1]],reach:Math.min(w,d)*0.8,w,d,ht:kh*0.9};}
     const R=h.rM*U,m=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.03,lite?24:40),M.haz.clone());m.userData.own=true;m.position.set(X(h.at[0]),0.016,Z(h.at[1]));g.add(m);
@@ -146,6 +146,11 @@ function arenaDecal(F,U,H,lite){const S=lite?512:1024,c=document.createElement("
   for(const h of A.haz){if(h.type==="pusher"){const r=h.rect,reach=Math.min(r[2]-r[0],r[3]-r[1])*0.8*1.6;   // the band a ram reaches into
       let x0=r[0],x1=r[2],y0=r[1],y1=r[3];if(h.n[0]>0){x0=r[2];x1=r[2]+reach;}else if(h.n[0]<0){x1=r[0];x0=r[0]-reach;}else if(h.n[1]>0){y0=r[3];y1=r[3]+reach;}else{y1=r[1];y0=r[1]-reach;}
       const X0=px(x0),X1=px(x1),Y0=py(y1),Y1=py(y0);hatch(X0,Y0,X1-X0,Y1-Y0,"rgba(226,169,59,.32)",lw*5);g.strokeStyle="rgba(226,169,59,.55)";g.lineWidth=lw*2;g.strokeRect(X0,Y0,X1-X0,Y1-Y0);}
+    else if(h.type==="flame"){const r=h.rect,X0=px(r[0]),X1=px(r[2]),Y0=py(r[3]),Y1=py(r[1]),W=X1-X0,Hh=Y1-Y0,m=lw*9;   // a flame grate: a scorched patch, a dashed keep-off box, the bars
+      const sc=g.createRadialGradient((X0+X1)/2,(Y0+Y1)/2,Math.min(W,Hh)*0.3,(X0+X1)/2,(Y0+Y1)/2,Math.max(W,Hh)*0.85);sc.addColorStop(0,"rgba(12,11,10,.55)");sc.addColorStop(1,"rgba(12,11,10,0)");g.fillStyle=sc;g.fillRect(X0-W*0.5,Y0-Hh,W*2,Hh*3);
+      g.fillStyle="rgba(10,10,10,.8)";g.fillRect(X0,Y0,W,Hh);g.strokeStyle="rgba(150,152,150,.55)";g.lineWidth=lw*2;const nb=9,alongX=W>=Hh;
+      g.beginPath();for(let i=1;i<nb;i++){if(alongX){const x=X0+W*i/nb;g.moveTo(x,Y0);g.lineTo(x,Y1);}else{const y=Y0+Hh*i/nb;g.moveTo(X0,y);g.lineTo(X1,y);}}g.stroke();g.strokeRect(X0,Y0,W,Hh);
+      g.strokeStyle="rgba(226,169,59,.6)";g.lineWidth=lw*3;g.setLineDash([lw*10,lw*7]);g.strokeRect(X0-m,Y0-m,W+2*m,Hh+2*m);g.setLineDash([]);}
     else{g.strokeStyle="rgba(226,169,59,.6)";g.lineWidth=lw*4;g.setLineDash([lw*10,lw*7]);g.beginPath();g.arc(px(h.at[0]),py(h.at[1]),u(h.rM)*1.35,0,7);g.stroke();g.setLineDash([]);}}
   if(A.pit){const r=A.pit.rect,X0=px(r[0]),X1=px(r[2]),Y0=py(r[3]),Y1=py(r[1]),b=0.06*4*k;   // the pit: striped edge, the hole cut out on Full
     g.save();g.beginPath();g.rect(X0-b,Y0-b,X1-X0+2*b,Y1-Y0+2*b);g.clip();g.fillStyle="#e2a93b";g.fillRect(X0-b,Y0-b,X1-X0+2*b,Y1-Y0+2*b);
@@ -175,6 +180,19 @@ function arenaPaint(g,lk,A,S,k,px,py,u,lite){const lw=Math.max(1,S/512),m=0.3*4*
     for(const s of [-1,1]){const o=c+s*gauge/2;if(turn){g.moveTo(o,0);g.lineTo(o,S);}else{g.moveTo(0,o);g.lineTo(S,o);}}g.stroke();
     const tt=A.haz.find(h=>h.type==="spinner");if(tt){const x=px(tt.at[0]),y=py(tt.at[1]),R=u(tt.rM);g.fillStyle=lite?"rgba(20,20,18,.45)":"rgba(20,20,18,.35)";g.beginPath();g.arc(x,y,R*1.12,0,7);g.fill();
       g.strokeStyle="rgba(190,192,188,.35)";g.lineWidth=lw*2;g.beginPath();for(let i=0;i<12;i++){const a=i*Math.PI/6;g.moveTo(x+Math.cos(a)*R*0.2,y+Math.sin(a)*R*0.2);g.lineTo(x+Math.cos(a)*R,y+Math.sin(a)*R);}g.stroke();}}}
+/* a flame grate (0.1.37): a dark plate in the floor (its bars are painted on the floor by arenaDecal; Full and Ultra put
+   the kit's grate in it) and its flames, cones that stand up and flicker while it burns and sit low as a pilot light
+   before. Lite: three plain cones, no blending. Full and Ultra: seven, two layers, additive. Nothing here casts a light. */
+function flameMesh(g,h,X,Z,lite){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.012,d),V.mats.haz.clone());m.userData.own=true;m.position.set(cx,0.008,cz);g.add(m);
+  const long=w>=d,L=Math.max(w,d),T=Math.min(w,d),n=lite?3:4,fl=[],C=x=>new THREE.Color(x).convertSRGBToLinear();
+  const mk=(col,op)=>{const mt=new THREE.MeshBasicMaterial({color:C(col),transparent:true,opacity:lite?0.6:op,depthWrite:false,fog:false});if(!lite)mt.blending=THREE.AdditiveBlending;return mt;};   // Lite: three plain see-through cones (a bot in the fire still shows), no additive blend
+  const outer=mk(0xff7a1a,0.55),inner=lite?null:mk(0xffd66b,0.7),geo=new THREE.ConeGeometry(1,1,lite?6:10,1,true);geo.translate(0,0.5,0);
+  for(let i=0;i<n;i++){const u=(i+0.5)/n-0.5,c=new THREE.Mesh(geo,outer);c.userData.own=true;c.position.set(long?u*L*0.9:0,0.02,long?0:u*L*0.9);c.visible=false;m.add(c);fl.push({c,R:T*(lite?0.34:0.4),H:T*(lite?1.5:2),k:i*1.7});
+    if(inner){const c2=new THREE.Mesh(geo,inner);c2.userData.own=true;c2.position.copy(c.position);c2.visible=false;m.add(c2);fl.push({c:c2,R:T*0.24,H:T*1.3,k:i*2.3+1});}}
+  return{h,m,w,d,fl,flameMats:[outer,inner]};}
+function flameTick(z,ph,now){const t=now/1000;for(const f of z.fl){if(!ph){f.c.visible=false;continue;}const s=ph===2?1:0.14,fk=ph===2?0.78+0.22*Math.sin(t*23+f.k)+0.1*Math.sin(t*41+f.k*3):0.9+0.1*Math.sin(t*9+f.k);
+    f.c.visible=true;f.c.scale.set(f.R*(ph===2?1:0.5),f.H*s*fk,f.R*(ph===2?1:0.5));}}
 /* lamps and hazards: amber while they fire, and glowing on Full and Ultra (Lite keeps the plain colour change) */
 function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.emissive&&V.tier!=="lite")m.emissive.copy(V.mats.hazOn.color).multiplyScalar(on?.7:0);}
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
@@ -213,9 +231,10 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(u.arm){const ph=o.wp.phase,S=W.swingS||0.7,t=o.wp.t||0;let a=0.9;
       if(ph===1)a=0.9-1.25*Math.min(1,t/(W.type==="hammer"?S/2:S));else if(ph===2)a=-0.35+1.25*Math.min(1,t/0.5);
       if(W.type==="crusher")a=a*0.4;u.arm.rotation.x=a;}}
-  /* hazards: lit while they fire; a pusher shoves out, a floor spinner spins */
+  /* hazards: lit while they fire; a pusher shoves out, a floor spinner spins, a flame grate shows its pilot and then burns */
   let any=false;
-  AR.haz.forEach((z,i)=>{const s=F.hz[i],on=s&&F.t<s.until;any=any||on;hazLit(z.m.material,on);if(z.glow)hazLit(z.glow,on);
+  AR.haz.forEach((z,i)=>{const s=F.hz[i];if(z.fl){const ph=s?s.ph|0:0;any=any||ph===2;hazLit(z.m.material,ph>0);if(z.glow)hazLit(z.glow,ph>0);flameTick(z,ph,now);return;}
+    const on=s&&F.t<s.until;any=any||on;hazLit(z.m.material,on);if(z.glow)hazLit(z.glow,on);
     if(z.h.type==="pusher"){const k=on?Math.min(1,(z.h.activeS-(s.until-F.t))/0.08):0;z.m.position.set(z.base.x+z.n[0]*z.reach*k,z.base.y,z.base.z+z.n[1]*z.reach*k);}
     else if(on)z.m.rotation.y+=dt*18;});
   for(const l of AR.lamps||[])hazLit(l.material,any);

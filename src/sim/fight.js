@@ -86,6 +86,7 @@ const FIGHT={
   shock:{minShare:0.6,p:{ant:0.0005,beetle:0.001,hobby:0.003,feather:0.006,heavy:0.0075}},
   rightS:1.2,                 // seconds to self-right
   hazCtrlS:3,                 // the judges count a shove into a hazard as this many seconds of control for whoever pushed
+  flameCap:1.15,              // a flame grate (0.1.37) heats a bot's drive and weapon to this many heat budgets at most
   flipCtrlS:{ant:2,beetle:2,hobby:2},   // ... and a flip that sends a bot up (0.1.17.5) as this many for the flipper, in the classes
                               // where flippers fell short (feather and heavy flippers were already level)
   /* the judges' bookkeeping: closing at this share of the bot's top speed counts as aggression (away from the enemy at it,
@@ -214,13 +215,13 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
       bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,livery:s.livery?Object.assign({},s.livery):null,
         driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:carryFlags(s.flags)}))}};   // copies: the log is the fight as it started
-  F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{}}));
+  F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{},ph:0}));
   /* start: spread on a ring, facing the middle, a little jitter from the seed */
   const n=F.bots.length,R=F.arena.half*0.6;
   /* the ring is turned so the pit and the floor spinners are as far as they can be from the nearest start (distance to
      the pit's centre, or to a spinner's rim); in a 1v1, both bots equally far */
   const keep=[];if(F.arena.pit){const r=F.arena.pit.rect;keep.push([(r[0]+r[2])/2,(r[1]+r[3])/2,0]);}
-  for(const h of F.arena.haz)if(h.type==="spinner")keep.push([h.at[0],h.at[1],h.rM]);
+  for(const h of F.arena.haz)if(h.type==="spinner")keep.push([h.at[0],h.at[1],h.rM]);   // (a flame grate is cold at the bell, so a start may sit on one)
   let off=-Math.PI/2;if(keep.length){let best=-1e9;
     for(let k=0;k<8;k++){const a0=-Math.PI/2+k*Math.PI/4/n;let m=1e9;for(let i=0;i<n;i++){const a=a0+2*Math.PI*i/n;for(const q of keep)m=Math.min(m,Math.hypot(R*Math.cos(a)-q[0],R*Math.sin(a)-q[1])-q[2]);}
       if(m>best+1e-9){best=m;off=a0;}}}
@@ -526,11 +527,25 @@ function walls(F,o){const H=F.arena.half,gr=grabberOf(F,o);
 /* the pit (from PR 4b's arenas): a bot whose centre is over it on the ground falls in */
 function pitOpen(F){const P=F.arena.pit;return!!P&&F.t>=P.openS;}
 function pitCheck(F,o){if(!pitOpen(F)||o.air||o.out)return;const P=F.arena.pit.rect;if(o.x>P[0]&&o.x<P[2]&&o.y>P[1]&&o.y<P[3])outBot(F,o,"pit");}
-/* hazards (sim/arenas.js): a bot on the ground in the zone triggers it; while it is active it hits each bot in the zone once */
+/* hazards (sim/arenas.js): a bot on the ground in the zone triggers it; while it is active it hits each bot in the zone once
+   (a pusher, a floor spinner; a flame grate runs on its own clock, stepFlame) */
 function inHaz(h,o){if(h.type==="spinner")return Math.hypot(o.x-h.at[0],o.y-h.at[1])<h.rM+o.rad*0.3;
   const r=h.rect;return o.pw.some(v=>v[0]>r[0]&&v[0]<r[2]&&v[1]>r[1]&&v[1]<r[3]);}
+/* a flame grate's clock (0.1.37): 0 cold, 1 the pilot light (warnS before it burns), 2 burning. It runs on the clock from
+   startS, whoever is on it */
+function flamePhase(F,h){const c=F.t-(h.startS||0);if(c<0)return 0;const u=c%h.periodS;return u<h.warnS?1:u<h.warnS+h.activeS?2:0;}
+/* while it burns, a bot on the grate takes heat into its drive and weapon (heatFrac of each budget a second, up to
+   FIGHT.flameCap budgets: stay and the motors derate, stepHeat) and a lick of damage from below every tickS (the log's
+   "haz" events with what "flame"; n marks a bot's first of a burn). The burn starting is logged as "flame" */
+function stepFlame(F,h,i,s){const ph=flamePhase(F,h);if(ph===2&&s.ph!==2){s.hit={};s.until=F.t+h.activeS;logIt(F,{k:"flame",h:i});}s.ph=ph;if(ph!==2)return;
+  for(const o of F.bots){if(o.out||o.air||!inHaz(h,o))continue;const hb=o.b.heat,q=o.heat,k=h.heatFrac*F.dt;
+    if(hb&&hb.drive)q.d=Math.max(q.d,Math.min(hb.drive.budgetJ*FIGHT.flameCap,q.d+k*hb.drive.budgetJ));
+    if(hb&&hb.weapon)q.w=Math.max(q.w,Math.min(hb.weapon.budgetJ*FIGHT.flameCap,q.w+k*hb.weapon.budgetJ));
+    if(F.t<s.hit[o.i])continue;const first=s.hit[o.i]==null,by=first?hazBy(F,o):null,E=h.Jps*h.tickS*F.M.mass;s.hit[o.i]=F.t+h.tickS;
+    damageBot(F,o,"under",E,"haz",-1,{below:1,inverted:o.inverted,tag:first?{h:i,what:"flame",n:1}:{h:i,what:"flame"}});
+    if(by&&!o.mini&&!by.mini)by.jd.ctrl+=FIGHT.hazCtrlS;fxPush(F,{k:"haz",what:"flame",x:o.x,y:o.y,E,v:o.i});}}
 function stepHazards(F){const H=F.arena.haz;
-  for(let i=0;i<H.length;i++){const h=H[i],s=F.hz[i];if(F.t<(h.startS||0))continue;
+  for(let i=0;i<H.length;i++){const h=H[i],s=F.hz[i];if(h.type==="flame"){stepFlame(F,h,i,s);continue;}if(F.t<(h.startS||0))continue;
     if(F.t>=s.until&&F.t>=s.ready&&F.bots.some(o=>!o.out&&!o.air&&inHaz(h,o))){s.until=F.t+h.activeS;s.ready=F.t+h.periodS;s.hit={};}
     if(F.t>=s.until)continue;
     for(const o of F.bots)if(!o.out&&!o.air&&!s.hit[o.i]&&inHaz(h,o)){s.hit[o.i]=1;hazHit(F,h,i,o);}}}
