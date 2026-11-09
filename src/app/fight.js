@@ -213,7 +213,7 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
    synth.js drops the Full / Ultra ones on Lite. ---- */
 const FT_MAT={ply:"ply",hdpe:"hdpe",hdpe6:"hdpe",hdpe10:"hdpe",hdpe15:"hdpe",ti:"ti"};   // anything else metal rings as steel ("ar")
 const FT_BED={regional:"reg",stahl:"reg",eisenau:"reg",grauwald:"reg",eisenhalle:"big"};   // the crowd bed by arena; the rest are a club crowd
-const FT_SPIN={hsp:"spin_h",vsp:"spin_v",drum:"spin_drum",saw:"spin_saw",under:"spin_under",shell:"spin_shell",ring:"spin_shell",melty:"spin_shell"};
+const FT_SPIN={hsp:"spin_h",vsp:"spin_v",drum:"spin_drum",beater:"spin_drum",drisk:"spin_v",saw:"spin_saw",under:"spin_under",shell:"spin_shell",ring:"spin_shell",melty:"spin_shell"};
 function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=null&&e.a>=0?F.bots[e.a]:null,V=e.v!=null&&e.v>=0?F.bots[e.v]:null,wid=A?A.b.cfg.weapon:"";
   const crowd=k=>{if(now-(FT.crowdT||0)<3500)return;if(SS.sfx(k,0.55))FT.crowdT=now;};
   if(e.k==="hit"&&V){const En=(e.E||0)/mm,v=0.25+0.5*Math.min(1,En/140);

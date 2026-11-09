@@ -1,6 +1,6 @@
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
-   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36 (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
+   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
    bots too), growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -57,6 +57,13 @@ const OPPONENTS=[
     line:"A ring of steel going round a box that stays still. Keeps its distance, circles, and lets you run onto it.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"ring",weaponMaterial:"steel",extras:[]}},
   /* featherweights: the regional arenas */
+  /* 0.1.46: the two newer verticals in other people's bots */
+  {id:"schneebesen",name:"Schneebesen",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.55},
+    line:"The baker's whisk, cut from one billet on a borrowed mill. Up to speed before you've turned round, and it folds if you hit it back.",
+    cfg:{chassis:"hdpe",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"beater",weaponMaterial:"steel",extras:[]}},
+  {id:"schwungrad",name:"Schwungrad",cls:"feather",from:"eisenau",driver:{style:"keepaway",skill:0.7},
+    line:"A flywheel off a harbour winch, narrowed until it fits. Turns like a loaded barge and hits like the quay wall.",
+    cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe6",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drisk",weaponMaterial:"s7",extras:[]}},
   {id:"walzwerk",name:"Walzwerk",cls:"feather",from:"stahl",driver:{style:"aggressive",skill:0.7},
     line:"A rolling mill on wheels. Feeds you in at one end and doesn't much care what comes out.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"hdpe10",left:"hdpe15",right:"hdpe15",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drum",weaponMaterial:"s7",extras:[]}},

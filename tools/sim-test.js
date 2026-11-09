@@ -187,7 +187,7 @@ for (const cls of SIM.CLASS_IDS) {
 
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
-  const KIND = { vsp: "slot", saw: "slot", drum: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
+  const KIND = { vsp: "slot", drisk: "slot", saw: "slot", drum: "pocket", beater: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
     lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
@@ -203,7 +203,7 @@ for (const cls of SIM.CLASS_IDS) {
     const u = y.u && y.u.rect, want = r && [r[0] / W, -r[3] / L, r[2] / W, -r[1] / L];
     if (!u || u.some((v, i) => Math.abs(v - want[i]) > eps)) fail(`${lbl}: bay u ${u} should be ${want}`);
     if ((y.kind === "slot" || y.kind === "pocket" || y.kind === "well") !== y.openTop) fail(`${lbl}: a ${y.kind} should${y.openTop ? " not" : ""} be open from above`);
-    if ((w.id === "vsp" || w.id === "drum" || w.id === "under") !== y.openBelow) fail(`${lbl}: openBelow ${y.openBelow}`);
+    if ((w.id === "vsp" || w.id === "drum" || w.id === "under" || w.id === "beater" || w.id === "drisk") !== y.openBelow) fail(`${lbl}: openBelow ${y.openBelow}`);
     if (y.openTop && !(y.topFrac > 0)) fail(`${lbl}: an open bay with no share of the top`);
   }
   /* a hit from above into the bay skips the plate and lands on the weapon first */

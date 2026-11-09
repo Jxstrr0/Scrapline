@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.45.0";
+const VERSION="0.1.46.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -238,7 +238,7 @@ const SPONSOR_MAX=2;
 /* the meta (app/team.js crMeta): which builds the other entrants favour, season by season, round and round. favour:
    weapon ids that come first when an event's field is drawn (the rest still turn up). */
 const META_WAVES=[
-  {id:"spinner",name:"The spinner era",     favour:["vsp","hsp","drum","shell","ring","melty"],line:"Everyone's running discs. Armour your front and fear the first hit."},
+  {id:"spinner",name:"The spinner era",     favour:["vsp","hsp","drum","beater","drisk","shell","ring","melty"],line:"Everyone's running discs. Armour your front and fear the first hit."},
   {id:"wedge",  name:"The wedge era",       favour:["wedge","none","lifter"], line:"Low, fast and pointy. Get under them, or get a skid plate."},
   {id:"under",  name:"The undercutter era", favour:["under","hsp","drum","saw"],line:"Discs at wheel height. Mind your wheels and your sides."},
   {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper","grabber"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
