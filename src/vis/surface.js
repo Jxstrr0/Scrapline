@@ -105,7 +105,7 @@ function surfLand(set,f){const n=SURF.n,an=Math.min(4,V.r.capabilities.getMaxAni
   for(const g of BOT_CACHE.values())fix(g);fix(V.bot);for(const B of AR.bots)fix(B.mesh);}
 /* a bot material from a set (its maps go on when they land): colour x albedo keeps the coded colour on average; paint
    gets a clearcoat */
-function surfMat(set,color,metal,paint){const o={color,roughness:1,metalness:metal,envMap:V.env,envMapIntensity:metal?1.2:paint?.7:.45};
+function surfMat(set,color,metal,paint){const o={color,roughness:1,metalness:metal,envMapIntensity:metal?LOOK.env.bot:paint?LOOK.env.paint:LOOK.env.soft};
   const m=paint?new THREE.MeshPhysicalMaterial(Object.assign(o,{clearcoat:.8,clearcoatRoughness:.2})):new THREE.MeshStandardMaterial(o);
   m.userData.surf=set.key;m.userData.col=[color.r,color.g,color.b];m.roughness=metal?.35:paint?.4:.7;   // flat values until the maps land
   if(set.map)surfDress(m,set);return m;}
@@ -131,6 +131,18 @@ function uvRepeat(geo,ru,rv){const A=geo.attributes.uv;if(!A)return;for(let i=0;
 /* a small equirect "workshop" painted on a canvas, so the PBR metals have something to mirror (Full / Ultra): a dark room,
    a lighter band at the horizon that reads as walls in a reflection, cold strip lights with their glow on the ceiling and
    their pool on the floor, a high window and a warm lamp low on one side */
+/* reflections (0.1.40): on Full and Ultra the PBR materials mirror a real room, a Poly Haven HDRI of a hall under strip
+   lights (textures/env-hall.png, credited in textures/CREDITS.md), kept as a small RGBM16 PNG (tools/get-polyhaven.py env)
+   and prefiltered once. scene.environment carries it, so every PBR material and prop picks it up. Until the file lands,
+   or if it fails, the room painted in code below stands in. Lite: none */
+const ENV={file:"textures/env-hall.png",rt:null,wait:0,paint:null};
+function envApply(){if(!V.scene)return;if(V.tier==="lite"){V.scene.environment=null;return;}
+  V.scene.environment=ENV.rt||ENV.paint||(ENV.paint=shopEnv());
+  if(ENV.rt||ENV.wait)return;ENV.wait=1;
+  new THREE.TextureLoader().load(ENV.file,tex=>{tex.encoding=THREE.RGBM16Encoding;tex.mapping=THREE.EquirectangularReflectionMapping;
+    tex.minFilter=tex.magFilter=THREE.LinearFilter;tex.generateMipmaps=false;
+    const pm=new THREE.PMREMGenerator(V.r);ENV.rt=pm.fromEquirectangular(tex).texture;pm.dispose();tex.dispose();envApply();},
+    undefined,()=>{ENV.wait=0;});}   // offline with nothing cached: the painted room stays; the next tier change tries again
 function shopEnv(){
   const W=512,H=256,c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
   const bg=g.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#2a2c30");bg.addColorStop(.4,"#3c3e43");bg.addColorStop(.52,"#585b61");bg.addColorStop(.62,"#44464a");bg.addColorStop(.72,"#1c1c1b");bg.addColorStop(1,"#0a0a09");
