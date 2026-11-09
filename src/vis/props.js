@@ -93,7 +93,7 @@ function propModel(key,cb){const c=PROPS.models[key];if(c&&c.scene){cb(c.scene);
   const e=PROPS.models[key]={wait:[cb]};
   new THREE.GLTFLoader().load(PROP_FILES[key],g=>{g.scene.userData.lift=-Math.min(0,new THREE.Box3().setFromObject(g.scene).min.y);   // stand it on y 0
     g.scene.traverse(o=>{if(!o.isMesh)return;o.userData.keep=true;
-      if(o.material){o.material.envMap=V.env;o.material.envMapIntensity=.6;}});
+      if(o.material)o.material.envMapIntensity=LOOK.env.prop;});
     e.scene=g.scene;const w=e.wait;e.wait=null;w.forEach(f=>f(g.scene));},
     undefined,err=>{if(typeof console!=="undefined")console.warn("model "+key,err&&err.message);delete PROPS.models[key];});}   // tried again with the next room
 /* clones of the models in spots into group G, for as long as ok() says G is still the room on screen */
