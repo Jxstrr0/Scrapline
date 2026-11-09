@@ -742,3 +742,16 @@ Kelbo asked for a Blender deep dive and better visuals all round, with frame rat
 - **Lite** gains the contact shadow and nothing else: no tone curve, no reflections.
 
 The numbers are in `LOOK` (`src/vis/core.js`).
+
+## 0.1.41.0: the bots' parts (Kelbo's visual pass, part two)
+
+Bots were boxes with their wheels hidden inside. This release is about the bot itself, close up.
+
+- **Wheels you can see.** The chassis side is notched at each wheel and the side plate has an arch over it, so the wheels sit in real wells. Every tier gets this, Lite too. Wheels close together share a well; a track has one long one. A slab's skirts still cover its wheels, and a wheel whose well would run into the weapon bay stays inside.
+- **Tyres and hubs** (Full and Ultra). Each wheel type has its own tyre, modelled in Blender: rubber has two rows of lugs, foam is smooth and round-shouldered, polyurethane is square with three grooves, and a solid wheel is a holed disc with a knurled band. The first three sit on a five-spoke hub.
+- **Tracks that run** (Full and Ultra). Links go round a sprocket at each end, with road wheels between, and the belt moves with the bot. A track is twice as wide as a tyre. (Tracks were never drawn before this release: see the fix below.)
+- **Bolts and chamfers** (Full and Ultra). Hex heads on the armour plates and screws round a flat top; flat tops and the front and back plates have chamfered edges that catch the light. A plate's bolts go grey, hang crooked and fall off with it.
+- **Deck fittings** (Full and Ultra). A power light in the team's colour and a removable link with a yellow pull loop, either side of the stripe. The light goes out when the bot is out, and glows on Ultra.
+- **Fixes.** The side plates flickered against the chassis (two faces in one plane); they now stand a hair proud. The 3D code could not find the sim's tables, so tracks were drawn as four wheels and the gradual wear from 0.1.23 (parts darkening as they lose hp, plates knocked askew) never showed in the browser. Both work now.
+
+`models/bot-detail.glb` and `tools/blender-bot-detail.py`; `botDetail()` in `src/vis/props.js`; `wheelWells`, `wellNotch`, `wellArch`, `sidePlateGeo`, `plateGeo`, `detailGeo`, `detailMerge`, `boltMeshes`, `botTracks`, `DETAIL_TYRE`, `DETAIL_LAMP` in `src/vis/bot.js`; the belt and the light in `arenaTick` (`src/vis/arena.js`). Nothing in the sim or the save changed.

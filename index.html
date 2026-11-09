@@ -3831,12 +3831,13 @@ function botMesh(b,team,paint,liv){const k=botHash(b,team,paint,liv);let g=BOT_C
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
 /* clone keeps geometry shared; part materials that get tinted by damage are cloned per instance (userData.own) */
-function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,flip:null,jaw:null,kick:null,wheels:[],legs:[]});
+function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,flip:null,jaw:null,kick:null,wheels:[],legs:[],trk:[],lamp:null});
   g.traverse(o=>{if(!o.isMesh)return;const u=o.userData;
     if(u.part){o.material=o.material.clone();o.userData={part:u.part,own:true,base:o.material.color.clone()};(g.userData.parts[u.part]||(g.userData.parts[u.part]=[])).push(o);}
     else if(u.role==="blur"){o.material=o.material.clone();o.userData={role:"blur",own:true};g.userData.blur=o;}
+    else if(u.role==="lamp"){o.material=o.material.clone();o.userData={role:"lamp",own:true};g.userData.lamp=o;}
     if(u.wheel)g.userData.wheels.push(o);});
-  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="leg")g.userData.legs.push(o);});
+  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="leg")g.userData.legs.push(o);else if(r==="trk")g.userData.trk.push(o);});
   return g;}
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
@@ -3848,7 +3849,13 @@ function buildBot(b,team,sp,liv){
   const P=(x,y)=>[x-cx,-(y-cy)];   // build coords (m, y forward) to mesh (x, z), origin at the centre of mass
   const add=(geo,mat,x,y,z,part)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(part)m.userData.part=part;g.add(m);return m;};
   const body=cfg.body||"plain",drop=body==="wedge"?bodyH*0.6:0,bh=bodyH-drop,boxTop=clr+bh;   /* bh: the box height under a wedge shell's slope */
-  SURF.tile=lite?0:0.09*len;   /* the surfaces' grain: one tile every 9 cm at beetle scale (vis/surface.js; 0 skips the projection) */
+  SURF.tile=lite?0:0.09*len;
+  const wp=(typeof SCRAP_SIM!=="undefined"&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},   /* SCRAP_SIM is a top-level const, so it is not on window (0.1.41: this lookup never found it, and tracks were drawn as wheels) */
+    ws=b.wheelRadiusMm>0&&wp.radiusMm?b.wheelRadiusMm/(wp.radiusMm*len):1,   // the wheel-size dial (0.1.33): evalBuild's radius over the stock one
+    wr=Math.min(H*0.55*ws,(wp.radiusMm||28)/1000*len*ws),ww=Math.max(0.006*len,wr*(wp.tracks&&!lite?1.1:0.55));   // a track is twice a tyre's width (Lite keeps its thin box)
+  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key)),wl=b.wheelbase||{id:"std"};   // evalBuild's wheel layout (vis never reads SCRAP_SIM's tables for it)
+  const D=lite?null:botDetail(),allRound=["shell","ring","melty"].indexOf(b.weapon.id)>=0;   // the Blender detail parts (models/bot-detail.glb, 0.1.41)
+  const bolts=[],bolt=(host,n,x,y,z,r,ax)=>{if(D&&host)bolts.push({host,n,x,y,z,r,ax});};   // fasteners, merged into one mesh per plate at the end   /* the surfaces' grain: one tile every 9 cm at beetle scale (vis/surface.js; 0 skips the projection) */
   /* the weapon bay (0.1.15.3): evalBuild's b.bay. A slot, pocket or well is cut out of the chassis, its front plate and
      the top over it; a deck is a flat plate on the box top where a raised top (a wedge lid, a dome, a shell) is cut away
      for an arm or a flipper. span: the opening's height in the box, from its bottom */
@@ -3858,20 +3865,37 @@ function buildBot(b,team,sp,liv){
   const ext=(outline,holes,y0,y1,mat,part)=>y1-y0>1e-5?add(shapeGeo(outline,holes,y1-y0,cx,cy,y0),mat,0,0,0,part):null;
   /* chassis: the polygon extruded (in layers round a bay), a little inset so the armour panels sit on it */
   const cm=chassisMat(cfg.chassis),cut=span?polyMinus(b.polygon,reg):null;
-  if(cut){ext(b.polygon,null,clr,clr+span[0],cm,"chassis");ext(cut.outline,cut.holes,clr+span[0],clr+span[1],cm,"chassis");ext(b.polygon,null,clr+span[1],boxTop,cm,"chassis");}
-  else ext(b.polygon,null,clr,boxTop,cm,"chassis");
+  /* wheel wells (0.1.41, every tier: it is a few hundred triangles): the chassis side is notched at each wheel (one long notch for a track) and the side
+     plate over it gets an arch, so the wheels show in the bot's side instead of hiding inside the box. Not under a slab's
+     skirts or for legs (they stand outside); a wheel whose well would run into the weapon bay stays inside as before */
+  const wells=body==="slab"||wl.legs?null:wheelWells({wheels,wr,ww,hw,hl,len,L,tracks:!!wp.tracks,reg:cut?reg:null,poly:b.polygon});
+  const NW=o=>wellNotch(o,wells,hw);
+  if(cut){ext(NW(b.polygon),null,clr,clr+span[0],cm,"chassis");ext(NW(cut.outline),cut.holes,clr+span[0],clr+span[1],cm,"chassis");ext(NW(b.polygon),null,clr+span[1],boxTop,cm,"chassis");}
+  else ext(NW(b.polygon),null,clr,boxTop,cm,"chassis");
   if(span&&!cut){reg=null;dep=0;}   /* a bay the outline can't be cut round (a big moved disc over a corner): draw the bot uncut, the weapon on top */
   /* armour panels, per face; thickness drawn at least 2 mm (x class) so a plate reads on a phone. The front plate parts
      round a bay that opens at the front */
   const A=b.armourMapJ||{},th=f=>A[f]&&A[f].id!=="none"?Math.max(0.002*len,(A[f].thickMm||0)/1000):0;
   const front=P(0,hl),back=P(0,-hl),sloped=["wedge","lifter","flipper","grabber"].indexOf(b.weapon.type)>=0;
+  /* a plate's bolts: one near each corner and more along the top and bottom of a long one (dir: -1 a front plate, 1 a back one) */
+  const rb=0.0034*len,plateBolts=(m,w,h,t,dir)=>{if(!D||!m||w<rb*5||h<rb*5)return m;const ix=Math.min(w*0.2,rb*2.6),iy=Math.min(h*0.22,rb*2.6),n=Math.max(1,Math.round((w-2*ix)/(0.06*len)));
+    for(let i=0;i<=n;i++)for(const sy of [-1,1])bolt(m,"dt_hex",m.position.x-w/2+ix+(w-2*ix)*i/n,m.position.y+sy*(h/2-iy),m.position.z+dir*t/2,rb,dir<0?"-z":"+z");return m;};
   if(th("front")&&!sloped){const t=th("front"),fm=armourMat(A.front.id),ya=bh*0.02,yb=bh*0.94,xa=cut?frontGap(bay,hw,hl):null;
-    const piece=(x0,x1,y0,y1)=>{if(x1-x0>1e-4&&y1-y0>1e-4)add(new THREE.BoxGeometry(x1-x0,y1-y0,t),fm,(x0+x1)/2-cx,clr+(y0+y1)/2,front[1]-t/2,"armour_front");};
+    const piece=(x0,x1,y0,y1)=>{if(x1-x0>1e-4&&y1-y0>1e-4)plateBolts(add(plateGeo(x1-x0,y1-y0,t,lite?0:0.0012*len),fm,(x0+x1)/2-cx,clr+(y0+y1)/2,front[1]-t/2,"armour_front"),x1-x0,y1-y0,t,-1);};
     if(xa){piece(-hw,xa[0],ya,yb);piece(xa[1],hw,ya,yb);piece(xa[0],xa[1],ya,Math.min(yb,span[0]));piece(xa[0],xa[1],Math.max(ya,span[1]),yb);}
     else piece(-hw,hw,ya,yb);}
-  if(th("back"))add(new THREE.BoxGeometry(Wd,bodyH*0.92,th("back")),armourMat(A.back.id),back[0],clr+bodyH*0.48,back[1]+th("back")/2,"armour_back");
-  for(const s of ["left","right"])if(th(s)){const x=(s==="left"?-hw:hw)-cx,t=th(s);
-    add(new THREE.BoxGeometry(t,bh*0.92,L*0.96),armourMat(A[s].id),x+(s==="left"?t/2:-t/2),clr+bh*0.48,cy,"armour_"+s);}
+  if(th("back"))plateBolts(add(plateGeo(Wd,bodyH*0.92,th("back"),lite?0:0.0012*len),armourMat(A.back.id),back[0],clr+bodyH*0.48,back[1]+th("back")/2,"armour_back"),Wd,bodyH*0.92,th("back"),1);
+  /* the side plates stand a hair proud of the chassis (their faces used to share its plane and flicker); with wells, each
+     is one plate with the wheel arches cut out of its bottom edge and a chamfer along its top */
+  const proud=0.0007*len;
+  for(const s of ["left","right"])if(th(s)){const sg=s==="left"?-1:1,x=sg*(hw+proud)-cx,t=th(s),W=wells&&wells[s],y0=clr+bh*0.02,y1=clr+bh*0.94,z0=cy-L*0.48,z1=cy+L*0.48;
+    if(!W){const m=add(new THREE.BoxGeometry(t,bh*0.92,L*0.96),armourMat(A[s].id),x-sg*t/2,clr+bh*0.48,cy,"armour_"+s);
+      if(D&&body!=="slab"){const n=Math.max(1,Math.round(L*0.9/(0.06*len)));for(let i=0;i<=n;i++)for(const sy of [-1,1])bolt(m,"dt_hex",x,m.position.y+sy*(bh*0.46-rb*2.6),z0+L*0.03+L*0.9*i/n,rb,sg<0?"-x":"+x");}
+      continue;}
+    const ar=wellArch(W,wells,wr,cy,y0,y1),m=add(sidePlateGeo(z0-cy,z1-cy,y0-(y0+y1)/2,y1-(y0+y1)/2,t,sg,z=>ar.h(z+cy)-(y0+y1)/2,ar.cuts.map(c=>[c[0]-cy,c[1]-cy]),lite?0:Math.min(t*0.5,0.0015*len),lite?7:14),armourMat(A[s].id),x,(y0+y1)/2,cy,"armour_"+s);
+    if(D){const n=Math.max(1,Math.round(L*0.9/(0.06*len))),yb=y0+rb*2.6,yt=y1-rb*2.6;
+      for(let i=0;i<=n;i++){const z=z0+L*0.03+L*0.9*i/n,hz=Math.max(ar.h(z-rb*2),ar.h(z),ar.h(z+rb*2));
+        if(hz<yt-rb*2)bolt(m,"dt_hex",x,yt,z,rb,sg<0?"-x":"+x");if(hz<y0+1e-6)bolt(m,"dt_hex",x,yb,z,rb,sg<0?"-x":"+x");}}}
   const topKey=th("top")?"armour_top":"chassis",tt=Math.max(th("top"),0.0015*len),topMat=th("top")?armourMat(A.top.id):chassisMat(cfg.chassis);
   const S0=lite?null:botShells(),sideMat=s=>th(s)?armourMat(A[s].id):chassisMat(cfg.chassis),sideKey=s=>th(s)?"armour_"+s:"chassis";
   /* a shell with a bay needs the slotted variant made for it; a bay the shells don't have (the weapon moved in the layout)
@@ -3880,7 +3904,13 @@ function buildBot(b,team,sp,liv){
   const sk={M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt:th("top")?tt:0,topKey,topMat,sideMat,sideKey,sv:sv&&sv.top,svb:sv&&sv.bottom};
   const topCut=!!reg&&(bk==="slot"||bk==="pocket"||bk==="well"),raisedCut=!!reg&&(topCut||bk==="deck");   /* a deck cuts only a raised top */
   const deck=bk==="deck"&&(S&&SHELL_TOPS[body]||(!S&&(body==="wedge"||body==="dome")));
-  const flat=(w,l,y0,mat,part,c)=>{const p=rectPts(w,l),d=c?polyMinus(p,reg):null;return d?ext(d.outline,d.holes,y0,y0+tt,mat,part):ext(p,null,y0,y0+tt,mat,part);};
+  const bev=lite?0:Math.min(tt*0.4,0.0012*len),extB=(outline,holes,y0,y1,mat,part)=>y1-y0>1e-5?add(shapeGeo(outline,holes,y1-y0,cx,cy,y0,bev),mat,0,0,0,part):null;
+  const flat=(w,l,y0,mat,part,c)=>{const p=rectPts(w,l),d=c?polyMinus(p,reg):null;return d?extB(d.outline,d.holes,y0,y0+tt,mat,part):extB(p,null,y0,y0+tt,mat,part);};
+  /* a flat top's screws: round its edge, a row every 5 cm at beetle scale, none over an open bay */
+  const topBolts=(m,w,l,y)=>{if(!D||!m||allRound)return;const r=0.003*len,ins=r*2.6,put=(px,py)=>{if(reg&&topCut&&rectHitsPoly(px-r*2,py-r*2,px+r*2,py+r*2,reg))return;bolt(m,"dt_bolt",px-cx,y,cy-py,r,"+y");};
+    const nx=Math.max(1,Math.round((w-2*ins)/(0.05*len))),ny=Math.max(1,Math.round((l-2*ins)/(0.05*len)));
+    for(let i=0;i<=nx;i++)for(const sy of [-1,1])put(-w/2+ins+(w-2*ins)*i/nx,sy*(l/2-ins));
+    for(let i=1;i<ny;i++)for(const sx of [-1,1])put(sx*(w/2-ins),-l/2+ins+(l-2*ins)*i/ny);};
   if(S&&SHELL_TOPS[body])shellBody(g,S,body,sk);
   else if(body==="wedge"){   /* wedge shell: the top plate slopes from the back edge down to the front */
     const run=L*0.98,tilt=Math.atan2(drop,run),lp=rectPts(Wd*0.98,Math.hypot(run,drop)),ct=Math.cos(tilt),d=raisedCut?polyMinus(lp,reg.map(p=>[p[0],p[1]/ct])):null;
@@ -3894,7 +3924,7 @@ function buildBot(b,team,sp,liv){
     if(raisedCut){add(domeGeo(a,c,dh,reg,cx,cy,lite?18:36),topMat,0,0,0,topKey);sleeve(g,reg,cx,cy,L,dh,H,p=>(p[0]/a)*(p[0]/a)+(p[1]/c)*(p[1]/c)<0.995,topMat,topKey);}
     else{const dg=new THREE.SphereGeometry(0.5,lite?14:28,lite?5:10,0,Math.PI*2,0,Math.PI/2);dg.scale(Wd*1.02,bodyH*1.6,L*1.0);
       add(dg,topMat,-cx,Hc,cy,topKey);}}
-  else if(th("top")||body==="invert")flat(Wd*(body==="pancake"?1.04:0.98),L*(body==="pancake"?1.02:0.98),H,topMat,topKey,topCut);
+  else if(th("top")||body==="invert"){const fw=Wd*(body==="pancake"?1.04:0.98),fl=L*(body==="pancake"?1.02:0.98);topBolts(flat(fw,fl,H,topMat,topKey,topCut),fw,fl,H+tt);}
   if(body==="invert"&&!S)flat(Wd*0.98,L*0.98,clr-tt,topMat,"chassis",!!reg&&bay.openBelow&&(bk==="slot"||bk==="pocket"||bk==="underwell"));   /* the same plate underneath */
   if(deck){const R=bay.rect;add(new THREE.BoxGeometry(R[2]-R[0],tt,R[3]-R[1]),topMat,(R[0]+R[2])/2-cx,boxTop+tt/2,cy-(R[1]+R[3])/2,topKey);}
   if(S&&(body==="slab"||body==="scrap"))shellBody(g,S,body,sk);   /* these keep the flat top above and add to it */
@@ -3921,25 +3951,38 @@ function buildBot(b,team,sp,liv){
     const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*sw,0.0015*len,L*0.18),spMat(sp.top));
     m.position.set(-cx,(body==="dome"?H+bodyH*0.27:S&&body==="wedge"?H-drop*(0.5-pz)+wt:H-drop*0.13+lid)+0.0009*len,cy+L*pz);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
   /* wheels (or tracks), from the layout */
-  const wp=(window.SCRAP_SIM&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},
-    ws=b.wheelRadiusMm>0&&wp.radiusMm?b.wheelRadiusMm/(wp.radiusMm*len):1,   // the wheel-size dial (0.1.33): evalBuild's radius over the stock one
-    wr=Math.min(H*0.55*ws,(wp.radiusMm||28)/1000*len*ws),ww=Math.max(0.006*len,wr*0.55);
-  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key)),wl=b.wheelbase||{id:"std"};   // evalBuild's wheel layout (vis never reads SCRAP_SIM's tables for it)
   const Wh=!lite&&!wp.tracks&&wl.id!=="std"&&wl.id!=="six"&&wl.id!=="eight"?botWheels():null;   // the Blender wheel parts (models/bot-wheels.glb)
   const wx=p=>Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
   if(Wh&&wl.id==="mecanum")for(const p of wheels){const q=P(p.pos[0],p.pos[1]);   // Full / Ultra: the Blender mecanum wheel, both pieces turn
     for(const [n,m] of [["wh_mec_hub",M.alu],["wh_mec_rollers",M.rubber]]){const o=shellAdd(g,Wh,n,m,p.key,wx(p)-cx,wr,q[1],ww,wr,wr);if(o)o.traverse(x=>{if(x.isMesh)x.userData.wheel=1;});}}
   else if(wl.legs)botLegs(g,wheels,{P,wr,ww,hw,cx,lite,lh:Math.max(wr*2,clr+bodyH*0.75),Wh:!lite?botOdd():null});   // 0.1.34: shuffler legs where the wheels would be
+  else if(wp.tracks&&D)botTracks(g,D,{hw,ww,wr,cx,cy,L,len});   // Full / Ultra: links round two sprockets, and they run (app/arena)
   else if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
-  else if(lite){const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
+  else if(lite){const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);const hg=new THREE.CylinderGeometry(wr*0.58,wr*0.58,ww*1.05,12);hg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
-      const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;}}
-  else{   /* Full and Ultra: a tyre (the tread runs round it: the cylinder's own UVs, repeated) on a brushed hub with a face */
+      const w=add(wg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;if(wells){const h=add(hg,M.alu,x-cx,wr,q[1],p.key);h.userData.wheel=1;}}}   // a hub, now the wheel shows in its arch
+  else if(D){   /* Full and Ultra (0.1.41): a Blender tyre for the wheel type (lugs, foam, grooves, a knurled band) on a spoked hub or a solid disc */
+    const ty=DETAIL_TYRE[cfg.wheels]||"dt_tyre_block",solid=cfg.wheels==="solid";
+    for(const p of wheels){const q=P(p.pos[0],p.pos[1]);
+      for(const [n,m] of [[ty,M.rubber],[solid?"dt_hub_disc":"dt_hub_spoke",M.alu]]){const o=shellAdd(g,D,n,m,p.key,wx(p)-cx,wr,q[1],ww,wr,wr);if(o)o.traverse(x=>{if(x.isMesh)x.userData.wheel=1;});}}}
+  else{   /* until the kit lands: a tyre (the tread runs round it: the cylinder's own UVs, repeated) on a brushed hub with a face */
     const tg=new THREE.CylinderGeometry(wr,wr,ww,seg,1,true);uvRepeat(tg,Math.max(2,Math.round(2*Math.PI*wr/(SURF.tile*0.5))),1);tg.rotateZ(Math.PI/2);
     const hg=new THREE.CylinderGeometry(wr*0.62,wr*0.62,ww*1.04,seg);hg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(tg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;const h=add(hg,M.alu,x-cx,wr,q[1],p.key);h.userData.wheel=1;}}
   botWheelParts(g,b,wl,Wh,{P,add,wheels,wx,wr,ww,hw,hl,cx,clr,len,seg,lite});
+  /* the deck fittings (0.1.41, Full / Ultra): the power light, lit in the team's colour (app/arena puts it out with the bot),
+     and the removable link, either side of the stripe behind the middle. On a flat top or a wedge's slope; not on a dome,
+     under an all-round weapon or where a bay opens */
+  if(D&&!allRound&&body!=="dome"){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
+    const free=x=>!(reg&&raisedCut&&rectHitsPoly(x-r*2.2,yf-r*2.2,x+r*2.2,yf+r*2.2,reg));
+    const fit=x=>{const G=new THREE.Group();G.position.set(x-cx,fy,cy-yf);G.rotation.x=-tl;g.add(G);return G;};
+    if(free(-0.34*Wd)){const G=fit(-0.34*Wd),col=new THREE.Color(liv?parseInt(String(liv.main).slice(1),16)||0x888888:BOT_TEAM[team%BOT_TEAM.length]).convertSRGBToLinear();
+      shellAdd(G,D,"dt_lamp_base",M.steel,null,0,0,0,r,r,r);
+      const lm=new THREE.MeshStandardMaterial({color:col.clone().multiplyScalar(0.2),emissive:col,emissiveIntensity:DETAIL_LAMP,roughness:0.25,metalness:0});
+      const o=shellAdd(G,D,"dt_lamp_lens",lm,null,0,0,0,r,r,r);if(o)o.traverse(x=>{if(x.isMesh)x.userData={role:"lamp",own:true};});else lm.dispose();}
+    if(free(0.34*Wd)){const G=fit(0.34*Wd),w=0.03*len;shellAdd(G,D,"dt_link_base",spMat("#2b2b30"),null,0,0,0,w,w*0.55,w);shellAdd(G,D,"dt_link_key",spMat("#e3c04a"),null,0,0,0,w,w*0.55,w);}}
+  boltMeshes(g,D,bolts);
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
   buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,wellD:bk==="well"||bk==="underwell"?dep:0,
@@ -3949,6 +3992,103 @@ function buildBot(b,team,sp,liv){
     if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
+
+/* ---- the detail kit (0.1.41, Full / Ultra; models/bot-detail.glb, tools/blender-bot-detail.py; botDetail in vis/props.js
+   loads it for every bot). Tyres and hubs go on as whole pieces (shellAdd); bolts and track links are many small copies of
+   one piece, so they are merged into one mesh per plate or track section (detailMerge). Lite keeps the coded shapes. ---- */
+const DETAIL_TYRE={foam:"dt_tyre_foam",rubber:"dt_tyre_block",pu:"dt_tyre_pu",solid:"dt_tyre_solid"},DETAIL_LAMP=1.5,DT_GEO={};
+/* a piece's triangles as plain floats in its own unit (the file's are quantized under a child node's scale) */
+function detailGeo(D,name){const key=D.uuid+name;if(DT_GEO[key])return DT_GEO[key];const s=D.getObjectByName(name);if(!s)return null;
+  s.updateMatrixWorld(true);const inv=new THREE.Matrix4().copy(s.matrixWorld).invert(),out=[],v=new THREE.Vector3();
+  s.traverse(m=>{if(!m.isMesh)return;const P=m.geometry.attributes.position,I=m.geometry.index,mx=new THREE.Matrix4().multiplyMatrices(inv,m.matrixWorld),n=I?I.count:P.count;
+    for(let i=0;i<n;i++){const j=I?I.getX(i):i;v.set(attrGet(P,j,0),attrGet(P,j,1),attrGet(P,j,2)).applyMatrix4(mx);out.push(v.x,v.y,v.z);}});
+  return DT_GEO[key]=new Float32Array(out);}
+/* one geometry from many placed copies: items [{n: piece, m: Matrix4}], flat shaded */
+function detailMerge(D,items){let n=0;const src=items.map(it=>{const a=detailGeo(D,it.n);n+=a?a.length:0;return a;}),pos=new Float32Array(n),v=new THREE.Vector3();let o=0;
+  items.forEach((it,k)=>{const a=src[k];if(!a)return;const flip=it.m.determinant()<0;
+    for(let i=0;i<a.length;i+=9)for(let c=0;c<3;c++){const j=i+(flip?2-c:c)*3;v.set(a[j],a[j+1],a[j+2]).applyMatrix4(it.m);pos[o++]=v.x;pos[o++]=v.y;pos[o++]=v.z;}});
+  const ge=new THREE.BufferGeometry();ge.setAttribute("position",new THREE.BufferAttribute(pos,3));ge.computeVertexNormals();return ge;}
+/* the bolts buildBot collected, one steel mesh per plate: it sits at its plate's own origin and carries its part key, so
+   it greys, tilts and goes with the plate (vis/wear.js turns each mesh about its origin) */
+function boltMeshes(g,D,bolts){if(!D||!bolts.length)return;const by=new Map(),q=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0);
+  const AX={"+y":[0,1,0],"-y":[0,-1,0],"+x":[1,0,0],"-x":[-1,0,0],"+z":[0,0,1],"-z":[0,0,-1]};
+  for(const b of bolts){const h=b.host,a=AX[b.ax]||AX["+y"];q.setFromUnitVectors(up,new THREE.Vector3(a[0],a[1],a[2]));
+    const m=new THREE.Matrix4().compose(new THREE.Vector3(b.x-h.position.x,b.y-h.position.y,b.z-h.position.z),q.clone(),new THREE.Vector3(b.r,b.r,b.r));
+    (by.get(h)||by.set(h,[]).get(h)).push({n:b.n,m});}
+  for(const [h,items] of by){const m=new THREE.Mesh(detailMerge(D,items),V.mats.steel);m.position.copy(h.position);if(h.userData.part)m.userData.part=h.userData.part;g.add(m);}}
+/* a plate w x h, t thick along z, with a chamfer c round both faces (0: a plain box) */
+function plateGeo(w,h,t,c){if(!(c>0)||t<c*2.2||w<c*4||h<c*4)return new THREE.BoxGeometry(w,h,t);
+  const s=new THREE.Shape();s.moveTo(-w/2,-h/2);s.lineTo(w/2,-h/2);s.lineTo(w/2,h/2);s.lineTo(-w/2,h/2);s.closePath();
+  const e=new THREE.ExtrudeGeometry(s,{depth:t-2*c,bevelEnabled:true,bevelThickness:c,bevelSize:c,bevelOffset:-c,bevelSegments:1,curveSegments:1});e.translate(0,0,-t/2+c);return e;}
+function rectHitsPoly(x0,y0,x1,y1,poly){const R=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+  if(poly.some(p=>p[0]>x0&&p[0]<x1&&p[1]>y0&&p[1]<y1)||R.some(p=>inPoly(p,poly)))return true;
+  for(let i=0;i<4;i++)for(let j=0;j<poly.length;j++)if(segX(R[i],R[(i+1)%4],poly[j],poly[(j+1)%poly.length])!=null)return true;return false;}
+/* the wheel wells: per side, [{y0, y1 (build coords along the bot), ax: [axle y...], track}], d deep and g clear of the tyre.
+   Wheels close together share a well; a well keeps clear of the body's ends and is dropped where it would meet the bay */
+function wheelWells(k){const {wheels,wr,ww,hw,hl,len,L,tracks,reg,poly}=k,g=Math.max(0.0035*len,wr*0.14),d=ww+0.004*len,out={d,g,left:[],right:[]};
+  const side=poly.filter(p=>Math.abs(Math.abs(p[0])-hw)<1e-6).map(p=>p[1]),lim=[Math.min.apply(null,side)+0.012*len,Math.max.apply(null,side)-0.012*len];
+  for(const s of [-1,1]){const ax=tracks?[-(0.4*L-wr),0.4*L-wr]:wheels.filter(p=>Math.sign(p.pos[0]||1)===s).map(p=>p.pos[1]).sort((a,b)=>a-b),list=[];
+    if(tracks)list.push({y0:ax[0]-wr-g,y1:ax[1]+wr+g,ax,track:1});
+    else for(const y of ax){const last=list[list.length-1];if(last&&y-wr-g<last.y1+0.012*len){last.y1=y+wr+g;last.ax.push(y);}else list.push({y0:y-wr-g,y1:y+wr+g,ax:[y]});}
+    for(const w of list){w.y0=Math.max(lim[0],w.y0);w.y1=Math.min(lim[1],w.y1);if(w.y1-w.y0<wr)continue;
+      const xa=s<0?-hw-0.01*len:hw-d-0.006*len,xb=s<0?-hw+d+0.006*len:hw+0.01*len;
+      if(reg&&rectHitsPoly(xa,w.y0-0.006*len,xb,w.y1+0.006*len,reg))continue;
+      out[s<0?"left":"right"].push(w);}}
+  return out.left.length||out.right.length?out:null;}
+/* an outline with the wells notched into its edges on the body's sides */
+function wellNotch(outline,W,hw){if(!W)return outline;const out=[],n=outline.length;
+  for(let i=0;i<n;i++){const a=outline[i],b=outline[(i+1)%n];out.push(a);
+    for(const s of [-1,1]){const x=s*hw;if(Math.abs(a[0]-x)>1e-6||Math.abs(b[0]-x)>1e-6)continue;
+      const lo=Math.min(a[1],b[1]),hi=Math.max(a[1],b[1]),dir=b[1]>a[1]?1:-1;
+      for(const w of (s<0?W.left:W.right).filter(w=>w.y0>lo+1e-5&&w.y1<hi-1e-5).sort((p,q)=>dir*(p.y0-q.y0))){
+        const ya=dir>0?w.y0:w.y1,yb=dir>0?w.y1:w.y0;out.push([x,ya],[x-s*W.d,ya],[x-s*W.d,yb],[x,yb]);}}}
+  return out;}
+/* the arch over a side's wells, in mesh z: h(z) the opening's height there (-Infinity where the plate runs to its bottom
+   edge) and cuts, the [z0, z1] spans to sample finely. Round over each wheel; a track's is flat between its end wheels */
+function wellArch(list,W,wr,cy,y0,y1){const R=wr+W.g,min=(y1-y0)*0.06,cuts=[];
+  for(const w of list){if(w.track)cuts.push([cy-w.ax[1]-R,cy-w.ax[1]],[cy-w.ax[1],cy-w.ax[0]],[cy-w.ax[0],cy-w.ax[0]+R]);else for(const a of w.ax)cuts.push([cy-a-R,cy-a+R]);}
+  const h=z=>{let v=-Infinity;for(const w of list){const y=cy-z;if(y<w.y0||y>w.y1)continue;
+      if(w.track&&y>=w.ax[0]&&y<=w.ax[1])v=Math.max(v,wr+R);
+      for(const a of w.ax){const dz=Math.abs(y-a);if(dz<R)v=Math.max(v,wr+Math.sqrt(R*R-dz*dz));}}
+    return v>y1-min?y1:v;};
+  return{h,cuts:cuts.map(c=>[Math.max(c[0],-1e9),c[1]])};}
+/* a side plate: z0..z1 long, y0..y1 high, its outer face at x 0 and t thick inward (sg: -1 the left side, 1 the right),
+   its bottom edge following arch(z) where that is higher, and a chamfer c along the top outer edge. Built as strips
+   between sample points, so an arch that reaches the top simply parts the plate */
+function sidePlateGeo(z0,z1,y0,y1,t,sg,arch,cuts,c,steps){const e=(z1-z0)*1e-4,zs=[z0,z1],pos=[],xi=-sg*t;
+  for(const [a,b] of cuts){zs.push(a-e,b+e);for(let i=0;i<=steps;i++)zs.push(a+(b-a)*i/steps);}
+  const Z=zs.filter(z=>z>=z0&&z<=z1).sort((a,b)=>a-b).filter((z,i,A)=>!i||z-A[i-1]>e*0.5),yb=z=>Math.min(y1,Math.max(y0,arch(z)));
+  /* a quad, wound so it faces n */
+  const quad=(p,q,r,s,n)=>{const ux=q[0]-p[0],uy=q[1]-p[1],uz=q[2]-p[2],vx=s[0]-p[0],vy=s[1]-p[1],vz=s[2]-p[2];
+    const d=(uy*vz-uz*vy)*n[0]+(uz*vx-ux*vz)*n[1]+(ux*vy-uy*vx)*n[2];if(d>=0)pos.push(...p,...q,...r,...p,...r,...s);else pos.push(...p,...r,...q,...p,...s,...r);};
+  const open=i=>yb(Z[i])>=y1-1e-7&&yb(Z[i+1])>=y1-1e-7;
+  for(let i=0;i<Z.length-1;i++){if(open(i))continue;const za=Z[i],zb=Z[i+1],ba=yb(za),bb=yb(zb),yc=y1-c,oa=Math.min(ba,yc),ob=Math.min(bb,yc);
+    quad([0,oa,za],[0,ob,zb],[0,yc,zb],[0,yc,za],[sg,0,0]);                                   // the outer face
+    if(c>0)quad([0,yc,za],[0,yc,zb],[-sg*c,y1,zb],[-sg*c,y1,za],[sg,1,0]);                    // the chamfer
+    quad([-sg*c,y1,za],[-sg*c,y1,zb],[xi,y1,zb],[xi,y1,za],[0,1,0]);                          // the top edge
+    quad([xi,ba,za],[xi,bb,zb],[xi,y1,zb],[xi,y1,za],[-sg,0,0]);                              // the inner face
+    quad([0,ba,za],[0,bb,zb],[xi,bb,zb],[xi,ba,za],[0,-(zb-za),bb-ba]);                       // the bottom edge (the arch's soffit)
+    if(i===0||open(i-1))quad([0,ba,za],[xi,ba,za],[xi,y1,za],[0,y1,za],[0,0,-1]);             // the ends
+    if(i===Z.length-2||open(i+1))quad([0,bb,zb],[xi,bb,zb],[xi,y1,zb],[0,y1,zb],[0,0,1]);}
+  const ge=new THREE.BufferGeometry();ge.setAttribute("position",new THREE.BufferAttribute(new Float32Array(pos),3));ge.computeVertexNormals();return ge;}
+/* tracks: links round a sprocket at each end and road wheels between. Each side's belt is four merged sections that move a
+   link's pitch and snap back (the two runs slide, the two ends turn), so the belt runs with the bot (app/arena reads
+   userData.tk: kind, p the pitch or the angle between links, z0 a run's rest place, r a wheel's radius) */
+function botTracks(g,D,k){const M=V.mats,{hw,ww,wr,cx,cy,L,len}=k,lt=wr*0.2,ri=wr-lt,zs=Math.max(wr*0.2,0.4*L-wr),p0=wr*0.42;
+  const nA=Math.max(5,Math.round(Math.PI*(ri+lt*0.5)/p0)),nR=Math.max(1,Math.round(2*zs/p0)),pR=2*zs/nR,pA=Math.PI/nA,X=new THREE.Vector3(1,0,0);
+  const T=(rx,y,z,sz)=>new THREE.Matrix4().compose(new THREE.Vector3(0,y,z),new THREE.Quaternion().setFromAxisAngle(X,rx),new THREE.Vector3(ww,lt,sz));
+  for(const s of [-1,1]){const x=s*(hw-ww/2-0.001*len)-cx,key=s<0?"wheel0":"wheel1";
+    const sec=(tk,items,y,z)=>{const G=new THREE.Group();G.userData.role="trk";tk.z0=z;G.userData.tk=tk;G.position.set(x,y,z);
+      const m=new THREE.Mesh(detailMerge(D,items),M.rubber);m.userData.part=key;G.add(m);g.add(G);};
+    const run=[];for(let i=0;i<nR;i++)run.push(-zs+(i+0.5)*pR);
+    sec({kind:"top",p:pR},run.map(z=>({n:"dt_trk_link",m:T(0,0,z,pR)})),wr+ri,cy);
+    sec({kind:"bot",p:pR},run.map(z=>({n:"dt_trk_link",m:T(Math.PI,0,z,pR)})),wr-ri,cy);
+    for(const e of [-1,1]){const items=[];   // the front end (-z) turns the top run down; the back end brings the bottom run up
+      for(let i=0;i<nA;i++){const th=(i+0.5)*pA+(e>0?Math.PI:0),m=new THREE.Matrix4().makeRotationX(-th).multiply(T(0,ri,0,ri*pA*1.05));items.push({n:"dt_trk_link",m});}
+      sec({kind:"arc",p:pA,pr:pR},items,wr,cy+e*zs);}
+    const wheel=(z,r,y)=>{const G=new THREE.Group();G.userData.role="trk";G.userData.tk={kind:"spr",r};G.position.set(x,y,z);shellAdd(G,D,"dt_trk_wheel",M.alu,key,0,0,0,ww*0.86,r,r);g.add(G);};
+    wheel(cy-zs,ri,wr);wheel(cy+zs,ri,wr);
+    const nM=Math.max(0,Math.min(3,Math.floor(2*zs/(ri*1.5))-1)),rm=ri*0.5;for(let i=1;i<=nM;i++)wheel(cy-zs+2*zs*i/(nM+1),rm,wr-ri+rm);}}
 
 /* ---- shuffler legs (0.1.34, wheelbase legs): at each wheel's place a cam on the axle, a strut and a flat foot, in a
    group (role "leg") that app/arena lifts and swings in turn as the bot walks (B.wheelA). Full / Ultra: the Blender
@@ -4064,11 +4204,14 @@ function polyMinus(poly,reg){const pts=[];
   for(let j=je;;j=(j-1+m)%m){if(j===jx)break;bw.push(reg[j]);if(bw.length>m)break;}
   const ok=a=>a.length<=m&&a.every(p=>inPoly(p,poly));return{outline:out.concat(ok(fw)?fw:ok(bw)?bw:[]),holes:[]};}
 /* an outline (minus holes) extruded straight up by depth, in mesh coords: x - ox, -(y - oy), from height y0 */
-function shapeGeo(outline,holes,depth,ox,oy,y0){const V2=p=>new THREE.Vector2(p[0]-ox,p[1]-oy);
+function shapeGeo(outline,holes,depth,ox,oy,y0,bev){const V2=p=>new THREE.Vector2(p[0]-ox,p[1]-oy);
   const area=q=>q.reduce((s,p,i)=>{const n=q[(i+1)%q.length];return s+p[0]*n[1]-n[0]*p[1];},0),wind=(q,ccw)=>(area(q)>0)===ccw?q:q.slice().reverse();
   const sh=new THREE.Shape(wind(outline,true).map(V2));   /* the outline one way round and its holes the other, as three.js wants */
   for(const h of holes||[])sh.holes.push(new THREE.Path(wind(h,false).map(V2)));
-  const e=new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false,curveSegments:1});e.rotateX(-Math.PI/2);if(y0)e.translate(0,y0,0);return e;}
+  /* bev: a chamfer of that size round the top and bottom edges, inside the outline (the plate keeps its size) */
+  const e=bev>0&&depth>bev*2.2?new THREE.ExtrudeGeometry(sh,{depth:depth-2*bev,bevelEnabled:true,bevelThickness:bev,bevelSize:bev,bevelOffset:-bev,bevelSegments:1,curveSegments:1})
+    :new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false,curveSegments:1});if(bev>0&&depth>bev*2.2)e.translate(0,0,bev);
+  e.rotateX(-Math.PI/2);if(y0)e.translate(0,y0,0);return e;}
 function shellGeoLocal(outline,holes,depth){return shapeGeo(outline,holes,depth,0,0,0);}
 /* the bay's walls under a raised top (a wedge lid, a dome), from the floor up to the top's height there, so you can't see
    into the hollow under it: both faces, so the shared materials stay single-sided */
@@ -4508,6 +4651,11 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */
     const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type!=="BoxGeometry")w.rotation.x=B.wheelA;   // not tracks (a box); the Blender mecanum pieces turn too
+    /* tracks (0.1.41, Full / Ultra): the belt's sections move one link and snap back, the sprockets turn at the belt's speed */
+    if(u.trk&&u.trk.length){const d=-B.wheelA*0.028*o.M.len;for(const G of u.trk){const t=G.userData.tk;
+      if(t.kind==="spr"){G.rotation.x=-d/t.r;continue;}const pr=t.kind==="arc"?t.pr:t.p,f0=d/pr,f=f0-Math.floor(f0);
+      if(t.kind==="arc")G.rotation.x=-f*t.p;else G.position.z=t.z0+(t.kind==="top"?-1:1)*f*t.p;}}
+    if(u.lamp)u.lamp.material.emissiveIntensity=o.out?0:DETAIL_LAMP;   // the power light goes out with the bot
     /* shuffler legs (0.1.34): each foot lifts and swings in turn, at the walking pace (turning on the spot walks too) */
     if(u.legs&&u.legs.length){B.legA=(B.legA||0)+(Math.abs(sp)/(0.028*o.M.len)+Math.abs(o.w||0)*2)*dt*0.5;
       for(const L of u.legs){const s=Math.sin(B.legA+L.userData.ph),H=u.H||0.05;L.position.y=Math.max(0,s)*H*0.18;L.rotation.x=Math.cos(B.legA+L.userData.ph)*0.25;}}
@@ -4707,7 +4855,7 @@ function wearTick(B,dt){if(V.tier==="lite")return;const o=B.o,m=B.mesh,u=m.userD
   if(u.spin){const a=o.flags&&o.flags.bent?WEAR.wobble*(V.run.reduce?0.5:1):0,sp=u.spin,ax=sp.userData.axis,t=sp.rotation[ax];
     if(ax==="y"){sp.rotation.x=a*Math.sin(t);sp.rotation.z=a*Math.cos(t);}else{sp.rotation.y=a*Math.sin(t);sp.rotation.z=a*Math.cos(t);}}
   B.wearT=(B.wearT||0)-dt;if(B.wearT>0||!o.st)return;B.wearT=WEAR.every;
-  const f=B.fresh||(B.fresh=window.SCRAP_SIM?SCRAP_SIM.damageState(o.b):null);if(!f)return;
+  const f=B.fresh||(B.fresh=typeof SCRAP_SIM!=="undefined"?SCRAP_SIM.damageState(o.b):null);if(!f)return;
   const lost=(left,hp)=>hp>0?Math.max(0,Math.min(1,1-left/hp)):0,w={chassis:lost(o.st.chassis,f.chassis)};
   for(const k in f.armour)w["armour_"+k]=lost(o.st.armour[k],f.armour[k]);for(const k in f.parts)w[k]=lost(o.st.parts[k],f.parts[k]);
   u.wear=w;wearApply(m);}
@@ -4871,6 +5019,9 @@ function frame(now){
      odd        models/bot-odd.glb (0.1.34), original work built in Blender from tools/blender-bot-odd.py: the shell
                 spinner's dome, the ring spinner's toothed ring, the meltybrain's tooth and a shuffler leg. botOdd loads
                 it only for a bot with one of those; vis/bot.js buildWeapon and botLegs use it.
+     bot-detail the bots' detail parts (0.1.41, built by tools/blender-bot-detail.py): tyres for each wheel type, a spoked
+                hub and a solid disc, a track link and sprocket, a screw and a hex head, the power light and the removable
+                link. botDetail loads it for every bot; vis/bot.js buildBot, botTracks and boltMeshes use it.
    More Blender models (the stage interiors, the trailer, trophies) drop in the same way: pack the export with
    tools/pack-model.py, add it to PROP_FILES and its placements below, and credit it as original work. ---- */
 const PROP_TEX={floor:"textures/garage-floor",ply:"textures/plywood",plate:"textures/metal-plate"};
@@ -4881,7 +5032,7 @@ const PROP_FILES={vice:"models/bench-vice.glb",toolbox:"models/toolbox.glb",ext:
   crate:"models/crate.glb",propane:"models/propane-tank.glb",stool:"models/stool.glb",drill:"models/drill-press.glb",
   truck:"models/hand-truck.glb",gen:"models/generator.glb",barrel:"models/barrel.glb",desk:"models/office-desk.glb",
   meter:"models/multimeter.glb",tyre:"models/old-tyre.glb",box:"models/cardboard-box.glb",sign:"models/wet-floor-sign.glb",
-  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb",
+  kit:"models/arena-kit.glb",shells:"models/bot-shells.glb",wpns:"models/bot-weapons.glb",dtl:"models/bot-detail.glb",
   whls:"models/bot-wheels.glb",atch:"models/bot-attach.glb",odd:"models/bot-odd.glb"};
 /* the workshop: scene units per metre. The coded bench is long and low for the bot on it (9 units by 1.25 high), so the room
    runs at about half real scale (2.4 units a metre: the bench reads as 3.75 m by 0.5 m) and the props stay readable. Per stage
@@ -5029,7 +5180,7 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
    models/bot-wheels.glb, "atch": models/bot-attach.glb, "odd": models/bot-odd.glb), or null
    (and the load starts): when it lands, the workshop's bot is drawn again with it (a bot already in a fight keeps its
    coded shape). Two tries a visit each, then the coded shapes */
-function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":"")+(r("whls")?"h":"")+(r("atch")?"a":"")+(r("odd")?"o":""):"";}
+function shellsReady(){const r=k=>{const c=PROPS.models[k];return !!(c&&c.scene);};return V.tier!=="lite"?(r("shells")?"s":"")+(r("wpns")?"w":"")+(r("whls")?"h":"")+(r("atch")?"a":"")+(r("odd")?"o":"")+(r("dtl")?"d":""):"";}
 function botModel(key){if(V.tier==="lite")return null;const c=PROPS.models[key];if(c&&c.scene)return c.scene;
   const ask=PROPS.ask||(PROPS.ask={}),tries=PROPS.tries||(PROPS.tries={});if(c||ask[key]||(tries[key]||0)>=2)return null;
   const go=()=>{ask[key]=false;tries[key]=(tries[key]||0)+1;propModel(key,()=>{if(V.tier!=="lite"&&V.botB&&V.mats)placeBot();});};
@@ -5040,6 +5191,7 @@ function botWeapons(){return botModel("wpns");}
 function botWheels(){return botModel("whls");}
 function botAttach(){return botModel("atch");}
 function botOdd(){return botModel("odd");}
+function botDetail(){return botModel("dtl");}   // 0.1.41: tyres, hubs, track links, bolts, the power light and the link (every bot on Full / Ultra)
 /* ---- vis/api.js: the SCRAP_VIS public object. The app calls these; the vis never reads game state. ---- */
 let started=false;
 return{
@@ -5089,7 +5241,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.40.0";
+const VERSION="0.1.41.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
