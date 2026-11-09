@@ -3,7 +3,7 @@
      chassis   the build's polygon, extruded from the clearance to the chassis height, in the chassis material
      armour    a panel per face, as thick as the plate (drawn at least 2 mm so it reads), in the plate's material
      wheels    one per wheel part, at its place in the layout; tracks as a belt
-     weapon    by type: horizontal disc, vertical disc, drum, undercutter, saw on an arm, hammer arm, crusher jaw,
+     weapon    by type: horizontal disc, vertical disc, drum, eggbeater, drisk, undercutter, saw on an arm, hammer arm, crusher jaw,
                flipper plate, lifter forks, a wedge's ramp (a pusher has a plain front)
                (on Full and Ultra the Blender pieces from models/bot-weapons.glb, stretched to the same boxes: wpPiece)
      bay       the weapon bay (b.bay, 0.1.15.3): a slot, pocket or well cut out of the chassis, its front plate and the top
@@ -455,7 +455,8 @@ function shellVariant(bay,w,body){if(!bay)return{top:null,bottom:null};const u=b
   return(r.top&&!has(r.top))||(r.bottom&&!has(r.bottom))?null:r;}
 
 function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw,hl,H,clr,bodyH,len,seg,front,bh,lift}=k;
-  const mount=w.mountM?P(w.mountM[0],w.mountM[1]):front,r=Math.max(0.01*len,w.radiusM||0.04),mat=M.disc;
+  const r=Math.max(0.01*len,w.radiusM||0.04),mat=M.disc;
+  const mount=w.mountM?P(w.mountM[0],id==="drisk"?Math.max(w.mountM[1],hl-r*0.65):w.mountM[1]):front;   // the drisk sits forward (as its bay, sim/build.js bayOf)
   /* Full and Ultra: a Blender piece (models/bot-weapons.glb, wpPiece) where one is loaded, else null and the coded box */
   const Wp=V.tier!=="lite"?botWeapons():null,pc=(par,name,m,x,y,z,sx,sy,sz,part)=>Wp?wpPiece(par,Wp,name,m,part,x,y,z,sx,sy,sz):null;
   const teeth=(grp,R,n,thick,axis)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(R*0.32,thick*1.4,R*0.18),M.steel);
@@ -495,14 +496,20 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
         if(y1>y0)add(new THREE.CylinderGeometry(r*0.15,r*0.15,y1-y0,12),M.steel,mount[0],(y0+y1)/2,mount[1]);}
       else if(id==="hsp")add(new THREE.CylinderGeometry(r*0.15,r*0.15,bodyH*0.5,12),M.steel,mount[0],clr+bodyH*0.3,mount[1]);}
     else{   // vertical disc, drum, saw: spin about the x axis
-      const drum=id==="drum",width=drum?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):Math.max(0.005*len,r*0.14);
+      /* 0.1.46: the eggbeater is as wide as a drum (an open frame: two bars between two cheeks); the drisk is a disc 0.9 of its radius thick */
+      const drum=id==="drum",beater=id==="beater",drisk=id==="drisk",width=drum||beater?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):drisk?r*0.9:Math.max(0.005*len,r*0.14);
       /* the pieces: a drum lies along x as modelled; a disc or saw is modelled flat, so it goes in a group turned onto its side */
       const side=new THREE.Group();side.rotation.z=Math.PI/2;
       const done=drum?!!pc(spin,"wp_drum",M.steel,0,0,0,width,r,r,"weapon")&&(pc(spin,"wp_drum_teeth",M.steel,0,0,0,width,r,r,"weapon"),true)
+        :beater?!!pc(spin,"wp_beater",mat,0,0,0,width,r,r,"weapon")
+        :drisk?!!pc(spin,"wp_drisk",mat,0,0,0,width,r,r,"weapon")&&(pc(spin,"wp_drisk_teeth",M.steel,0,0,0,width,r,r,"weapon"),true)
         :id==="saw"?!!pc(side,"wp_saw",mat,0,0,0,r,width,r,"weapon")&&(pc(side,"wp_disc_hub",M.steel,0,0,0,r*0.7,width,r*0.7,"weapon"),true)
         :wpDisc(side,pc,"wp_disc",mat,r,width,M);
       if(done){if(side.children.length)spin.add(side);wpDiscUV(spin,mat);}
-      else{const geo=new THREE.CylinderGeometry(r,r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
+      else if(beater){const bar=r*0.24;for(const s of [-1,1]){   /* coded (Lite): the two bars and the two cheeks of the frame */
+        const t=new THREE.Mesh(new THREE.BoxGeometry(width,bar,bar*1.3),mat);t.position.set(0,s*(r-bar/2),0);t.userData.part="weapon";spin.add(t);
+        const e=new THREE.Mesh(new THREE.BoxGeometry(bar*0.6,r*2,bar*1.6),mat);e.position.set(s*(width/2-bar*0.3),0,0);e.userData.part="weapon";spin.add(e);}}
+      else{const geo=new THREE.CylinderGeometry(drisk?r*0.88:r,drisk?r*0.88:r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
       const d=new THREE.Mesh(geo,drum&&V.tier!=="lite"?M.steel:mat);d.userData.part="weapon";spin.add(d);
       if(drum){for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*0.9,r*0.25,r*0.25),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
       else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}}

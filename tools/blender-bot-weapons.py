@@ -18,6 +18,10 @@ so they come out round on a typical bot.
   wp_saw         a thin saw blade, radius 1 at the tooth tips: 32 raked teeth round the edge
   wp_drum        a drum along x: x -0.5..0.5 is its width, radius 1 in y and z; chamfered ends and three grip grooves
   wp_drum_teeth  its striker teeth: two at the top, three at the bottom, staggered, chisel tipped, out to radius 1.27
+  wp_beater      an eggbeater along x (0.1.46): x -0.5..0.5 its width, radius 1 in y and z. One billet: two cheeks, two
+                 bars between them with a chisel edge leading, stub axles at the ends
+  wp_drisk       a drisk along x (0.1.46): a thick disc, x -0.5..0.5 its width, radius 0.86 in y and z, chamfered rim and
+                 a dished face each side; wp_drisk_teeth its two hooked teeth, top and bottom, out to radius 1
   wp_upright     a side plate that holds a disc or drum: x -0.5..0.5 its thickness, y and z -0.5..0.5 scaled by 1.2 and
                  0.8 of the weapon's radius; a bearing boss through it at the axle (z -0.3125)
   wp_ramp        a wedge or ramp plate: x the width, y the thickness, z the length along the slope (front at -z), each
@@ -271,6 +275,35 @@ def chisel(xc, w, up):
 
 
 join("wp_drum_teeth", [chisel(-0.24, 0.26, True), chisel(0.24, 0.26, True), chisel(-0.38, 0.18, False), chisel(0.0, 0.18, False), chisel(0.38, 0.18, False)], STEEL)
+
+# ---- the eggbeater (0.1.46): one billet, along x, radius 1 ----
+bt = []
+for s in (-1, 1):
+    # a cheek: a lozenge in (z, y), 0.07 wide at each end of the axle
+    ck = [(0.34, 0.0), (0.26, 0.62), (0.16, 0.98), (-0.16, 0.98), (-0.26, 0.62), (-0.34, 0.0), (-0.26, -0.62), (-0.16, -0.98), (0.16, -0.98), (0.26, -0.62)]
+    bt.append(prism("c", ck, s * 0.5 - (0.07 if s > 0 else 0), s * 0.5 + (0.07 if s < 0 else 0), STEEL, "x"))
+    bt.append(cyl(0.17, 0.16, (s * 0.56, 0, 0), "x", 20))
+# the bars: the top one's chisel edge leads at -z, the bottom one's at +z (it turns top forward)
+bar = [(0.16, 0.74), (0.16, 0.92), (0.02, 1.0), (-0.16, 0.96), (-0.16, 0.74)]
+bt.append(prism("b", bar, -0.45, 0.45, STEEL, "x"))
+bt.append(prism("b", [(-z, -y) for z, y in bar][::-1], -0.45, 0.45, STEEL, "x"))
+join("wp_beater", bt, STEEL)
+
+# ---- the drisk (0.1.46): a thick disc along x, body radius 0.86, teeth out to 1 ----
+kp = [(0, -0.42), (0.2, -0.42), (0.24, -0.5), (0.34, -0.5), (0.4, -0.4), (0.66, -0.4), (0.72, -0.5), (0.8, -0.5), (0.86, -0.42),
+      (0.86, 0.42), (0.8, 0.5), (0.72, 0.5), (0.66, 0.4), (0.4, 0.4), (0.34, 0.5), (0.24, 0.5), (0.2, 0.42), (0, 0.42)]
+smooth(lathe("wp_drisk", kp, 48, STEEL, axis="x"))
+
+
+def hook(up):
+    """a drisk tooth in (z, y): a hook from the skin (0.8) out to radius 1, its edge leading at -z; up False for the bottom"""
+    pr = [(0.3, 0.78), (0.24, 0.93), (0.02, 1.0), (-0.2, 0.97), (-0.12, 0.86), (-0.22, 0.78)]
+    if not up:
+        pr = [(-z, -y) for z, y in pr][::-1]
+    return prism("h", pr, -0.44, 0.44, STEEL, "x")
+
+
+join("wp_drisk_teeth", [hook(True), hook(False)], STEEL)
 
 # ---- the upright: plate with chamfered corners, bearing boss at the axle ----
 up = prism("p", [(0.5, -0.5), (0.5, 0.3), (0.3, 0.5), (-0.3, 0.5), (-0.5, 0.3), (-0.5, -0.5)], -0.5, 0.5, STEEL, "x")
