@@ -23,7 +23,9 @@
                          groan, clap; the bell, the pit opening; the workshop's ratchet, drill, clamp, charger. Full / Ultra only
                          (with samples(on), like the clangs): spin-ups (spin_h, spin_v, spin_drum, spin_saw, spin_under), flip,
                          fliphp, hammer, lifter, crush, the material layers (ply, hdpe, ti, ar, tyre), scrape, snap, bend, partoff,
-                         thud, land, pusher, floorspin, selfright, powerdown, smoke. The workshop four load on the first tap;
+                         thud, land, pusher, floorspin, selfright, powerdown, smoke, and the wheel layouts' (0.1.31): mecanum
+                         (rollers whirring into a slide), swerve (the pods snapping round), caster (the caster flipping
+                         round as the bot changes direction). The workshop four load on the first tap;
                          the rest when prep() is called; a clip still loading is skipped.
      prep()              the Fight tab opened: fetch the fight's effects (the Full / Ultra ones only on those tiers)
      crowd(id)           the crowd bed under a fight, looped: "club", "reg", "big" or null (fades out). The same id again is a
@@ -49,7 +51,8 @@ const FX={buf:{},got:{},last:{},until:0,resting:false,want:false,   // want: pre
 
   ALL:{cheer:2,ooh:2,groan:2,clap:2,bell:1,pitopen:1,ratchet:1,drill:1,clamp:1,charger:1},
   FULL:{spin_h:1,spin_v:1,spin_drum:1,spin_saw:1,spin_under:1,flip:2,fliphp:1,hammer:2,lifter:1,crush:1,ply:2,hdpe:1,ti:1,ar:1,tyre:2,
-    scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1},
+    scrape:2,snap:2,bend:2,partoff:2,thud:1,land:2,pusher:1,floorspin:1,selfright:1,powerdown:1,smoke:1,
+    mecanum:2,swerve:2,caster:2},
   BEDS:{club:"crowd_club",reg:"crowd_reg",big:"crowd_big"},WORK:["ratchet","drill","clamp","charger"]};
 const fxFiles=(id,n)=>n>1?Array.from({length:n},(_,i)=>id+(i+1)):[id];
 function fxGet(f){if(FX.got[f]||!ctx||typeof fetch!=="function")return;FX.got[f]=1;   // got: 1 asked for, -1 failed (only prep() asks again)

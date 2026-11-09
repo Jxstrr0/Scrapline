@@ -42,7 +42,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
 /* a fight (a round, or a replay) into fight mode */
-function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.crowdT=0;ftFrame.done=null;
+function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.whl={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);
@@ -116,7 +116,7 @@ function ftSlowPlan(log,mass){const W=[],mm=Math.max(mass,1e-6),add=(t,c)=>{cons
 function ftSlowAt(W,t){let f=1;for(const w of W){const a=w.a-FT_SLOW.easeIn,b=w.b+FT_SLOW.easeOut;if(t<a||t>b)continue;
     const k=t<w.a?(t-a)/FT_SLOW.easeIn:t>w.b?1-(t-w.b)/FT_SLOW.easeOut:1;f=Math.min(f,1-(1-w.f)*k);}return f;}
 function ftSeek(n){const rp=FT.rp;if(!rp)return;const F=ftRpFight(rp.log,Math.max(rp.s0||0,Math.min(rp.steps,n|0)));
-  FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
+  FT.F=F;FT.flashes=[];FT.partN=F.log.length;FT.flung={};FT.spin={};FT.whl={};FT.acc=0;FT.last=performance.now();ftFrame.done=null;
   SCRAP_VOICE.stop();if(F.n===0)ftVoiceBegin(F,true);else SCRAP_VOICE.seek(F);
   const e=$("fEnd");if(e)e.hidden=true;
   if(ftGL())SCRAP_VIS.setFight(F,true);if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());
@@ -227,6 +227,11 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
 /* a spinner coming up to speed (its share of full speed climbs past a third from under a tenth): its spin-up, once each time */
 function ftSpinUp(F,o,i){const id=FT_SPIN[o.b.cfg.weapon];if(!id)return;const w=o.b.weapon,r=o.out||!o.fx.weaponOk?0:o.wp.om/(w.omega||1),m=FT.spin||(FT.spin={});
   if(r<0.1)m[i]=1;else if(r>0.33&&m[i]){m[i]=0;SCRAP_SOUND.sfx(id,i===0?0.5:0.35);}}
+/* the wheel layouts (0.1.31, Full / Ultra): a mecanum or swerve bot starting a slide, a caster bot changing direction */
+function ftWheelSfx(F,o,i){const wb=o.b.wheelbase;if(!wb||o.out)return;const m=FT.whl||(FT.whl={}),s=m[i]||(m[i]={sl:0,dir:0,t:-9}),v=i===0?0.45:0.3;
+  if(wb.strafe>0){const sl=Math.abs((o.input&&o.input.strafe)||0)>0.3;if(sl&&!s.sl&&F.t-s.t>0.6){s.t=F.t;SCRAP_SOUND.sfx(wb.id==="swerve"?"swerve":"mecanum",v);}s.sl=sl;}
+  else if(wb.caster){const vf=Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy,d=Math.abs(vf)>0.2*Math.max(o.b.driveSpeed,0.1)?Math.sign(vf):0;
+    if(d&&s.dir&&d!==s.dir&&F.t-s.t>0.8){s.t=F.t;SCRAP_SOUND.sfx("caster",v*0.8);}if(d)s.dir=d;}}
 /* ---- fight mode: the overlay on the 3D view ---- */
 function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
@@ -316,7 +321,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
     ftMap(el.querySelector(".fmap"),o,states);
     if(FT.on&&!FT.view2d)SCRAP_VIS.damage(i,states);
-    if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused)ftSpinUp(F,o,i);}});
+    if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
     const s=FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
@@ -346,7 +351,10 @@ function ftDrive(o,states){const b=o.b,side={left:[0,0],right:[0,0]};let worst=0
 const FT_FACE_N={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 function ftPartName(b,key){if(key.startsWith("armour_"))return`${FT_FACE_N[key.slice(7)]||key.slice(7)} plate`;if(key==="chassis")return"Chassis";
   const p=b.parts.find(q=>q.key===key);if(!p)return key;
-  if(p.slot==="drive"||p.slot==="wheels"){const x=p.pos||[0,0],n=b.parts.filter(q=>q.slot===p.slot).length;return`${x[0]<0?"Left":"Right"}${n>2?Math.abs(x[1])<1e-3?" middle":x[1]>0?" front":" rear":""} ${p.slot==="drive"?"motor":"wheel"}`;}
+  if(p.caster)return"Caster";
+  if(p.slot==="drive"||p.slot==="wheels"){const x=p.pos||[0,0],same=b.parts.filter(q=>q.slot===p.slot&&!q.caster&&(q.pos&&q.pos[0]<0)===(x[0]<0)).map(q=>q.pos[1]).sort((u,v)=>v-u),
+      i=same.indexOf(x[1]),n=same.length,where=n<2?"":n===2?(i===0?" front":" rear"):n===3?[" front"," middle"," rear"][i]:[" front"," second"," third"," rear"][i]||"";
+    return`${x[0]<0?"Left":"Right"}${where} ${p.slot==="drive"?"motor":"wheel"}`;}
   return{weapon:"Weapon",battery:"Battery",electronics:"Electronics",armour:"Armour",selfright:"Self-righter"}[p.slot]||(p.slot.charAt(0).toUpperCase()+p.slot.slice(1));}
 /* the part in the worst shape: anything destroyed first (the weapon, electronics and battery before the rest), then the
    most worn */

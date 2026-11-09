@@ -13,6 +13,7 @@
    cell) are rolled by the fight (sim/fight.js) from its seeded generator and handed in as flags. ---- */
 const PART_STATES=["intact","damaged","destroyed"];
 const DAMAGE={
+  casterDrag:1.6,  // a broken swivel caster (0.1.31) drags: turning scrub and rolling resistance x this
   passOn:0.7,      // a destroyed part passes this share of what was left of the hit on to the next part behind it
   frontLead:1.1,   // a weapon or bar with no cells (a wedge plate) sits in front of everything behind the front face
   motorAt:0.35,    // a weapon below this share of its hp has a dead motor (it coasts, can't spin up or fire)
@@ -87,11 +88,11 @@ function landHit(b,st,E,inverted){const M=classMult(b.cls);
   return out;}
 /* what the damage does. flags (rolled by the fight): {esc:"left"|"right"|null (the dead controller), smoke, cell (a
    failsafe kept a cell), bent}. Returns {sides:{left:{push, grip, out}, right:{..}}, power, dead (a reason or null),
-   weaponOk, motorOk, bent, righter, absorbMul, flexing} */
+   weaponOk, motorOk, bent, righter, absorbMul, flexing, drag (x scrub and rolling resistance: a broken caster)} */
 function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.parts)||st.parts[k]>0,frac=k=>{const p=b.parts.find(q=>q.key===k);return p&&p.hpJ>0?st.parts[k]/p.hpJ:1;};
   const sides={};
   for(const s of ["left","right"]){const on=p=>(p.pos[0]<0)===(s==="left");
-    const pods=b.parts.filter(p=>p.slot==="drive"&&on(p)),wh=b.parts.filter(p=>p.slot==="wheels"&&on(p));
+    const pods=b.parts.filter(p=>p.slot==="drive"&&on(p)),wh=b.parts.filter(p=>p.slot==="wheels"&&!p.caster&&on(p));
     const push=pods.length?pods.filter(p=>alive(p.key)).length/pods.length:0,grip=wh.length?wh.filter(p=>alive(p.key)).length/wh.length:0;
     sides[s]={push,grip,out:!push||!grip||flags.esc===s};}
   const hasBat=b.parts.some(p=>p.key==="battery"),batDead=hasBat&&!alive("battery");
@@ -103,7 +104,8 @@ function damageEffects(b,st,flags){flags=flags||{};const alive=k=>!(k in st.part
   const sr=b.cfg.extras.indexOf("selfright")>=0&&alive("selfright"),wr=!!part("weapon",b.cfg.weapon).selfRights&&motorOk;
   const ch=part("chassis",b.cfg.chassis)||PARTS.chassis[0],cf=Math.max(0,st.chassis)/Math.max(chassisHp(b),1e-9);
   const absorbMul=Math.max(DAMAGE.flexMin,1-DAMAGE.flexMul*(ch.flex+bodyOf(b).flexAdd)*(1-cf));
-  return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt};}
+  const drag=b.parts.some(p=>p.caster)&&!alive("caster")?DAMAGE.casterDrag:1;
+  return{sides,power,dead,weaponOk,motorOk,bent:!!flags.bent,righter:sr||wr,righterBy:sr?"selfright":wr?"weapon":null,absorbMul,flexing:cf<DAMAGE.flexAt,drag};}
 /* J taken per key (only the keys that took any): part keys, armour_<face>, chassis. This is S.bots[cls].damage's shape. */
 function damageTaken(b,st){const out={},r=v=>Math.round(v*100)/100;
   for(const f of FACES){const d=b.armourMapJ[f].hpJ-st.armour[f];if(d>1e-6)out["armour_"+f]=r(d);}

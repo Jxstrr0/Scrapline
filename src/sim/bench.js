@@ -52,8 +52,9 @@ const asBuild=x=>x&&x.armourMapJ?x:evalBuild(x);
 
 /* a part key in words: "left front drive pod", "Large LiPo", "Vertical spinner" */
 function benchPartName(b,key){const p=b.parts.find(q=>q.key===key);if(!p)return key;
-  if(p.slot==="drive"||p.slot==="wheels"){const side=p.pos[0]<0?"left":"right",same=b.parts.filter(q=>q.slot===p.slot&&(q.pos[0]<0)===(p.pos[0]<0));
-    const fb=same.length>1?(p.pos[1]>=Math.max(...same.map(q=>q.pos[1]))?" front":" rear"):"";
+  if(p.caster)return"swivel caster";
+  if(p.slot==="drive"||p.slot==="wheels"){const side=p.pos[0]<0?"left":"right",same=b.parts.filter(q=>q.slot===p.slot&&!q.caster&&(q.pos[0]<0)===(p.pos[0]<0));
+    const ys=same.map(q=>q.pos[1]),fb=same.length>1?(p.pos[1]>=Math.max(...ys)?" front":p.pos[1]<=Math.min(...ys)?" rear":" middle"):"";
     return side+fb+(p.slot==="drive"?" drive pod":" wheel");}
   const pp=part(p.slot==="extras"?"extras":p.slot,p.id);return pp?pp.name:key;}
 
@@ -130,7 +131,7 @@ function benchEndurance(x){const b=asBuild(x),P=b.power,h=b.heat,dt=0.25,cyc=BEN
 
 function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len,E=b.massKg*K.g*hM*BENCH.dropShare;
   const alive=(st,k)=>!(k in st.parts)||st.parts[k]>0;
-  const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
+  const canDrive=st=>{const side=s=>b.parts.some(p=>p.slot==="drive"&&(p.pos[0]<0)===(s<0)&&alive(st,p.key))&&b.parts.some(p=>p.slot==="wheels"&&!p.caster&&(p.pos[0]<0)===(s<0)&&alive(st,p.key));
     return side(-1)&&side(1)&&alive(st,"battery")&&alive(st,"electronics");};
   const skid=b.cfg.extras.indexOf("skid")>=0?part("extras","skid").underAbsorbJ*M.mass:0;
   /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods (landHit, sim/damage.js) */

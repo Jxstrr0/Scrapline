@@ -3,6 +3,7 @@
      valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
      com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
      driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
+     wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm}
      weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
@@ -44,7 +45,7 @@ function evalBuild(cfgIn,opts){
   const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),bd=pick("body",cfg.body),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
-    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial);
+    el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial),wb=pick("wheelbase",cfg.wheelbase);
   const ex=cfg.extras.map(id=>part("extras",id));
   const has=k=>ex.some(e=>e[k]);
 
@@ -85,11 +86,22 @@ function evalBuild(cfgIn,opts){
 
   /* drive pods and wheels (the wheels sit at the pod's outer edge) */
   const podKeys=fps.filter(f=>f.slot==="drive").map(f=>f.key);
-  const podG=dr.massG*M.mass/dr.pods,wheelG=wh.massG*M.mass/dr.pods;
-  let leftX=[],rightX=[];
+  const podG=dr.massG*M.mass/dr.pods+wb.podG*M.mass;
+  let leftX=[],rightX=[];const wheelAt=[];   // [key, side, y]
+  const nWheels=wb.perSide?2*wb.perSide:dr.pods,wheelG=wh.massG*M.mass*wb.wheelMul/nWheels;
   for(const k of podKeys){const p=centreOf(k);if(!p)continue;addM(k,"drive",dr.id,podG,p[0],p[1]);
-    const side=p[0]<0?-1:1;addM("wheel"+k.slice(5),"wheels",wh.id,wheelG,side*hw,p[1]);(side<0?leftX:rightX).push(side*hw);}
+    const side=p[0]<0?-1:1;(side<0?leftX:rightX).push(side*hw);
+    if(!wb.perSide){wheelAt.push(["wheel"+k.slice(5),side,p[1]]);addM("wheel"+k.slice(5),"wheels",wh.id,wheelG,side*hw,p[1]);}}
+  /* the wheel layout (0.1.31): perSide wheels a side, spread along it (one sits by the pods), chain-driven from the pods */
+  if(wb.perSide){const n=wb.perSide,ys=n===1?null:Array.from({length:n},(_,i)=>(0.72-1.44*i/(n-1))*hl);
+    for(const side of [-1,1]){const own=podKeys.map(centreOf).filter(p=>p&&(p[0]<0)===(side<0)),my=own.length?own.reduce((a,p)=>a+p[1],0)/own.length:0;
+      for(let i=0;i<n;i++)wheelAt.push(["wheel"+(2*i+(side<0?0:1)),side,ys?ys[i]:my]);}
+    wheelAt.sort((a,b)=>(+a[0].slice(5))-(+b[0].slice(5)));
+    for(const q of wheelAt)addM(q[0],"wheels",wh.id,wheelG,q[1]*hw,q[2]);}
+  if(wb.massG)addM(wb.caster?"caster":"wheelbase","wheelbase",wb.id,wb.massG*M.mass,0,wb.caster?-hl*0.85:0);
   if(podKeys.length&&(!leftX.length||!rightX.length))errors.push("The drive pods need to be on both sides");
+  if(wb.podsNeed&&dr.pods<wb.podsNeed)errors.push(wb.name+" need a motor on every wheel: two motors a side");
+  if(wh.tracks&&wb.id!=="std")errors.push("Tracks run the whole side: they only go on a wheel on each pod");
   const bp=centreOf("battery");if(bp)addM("battery","battery",bt.id,bt.massG*M.mass,bp[0],bp[1]);
   const ep=centreOf("electronics");if(ep)addM("electronics","electronics",el.id,el.massG*M.mass,ep[0],ep[1]);
 
@@ -123,19 +135,19 @@ function evalBuild(cfgIn,opts){
 
   /* ---- power: the battery and the ESC cap what the motors may draw at once ---- */
   const brushMismatch=!!dr.brushless&&!el.brushless;
-  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1),weaponPowerW=wp.powerW*M.power;
+  const drivePowerW=dr.powerW*M.power*(brushMismatch?0.6:1)*wb.powerMul,weaponPowerW=wp.powerW*M.power;
   const peakW=drivePowerW+weaponPowerW+el.idleW*M.power;
   const capW=Math.min(bt.dischargeW*M.power,el.maxPowerW*M.power);
   const powerScale=peakW>0?Math.min(1,capW/peakW):1;
 
   /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
   const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale),F0=dr.forceN*M.mass*powerScale;
-  const weightN=massKg*K.g,traction=wh.grip*weightN,pushN=Math.min(F0,traction);
-  const resist=K.crr*weightN;
+  const grip=wh.grip*wb.gripMul,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
+  const resist=K.crr*weightN*wb.crrMul;
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
   const trackM=leftX.length&&rightX.length?(rightX.reduce((a,b)=>a+b,0)/rightX.length-leftX.reduce((a,b)=>a+b,0)/leftX.length):W/1000;
-  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub:0;
+  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub/Math.sqrt(wb.scrubMul):0;
   const turnAccel=moi>0?pushN*trackM/2/moi:0;
   /* pull: with the COM off to one side, the light side's wheels slip first and the heavy side pushes it round */
   const pull=clamp(-com.x/(trackM/2||1),-1,1);
@@ -185,9 +197,11 @@ function evalBuild(cfgIn,opts){
   const addPart=(key,slot,id,hp,g)=>{const cl=cellsOf(key);let e=0;for(const q of cl)e=Math.max(e,cellE(q[0],q[1]));
     parts.push({key,slot,id,cells:cl,massKg:r3(g/1000),hpJ:hp,exposure:r3(e),pos:centreOf(key)});};
   for(const k of podKeys)addPart(k,"drive",dr.id,dr.hp*M.mass,podG);
-  for(const k of podKeys){const p=centreOf(k);if(!p)continue;const side=p[0]<0?"left":"right";
-    parts.push({key:"wheel"+k.slice(5),slot:"wheels",id:wh.id,cells:cellsOf(k),massKg:r3(wheelG/1000),hpJ:wh.hp*M.mass,
-      exposure:r3(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5),pos:[p[0]<0?-hw:hw,p[1]]});}
+  for(const q of wheelAt){const side=q[1]<0?"left":"right",pk=podKeys.find(k=>"wheel"+k.slice(5)===q[0]);
+    parts.push({key:q[0],slot:"wheels",id:wh.id,cells:pk?cellsOf(pk):[],massKg:r3(wheelG/1000),hpJ:wh.hp*M.mass*wb.hpMul,
+      exposure:r3(wh.exposure*(1-armourMapJ[side].prot*0.5)+K.faceWeight[side]*wh.exposure*0.5),pos:[q[1]*hw,q[2]]});}
+  if(wb.caster)parts.push({key:"caster",slot:"wheels",id:"caster",caster:true,cells:[],massKg:r3(wb.massG*M.mass/1000),hpJ:wb.casterHp*M.mass,
+    exposure:r3(0.3*(1-armourMapJ.back.prot*0.5)),pos:[0,-hl*0.85]});
   addPart("battery","battery",bt.id,bt.hp*M.mass,bt.massG*M.mass);
   addPart("electronics","electronics",el.id,el.hp*M.mass,el.massG*M.mass);
   if(wp.type!=="none"){if(wp.fp)addPart("weapon","weapon",wp.id,weapon.hpJ,structG+motorG+discG);
@@ -219,7 +233,9 @@ function evalBuild(cfgIn,opts){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip:wh.grip,
+    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip,
+    wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
+      wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe},
     limits:{batteryW:bt.dischargeW*M.power,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW:el.idleW*M.power,capW,batteryWs:bt.capacityWs*M.mass*K.usableBattery},
@@ -269,7 +285,7 @@ function fitBill(fitted,draft){const b=normCfg(draft),a=fitted&&fitted.cls===b.c
   let cost=0,hours=0;
   const add=(slot,id,face)=>{const p=part(slot,id);if(!p)return;const c=p.cost*M.cost,h=p.hours*M.hours;cost+=c;hours+=h;
     lines.push({slot,face:face||null,id,name:p.name,cost:Math.round(c),hours:Math.round(h*10)/10});};
-  for(const s of ["chassis","body","drive","wheels","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none"))add(s,b[s]);
+  for(const s of ["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon"])if((!a||a[s]!==b[s])&&!(s==="weapon"&&b[s]==="none")&&!(s==="wheelbase"&&b[s]==="std"))add(s,b[s]);
   if(b.weapon!=="none"&&(!a||a.weaponMaterial!==b.weaponMaterial||a.weapon!==b.weapon||!sameDisc(a.disc,b.disc)))add("weaponMaterial",b.weaponMaterial);   // a new disc profile is a new disc
   for(const f of FACES)if((!a||a.armour[f]!==b.armour[f])&&b.armour[f]!=="none")add("armour",b.armour[f],f);
   for(const e of b.extras)if(!a||a.extras.indexOf(e)<0)add("extras",e);
