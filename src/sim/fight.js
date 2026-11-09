@@ -59,7 +59,7 @@ const FIGHT={
   horizontal:{hsp:1,under:1}, // the spinners whose hits a sloped front turns (a vertical bites the edge instead) ...
   lip:{vsp:1.8,drum:1.3},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
   gyro:{vsp:0.3,drum:0.24,shell:0.5,ring:0.25},   // (0.1.34: a shell is the heaviest gyroscope of all)   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
-  gyroClass:{heavy:1.35},     // ... x this in a class (a heavyweight's disc is a flywheel the size of a manhole cover)
+  gyroClass:{heavy:1.35},gyroFloor:1.02,gyroFloorRound:1.05,   // ... x this in a class (a heavyweight's disc is a flywheel the size of a manhole cover); 0.1.35: whatever the gyro takes, full lock keeps gyroFloor x the scrub (it can always pivot, slowly; an all-round spinner, which has nothing to aim, gyroFloorRound)
   selfFlip:{vsp:0.01,drum:0.005},   // a full-power hit can throw a vertical spinner onto its back: this chance x the hit's share of full energy
   damageShare:0.4,            // a spinner hit's energy that goes into damage ...
   throwShare:0.15,            // ... and into throwing the target
@@ -457,7 +457,10 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const vL=o.vx*rt[0]+o.vy*rt[1]-vT,lat=Math.min(Math.abs(vL),lg);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
   /* yaw: the two sides' difference, less the scrub of turning a skid-steer */
   const gy=FIGHT.gyro[b.weapon.id]&&b.weapon.omega>0?1-Math.min(0.9,FIGHT.gyro[b.weapon.id]*(FIGHT.gyroClass[F.cls]||1))*Math.min(1,o.wp.om/b.weapon.omega):1;
-  o.w+=(FR-FL)*half/o.I*dt*gy*cw;const scrub=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag/o.I*dt*cw;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
+  const scrubT=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag;
+  /* never so much that full lock can't beat the scrub (0.1.35: a spun-up shell, or a heavyweight's disc, could not turn at all) */
+  const gyF=gy<1?Math.max(gy,Math.min(1,(b.weapon.allRound?FIGHT.gyroFloorRound:FIGHT.gyroFloor)*scrubT/Math.max(1e-9,2*half*Math.min(d.f0/2*p,b.grip*N/2*gripMul)))):1;
+  o.w+=(FR-FL)*half/o.I*dt*gyF*cw;const scrub=scrubT/o.I*dt*cw;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
   return draw;}
 
 function stepHeat(F,o,driveW,weaponW){const h=o.b.heat,q=o.heat,dt=F.dt,full=o.b.power;
