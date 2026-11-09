@@ -21,6 +21,9 @@ function showTab(t){
   save();}
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(b)showTab(b.dataset.tab);});
 
+/* a tab's own pages: a strip of text tabs under the title that stays at the top of the panel (0.1.43). opts: [[value, label html]] */
+function subNav(id,attr,opts,cur,label){return `<div class="subnav" id="${id}" role="group" aria-label="${label} pages">${opts.map(([v,l])=>`<button type="button" data-${attr}="${v}" class="${v===cur?"on":""}" aria-pressed="${v===cur}">${l}</button>`).join("")}</div>`;}
+
 /* ---- Settings ---- */
 function segHtml(id,attr,opts,cur){return `<div class="seg" id="${id}" role="group">${opts.map(([v,l,s])=>`<button type="button" data-${attr}="${v}" class="${String(v)===String(cur)?"on":""}" aria-pressed="${String(v)===String(cur)}">${l}${s?`<small>${s}</small>`:""}</button>`).join("")}</div>`;}
 function openSettings(){
