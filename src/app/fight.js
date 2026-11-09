@@ -64,7 +64,9 @@ function ftPit(){const B=FT.bout,F=FT.F;if(!B||B.over)return;const e=$("fEnd");i
   const fronts=pitFronts(B.bots[0].cfg),onFront=id=>{if(!B.front0)B.front0={id:B.bots[0].cfg.front||"none",dmg:B.dmg[0].front};   // 0.1.32: a front swap, for the rest of the bout
     B.bots=B.bots.slice();B.bots[0]=Object.assign({},B.bots[0],{cfg:Object.assign({},B.bots[0].cfg,{front:id})});
     if(B.front0.id===id&&B.front0.dmg!=null)B.dmg[0].front=B.front0.dmg;else delete B.dmg[0].front;};
-  PIT.open({host:$("fov"),b:F.bots[0].b,dmg:B.dmg[0],flags:B.flags[0],kit:B.kit,left:B.left[0],fronts,onFront,title:`Pit window · round ${B.n+1} next`,
+  /* 0.1.33: a dial turned for the rest of the bout (the fitted bot keeps its own) */
+  const onTune=(k,v)=>{B.bots=B.bots.slice();const c=B.bots[0].cfg;B.bots[0]=Object.assign({},B.bots[0],{cfg:Object.assign({},c,{tune:Object.assign({},SIM.normTune(c.tune),{[k]:v})})});};
+  PIT.open({host:$("fov"),b:F.bots[0].b,dmg:B.dmg[0],flags:B.flags[0],kit:B.kit,left:B.left[0],fronts,onFront,tunes:pitTunes(B.bots[0].cfg),onTune,cfg:()=>B.bots[0].cfg,title:`Pit window · round ${B.n+1} next`,
     onDone:r=>{B.pits.push({mine:r.done,lost:r.lost,theirs});ftNextRound();}});}
 function ftNextRound(){const B=FT.bout;const seed=B.ev?B.ev.seedN(B.n):(B.seed+Math.imul(B.n,0x9E3779B1))>>>0;
   const bots=B.bots.map((b,i)=>Object.assign({},b,{damage:clone(B.dmg[i]),flags:Object.assign({},B.flags[i])}));

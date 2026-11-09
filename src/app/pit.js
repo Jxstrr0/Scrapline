@@ -16,10 +16,18 @@
      pitFronts(cfg)                  0.1.32: the fronts this bot could swap to between rounds of a bout ([{id, name, cur, ok,
                                      why}], or null when its weapon is its own front). PIT.open's o.fronts and o.onFront(id)
                                      add a Front row; a swap takes REPAIR_TIMES.front and needs no kit count.
+     pitTunes(cfg)                   0.1.33: the tuning dials one step either way ([{k, name, v, label, steps:[{d, ok, why}]}]).
+                                     PIT.open's o.tunes, o.onTune(k, v) and o.cfg() (the bot as it stands) add a Dials row; a
+                                     step takes REPAIR_TIMES.tune and needs no kit count. Both rows follow o.cfg() after a job.
    The voices (0.1.16): the window opening and ten seconds left here; "pit's closed" starts the next round's intro (app/fight.js). */
-const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon",front:"Front swap"};
+const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery:"Battery swap",armour:"Armour panel",bodge:"Bodge",disc:"Spare weapon",front:"Front swap",tune:"Retune"};
 /* 0.1.32: a front attachment to suit the bot you're fighting, any one this bot could be fitted with (unlocked, still under
    the weight limit); the spare comes in the box, so no kit count. It lasts the rest of the bout (app/fight.js ftPit) */
+/* 0.1.33: a dial turned one step for the rest of the bout (sim/parts.js TUNE), if the bot stays under the limit */
+function pitTunes(cfg){const t=SIM.normTune(cfg.tune);
+  return SIM.TUNE_IDS.map(k=>{const T=SIM.TUNE[k],v=t[k];
+    return{k,name:T.name,v,label:T.labels[v-T.min],steps:[-1,1].map(d=>{const n=v+d;if(n<T.min||n>T.max)return{d,ok:false,why:"end of the dial"};
+      const r=SIM.evalBuild(Object.assign({},cfg,{tune:Object.assign({},t,{[k]:n})}));return{d,ok:!r.errors.length,why:r.errors.length?"over the limit":""};})};});}
 function pitFronts(cfg){const w=SIM.part("weapon",cfg.weapon);if(!w||SIM.OWN_FRONT.indexOf(w.type)>=0)return null;
   return SIM.PARTS.front.map(p=>{const lock=crPartLock("front",p.id),r=SIM.evalBuild(Object.assign({},cfg,{front:p.id}));
     return{id:p.id,name:p.name,cur:p.id===(cfg.front||"none"),ok:!lock&&!r.errors.length,why:lock||(r.errors.length?"over the limit":"")};});}
@@ -73,6 +81,7 @@ PIT.open=function(o){PIT.close();Object.assign(PIT,{on:true,o,kit:o.kit,t:PIT_S,
     <div class="fpitjob" id="fPitJob" hidden><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div>
     <div class="fpitbody"><canvas class="fpitsil" id="fPitSil" width="88" height="88" aria-hidden="true"></canvas><ul class="fpitlist" id="fPitList"></ul></div>
     ${o.fronts?`<div class="fpitfront"><b>Front</b> <span class="fpitopts" id="fPitFront"></span></div>`:""}
+    ${o.tunes?`<div class="fpitfront fpittune"><b>Dials</b> <span id="fPitTune"></span></div>`:""}
     <p class="vh" id="fPitSay" role="status" aria-live="polite"></p>
     <div class="row"><button type="button" class="btn pri" data-pit="ready" id="fPitReady">Ready</button></div>`;
   o.host.appendChild(el);o.host.classList.add("pitting");el.addEventListener("click",pitClick);PIT.el=el;pitRender();
@@ -82,11 +91,16 @@ PIT.close=function(){if(PIT.raf)cancelAnimationFrame(PIT.raf);PIT.raf=0;if(PIT.e
 function pitEnd(lost){const o=PIT.o,done=PIT.done;PIT.close();if(o&&o.onDone)o.onDone({done,lost:lost||null});}
 function pitFrame(now){PIT.raf=0;if(!PIT.on)return;const dt=Math.min(0.25,Math.max(0,(now-PIT.last)/1000));PIT.last=now;
   if(!document.hidden&&curTab==="fight"){const t0=PIT.t;PIT.t-=dt;
-    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;if(j.kind==="front"){o.onFront(j.key);o.fronts=o.fronts.map(f=>Object.assign({},f,{cur:f.id===j.key}));}else pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);shopSfx("drill");
+    const j=PIT.job;if(j){j.left-=dt;if(j.left<=1e-6&&j.left+dt<=t0+1e-6){const o=PIT.o;if(j.kind==="front"||j.kind==="tune"){pitChange(o,j);}else pitApply(o.b,o.dmg,o.flags,j.key,j.kind);PIT.done.push({key:j.key,kind:j.kind});PIT.job=null;buzz(15);shopSfx(j.kind==="tune"?"dial":"drill");
         pitRender();pitSay(`${PIT_NAMES[j.kind]} done: ${j.name}`);}}   // done in time (even in the frame the clock runs out)
     if(Math.ceil(t0)>10&&Math.ceil(PIT.t)<=10){pitSay("Ten seconds left");SCRAP_VOICE.say("pit10");}
     if(PIT.t<=0){pitEnd(PIT.job?PIT.job:null);return;}}
   pitTick();PIT.raf=requestAnimationFrame(pitFrame);}
+/* a front swap or a dial step is done: the bot changes for the rest of the bout, and both rows follow it */
+function pitChange(o,j){if(j.kind==="front")o.onFront(j.key);else{const p=j.key.split(":");o.onTune(p[0],+p[1]);}
+  const cfg=o.cfg?o.cfg():null;
+  if(o.fronts)o.fronts=cfg?pitFronts(cfg):o.fronts.map(f=>Object.assign({},f,{cur:f.id===j.key}));
+  if(o.tunes&&cfg)o.tunes=pitTunes(cfg);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
   const j=PIT.job,box=$("fPitJob");if(box){box.hidden=!j;if(j){$("fPitJobT").textContent=`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`;$("fPitJobBar").style.width=Math.round((1-j.left/j.total)*100)+"%";}}}
 function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
@@ -97,12 +111,16 @@ function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitI
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
   const FR=$("fPitFront");if(FR&&o.fronts)FR.innerHTML=o.fronts.map(f=>f.cur?`<button type="button" class="btn sm on" disabled aria-pressed="true">${esc(f.name)} <small>on</small></button>`
     :`<button type="button" class="btn sm${f.ok?"":" off"}" data-pitkey="${esc(f.id)}" data-pitkind="front"${f.ok&&!busy&&tmPitS("front")<=PIT.t?"":" disabled"} title="${esc(f.why)}">${esc(f.name)} <small>${tmPitS("front")} s${f.why?" · "+esc(f.why):""}</small></button>`).join("");
+  const TU=$("fPitTune"),tS=tmPitS("tune");if(TU&&o.tunes)TU.innerHTML=o.tunes.map(u=>`<span class="fpitdial"><span>${esc(u.name)} <b>${esc(u.label.toLowerCase())}</b></span>${u.steps.map(s=>`<button type="button" class="btn sm${s.ok?"":" off"}" data-pitkey="${u.k}:${u.v+s.d}" data-pitkind="tune"${s.ok&&!busy&&tS<=PIT.t?"":" disabled"} title="${esc(s.why)}" aria-label="${esc(u.name)} ${s.d<0?"down":"up"}, ${tS} seconds${s.why?", "+esc(s.why):""}">${s.d<0?"−":"+"}</button>`).join("")}</span>`).join("")+`<small>${tS} s a step</small>`;
   ftSil($("fPitSil"),{b:o.b},pitStates(o),88);
   const rb=$("fPitReady");if(rb){rb.textContent=busy?"Ready (stop the repair)":"Ready";if(lost)rb.focus({preventScroll:true});}}   // the list was rebuilt: keep the focus in the panel
 function pitStates(o){const st=SIM.damageState(o.b,o.dmg),s=SIM.partStates(o.b,st);if(o.flags.bent&&s.weapon==="intact")s.weapon="damaged";return s;}
 function pitClick(e){const x=e.target.closest("[data-pit],[data-pitkey]");if(!x||!PIT.on)return;
-  if(x.dataset.pit==="ready"){const j=PIT.job;if(j&&j.kind!=="front")PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
+  if(x.dataset.pit==="ready"){const j=PIT.job;if(j&&j.kind!=="front"&&j.kind!=="tune")PIT.o.left[j.kind]++;   // stopped before it started to matter: the spare goes back in the kit
     PIT.job=null;pitEnd(null);return;}
-  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey,fr=kind==="front";
-  if(fr?!(o.fronts&&o.fronts.some(f=>f.id===key&&f.ok&&!f.cur)):!(o.left[kind]>0))return;if(tmPitS(kind)>PIT.t)return;
-  if(!fr)o.left[kind]--;PIT.job={key,kind,name:fr?SIM.part("front",key).name.toLowerCase():pitName(o.b,key),left:tmPitS(kind),total:tmPitS(kind)};buzz(8);pitRender();pitTick();}
+  if(PIT.job)return;const o=PIT.o,kind=x.dataset.pitkind,key=x.dataset.pitkey,fr=kind==="front",tu=kind==="tune",tp=tu?key.split(":"):null;
+  const tw=tu&&o.tunes?o.tunes.find(u=>u.k===tp[0]):null,ts=tw?tw.steps.find(s=>tw.v+s.d===+tp[1]):null;
+  if(fr?!(o.fronts&&o.fronts.some(f=>f.id===key&&f.ok&&!f.cur)):tu?!(ts&&ts.ok):!(o.left[kind]>0))return;if(tmPitS(kind)>PIT.t)return;
+  if(!fr&&!tu)o.left[kind]--;
+  const nm=fr?SIM.part("front",key).name.toLowerCase():tu?`${tw.name.toLowerCase()} ${ts.d<0?"down":"up"} to ${SIM.TUNE[tw.k].labels[+tp[1]-SIM.TUNE[tw.k].min].toLowerCase()}`:pitName(o.b,key);
+  PIT.job={key,kind,name:nm,left:tmPitS(kind),total:tmPitS(kind)};buzz(8);pitRender();pitTick();}

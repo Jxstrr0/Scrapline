@@ -11,7 +11,7 @@
 
    A config (cfg) is plain JSON, the same shape for the player, designs and opponents:
      {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, wheelbase, battery, electronics, weapon, weaponMaterial,
-      extras:[ids], layout:{<part key>:[x,y]}}
+      front, back, extras:[ids], layout:{<part key>:[x,y]}, tune:{volt, wheel, bias}}   (tune: whole steps, TUNE below)
    Layout keys: drive0..drive3, battery, electronics, weapon, and extras that take cells (selfright, minibot). x runs
    left to right across the chassis, y from the front row (0) to the back. Missing or illegal places are filled by
    autoLayout(), so a cfg without a layout is still a whole bot. ---- */
@@ -210,6 +210,30 @@ const PARTS={
    (not the saw). */
 const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite:0.88,recoil:0.85}},
   rim:{light:{mass:0.85,shapeK:0.9,name:"light rim"},mid:{mass:1,shapeK:1,name:"medium rim"},heavy:{mass:1.2,shapeK:1.12,name:"heavy rim"}},nameMax:24};
+/* the tuning dials (0.1.33, Kelbo): three free settings on any bot, cfg.tune {volt, wheel, bias}, each a whole step from
+   min to max (0 is stock). Free to turn (no parts, no hours), like moving parts on the grid. Per step:
+     volt   more cells in series: the battery's mass, capacity and discharge x (1 + cells), the motors' power x
+            (1 + power), drive speed and force, spinner rpm and hammer energy x (1 + speed), heat x (1 + heat) (never
+            below heatMin). Up is faster and harder hitting, heavier and hotter; down runs cool and light.
+     wheel  wheel diameter x (1 + size): ride height follows (sim/build.js, proud), wheel mass x (1 + mass), top speed x
+            (1 + speed), push x (1 + force), wheel exposure x (1 + exposure). Big wheels drive upside down and run
+            fast but lift the front edge for wedges; small ones push and sit low.
+     bias   ballast shifted along the bot: the centre of mass moves com x the length (+ forward), the front edge x
+            (1 + edge) (a heavy nose sits down on the floor), push x (1 + push) (a heavy tail loads the wheels).
+   labels: what the Build tab shows at each step, min first. */
+const TUNE={
+  volt: {min:-2,max:2,name:"Voltage",   cells:0.14,power:0.18,speed:0.06,heat:0.4,heatMin:0.4,labels:["Low","Lower","Stock","Higher","High"],
+    line:"More cells: faster, harder hitting, heavier and hotter. Fewer: cool and light."},
+  wheel:{min:-2,max:2,name:"Wheel size",size:0.15,mass:0.2,speed:0.08,force:-0.08,exposure:0.12,labels:["Smallest","Small","Stock","Big","Biggest"],
+    line:"Big wheels ride high: fast, and they drive upside down, but wedges get under you. Small ones sit low and push."},
+  bias: {min:-2,max:2,name:"Weight bias",com:0.04,edge:-0.12,push:-0.03,labels:["Tail","Back","Centre","Front","Nose"],
+    line:"A heavy nose keeps the front edge on the floor; a heavy tail loads the wheels for pushing."}
+};
+const TUNE_IDS=["volt","wheel","bias"];
+/* a cfg's dials, cleaned: whole steps inside each dial's range, 0 for anything else */
+function normTune(t){const o={};t=t&&typeof t==="object"?t:{};
+  for(const k of TUNE_IDS){const v=Math.round(+t[k]);o[k]=isFinite(v)?Math.max(TUNE[k].min,Math.min(TUNE[k].max,v)):0;}
+  return o;}
 /* a minibot (extras "minibot", R&D, PR 8) is a real little bot: at the bell it drops off its parent as a small AI-driven
    wedge on the same team. It shoves and distracts but doesn't count for knockouts or the judges, and stops when its
    parent is out. It is built as cfg in the class below (cls: the class it's built in, by its parent's class; an
@@ -224,7 +248,8 @@ function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if
 /* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
 const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
-  drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",front:"none",back:"none",extras:[],layout:{}};
+  drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",front:"none",back:"none",extras:[],layout:{},
+  tune:{volt:0,wheel:0,bias:0}};
 
 /* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
    part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them
@@ -237,6 +262,7 @@ function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,
   o.extras=Array.isArray(cfg.extras)?cfg.extras.filter((e,i,l)=>part("extras",e)&&l.indexOf(e)===i):[];
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
+  o.tune=normTune(cfg.tune);   // 0.1.33: the tuning dials (all 0 for a cfg from before them)
   const dp=normDisc(cfg.disc);if(dp&&part("weapon",o.weapon).type==="spinner")o.disc=dp;   // spinners only
   return o;}
 /* a disc profile, cleaned: {name, teeth, rim}, or null for the stock disc (or anything that isn't one) */

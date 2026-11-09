@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.32.0";
+const VERSION="0.1.33.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -155,7 +155,7 @@ const PIT_KITS={
 /* pit-window repairs: seconds and what each does. A swap puts the part back to new; a bodge patches any damaged or
    destroyed part (not the chassis or a bent disc) to half strength. belt: a damaged weapon (not bent); disc: a bent or
    wrecked weapon (pro kit only). A swapped battery stops smoking; a bodged speed controller brings its side back. */
-const REPAIR_TIMES={wheel:15,belt:20,pod:35,battery:25,armour:30,bodge:10,disc:30,front:15};   // front: a front attachment swapped between rounds (0.1.32)
+const REPAIR_TIMES={wheel:15,belt:20,pod:35,battery:25,armour:30,bodge:10,disc:30,front:15,tune:10};   // front: a front attachment swapped between rounds (0.1.32); tune: one step of a dial (0.1.33)
 const PIT_S=60;
 /* driving assists by driver skill (app/controls.js): straighten holds the heading when you aren't steering (x the spin
    rate), turnDamp softens and smooths the steering (more at speed), autoSpin spins a disc up only when an enemy is near.
