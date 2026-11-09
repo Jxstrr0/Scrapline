@@ -2,8 +2,10 @@
    Prove the bot before it fights (docs/SCRAPLINE-PLAN.md section 6). The bench tests the FITTED bot of the class on the
    Build tab, not the draft (Kelbo, PR 3): before anything is fitted it offers to fit the draft, and it says when the draft
    has changes that aren't fitted yet. The rig is safe: nothing a test breaks stays broken.
-   - Six tests (SIM.BENCH_TESTS, sim/bench.js): drive and weapon are free and instant; impact, wedge gauge, endurance and
-     drop cost workshop hours (charged once the career exists, PR 7; free until then). "Run all six" runs the lot.
+   - Seven tests (SIM.BENCH_TESTS, sim/bench.js): drive and weapon are free and instant; impact, wedge gauge, endurance,
+     drop and the test dummy cost workshop hours (charged once the career exists, PR 7; free until then). "Run all seven"
+     runs the lot. The test dummy (0.1.38) is three real fights against boxes that don't fight back; Watch plays one back
+     in the fight view as a replay (bnWatch; FT.ext.kind "bench").
    - Each test card draws a small canvas readout (a trace or bars) and the measured numbers in words.
    - Which tests have run is kept per class in S.bots[cls].bench = {sig, done:[ids]}; sig is the fitted cfg, so refitting
      or moving a part makes the results stale ("run them again"). Results are worked out again from the cfg (the sim is
@@ -17,7 +19,8 @@ const BN_DESC={
   impact:"A swinging mass hits each face harder and harder until something behind it breaks: when the plate gives and which part dies first.",
   gauge:"Feeler gauges at the edge heights common in this class, slid under your front edge.",
   endurance:"Fight-pace bursts of drive and weapon until the battery is flat: runtime, heat, and when the motors back off.",
-  drop:"Dropped from a big flipper throw, landing on its wheels and upside down: what breaks, and whether it can carry on."
+  drop:"Dropped from a big flipper throw, landing on its wheels and upside down: what breaks, and whether it can carry on.",
+  dummy:"Your bot let loose on three boxes that don't fight back, soft to hard, for 20 seconds each: the hits it lands, the damage they do and what breaks. Watch plays one back."
 };
 /* a bot's signature: its parts and where they actually sit (autoLayout), so putting a part back where it was, or writing
    down the automatic place, isn't a change */
@@ -42,7 +45,7 @@ function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=c
   const was=bnDone(bot),done=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>was.indexOf(id)>=0||ids.indexOf(id)>=0);
   bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids){BN.anim[id]=now;BN.open[id]=true;}
   save();hud();bnRender();buzz(12);shopSfx("clamp");
-  toast(ids.length>1?`All six tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
+  toast(ids.length>1?`All seven tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
 
 /* ---- the words under each canvas ---- */
 const bn1=v=>(Math.round(v*10)/10).toLocaleString("en-GB"),bn0=v=>Math.round(v).toLocaleString("en-GB");
@@ -81,12 +84,22 @@ const BN_TEXT={
       `On its wheels: ${up.canDrive?'<span class="ok">drives away</span>':'<span class="broke">can\'t drive</span>'}${dead.length?` · ${bnPartList(dead)} destroyed`:up.worst&&up.worst.frac>0.01?` · worst: ${esc(up.worst.name)} at ${bn0(up.worst.frac*100)}%`:" · not a scratch"}`,
       `Upside down: ${inv.outcome==="drives"?'<span class="ok">drives away inverted</span>':inv.outcome==="rights"?'<span class="ok">puts itself back</span>':'<span class="broke">stuck: that\'s a knockout</span>'}${inv.parts.some(p=>p.destroyed)?` · ${bnPartList(inv.parts.filter(p=>p.destroyed))} destroyed`:""}`];}
 };
-const BN_ARIA={drive:r=>`Speed over time, reaching ${bn1(r.topSpeed)} m/s`,impact:r=>`Energy each face takes before a part breaks; weakest ${r.weakest?FACE_LBL[r.weakest].toLowerCase():"none"}`,
+BN_TEXT.dummy=(r,b)=>{const any=r.rows.some(q=>q.share>0.005),self=Math.max(...r.rows.map(q=>q.selfShare));
+  return r.rows.map(q=>{const bits=[q.hits?`${q.hits} hit${q.hits===1?"":"s"}, biggest ${rd(bn0(q.bigJ)+" J")}`:q.bigJ>0?`no weapon hits, rams up to ${bn0(q.bigJ)} J`:"no hits",
+      q.share>0.005?`${rd(bn0(q.share*100)+"%")} damage`:'<span class="worn">nothing gets through</span>'];
+    if(q.first)bits.push(`${esc(q.first.name)} destroyed at ${bn1(q.first.t)} s`);
+    if(q.outT!=null)bits.push(`<span class="ok">disabled in ${bn1(q.outT)} s</span>`);
+    if(q.invT!=null)bits.push(q.stuck?`<span class="ok">on its back at ${bn1(q.invT)} s, and stuck there</span>`:`on its back at ${bn1(q.invT)} s`);
+    return`<b>${esc(q.name)}</b> <small>(${esc(q.line)}, ${bn1(q.massKg)} kg)</small>: ${bits.join(" · ")} <button type="button" class="lnk" data-dummy="${q.id}" aria-label="Watch the ${esc(q.name)} test">Watch</button>`;})
+    .concat(any?[]:["Your bot doesn't break these: it wins by pushing, flipping and control, which the judges score."])
+    .concat(self>0.005?[`<span class="worn">It cost your own bot up to ${bn0(self*100)}% damage (recoil and its own hits)</span>`]:[]);};
+const BN_ARIA={dummy:r=>`Damage to each dummy in ${r.S} seconds: ${r.rows.map(q=>`${q.name} ${bn0(q.share*100)}%`).join(", ")}`,drive:r=>`Speed over time, reaching ${bn1(r.topSpeed)} m/s`,impact:r=>`Energy each face takes before a part breaks; weakest ${r.weakest?FACE_LBL[r.weakest].toLowerCase():"none"}`,
   gauge:r=>`${r.under} of ${r.rows.length} gauges get under the ${bn1(r.edgeMm)} mm edge`,endurance:r=>`Battery and motor heat over ${bn0(r.ranS)} seconds`,
   drop:r=>`Damage from the drop, on its wheels and upside down`,weapon:r=>r.kind==="spin"?`Disc speed over time${r.spinUpS!=null?`, full in ${bn1(r.spinUpS)} s`:", never full"}`:`${r.name} test`};
 
 /* ---- canvas readouts ---- */
 const BN_KEY={   // the key under a chart: [colour token, words]
+  dummy:r=>[["--lilac",`damage done in ${r.S} s`],["--good","disabled"]],
   impact:()=>[["--lilac","the plate takes it"],["--warn","parts take damage"],["--crit-t","a part dies"]],
   endurance:r=>[["--lilac","battery"],["--warn","drive heat"]].concat(r.hasWeapon?[["--crit-t","weapon heat"]]:[]),
   gauge:()=>[["--crit-t","gets under you"],["--good","you get under"],["--warn","too close"]]};
@@ -108,6 +121,8 @@ function bnBars(g,w,h,p,rows,max){   // rows: [{label, parts:[{v, col}], mark, m
     for(const s of r.parts){const x1=Math.min(1,s.v)*p;if(x1>x0){g.fillStyle=s.col;g.fillRect(L+(w-L-R)*x0,yc-bh/2,(w-L-R)*(x1-x0),bh);x0=x1;}}
     if(r.mark!=null&&p>=1){g.fillStyle=r.markCol||bnCol("--crit-t");g.fillRect(L+(w-L-R)*Math.min(1,r.mark)-1.5,yc-bh/2-3,3,bh+6);}});}
 const BN_PLOT={
+  dummy:(g,w,h,p,r)=>{const mx=Math.max(0.25,...r.rows.map(q=>q.share))*1.1,lab={ply:"Ply",alu:"Alu",steel:"Brick"};
+    bnBars(g,w,h,p,r.rows.map(q=>({label:lab[q.id]||q.id,parts:[{v:Math.max(q.share>0?0.01:0,q.share/mx),col:bnCol("--lilac")}],mark:q.outT!=null?q.share/mx:null,markCol:bnCol("--good")})),1);},
   drive:(g,w,h,p,r)=>{const tr=r.trace,xm=tr.length?tr[tr.length-1][0]:1,ym=Math.max(r.predicted,r.topSpeed,0.1)*1.15,F=bnFrame(g,w,h,{xmax:xm||1,ymax:ym,ytop:bn1(ym)+" m/s",xr:bn1(xm)+" s"});
     bnHline(g,F,r.predicted,bnCol("--dim"),"predicted",w);bnLine(g,F,tr.map(q=>[q[0],q[1]]),p,bnCol("--lilac"));},
   weapon:(g,w,h,p,r)=>{
@@ -149,10 +164,10 @@ function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls
   const b=bnBuild(bot.cfg).b,done=bnDone(bot),stale=bot.bench&&bot.bench.sig&&bot.bench.sig!==bnSig(bot.cfg),wp=SIM.part("weapon",bot.cfg.weapon);
   const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg));
   const paid=SIM.BENCH_TESTS.filter(t=>t.hours>0).map(t=>t.id),hAll=bnHours(SIM.BENCH_TESTS.map(t=>t.id));
-  let html=chips+`<div class="card bnbot"><h3>${esc(c.name)} · ${esc(wp?wp.name:"")}</h3><p>${fmtG(b.totalG)} of ${fmtG(b.limitG)} · ${SIM.part("chassis",bot.cfg.chassis).name} · ${done.length} of 6 tests run</p>
+  let html=chips+`<div class="card bnbot"><h3>${esc(c.name)} · ${esc(wp?wp.name:"")}</h3><p>${fmtG(b.totalG)} of ${fmtG(b.limitG)} · ${SIM.part("chassis",bot.cfg.chassis).name} · ${done.length} of ${SIM.BENCH_TESTS.length} tests run</p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The bench tests what\'s fitted. <button type="button" class="lnk" data-bn="build">Open Build</button></p>':""}
     ${stale&&!done.length?'<p class="hint worn">The bot has changed since its last tests. Run them again.</p>':""}
-    <div class="row"><button type="button" class="btn pri" data-run="all">Run all six · ${hAll} h</button></div>
+    <div class="row"><button type="button" class="btn pri" data-run="all">Run all seven · ${hAll} h</button></div>
     <p class="hint">Drive and weapon tests are free. ${career?`You have ${career.hours||0} h in the workshop this week.`:"The others take workshop hours, charged once the career starts."}</p></div>`;
   for(const t of SIM.BENCH_TESTS){const has=done.indexOf(t.id)>=0,h=bnHours([t.id]);
     html+=`<div class="card bn" data-test="${t.id}"><div class="bnh"><h3>${t.name}</h3><span class="cost">${h?h+" h":"free"}</span><button type="button" class="btn sm${has?" ghost":""}" data-run="${t.id}">${has?"Again":"Run"}</button></div>`;
@@ -164,7 +179,15 @@ function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls
   html+=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
     <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
   el.innerHTML=html;bnPlots();}
+/* play a test dummy run back in the fight view: the same fight again from its spec (the sim is deterministic), as a replay */
+function bnWatch(id){const bot=bBot();if(!bot.cfg||FT.on)return;if(FT.bout&&!FT.bout.over){toast("Finish the bout on the Fight tab first");return;}const c=bnBuild(bot.cfg),row=bnResult(bot.cfg,"dummy").rows.find(q=>q.id===id),d=SIM.BENCH_DUMMIES.find(q=>q.id===id);if(!row||!d)return;
+  const sp=SIM.benchDummySpec(c.b,d);sp.bots[0].name=lvBotName(c.b.cls);sp.bots[0].livery=lvMine();lvField(sp.bots);
+  const log={seed:sp.seed,arena:sp.arena,rules:sp.rules,steps:row.steps,bots:sp.bots,inputs:{}};let F;
+  try{F=ftRpFight(log,row.steps);}catch(e){toast("That test wouldn't play back");return;}
+  F.recorded=true;FT.rounds=[{F,log}];FT.rv=0;FT.bout=null;FT.rp=null;FT.ext={kind:"bench",dummy:d.name};FT.sig=bnSig(bot.cfg);
+  showTab("fight");ftReplay(0);}
 function bnClick(e){const t=e.target;let x;
+  if((x=t.closest("[data-dummy]"))){bnWatch(x.dataset.dummy);return;}
   if((x=t.closest("[data-run]"))){const id=x.dataset.run;bnRun(id==="all"?SIM.BENCH_TESTS.map(q=>q.id):[id]);return;}
   if((x=t.closest("[data-bncls]"))){ST().buildCls=x.dataset.bncls;B.sel=null;B.delKey=null;save();bnRender();return;}
   if((x=t.closest("[data-bn]"))){const a=x.dataset.bn;if(a==="build")showTab("build");else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}}}

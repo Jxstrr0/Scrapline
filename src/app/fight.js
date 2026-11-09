@@ -520,7 +520,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
     ${R?ftResHtml(R):""}${rlCard()}${rcCard()}`;
   if(R)ftResPost(R);}
 /* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
-function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":"From a replay code":FT.bout?"The bout":"Last fight";
+function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?"The bout":"Last fight";
   return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
     ${rpHtml(R)}
     <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;}
