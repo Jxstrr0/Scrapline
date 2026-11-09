@@ -169,15 +169,18 @@ function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls
     ${stale&&!done.length?'<p class="hint worn">The bot has changed since its last tests. Run them again.</p>':""}
     <div class="row"><button type="button" class="btn pri" data-run="all">Run all seven · ${hAll} h</button></div>
     <p class="hint">Drive and weapon tests are free. ${career?`You have ${career.hours||0} h in the workshop this week.`:"The others take workshop hours, charged once the career starts."}</p></div>`;
+  /* what the tests add up to goes above them once one has been run (0.1.44): the answer first, the working under it */
+  const m=benchMeasured(cls,bot.cfg),st=SIM.stressReport(b,m||{});
+  const says=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
+    <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
+  if(m)html+=says;
   for(const t of SIM.BENCH_TESTS){const has=done.indexOf(t.id)>=0,h=bnHours([t.id]);
     html+=`<div class="card bn" data-test="${t.id}"><div class="bnh"><h3>${t.name}</h3><span class="cost">${h?h+" h":"free"}</span><button type="button" class="btn sm${has?" ghost":""}" data-run="${t.id}">${has?"Again":"Run"}</button></div>`;
     if(has){const r=bnResult(bot.cfg,t.id);
       html+=`<canvas class="plot" data-plot="${t.id}" role="img" aria-label="${esc(BN_ARIA[t.id](r))}"></canvas>${BN_KEY[t.id]?`<p class="bnkey">${BN_KEY[t.id](r).map(k=>`<span><i style="background:var(${k[0]})"></i>${k[1]}</span>`).join("")}</p>`:""}<ul class="bnk">${BN_TEXT[t.id](r,b).map(s=>`<li>${s}</li>`).join("")}</ul>`;}
     else html+=`<p class="bnd">${BN_DESC[t.id]}</p>`;
     html+=`</div>`;}
-  const m=benchMeasured(cls,bot.cfg),st=SIM.stressReport(b,m||{});
-  html+=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
-    <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
+  if(!m)html+=says;
   el.innerHTML=html;bnPlots();}
 /* play a test dummy run back in the fight view: the same fight again from its spec (the sim is deterministic), as a replay */
 function bnWatch(id){const bot=bBot();if(!bot.cfg||FT.on)return;if(FT.bout&&!FT.bout.over){toast("Finish the bout on the Fight tab first");return;}const c=bnBuild(bot.cfg),row=bnResult(bot.cfg,"dummy").rows.find(q=>q.id===id),d=SIM.BENCH_DUMMIES.find(q=>q.id===id);if(!row||!d)return;

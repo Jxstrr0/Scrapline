@@ -97,7 +97,7 @@ function ftWatchScore(){const k=FT.watch?FT.watch.k:FT.rounds.length-1,me=FT.rou
   for(let j=0;j<=k&&j<FT.rounds.length;j++){const w=FT.rounds[j].F.winner;if(w==null)continue;if(w===me)a++;else b++;}return{me:a,them:b};}
 function ftEvPit(){const B=FT.bout,sp=B&&B.ev&&B.ev.pit(),F=FT.F;if(!sp){ftEvBack();return;}const e=$("fEnd");if(e)e.hidden=true;
   PIT.open({host:$("fov"),b:F.bots[0].b,dmg:sp.dmg,flags:sp.flags,kit:sp.kit,left:sp.left,title:sp.title,onDone:()=>{save();ftEvBack();}});}
-function ftEvBack(){ftExit();showTab("career");}
+function ftEvBack(){ftExit();CR.sub="week";showTab("career");}
 /* the round shown on the results card */
 const ftShown=()=>FT.rounds[FT.rv]?FT.rounds[FT.rv].F:null;
 /* ---- replay: the same fight again from its log ---- */
@@ -585,7 +585,7 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="build")showTab("build");
     else if(a==="rcode")rcShareOpen();
     else if(a==="fix"){const id=x.dataset.sec;B.open={[id]:true};showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
-    else if(a==="career")showTab("career");
+    else if(a==="career"){CR.sub="week";showTab("career");}
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
   if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;FT.ext=null;save();ftRender();visBot();return;}

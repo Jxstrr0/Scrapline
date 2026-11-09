@@ -627,7 +627,7 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
     <!-- SHOP: tools, workshop, pit kits, saves -->
     <section class="tabpage" id="tab-shop" aria-labelledby="h-shop">
       <h2 id="h-shop">Shop</h2>
-      <p class="lede">Tools, the workshop, pit kits and the books.</p>
+      <p class="lede" id="shLede">Tools, the workshop, pit kits and the books.</p>
       <div id="shBody"></div>
       <div class="card" id="savesCard"><h3>Saves</h3><p>A backup code holds your whole game. Keep it somewhere safe, or paste it into Restore on another phone.</p>
         <div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
@@ -5391,7 +5391,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.43.0";
+const VERSION="0.1.44.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6023,7 +6023,7 @@ function buRemind(tries){if(buReminded||!buRemindDue())return;
     bar.innerHTML='<span id="bkBarTxt"></span><button type="button" class="btn sm pri" id="bkBarGo">Saves</button><button type="button" class="pwalater" id="bkBarLater" aria-label="Dismiss the backup reminder">Later</button>';
     ($("app")||document.body).appendChild(bar);
     $("bkBarLater").addEventListener("click",buRemindHide);
-    $("bkBarGo").addEventListener("click",()=>{buRemindHide();if(buBusy())return;showTab("shop");
+    $("bkBarGo").addEventListener("click",()=>{buRemindHide();if(buBusy())return;SH.sub="saves";showTab("shop");
       const c=$("savesCard");if(c)c.scrollIntoView({block:"center",behavior:reduced()?"auto":"smooth"});});}
   const d=buNum(S.lastBackup)&&S.lastBackup>0?Math.floor((Date.now()-S.lastBackup)/864e5):-1;
   $("bkBarTxt").textContent=d<0?"No backup yet. Keep a copy off this phone.":`Last backup ${d} days ago. Time for a fresh one.`;
@@ -6709,15 +6709,18 @@ function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls
     ${stale&&!done.length?'<p class="hint worn">The bot has changed since its last tests. Run them again.</p>':""}
     <div class="row"><button type="button" class="btn pri" data-run="all">Run all seven · ${hAll} h</button></div>
     <p class="hint">Drive and weapon tests are free. ${career?`You have ${career.hours||0} h in the workshop this week.`:"The others take workshop hours, charged once the career starts."}</p></div>`;
+  /* what the tests add up to goes above them once one has been run (0.1.44): the answer first, the working under it */
+  const m=benchMeasured(cls,bot.cfg),st=SIM.stressReport(b,m||{});
+  const says=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
+    <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
+  if(m)html+=says;
   for(const t of SIM.BENCH_TESTS){const has=done.indexOf(t.id)>=0,h=bnHours([t.id]);
     html+=`<div class="card bn" data-test="${t.id}"><div class="bnh"><h3>${t.name}</h3><span class="cost">${h?h+" h":"free"}</span><button type="button" class="btn sm${has?" ghost":""}" data-run="${t.id}">${has?"Again":"Run"}</button></div>`;
     if(has){const r=bnResult(bot.cfg,t.id);
       html+=`<canvas class="plot" data-plot="${t.id}" role="img" aria-label="${esc(BN_ARIA[t.id](r))}"></canvas>${BN_KEY[t.id]?`<p class="bnkey">${BN_KEY[t.id](r).map(k=>`<span><i style="background:var(${k[0]})"></i>${k[1]}</span>`).join("")}</p>`:""}<ul class="bnk">${BN_TEXT[t.id](r,b).map(s=>`<li>${s}</li>`).join("")}</ul>`;}
     else html+=`<p class="bnd">${BN_DESC[t.id]}</p>`;
     html+=`</div>`;}
-  const m=benchMeasured(cls,bot.cfg),st=SIM.stressReport(b,m||{});
-  html+=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
-    <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
+  if(!m)html+=says;
   el.innerHTML=html;bnPlots();}
 /* play a test dummy run back in the fight view: the same fight again from its spec (the sim is deterministic), as a replay */
 function bnWatch(id){const bot=bBot();if(!bot.cfg||FT.on)return;if(FT.bout&&!FT.bout.over){toast("Finish the bout on the Fight tab first");return;}const c=bnBuild(bot.cfg),row=bnResult(bot.cfg,"dummy").rows.find(q=>q.id===id),d=SIM.BENCH_DUMMIES.find(q=>q.id===id);if(!row||!d)return;
@@ -7030,7 +7033,7 @@ function ftWatchScore(){const k=FT.watch?FT.watch.k:FT.rounds.length-1,me=FT.rou
   for(let j=0;j<=k&&j<FT.rounds.length;j++){const w=FT.rounds[j].F.winner;if(w==null)continue;if(w===me)a++;else b++;}return{me:a,them:b};}
 function ftEvPit(){const B=FT.bout,sp=B&&B.ev&&B.ev.pit(),F=FT.F;if(!sp){ftEvBack();return;}const e=$("fEnd");if(e)e.hidden=true;
   PIT.open({host:$("fov"),b:F.bots[0].b,dmg:sp.dmg,flags:sp.flags,kit:sp.kit,left:sp.left,title:sp.title,onDone:()=>{save();ftEvBack();}});}
-function ftEvBack(){ftExit();showTab("career");}
+function ftEvBack(){ftExit();CR.sub="week";showTab("career");}
 /* the round shown on the results card */
 const ftShown=()=>FT.rounds[FT.rv]?FT.rounds[FT.rv].F:null;
 /* ---- replay: the same fight again from its log ---- */
@@ -7518,7 +7521,7 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="build")showTab("build");
     else if(a==="rcode")rcShareOpen();
     else if(a==="fix"){const id=x.dataset.sec;B.open={[id]:true};showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
-    else if(a==="career")showTab("career");
+    else if(a==="career"){CR.sub="week";showTab("career");}
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
   if((x=t.closest("[data-ftcls]"))){ST().buildCls=x.dataset.ftcls;B.sel=null;B.delKey=null;FT.F=null;FT.rounds=[];FT.bout=null;FT.ext=null;save();ftRender();visBot();return;}
@@ -8033,9 +8036,14 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-rl]");if(!
    Saves: the three save slots ("scr-slot1".."scr-slot3": save the current game into one, or load one; loading keeps this
    phone's settings, loadSlot in app/state.js), then the Saves card (backup codes and files; its buttons are wired in
    app/savecode.js by their data-bu attribute). */
-const SH={ask:null};   // which slot button is waiting for "Sure?"
+const SH={ask:null,sub:"shop"};   // which slot button is waiting for "Sure?"
+const SH_SUBS=[["shop","Workshop"],["rnd","R&amp;D"],["team","Team"],["books","Books"],["saves","Saves"]];
 function shRender(){const el=$("shBody");if(!el)return;const c=crOn()?S.career:null;
-  el.innerHTML=(c?shWorkshop(c)+shTools(c)+tmRndCard()+tmTeamCard()+shKits(c)+shBooks(c):`<div class="card"><h3>Tools and workshop</h3><p>${crSandbox()?"The Sandbox has every part already. Tools, workshops, the team and the books belong to the career (Settings → Mode).":"Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it."}</p></div>`)+shSlots();}
+  {const h=$("h-shop"),l=$("shLede"),sv=$("savesCard");if(h)h.classList.toggle("vh",!!c);if(l)l.hidden=!!c;if(sv)sv.hidden=!!c&&SH.sub!=="saves";}
+  /* in a career the tab is five short pages behind a strip (0.1.44); without one it is the note, the slots and the saves */
+  if(c){if(!SH_SUBS.some(x=>x[0]===SH.sub))SH.sub="shop";const s=SH.sub;
+    el.innerHTML=subNav("shSub","shsub",SH_SUBS,s,"Shop")+(s==="rnd"?tmRndCard():s==="team"?tmTeamCard():s==="books"?shKits(c)+shBooks(c):s==="saves"?shSlots():shWorkshop(c)+shTools(c));return;}
+  el.innerHTML=(c?"":`<div class="card"><h3>Tools and workshop</h3><p>${crSandbox()?"The Sandbox has every part already. Tools, workshops, the team and the books belong to the career (Settings → Mode).":"Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it."}</p></div>`)+shSlots();}
 function shWorkshop(c){const cur=crStage(),i=WORKSHOP_STAGES.indexOf(cur);
   return`<div class="card"><h3>Workshop</h3><ul class="shlist">${WORKSHOP_STAGES.map((w,k)=>`<li class="${k===i?"on":""}"><span class="nm"><b>${esc(ftCap(w.name))}</b><small>${esc(w.line)}</small>
     <small>${w.hours} h a week · rent ${fmt$(w.rent)} a week · up to ${esc(SIM.CLASSES[w.maxCls].name.toLowerCase())}${w.travel<1?` · travel ${Math.round((1-w.travel)*100)}% cheaper`:""}</small></span>
@@ -8072,6 +8080,7 @@ function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
     loadSlot(o,`Slot ${i} loaded`);}}
 TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;TM.ask=null;shRender();};
+document.addEventListener("click",e=>{const x=e.target.closest("#shBody [data-shsub]");if(!x)return;SH.sub=x.dataset.shsub;SH.ask=null;shRender();$("panel").scrollTop=0;});
 /* ===================== app/career.js: the career and the Career tab =====================
    The career (plan section 11) lives in S.career (null until Start career; crFresh() gives its shape). Starting one is a
    fresh start (Kelbo, PR 7): €2,500 (TIME.startMoney; €1,500 until 0.1.30), nothing fitted, hand tools only; saved designs stay as
@@ -8481,13 +8490,31 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
 /* ---- the tab ---- */
 function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
   {const ld=$("crLede");if(ld)ld.hidden=!!c&&!crSandbox();}   // the pitch is for someone who hasn't started (0.1.43)
+  crHead(false);
   if(crSandbox()){el.innerHTML=crSandboxCard();return;}
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start with its own garage: your Sandbox bots stay in the Sandbox. Your saved designs come with you, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}${crHallCard()}`;return;}
   if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${crHallCard()}${tpShelf()}${crResultsCard()}`;return;}
-  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+crHallCard()+
-    `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
+  /* four short pages behind a strip (0.1.44): what to do now, the season ahead, the money people, the record */
+  if(!CR_SUBS.some(x=>x[0]===CR.sub))CR.sub="week";
+  const dot='<i class="dot" aria-hidden="true"></i><span class="vh"> (an offer is waiting)</span>',offers=Array.isArray(c.offers)&&c.offers.length;
+  const nav=subNav("crSub","crsub",CR_SUBS.map(x=>x[0]==="money"&&offers?[x[0],x[1]+dot]:x),CR.sub,"Career");
+  let h;
+  if(CR.sub==="season")h=crCalendarCard()+tmSeasonCard()+crRivalsCard();
+  else if(CR.sub==="money")h=tmSponsorCard()+tmKitCard();
+  else if(CR.sub==="record"){h=tpShelf()+crResultsCard()+crHallCard();if(!h)h=`<div class="card empty"><h3>Nothing on the shelf yet</h3><p>Results, trophies and finished careers are kept here. Enter an event from This week to start filling it.</p></div>`;
+    h+=`<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
+  else h=crEventCard()+crRepairCard()+crStatusCard()+crWeekBar();
+  el.innerHTML=nav+h;crHead(true);}
+const CR_SUBS=[["week","This week"],["season","Season"],["money","Sponsors"],["record","Record"]];
+/* the tab's title shows only when there is no strip of pages to stand in for it */
+function crHead(strip){const h=$("h-career");if(h)h.classList.toggle("vh",!!strip);}
+/* Close week, pinned at the bottom of the This week page like the Build tab's Fit bar. It is the main button unless an
+   event you could still enter is waiting (then Enter is), and it is not shown during an event day. */
+function crWeekBar(){const c=S.career;if(c.day)return"";const st=crStage(),e=crThisWeek(),open=!!(e&&!c.events[crKey(e)]&&!crCantEnter(e));
+  return`<div class="fitbar gobar"><span class="ft"><b>Week ${c.week} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
+document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;});
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
   const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
@@ -8502,16 +8529,15 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
     <dl class="crdl"><div><dt>Week</dt><dd class="readout">${c.week} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
       <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${c.rep}</dd></div>
       <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-c.driverXp} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
-    ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p>
-    <div class="row"><button type="button" class="btn pri" data-cr="close">Close week</button></div></div>`;}
+    ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p></div>`;}
 function crTitleEnd(t){if(!t)return"";
   return t.k==="defended"?`<p class="ok"><b>Title defended:</b> ${t.n} Opens in a row. Next season the champion's ballast takes more off your weight limit.</p>`
     :t.k==="won"?`<p class="ok"><b>You are ${esc(WORLD.open)} champion.</b> ${S.career.act>=3?"The title is yours again.":"There is life after this: the Legacy act starts next season."}</p>`
     :`<p class="worn"><b>You've lost the title</b>${t.n>1?` after ${t.n} in a row`:""}. Next season you're the challenger, and your weight limit goes back to normal.</p>`;}
 function crEventCard(){const c=S.career;
   if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${crTitleEnd(CR.end.title)}${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
-    ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
-    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p><div class="row"><button type="button" class="btn" data-cr="close">Close week</button></div>${crSkipHtml()}</div>`;
+    ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see the Sponsors page.</p>`:""}
+    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p>${crSkipHtml()}</div>`;
   if(c.day)return crDayCard(c.day);
   const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p>${crSkipHtml()}</div>`;}
   const r=c.events[crKey(e)];if(r)return`<div class="card"><h3>${esc(e.name)}</h3><p>${r.forfeit?"Forfeited.":"Done: "+crPlaceTxt(e.kind,r.place)+"."}</p>${crSkipHtml()}</div>`;
