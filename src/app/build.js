@@ -70,12 +70,14 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const num=(v,a,b,unit,dp,goodUp,min)=>{const d=v(a)-v(b);if(!isFinite(d)||Math.abs(d)<min)return;cand.push(`<i class="${(d>0)===goodUp?"up":"dn"}">${d>0?"+":"−"}${Math.abs(d).toFixed(dp)}${unit}</i>`);};
   const armour=x=>{let t=0;for(const f of ["front","back","left","right","top"])t+=x.armourMapJ[f].absorbJ+x.armourMapJ[f].hpJ;return t;};
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
-  const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],
+  const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
     battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
     if(k==="inv"&&!!r.height.drivesInverted!==!!base.height.drivesInverted)cand.push(r.height.drivesInverted?'<i class="up">drives upside down</i>':'<i class="dn">can\'t drive upside down</i>');
     if(k==="tall")num(x=>x.height.heightMm,r,base," mm tall",1,false,0.5);
     if(k==="speed")num(x=>x.driveSpeed,r,base," m/s",1,true,0.05);
+    if(k==="turn")num(x=>x.turnRate,r,base," turn",1,true,0.2);
+    if(k==="slide"&&!!r.wheelbase.strafe!==!!base.wheelbase.strafe)cand.push(r.wheelbase.strafe?'<i class="up">slides sideways</i>':'<i class="dn">no sideways slide</i>');
     if(k==="push")num(x=>x.pushN,r,base," N",base.pushN<100?1:0,true,base.pushN*0.03);
     if(k==="wj")num(x=>x.weapon.energyJ||0,r,base," J",0,true,Math.max(1,(base.weapon.energyJ||0)*0.01));
     if(k==="armour")num(armour,r,base," J armour",0,true,Math.max(1,armour(base)*0.01));
@@ -113,8 +115,10 @@ const B_SECS=[
       return bArmourMap()+`<div class="seg faces" role="group" aria-label="Face">${["front","back","left","right","top"].map(x=>`<button type="button" data-face="${x}" class="${x===f?"on":""}" aria-pressed="${x===f}">${FACE_LBL[x]}<small>${esc(bName("armour",d.armour[x]).replace("HDPE, ","HDPE "))}</small></button>`).join("")}</div>`
         +bOpts("armour",d.armour[f],bFit("armour",f),(c,id)=>{c.armour[f]=id;})
         +`<div class="row" style="margin-top:10px"><button type="button" class="btn sm" data-act="armour-all">${FACE_LBL[f]} plate on all four sides</button></div>`;}},
-  {id:"drive",t:"Drive & wheels",sum:()=>bName("drive",draft().drive)+" · "+bName("wheels",draft().wheels).toLowerCase(),
-    body:()=>`<h4>Drive</h4>`+bOpts("drive",draft().drive,bFit("drive"),(c,id)=>{c.drive=id;})+`<h4>Wheels</h4>`+bOpts("wheels",draft().wheels,bFit("wheels"),(c,id)=>{c.wheels=id;})},
+  {id:"drive",t:"Drive & wheels",sum:()=>bName("drive",draft().drive)+" · "+bName("wheels",draft().wheels).toLowerCase()+(draft().wheelbase&&draft().wheelbase!=="std"?" · "+bName("wheelbase",draft().wheelbase).toLowerCase():""),
+    body:()=>{const p=SIM.part("wheelbase",draft().wheelbase||"std");
+      return`<h4>Drive</h4>`+bOpts("drive",draft().drive,bFit("drive"),(c,id)=>{c.drive=id;})+`<h4>Wheels</h4>`+bOpts("wheels",draft().wheels,bFit("wheels"),(c,id)=>{c.wheels=id;})
+      +`<h4>Wheel layout</h4>`+(p&&p.line?`<p>${esc(p.line)}</p>`:"")+bOpts("wheelbase",draft().wheelbase||"std",bFit("wheelbase"),(c,id)=>{c.wheelbase=id;});}},
   {id:"power",t:"Power",sum:()=>bName("battery",draft().battery)+" · "+bName("electronics",draft().electronics),
     body:()=>`<h4>Battery</h4>`+bOpts("battery",draft().battery,bFit("battery"),(c,id)=>{c.battery=id;})+`<h4>Speed controllers</h4>`+bOpts("electronics",draft().electronics,bFit("electronics"),(c,id)=>{c.electronics=id;})},
   {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon)+(draft().disc?` · “${draft().disc.name}”`:""),

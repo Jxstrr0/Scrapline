@@ -57,6 +57,20 @@ function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&
   return"aggressive";}
 function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;if(!AI_STYLES[st])st=st==="auto"&&F?autoStyle(o.b,F.arena):"rush";
   return{r:rng(seed),style:st,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
+/* a strafing drive's move: face the enemy, and drive and slide towards (px, py) together (orbit, flank, commit), or slide
+   out of the line of a weapon coming at it. null leaves the plain steering as it was. */
+const AI_STRAFE={dodgeR:3,dodgeV:0.3,faceK:2.4};   // dodge within dodgeR x both radii when it closes at dodgeV x its top speed; faceK: how hard it turns to face
+function aiStrafe(F,o,t,m,mode,px,py,facing,sk){const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
+  const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h+m.aim),steer=clamp1(-AI_STRAFE.faceK*e);
+  const vs=Math.max(t.b.driveSpeed,0.1);
+  /* a weapon coming straight at it: slide off its line, away from the side it's turning to */
+  if(t.zone&&facing&&m.dist<(o.rad+t.rad)*AI_STRAFE.dodgeR&&m.tClose>AI_STRAFE.dodgeV*vs&&(m.tac||m.dodging)){
+    m.dodging=F.t+0.4;const fx=Math.cos(t.h),fy=Math.sin(t.h),side=((o.x-t.x)*-fy+(o.y-t.y)*fx)>=0?1:-1,
+      dx=-fy*side,dy=fx*side;return{steer,throttle:clamp1(dx*fw[0]+dy*fw[1]),strafe:clamp1((dx*rt[0]+dy*rt[1])*1.5)};}
+  if(m.dodging&&F.t>m.dodging)m.dodging=0;
+  if(mode!=="orbit"&&mode!=="flank"&&mode!=="commit")return null;
+  const dx=px-o.x,dy=py-o.y,l=Math.hypot(dx,dy)||1,a=Math.abs(e),k=a<0.6?1:a<1.4?0.5:0.2;
+  return{steer,throttle:clamp1((dx*fw[0]+dy*fw[1])/l*1.2)*k,strafe:clamp1((dx*rt[0]+dy*rt[1])/l*1.5)*k};}
 /* where o should point, and how hard to go: steer toward a world point */
 function aiSteer(o,m,px,py,sk){const want=Math.atan2(py-o.y,px-o.x),err=wrapA(want-o.h+m.aim),u=aiLerp(AI_SKILL.kp,sk)*err-aiLerp(AI_SKILL.kd,sk)*o.w;
   const a=Math.abs(err);return{steer:clamp1(-u),throttle:a<0.35?1:a<1.3?Math.cos(a):0,err};}
@@ -184,15 +198,20 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   if(m.back>0){m.back-=F.dt;out.throttle=-1;out.steer=m.backSteer;}
   else{if(out.throttle>0.5&&sp<0.1*Math.max(o.b.driveSpeed,0.1)&&!pushing)m.stuck+=F.dt*(touching?(t.under&&t.under.by===o.i?0.2:0.4):1);else m.stuck=Math.max(0,m.stuck-F.dt);
     if(m.stuck>(S.stuckS||1.2)){m.stuck=0;m.back=0.45+0.3*m.r();m.backSteer=m.r()<0.5?-0.6:0.6;}}
+  /* a strafing drive (mecanum, swerve: 0.1.31) keeps its front on the enemy and slides instead of turning away: it circles
+     facing in, slides round to a flank, and side-steps a weapon coming straight at it (that last one the more skilled).
+     Before the shove and pit escapes below, which win over it */
+  if(o.b.wheelbase.strafe>0&&!(m.back>0)&&!hold&&!pushing){const st=aiStrafe(F,o,t,m,mode,px,py,facing,sk);
+    if(st){out.steer=st.steer;out.throttle=st.throttle;out.strafe=st.strafe;}}
   /* being shoved towards the pit or a hazard: turn across the shove and drive out of it, rather than pushing straight back */
   if(touching&&m.tac&&!(m.back>0)){const a=aiShove(F,o,t,P0);
-    if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;}}
+    if(a!=null){const ef=wrapA(a-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);out.steer=clamp1(-3*err);out.throttle=fwd?1:-1;out.strafe=0;}}
   /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going;
      over the edge, drive off it along aiPitOut, by whichever end of the bot points that way */
   const P=P0;if(P){const r=P.rect,la=aiLerp(AI_SKILL.pitLook,sk),fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
       qx=o.x+o.vx*la+fx*dir*o.rad*0.8,qy=o.y+o.vy*la+fy*dir*o.rad*0.8,e=o.rad*0.4;
     if(aiIn(qx,qy,aiGrow(r,e))){const away=aiPitOut(F,o,r),ef=wrapA(away-o.h),fwd=Math.abs(ef)<Math.PI/2,err=fwd?ef:wrapA(ef+Math.PI);
-      out.steer=clamp1(-2.5*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.5?1:Math.abs(err)<1?0.5:0.15);m.back=0;}}
+      out.steer=clamp1(-2.5*err);out.throttle=(fwd?1:-1)*(Math.abs(err)<0.5?1:Math.abs(err)<1?0.5:0.15);out.strafe=0;m.back=0;}}
   /* the weapon */
   const late=aiLerp(AI_SKILL.fireLate,sk)*(S.fireMul||1);
   if(w.type==="spinner"||w.type==="saw")out.weapon=1;

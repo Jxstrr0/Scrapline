@@ -10,7 +10,7 @@
    evalBuild (sim/build.js) is the one place these become kg, m, s, J and W.
 
    A config (cfg) is plain JSON, the same shape for the player, designs and opponents:
-     {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, battery, electronics, weapon, weaponMaterial,
+     {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, wheelbase, battery, electronics, weapon, weaponMaterial,
       extras:[ids], layout:{<part key>:[x,y]}}
    Layout keys: drive0..drive3, battery, electronics, weapon, and extras that take cells (selfright, minibot). x runs
    left to right across the chassis, y from the front row (0) to the back. Missing or illegal places are filled by
@@ -94,6 +94,28 @@ const PARTS={
     {id:"solid", name:"Solid hubs",     massG:60, grip:0.70,radiusMm:24,exposure:0.35,hp:80,cost:30,hours:0.8,unlock:"start"},
     {id:"tracks",name:"Tracks",         massG:110,grip:1.30,radiusMm:16,exposure:0.25,hp:60,cost:90,hours:2,  unlock:"tool:mill",tracks:true}
   ],
+  /* the wheel layout (0.1.31, Kelbo: odd drive, swivel wheels, more wheels for more drain). perSide: driven wheels a side
+     (null: one per drive pod, as before); wheelMul x the wheel set's mass; massG extra (chains, caster, mounts); podG extra
+     per drive pod (swerve's steering servos). The drive in the fight: gripMul x the tyres' grip, latMul x how hard they
+     resist sliding sideways (mecanum rollers let a shove through), scrubMul x the scrub of turning, crrMul x rolling
+     resistance, powerMul x the drive's draw and heat, underMul x the grip kept while sat on a wedge (the back wheels still
+     reach the floor), strafe: the share of top speed it can slide sideways at (0: it can't), podsNeed: drive pods it
+     needs (a mecanum wheel needs its own motor), caster: a swivel wheel at the back that can be hit (casterHp) and, broken,
+     drags (DAMAGE.casterDrag). hpMul x each wheel's hp. Tracks run the whole side, so they only go with "std". */
+  wheelbase:[
+    {id:"std",    name:"Wheel on each pod",   perSide:null,wheelMul:1,  massG:0, podG:0, gripMul:1,   latMul:1,   scrubMul:1,   crrMul:1,   powerMul:1,   underMul:1,  strafe:0,   hpMul:1,  cost:0,  hours:0,  unlock:"start",
+      line:"A wheel on every drive pod. Nothing to add, nothing to go wrong."},
+    {id:"caster", name:"Two wheels + caster", perSide:1,   wheelMul:0.7,massG:25,podG:0, gripMul:0.75,latMul:0.75,scrubMul:0.9, crrMul:0.9, powerMul:1,   underMul:1,  strafe:0,   hpMul:1,  cost:15, hours:1,  unlock:"start",caster:true,casterHp:20,
+      line:"Two driven wheels in the middle and a swivel wheel at the back. Spins on the spot and runs light; pushes less, and a broken caster drags."},
+    {id:"six",    name:"Six wheels",          perSide:3,   wheelMul:1.3,massG:20,podG:0, gripMul:1.1, latMul:1.1, scrubMul:1.15,crrMul:1.2, powerMul:1.12,underMul:2.5,strafe:0,   hpMul:1,  cost:40, hours:3,  unlock:"tool:drillpress",
+      line:"Three chain-driven wheels a side. Pushes harder, keeps driving on a wedge and with a wheel gone; turns slower and drains more."},
+    {id:"eight",  name:"Eight wheels",        perSide:4,   wheelMul:1.5,massG:25,podG:0, gripMul:1.2, latMul:1.2, scrubMul:1.15,crrMul:1.2, powerMul:1.25,underMul:3.5,strafe:0,   hpMul:1,  cost:70, hours:4.5,unlock:"tool:welder",
+      line:"Four wheels a side. Hardest to lift or stop, and the heaviest and thirstiest drive. Turns like a lorry."},
+    {id:"mecanum",name:"Mecanum wheels",      perSide:null,wheelMul:1.4,massG:0, podG:0, gripMul:0.8, latMul:0.35,scrubMul:0.8, crrMul:1.1, powerMul:1.1, underMul:1,  strafe:0.7, hpMul:0.7,cost:80, hours:3,  unlock:"tool:printer",podsNeed:4,
+      line:"Rollers round each wheel let it slide sideways: step round a spinner and hit it in the side. It pushes badly and gets shoved about."},
+    {id:"swerve", name:"Swerve pods",         perSide:null,wheelMul:1.1,massG:0, podG:50,gripMul:0.9, latMul:0.75,scrubMul:0.7, crrMul:1,   powerMul:1.2, underMul:1,  strafe:0.95,hpMul:0.75,cost:260,hours:6,  unlock:"rnd:swerve",
+      line:"Every wheel turns on its own servo: it slides sideways and still pushes. Heavy, dear and hungry."}
+  ],
   /* capacityWs stored energy (W s), dischargeW the most it can deliver at once */
   battery:[
     {id:"small",name:"Small LiPo",          fp:[1,1],massG:45, capacityWs:16000,dischargeW:400,hp:25,cost:25,hours:0.3,unlock:"start"},
@@ -161,14 +183,14 @@ const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite
 const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
   cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
   driver:{style:"rush"}};
-const PART_SLOTS=["chassis","body","drive","wheels","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
+const PART_SLOTS=["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
 
 /* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
 const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
-  drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
+  drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
 
 /* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
    part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them

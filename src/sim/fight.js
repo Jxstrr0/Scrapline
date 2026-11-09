@@ -6,8 +6,9 @@
                                             flags: {bent, smoke, cell, esc} carries failures in (a best-of-three
                                             round after a pit window that didn't fix them).
                                             fx: keep F.fxq, where hits and landings happened, for a view to flash.
-     stepFight(F, inputs)                   one step. inputs: {botIndex: {throttle, steer, weapon, selfRight}} for the
-                                            player bots (throttle and steer -1..1, weapon and selfRight 0 or 1)
+     stepFight(F, inputs)                   one step. inputs: {botIndex: {throttle, steer, weapon, selfRight, slide}} for the
+                                            player bots (throttle and steer -1..1, weapon, selfRight and slide 0 or 1; with
+                                            slide held a strafing drive slides sideways on the steer instead of turning)
      runFight(opts)                         newFight, then step to the end (AI against AI, or a replay): the result
      replayFight(log)                       the same fight again from its log: seed + builds + the player's inputs
      fightResult(F)                         {over, winner (team or null), reason, timeS, bots:[...], log}
@@ -285,12 +286,14 @@ function readInput(F,o,inputs){let u;
   else if(F.n%FIGHT.inputTick)return;   // the player's input holds between ticks
   else if(F.play&&F.play[o.i]){const p=F.play[o.i],k=Math.max(0,Math.min(F.n/FIGHT.inputTick|0,p.n-1)),Q=FIGHT.inputLevels,
       at=c=>{const v=p.ch[c]&&p.ch[c][k];return v>=0?v:c<2?Q+1:0;};   // a missing or damaged stream reads as hands off
-    u={throttle:clamp1((at(0)-Q-1)/Q),steer:clamp1((at(1)-Q-1)/Q),weapon:at(2)&1,selfRight:(at(2)>>1)&1};}
+    u={throttle:clamp1((at(0)-Q-1)/Q),steer:clamp1((at(1)-Q-1)/Q),weapon:at(2)&1,selfRight:(at(2)>>1)&1,slide:(at(2)>>2)&1};}
   else{const raw=(inputs&&inputs[o.i])||{},rec=F.rec[o.i],Q=FIGHT.inputLevels,q=v=>{v=+v||0;return Math.round(clamp1(v)*Q)+Q+1;};
-    let qt=q(raw.throttle),qs=q(raw.steer);const fl=(raw.weapon?1:0)|(raw.selfRight?2:0);
+    let qt=q(raw.throttle),qs=q(raw.steer);const fl=(raw.weapon?1:0)|(raw.selfRight?2:0)|(raw.slide?4:0);
     const h=(v,l)=>(Math.abs(v-l)<FIGHT.inputHyst&&v!==1&&v!==2*Q+1&&v!==Q+1)?l:v;qt=h(qt,rec.last[0]);qs=h(qs,rec.last[1]);
     rec.last=[qt,qs,fl];for(let c=0;c<3;c++)rec.v[c].push(rec.last[c]);
-    u={throttle:(qt-Q-1)/Q,steer:(qs-Q-1)/Q,weapon:fl&1,selfRight:(fl>>1)&1};}
+    u={throttle:(qt-Q-1)/Q,steer:(qs-Q-1)/Q,weapon:fl&1,selfRight:(fl>>1)&1,slide:(fl>>2)&1};}
+  /* slide held (0.1.31, a strafing drive): the stick's left and right slide the bot sideways instead of turning it */
+  if(u.slide){u={throttle:u.throttle,steer:0,strafe:u.steer,weapon:u.weapon,selfRight:u.selfRight};}
   o.input=u;}
 
 function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o)*(o.heat.wDer?BENCH.derate:1),wp=o.wp;
@@ -376,7 +379,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const fw=[Math.cos(o.h),Math.sin(o.h)],rt=[Math.sin(o.h),-Math.cos(o.h)];
   if(o.air){o.cmd=[0,0];return 0;}
   const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
-  const gripMul=o.held!=null?FIGHT.liftGrip:o.under?(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip):1;
+  const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,(WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)*wb.underMul):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
   let cL=go?clamp1(u.throttle+u.steer):0,cR=go?clamp1(u.throttle-u.steer):0;
   o.cmd=[cL,cR];let FL=0,FR=0;
@@ -386,13 +389,17 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
     let Fs=d.f0/2*p*sd.push*(cmd-(v0>0?vs/v0:0));const T=b.grip*N/2*sd.grip*gripMul;Fs=Fs>T?T:Fs<-T?-T:Fs;
     if(s)FR=Fs;else FL=Fs;draw+=b.power.driveW*b.powerScale*p*Math.abs(cmd)/2;}
   /* rolling resistance (harder with dead motors), never past a standstill */
-  const crr=K.crr*N*(go?1:FIGHT.deadDrag)*gripMul,Fr=Math.abs(vF)*o.m/dt<crr?-vF*o.m/dt:-Math.sign(vF)*crr;
+  const crr=K.crr*N*(go?1:FIGHT.deadDrag)*gripMul*wb.crrMul*f.drag,Fr=Math.abs(vF)*o.m/dt<crr?-vF*o.m/dt:-Math.sign(vF)*crr;
   const aF=(FL+FR+Fr)/o.m;o.vx+=fw[0]*aF*dt;o.vy+=fw[1]*aF*dt;
-  /* tyres don't slide sideways easily */
-  const vL=o.vx*rt[0]+o.vy*rt[1],lat=Math.min(Math.abs(vL),FIGHT.latGrip*b.grip*g*gripMul*dt);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
+  /* tyres don't slide sideways easily (mecanum rollers do: latMul). A strafing drive (0.1.31: mecanum, swerve) drives the
+     sideways speed to what it's asked for instead of to nothing, as hard as its grip allows; upside down, right is left */
+  let vT=0,lg=FIGHT.latGrip*b.grip*g*gripMul*wb.latMul*dt;
+  if(wb.strafe>0&&go&&u.strafe){const sl=f.sides.left.out||f.sides.right.out?0.5:1;vT=clamp1(u.strafe)*v0*wb.strafe*sl*Math.min(1,f.sides.left.push+f.sides.right.push);
+    lg=Math.max(lg,FIGHT.latGrip*b.grip*g*gripMul*dt*wb.strafe);draw+=b.power.driveW*b.powerScale*p*Math.abs(u.strafe)*0.5;}
+  const vL=o.vx*rt[0]+o.vy*rt[1]-vT,lat=Math.min(Math.abs(vL),lg);o.vx-=rt[0]*Math.sign(vL)*lat;o.vy-=rt[1]*Math.sign(vL)*lat;
   /* yaw: the two sides' difference, less the scrub of turning a skid-steer */
   const gy=FIGHT.gyro[b.weapon.id]&&b.weapon.omega>0?1-Math.min(0.9,FIGHT.gyro[b.weapon.id]*(FIGHT.gyroClass[F.cls]||1))*Math.min(1,o.wp.om/b.weapon.omega):1;
-  o.w+=(FR-FL)*half/o.I*dt*gy;const scrub=FIGHT.scrub*b.grip*N*half*gripMul/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
+  o.w+=(FR-FL)*half/o.I*dt*gy;const scrub=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag/o.I*dt;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
   return draw;}
 
 function stepHeat(F,o,driveW,weaponW){const h=o.b.heat,q=o.heat,dt=F.dt,full=o.b.power;
