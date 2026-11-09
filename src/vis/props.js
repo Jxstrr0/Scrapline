@@ -50,6 +50,11 @@ const ARENA_SPOTS={
   tabletop:[["meter",-.55,0,-1,-.9,.3],["oil",1,.9,-.6,0,.5],["lube",1,.8,-.35,0,1.6]],
   clubbox:[["crate",-.35,0,-1,-1.2,.2],["sign",.45,0,-1,-1.0,-.4],["tyre",1,1.2,.15,0,1.57],["propane",-1,-1.0,-.55,0,0]],
   regional:[["truck",-1,-1.3,-.2,0,1.5],["crate",.3,0,-1,-1.3,0],["barrel",1,1.3,.3,0,0],["crate",-.7,0,-1,-1.3,.6],["ext",1,1.1,-.7,0,-1.2]],
+  /* the venues (0.1.28.0): the mill's welding cart, generator and drums; the harbour's cargo, fenders and hand truck; the
+     engine shed's tool chest, oil and the old tyre */
+  stahl:[["weld",-1,-1.3,-.3,0,1.5],["gen",.35,0,-1,-1.4,0],["barrel",1,1.3,.25,0,0],["barrel",1,1.25,-.15,0,.7],["chest",-.6,0,-1,-1.3,.2]],
+  eisenau:[["crate",-.6,0,-1,-1.3,.1],["crate",-.25,0,-1,-1.35,-.3],["tyre",-1,-1.15,.1,0,1.57],["tyre",1,1.15,.1,0,1.57],["truck",1,1.4,-.5,0,-1.5],["barrel",.55,0,-1,-1.3,0]],
+  grauwald:[["chest",-1,-1.4,-.4,0,1.57],["oil",.3,0,-1,-1.1,.4],["tyre",1,1.2,-.2,0,1.57],["crate",.65,0,-1,-1.3,-.2],["propane",-1,-1.05,.35,0,0]],
   eisenhalle:[["gen",-.4,0,-1,-1.5,0],["truck",1,1.4,-.3,0,-1.5],["crate",-1,-1.3,.2,0,.4],["barrel",.5,0,-1,-1.4,0],["chest",-1,-1.4,-.6,0,1.57]]};
 const PROPS={img:{},imgWait:{},models:{},texList:[],gen:0};
 /* ---- textures ---- */
@@ -95,7 +100,7 @@ function propArena(F){if(V.tier==="lite"||!AR.g)return;const G=AR.g,H=F.arena.ha
 function propShopSwap(){const G=V.shop;if(!G)return;for(const o of G.children.filter(c=>c.name.indexOf("prop:")===0))G.remove(o);propShop();}
 /* ---- the arena kit ---- */
 /* arenas that get stands round three sides (the camera's side stays open); the test box and the tabletop don't */
-const KIT_STANDS={clubbox:1,regional:1,eisenhalle:1};
+const KIT_STANDS={clubbox:1,regional:1,stahl:1,eisenau:1,grauwald:1,eisenhalle:1};
 function arenaKit(G){const go=()=>propModel("kit",src=>{if(AR.g===G&&V.tier!=="lite"&&AR.kit)kitBuild(G,src);});
   if(!THREE.GLTFLoader){if(window.__scrPost)window.__scrPost(()=>{if(THREE.GLTFLoader&&AR.g===G)go();});return;}go();}
 /* every mesh in objs, baked into G's space and merged per material: positions and normals turned to plain floats (the

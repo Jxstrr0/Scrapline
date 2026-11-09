@@ -9,7 +9,7 @@
    Sponsors (SPONSORS): offers after a podium (c.offers [{id, y}]), signed into S.sponsors [{id, y, w}]: their colour on
      the bot (SCRAP_VIS.setPaint) and a placing target for the season; renewed or dropped at the end of it (tmSeasonEnd).
    The meta (META_WAVES) orders who turns up at events, season by season; the rule changes (RULES_BY_SEASON) pile up:
-     an energy cap, an extra hazard, a weight limit, a shorter count. crFightRules(cls) hands career fights their arena
+     an energy cap, an extra hazard, a weight limit, a shorter count. crFightRules(cls, venue) hands career fights their arena
      and rules.
    The kit line (KIT_LINE, the Legacy act): one design published as a kit (c.kit); at the end of each season it fights the
      class's test builds and earns by its win rate and your rep. */
@@ -70,8 +70,10 @@ function crRules(season){const r={capJ:0,koS:0,limit:{},hazards:{},list:[]};
 const tmSeason=()=>crOn()?S.career.season:-1;
 /* the class's weight limit this season (grams) */
 function crLimitG(cls){const base=SIM.CLASSES[cls].limitG;if(!crOn())return base;return crRules(tmSeason()).limit[cls]||base;}
-/* a career fight's arena (an ARENAS id, or a copy with the season's extra hazards) and its rules for newFight */
-function crFightRules(cls){const id=SIM.CLASSES[cls].arenaId;if(!crOn())return{arena:id,rules:undefined};const R=crRules(tmSeason()),rules={};
+/* a career fight's arena (an ARENAS id, or a copy with the season's extra hazards) and its rules for newFight. The arena
+   is the venue's (WORLD.venues[v].arena, 0.1.28.0) where it has one, else the class's own */
+const crArenaId=(cls,venue)=>{const v=venue&&WORLD.venues[venue];return v&&v.arena&&SIM.ARENAS[v.arena]?v.arena:SIM.CLASSES[cls].arenaId;};
+function crFightRules(cls,venue){const id=crArenaId(cls,venue);if(!crOn())return{arena:id,rules:undefined};const R=crRules(tmSeason()),rules={};
   if(R.capJ)rules.capJ=Math.round(R.capJ*SIM.classMult(cls).mass*10)/10;if(R.koS)rules.koS=R.koS;
   const extra=R.hazards[id],arena=extra?Object.assign({},SIM.ARENAS[id],{hazards:SIM.ARENAS[id].hazards.concat(extra)}):id;
   return{arena,rules:Object.keys(rules).length?rules:undefined};}

@@ -45,7 +45,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `sim/fight.js` | `STEP_HZ`, `WEDGE_RULES`, `FIGHT` (the fight's tuning numbers); `newFight`, `stepFight`, `runFight`, `replayFight`, `fightResult`: bodies, drive, the height axis, weapons and their zones, collisions, the wedge rule, the pin limit, `arenaOf` (layout from the seed), the pit and hazards, the judges, knockouts, the log and the packed player inputs |
 | `sim/damage.js` | `DAMAGE`, `PART_STATES`; `damageState` (fresh or with carried damage), `hitOrder`, `hitFace` (the bench uses them too), `landHit`, `damageEffects` (what the damage does), `damageTaken`, `partStates`, `damageShare` |
 | `sim/ai.js` | `AI_STYLES` (rush, keep-away, aggressive, cautious, counter, box-rush, hazard-pusher, opportunist), `AI_SKILL`, `autoStyle`, `aiNew`, `aiThink` |
-| `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
+| `sim/arenas.js` | `ARENAS` (test box, tabletop, club box, regional, the three venues Stahlbrück, Eisenau and Grauwald, the Eisenhalle: pits and their opening times, wall pushers, floor spinners), `ARENA_IDS`, `JUDGE_WEIGHTS` |
 | `sim/opponents.js` | `OPPONENTS` (15: build, driver, venue, one-line personality), `opponentCfg`; **the SCRAP_SIM export object**, `module.exports`, `</script>` |
 | **SCRAP_SOUND** | |
 | `sound/synth.js` | the whole block: `SCRAP_SOUND`, Web Audio clangs scaled by hit energy, disc whine and drive hum, unlocked on the first tap; recorded clangs from `sounds/` layered under it on Full / Ultra (`samples`) |
@@ -55,7 +55,7 @@ One place: `src/app/state.js`, `const VERSION="x.y.z.w";`.
 | `vis/core.js` | `<script>`, IIFE open, module state `V`, renderer, tiers, materials (`makeMats`: Lite's Phong and Lambert, Full and Ultra's PBR from `vis/surface.js`) |
 | `vis/surface.js` | Full / Ultra surfaces (0.1.17.0): tiling maps made in code (brushed steel and aluminium, titanium, mill scale, a turned disc, plywood, HDPE, tyre tread, clearcoat paint) in a blob worker (`surfFields`, `surfStart`, `surfLand`), `surfMat`, `uvProject` / `uvRepeat` (one grain density over the whole bot), `attrGet` (reads quantized glTF attributes), the painted workshop reflection (`shopEnv`) |
 | `vis/bot.js` | the robot mesh from an `evalBuild()` result (chassis and its body style: coded on Lite, the Blender shells from `models/bot-shells.glb` on Full and Ultra via `shellBody`, armour per face, wheels, weapon by type, team stripe), the mesh cache, `botDamage()`; the placeholder bot |
-| `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights), the per-frame draw of the bots, the follow camera, `arenaPick()` |
+| `vis/arena.js` | the arena scene from a fight (floor, walls, pit, hazards, crowd, lights; each venue's look and floor paint, `ARENA_LOOK`, `arenaPaint`), the per-frame draw of the bots, the follow camera, `arenaPick()` |
 | `vis/fx.js` | sparks, flying parts, smoke and camera shake from the sim's fx events |
 | `vis/badge.js` | team badges drawn in code (0.1.24): `BADGE_SHAPES`, `BADGE_EMBLEMS`, `badgeKey`, `badgeDraw` (into any 2D canvas), `badgeCanvas`, `badgeMat` (the decal on a bot's top) |
 | `vis/wear.js` | visible damage on Full / Ultra (0.1.23, `WEAR`): scars where hits land, parts darkening with hp lost, askew armour, a bent weapon's wobble; Lite never runs it |

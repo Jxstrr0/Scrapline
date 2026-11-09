@@ -475,5 +475,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.25: slow-motion replays (automatic slow-mo on big hits, failures and the knockout, a Slow-mo button, a ¼× speed)
 - [x] 0.1.26: bracket screen (a drawn bracket on the event day with each match's result, the draw shown in the Enter sheet, the finished bracket on the result card)
 - [x] 0.1.27: highlight reel (the best five moments of each season kept automatically, the season reel, the Fight tab's Highlights card, the Sandbox's best five)
-- [ ] 0.1.28: an arena for each regional venue (Stahlbrück, Eisenau, Grauwald; the arena follows the venue)
+- [x] 0.1.28: an arena for each regional venue (Stahlbrück Mill, Eisenau Harbour, Grauwald Engine Shed; the arena follows the venue; balanced in each)
 - [ ] 0.1.29: polish pass from Kelbo's list
