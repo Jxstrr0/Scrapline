@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.33.0";
+const VERSION="0.1.34.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -181,7 +181,11 @@ const RND={
   minibot:   {name:"Minibots",              price:1100,hours:22,act:1,needs:"printer",  line:"A little wedge that rides along and drops off at the bell to shove and distract."},
   titanium:  {name:"Exotic armour",         price:1800,hours:28,act:1,needs:"mill",     line:"Titanium plate, chassis and weapon stock. Light, tough and dear."},
   custom:    {name:"Custom chassis shape",  price:1500,hours:30,act:1,needs:"welder",   fab:true,line:"A low wedge-shaped chassis with the front corners cut away. The fabricator builds it."},
-  swerve:    {name:"Swerve drive",          price:1200,hours:24,act:1,needs:"printer",  line:"Wheels that each turn on their own servo: slide sideways and still push."}};
+  swerve:    {name:"Swerve drive",          price:1200,hours:24,act:1,needs:"printer",  line:"Wheels that each turn on their own servo: slide sideways and still push."},
+  /* 0.1.34, the odd bodies (the shell spinner needs only the lathe, no R&D) */
+  ring:      {name:"Ring spinner",          price:900, hours:18,act:0,needs:"welder",   line:"A toothed steel ring spun round the whole bot on rollers. Hits from every side; it bends if you're unlucky."},
+  legs:      {name:"Shuffler legs",         price:1000,hours:20,act:0,needs:"drillpress",line:"Cams and feet instead of wheels. Slow, hard to shove, and the rules let a walker weigh 15% more."},
+  melty:     {name:"Meltybrain",            price:1500,hours:26,act:1,needs:"printer",  line:"The whole bot spins, and a flickering light and a sensor let you drive it while it does. Big hits lose the sync."}};
 const RND_IDS=Object.keys(RND);
 /* the team (Shop tab): one person per role, hired from these. salary: euros a season, paid a week at a time at Close
    week (salary / 52). act: from which act they'll talk to you.

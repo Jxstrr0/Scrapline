@@ -8,7 +8,7 @@
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm, backEdgeMm, frontBareMm (the edge with the front
             knocked off)}
      front {id, name, slope, ramMul, underGrip}, back {id, name, ramMul, kick, selfRights} (0.1.32, frontInfo / backInfo)
-     weapon {type, energyJ, storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
+     weapon {type, energyJ, allRound / melty (0.1.34: an all-round spinner, the whole bot spinning), storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
      bay {kind, rect, circle, depthM, openTop, openBelow, topFrac, belowFrac, u} the weapon bay (bayOf, below)
      armourMapJ {face: {id, thickMm, massG, absorbJ, hpJ, deflect, prot}}, weakestFace, exposureScore,
@@ -45,13 +45,17 @@ const r3=v=>Math.round(v*1000)/1000;
 function evalBuild(cfgIn,opts){
   const errors=unknownIds(cfgIn).map(s=>"Unknown "+s),cfg=normCfg(cfgIn),c0=CLASSES[cfg.cls],M=classMult(cfg.cls);
   /* opts.limitG: a season's rule change to the class limit (the career, PR 8); the parts still scale by the class */
-  const c=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
+  const c1=opts&&opts.limitG>0&&opts.limitG!==c0.limitG?Object.assign({},c0,{limitG:opts.limitG}):c0;
   const pick=(slot,id)=>part(slot,id);   // normCfg has already swapped unknown ids for the defaults
   const ch=pick("chassis",cfg.chassis),bd=pick("body",cfg.body),dr=pick("drive",cfg.drive),wh=pick("wheels",cfg.wheels),bt=pick("battery",cfg.battery),
     el=pick("electronics",cfg.electronics),wp=pick("weapon",cfg.weapon),wm=pick("weaponMaterial",cfg.weaponMaterial),wb=pick("wheelbase",cfg.wheelbase),
     fr=pick("front",cfg.front),bk=pick("back",cfg.back);   // 0.1.32: the swappable front and the back slot
-  const ownFront=OWN_FRONT.indexOf(wp.type)>=0;   // a wedge, lifter, flipper or grabber is its own front
-  if(fr.id!=="none"&&ownFront)errors.push("The "+wp.name.toLowerCase()+" is its own front: no room for "+fr.name.toLowerCase());
+  /* legs (0.1.34): the rules let a walker carry more (wheelbase limitMul, on top of any season's limit) */
+  const c=wb.limitMul&&wb.limitMul!==1?Object.assign({},c1,{limitG:Math.round(c1.limitG*wb.limitMul)}):c1;
+  const allRound=ALL_ROUND.indexOf(wp.id)>=0;   // a shell, ring or meltybrain (0.1.34): it covers the front and the back
+  const ownFront=OWN_FRONT.indexOf(wp.type)>=0||allRound;   // a wedge, lifter, flipper or grabber is its own front
+  if(fr.id!=="none"&&ownFront)errors.push("The "+wp.name.toLowerCase()+(allRound?" spins all the way round":" is its own front")+": no room for "+fr.name.toLowerCase());
+  if(bk.id!=="none"&&allRound)errors.push("The "+wp.name.toLowerCase()+" spins all the way round: no room for "+bk.name.toLowerCase());
   /* the tuning dials (0.1.33, TUNE in sim/parts.js): each a multiplier at 1 when the dial is stock */
   const tu=cfg.tune,TV=TUNE.volt,TW=TUNE.wheel,TB=TUNE.bias;
   const vCell=1+TV.cells*tu.volt,vPow=1+TV.power*tu.volt,vSpd=1+TV.speed*tu.volt,vHeat=Math.max(TV.heatMin,1+TV.heat*tu.volt);
@@ -122,7 +126,7 @@ function evalBuild(cfgIn,opts){
   const isSpin=wp.type==="spinner"||wp.type==="saw";
   let wpos=centreOf("weapon")||[0,hl];
   const frontMounted=wp.mount==="front";
-  const discPos=isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;
+  const discPos=allRound?[0,0]:isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;   // an all-round spinner turns about the middle
   const DP=cfg.disc?{t:DISC_PROFILES.teeth[cfg.disc.teeth],r:DISC_PROFILES.rim[cfg.disc.rim]}:null;   // your own disc profile (normCfg keeps it on spinners only)
   const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass*(DP?DP.r.mass:1):0;
   if(structG)addM("weapon_struct","weapon",wp.id,structG,wpos[0],wp.fp?wpos[1]:hl);
@@ -142,9 +146,9 @@ function evalBuild(cfgIn,opts){
   let moi=0;for(const it of items){const dx=it.x-com.x,dy=it.y-com.y;moi+=it.g/1000*(dx*dx+dy*dy);}
   const plate=g=>g/1000*((W/1000)*(W/1000)+(L/1000)*(L/1000))/12;
   moi+=plate(items[0].g)+plate(armourMapJ.top.massG);
-  const radM=isSpin?wp.radius*M.len/1000:0;
+  const radM=isSpin?(wp.bodyR?Math.hypot(W,L)/2000*wp.bodyR:wp.radius*M.len/1000):0;   // a shell or ring is as big as the bot
   const shapeK=wp.shapeK*(DP?DP.r.shapeK:1);
-  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"?shapeK:0.25);
+  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"||allRound?shapeK:0.25);
   if(totalG>c.limitG+1e-6)errors.push("Over the "+c.name+" limit");
   if(ex.some(e=>e.minibot)&&!MINIBOT.cls[cfg.cls])errors.push("An "+c.name.toLowerCase()+" has nothing smaller to carry as a minibot");
   const underBudgetPct=(1-totalG/c.limitG)*100;
@@ -158,7 +162,7 @@ function evalBuild(cfgIn,opts){
   const powerScale=peakW>0?Math.min(1,capW/peakW):1;
 
   /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
-  const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale)*vSpd*wSpd,F0=dr.forceN*M.mass*powerScale*vSpd*wForce;
+  const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale)*vSpd*wSpd*(wb.speedMul||1),F0=dr.forceN*M.mass*powerScale*vSpd*wForce;
   const grip=wh.grip*wb.gripMul*bPush,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
   const resist=K.crr*weightN*wb.crrMul;
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
@@ -171,8 +175,8 @@ function evalBuild(cfgIn,opts){
 
   /* ---- height profile ---- */
   const rWheel=wh.radiusMm*M.len*wSize,proud=rWheel-H/2;
-  const centred=bd.inverts||!wh.tracks&&proud>=K.proudMm*M.len;
-  const clearanceMm=centred?(bd.inverts?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
+  const inv=bd.inverts||!!wp.inverts,centred=inv||!wh.tracks&&proud>=K.proudMm*M.len;   // a meltybrain runs either way up
+  const clearanceMm=centred?(inv?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
   /* the leading edge: the weapon's (or the clearance), a fitted front's if lower (0.1.32), then a skid plate and the body.
      frontBareMm is the same without the front, for when the front is knocked off */
   const edgeOn=base=>{let e=base;for(const x of ex)if(x.edgeMm)e+=x.edgeMm*M.edge;e+=bd.edgeMm*M.edge;return Math.max(0.5*M.edge,e*bEdge);};   // a heavy nose sits it down
@@ -184,13 +188,13 @@ function evalBuild(cfgIn,opts){
   const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm)};
 
   /* ---- weapon ---- */
-  const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:wpos,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
+  const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:allRound?[0,0]:wpos,allRound,melty:!!wp.bodyK,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
-  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
+  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=wp.bodyK?wp.bodyK*massKg*radM*radM:shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
     Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
       recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*(DP?DP.t.bite:1),profile:cfg.disc||null,
-      shearJ:wm.hp*wm.shearMult*M.mass,bendJ:wm.hp*M.mass,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
+      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1),bendJ:wm.hp*M.mass*(wp.bendMul||1),reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
@@ -257,7 +261,7 @@ function evalBuild(cfgIn,opts){
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
     driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip,
     wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
-      wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe},
+      wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe,legs:!!wb.legs},
     limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:batWs},
@@ -301,6 +305,7 @@ function bayOf(wp,w,pos,fp,at,g){const hw=g.W/2,hl=g.L/2,len=g.M.len,bodyH=Math.
    front, or one the weapon has no room for, is all zeros and ones); back {id, name, ramMul, kick} where kick is the
    kicker's flip {forceN, launchJ, strokeM, canLiftKg, shots, rechargeS, reachM} or null ---- */
 const OWN_FRONT=["wedge","lifter","flipper","grabber"];
+const ALL_ROUND=["shell","ring","melty"];   // 0.1.34: spinners that hit all the way round (and leave no room for a front or a back)
 function frontInfo(fr,own,M){const on=!own&&fr.id!=="none";
   return{id:on?fr.id:"none",name:on?fr.name:"",slope:on?fr.slope:0,ramMul:on?fr.ramMul:1,underGrip:on?fr.underGrip:0};}
 function backInfo(bk,M,limitKg){let kick=null;

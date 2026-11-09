@@ -191,10 +191,15 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(o.out==="pit"){B.fall=Math.min(1,B.fall+dt*2);m.position.y=-B.fall*3;m.visible=B.fall<1;continue;}
     B.inv+=((o.inverted?1:0)-B.inv)*Math.min(1,dt*10);   // roll over smoothly when the sim flips it
     m.position.set(o.x*U,(o.z||0)*U+B.inv*(u.H||0.05)*U,-o.y*U);
-    m.rotation.set(0,o.h-Math.PI/2,0);m.rotateZ(B.inv*Math.PI);
+    /* a meltybrain (0.1.34) turns as a whole, at its weapon's speed (capped like a disc's); o.h stays its heading */
+    if(u.melty&&!(o.fx&&o.fx.weaponOk===false))B.meltA=((B.meltA||0)+Math.min(o.wp.om,45)*dt)%(2*Math.PI);
+    m.rotation.set(0,o.h-Math.PI/2+(u.melty?B.meltA||0:0),0);m.rotateZ(B.inv*Math.PI);
     if(o.held!=null)m.rotateX(0.35);else if(o.under)m.rotateX(0.12);
     /* wheels turn with speed */
     const sp=(Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy);B.wheelA-=sp*dt/(0.028*o.M.len);for(const w of u.wheels)if(w.geometry.type!=="BoxGeometry")w.rotation.x=B.wheelA;   // not tracks (a box); the Blender mecanum pieces turn too
+    /* shuffler legs (0.1.34): each foot lifts and swings in turn, at the walking pace (turning on the spot walks too) */
+    if(u.legs&&u.legs.length){B.legA=(B.legA||0)+(Math.abs(sp)/(0.028*o.M.len)+Math.abs(o.w||0)*2)*dt*0.5;
+      for(const L of u.legs){const s=Math.sin(B.legA+L.userData.ph),H=u.H||0.05;L.position.y=Math.max(0,s)*H*0.18;L.rotation.x=Math.cos(B.legA+L.userData.ph)*0.25;}}
     /* the weapon */
     const W=o.b.weapon;
     if(u.spin){const r=Math.min(o.wp.om,45);u.spin.rotation[u.spin.userData.axis]+=r*dt*(u.spin.userData.axis==="x"?-1:1);
