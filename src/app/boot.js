@@ -49,8 +49,8 @@ function openSettings(){
 <div class="field"><span class="lbl">Saves</span><div class="row"><button class="btn" data-bu="backup">Back up</button><button class="btn" data-bu="restore">Restore</button></div>
 <div class="row"><button class="btn" data-bu="file">Save backup file</button><button class="btn" data-bu="load">Load backup file</button></div><p class="hint" data-bk-store hidden></p></div>
 <div class="field"><span class="lbl">Dev mode</span>${segHtml("devSeg","dev",[["0","Off"],["1","On","testing buttons"]],ST().dev?"1":"0")}
-<div id="devBox"${ST().dev?"":" hidden"}><div class="row"><button class="btn" id="devCash">+${fmt$(DEV_CASH)}</button><button class="btn" id="devAll">Unlock all</button></div>
-<p class="hint">For testing a career. +${fmt$(DEV_CASH)} goes straight into the tin; Unlock all gives every tool, every R&amp;D project and the team HQ (its rent is ${fmt$(WORKSHOP_STAGES[WORKSHOP_STAGES.length-1].rent)} a week). Your act stays where it is, and custom work still needs a fabricator.</p></div></div>
+<div id="devBox"${ST().dev?"":" hidden"}><div class="row"><button class="btn" id="devCash">+${fmt$(DEV_CASH)}</button><button class="btn" id="devAll">Unlock all</button><button class="btn" id="devOpen">Win the Open</button></div>
+<p class="hint">For testing a career. +${fmt$(DEV_CASH)} goes straight into the tin; Unlock all gives every tool, every R&amp;D project and the team HQ (its rent is ${fmt$(WORKSHOP_STAGES[WORKSHOP_STAGES.length-1].rent)} a week). Your act stays where it is, and custom work still needs a fabricator. Win the Open puts you in the Legacy act as last season's champion (tap again for another title in a row).</p></div></div>
 ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"><button class="btn" id="pwaInstall">Install app</button></div><p class="hint">Adds Scrapline to your home screen. It works offline once installed.</p>`:`<p class="hint" style="margin-top:0">On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>. It works offline once installed.</p>`}</div>`:""}
 <p class="hint">Scrapline ${VERSION} · © ${new Date().getFullYear()} Kelbo / Longlight Interactive</p>`);
   const pick=(id,attr,fn)=>$(id).addEventListener("click",e=>{const b=e.target.closest(`[data-${attr}]`);if(!b)return;
@@ -69,7 +69,7 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("comSeg","com",v=>{ST().comm=v==="1";applyVoice();});
   pick("capSeg","capt",v=>{ST().captions=v==="off"?"off":"muted";applyVoice();});
   pick("devSeg","dev",v=>{ST().dev=v==="1";$("devBox").hidden=!ST().dev;});
-  $("devCash").addEventListener("click",devCash);$("devAll").addEventListener("click",devUnlockAll);
+  $("devCash").addEventListener("click",devCash);$("devAll").addEventListener("click",devUnlockAll);$("devOpen").addEventListener("click",devOpen);
   buStoreLine();
   $("tutAgain").addEventListener("click",()=>{closeSheet();tutStart();});
   if($("pwaInstall"))$("pwaInstall").addEventListener("click",()=>{PWA.install();closeSheet();});
@@ -84,6 +84,11 @@ function devRedraw(){save();hud();if(["build","shop","career"].includes(curTab)&
 function devCash(){const c=devCareer();if(!c)return;c.money+=DEV_CASH;crLedger(DEV_CASH,"Dev mode");devRedraw();toast(`+${fmt$(DEV_CASH)} · ${fmt$(c.money)}`);}
 function devUnlockAll(){const c=devCareer();if(!c)return;for(const t of TOOL_IDS)S.unlocks.tools[t]=true;for(const r of RND_IDS)S.unlocks.rnd[r]=true;
   const r=tmC().rnd;r.cur=null;c.stage=WORKSHOP_STAGES[WORKSHOP_STAGES.length-1].id;devRedraw();toast("Every tool, every R&D project and the team HQ");}
+/* Win the Open (0.1.39): into the Legacy act as last season's champion, to test life after the Open without playing to it.
+   Each tap adds the year before the earliest title, so the run (and the legend level) grows by one. */
+function devOpen(){const c=devCareer();if(!c)return;if(c.day){toast("Finish the event first");return;}const T=crTitle(c);let y=c.year-1;while(c.events[y+":"+LEGACY.final])y--;
+  if(T.run>=LEGACY.maxLevel+1){toast("That's every legend level");return;}
+  c.events[y+":"+LEGACY.final]={place:1,prize:0,rep:0,dev:true};c.act=3;devRedraw();const N=crTitle(c);toast(`Legacy act · ${N.run} Open${N.run>1?"s":""} in a row · legend level ${N.level}`);}
 $("setOpen").addEventListener("click",openSettings);
 $("sheetClose").addEventListener("click",closeSheet);
 $("scrim").addEventListener("click",closeSheet);

@@ -69,7 +69,8 @@ function crRules(season){const r={capJ:0,koS:0,limit:{},hazards:{},list:[]};
   return r;}
 const tmSeason=()=>crOn()?S.career.season:-1;
 /* the class's weight limit this season (grams) */
-function crLimitG(cls){const base=SIM.CLASSES[cls].limitG;if(!crOn())return base;return crRules(tmSeason()).limit[cls]||base;}
+function crLimitG(cls){const base=SIM.CLASSES[cls].limitG;if(!crOn())return base;const g=crRules(tmSeason()).limit[cls]||base,L=cls===LEGACY.cls?crLegend():0;
+  return L?Math.round(g*(1-LEGACY.ballast*L)):g;}   // the champion's ballast (0.1.39): yours only, opponents build to the class limit
 /* a career fight's arena (an ARENAS id, or a copy with the season's extra hazards) and its rules for newFight. The arena
    is the venue's (WORLD.venues[v].arena, 0.1.28.0) where it has one, else the class's own */
 const crArenaId=(cls,venue)=>{const v=venue&&WORLD.venues[venue];return v&&v.arena&&SIM.ARENAS[v.arena]?v.arena:SIM.CLASSES[cls].arenaId;};
