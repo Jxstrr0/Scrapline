@@ -527,7 +527,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
   if(sub==="daily")h=dlCard()+res;
   else if(sub==="reel")h=rlCard();
   else if(sub==="codes")h=rcCard()+res;
-  else if(!bot.cfg)h=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+  else if(!bot.cfg)h=chips+`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON.tools}</svg><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+res;
   else{const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),you=FT.style==="you";
     h=chips+`${drafted?'<p class="hint ftnote">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
@@ -574,7 +574,7 @@ function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.
   if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
   const v=WORLD.venues[o.op.from];return`${tm}${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
-  if((x=t.closest("[data-ftsub]"))){FT.sub=x.dataset.ftsub;ftRender();$("panel").scrollTop=0;return;}
+  if((x=t.closest("[data-ftsub]"))){FT.sub=x.dataset.ftsub;ftRender();$("panel").scrollTop=0;pageIn($("ftBody"));return;}
   if((x=t.closest("[data-ftrow]>.acch"))){const id=x.parentNode.dataset.ftrow,was=FT.open===id;FT.open=was?null:id;
     document.querySelectorAll("#ftBody [data-ftrow]").forEach(r=>{const o=r.dataset.ftrow===FT.open;r.classList.toggle("open",o);r.querySelector(".acch").setAttribute("aria-expanded",o);});
     if(!was){const P=$("panel"),top=x.getBoundingClientRect().top-P.getBoundingClientRect().top;if(top<0||top>P.clientHeight*0.5)P.scrollTo({top:P.scrollTop+top-64,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});}
