@@ -10,19 +10,20 @@ function buildShop(){
 }
 function buildLights(){
   const g=new THREE.Group(),lite=V.tier==="lite";
-  g.add(new THREE.HemisphereLight(0xb8c4d0,0x1a1816,lite?.8:.45));
-  const key=new THREE.DirectionalLight(0xe6eef8,lite?1.1:1.5);key.position.set(-2.5,8,3.5);
-  if(!lite){key.castShadow=true;key.shadow.mapSize.set(1024,1024);const c=key.shadow.camera;c.left=c.bottom=-4;c.right=c.top=4;c.near=1;c.far=20;key.shadow.bias=-.0006;key.shadow.radius=3;}
+  g.add(new THREE.HemisphereLight(0xb8c4d0,0x1a1816,lite?.8:.34));
+  const key=new THREE.DirectionalLight(0xe6eef8,lite?1.1:1.6);key.position.set(-2.5,8,3.5);
+  if(!lite){key.castShadow=true;key.shadow.mapSize.set(LOOK.shadow[V.tier],LOOK.shadow[V.tier]);const c=key.shadow.camera;c.left=c.bottom=-4;c.right=c.top=4;c.near=1;c.far=20;key.shadow.bias=-.0006;key.shadow.radius=3;}
   g.add(key);
-  const rim=new THREE.DirectionalLight(0xffd2b8,lite?.3:.45);rim.position.set(5,2.5,-6);g.add(rim);
+  const rim=new THREE.DirectionalLight(0xffd2b8,lite?.3:.55);rim.position.set(5,2.5,-6);g.add(rim);
   return g;
 }
 /* the workshop's bot: the build passed to setBot, scaled to sit on the plate (a beetle and a heavyweight look the same size) */
-function placeBot(){if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
-  if(V.botB){const g=botMesh(V.botB,0,V.paint,V.livery||null),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;}
+function placeBot(){blobDrop(V.blob);V.blob=null;if(V.bot){V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
+  if(V.botB){const g=botMesh(V.botB,0,V.paint,V.livery||null),s=2.2/Math.max(g.userData.L,g.userData.W,1e-3);g.scale.setScalar(s);g.rotation.y=Math.PI;g.position.y=0.04;V.bot=g;
+    V.blob=blobMake(g.userData.W*s,g.userData.L*s);V.blob.position.y=0.043;V.blob.visible=V.view==="workshop";V.scene.add(V.blob);}
   else V.bot=buildPlaceholderBot();
   V.bot.visible=V.view==="workshop";V.scene.add(V.bot);}
-function placeBotClear(){if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
+function placeBotClear(){blobDrop(V.blob);V.blob=null;if(!V.bot)return;V.scene.remove(V.bot);if(V.bot.userData.placeholder)V.bot.traverse(o=>{if(o.geometry)o.geometry.dispose();});else disposeClone(V.bot);V.bot=null;}
 /* rebuild everything that depends on the tier */
 function rebuild(){
   for(const k of ["shop","lights"])if(V[k]){V.scene.remove(V[k]);V[k].traverse(o=>{if(o.geometry&&!o.userData.keep)o.geometry.dispose();});V[k]=null;}   // keep: a cached prop model (vis/props.js)
@@ -33,15 +34,27 @@ function rebuild(){
   if(fight){buildArena(fight);fxInit();}
   showView();
   V.r.shadowMap.enabled=V.tier!=="lite";V.r.shadowMap.type=THREE.PCFSoftShadowMap;
+  envApply();
+  V.r.toneMapping=V.tier==="lite"?THREE.NoToneMapping:toneCurve()?THREE.CustomToneMapping:THREE.ACESFilmicToneMapping;V.r.toneMappingExposure=V.tier==="lite"?1:LOOK.exposure;
+  for(const k in PROPS.models){const c=PROPS.models[k];if(c&&c.scene)c.scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});}   // cached props: recompiled for the tier's tone mapping
   V.r.setPixelRatio(V.tier==="lite"?1:Math.min(window.devicePixelRatio||1,2));
   if(V.comp){try{V.comp.renderTarget1.dispose();V.comp.renderTarget2.dispose();if(V.bloom&&V.bloom.dispose)V.bloom.dispose();}catch(e){}}   // Ultra's bloom targets
   V.comp=null;V.bloom=null;
   if(V.tier==="ultra"&&window.__scrPost)window.__scrPost(()=>{if(V.tier!=="ultra"||!THREE.EffectComposer||!THREE.RenderPass||!THREE.UnrealBloomPass)return;
     /* the composer's own target asks for a stencil buffer only to get a 24-bit depth buffer: three's default here is 16-bit,
-       which let thin layers (the bot's team stripe, the arena kit's hazard stripes) flicker through on Ultra */
-    const sz=V.r.getDrawingBufferSize(new THREE.Vector2());
-    V.comp=new THREE.EffectComposer(V.r,new THREE.WebGLRenderTarget(sz.x||1,sz.y||1,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat,stencilBuffer:true}));V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
-    V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),.3,.4,.85);V.comp.addPass(V.bloom);resize(true);});
+       which let thin layers (the bot's team stripe, the arena kit's hazard stripes) flicker through on Ultra. On WebGL2 it
+       is multisampled (0.1.40): rendering through a plain target had lost Full's smooth edges */
+    const sz=V.r.getDrawingBufferSize(new THREE.Vector2()),o={minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat,stencilBuffer:true};
+    const ms=V.r.capabilities.isWebGL2&&THREE.WebGLMultisampleRenderTarget,rt=ms?new THREE.WebGLMultisampleRenderTarget(sz.x||1,sz.y||1,o):new THREE.WebGLRenderTarget(sz.x||1,sz.y||1,o);
+    if(ms)rt.samples=LOOK.msaa;
+    V.comp=new THREE.EffectComposer(V.r,rt);V.comp.addPass(new THREE.RenderPass(V.scene,V.cam));
+    V.bloom=new THREE.UnrealBloomPass(new THREE.Vector2(V.w||1,V.h||1),LOOK.bloom[0],LOOK.bloom[1],LOOK.bloom[2]);V.comp.addPass(V.bloom);
+    V.bloom.basic.toneMapped=false;   /* the scene is tone mapped as it is drawn; the copy to the screen must not do it again (it did, and Ultra came out darker than Full) */
+    /* the grade: the last pass darkens the corners a little and writes the picture out in the screen's encoding */
+    if(THREE.ShaderPass)V.comp.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},vig:{value:LOOK.vignette}},
+      vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",
+      fragmentShader:"uniform sampler2D tDiffuse;uniform float vig;varying vec2 vUv;void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float d=length(vUv-0.5)*1.3;c*=1.0-vig*smoothstep(0.42,0.95,d);gl_FragColor=linearToOutputTexel(vec4(c,1.0));}"}));
+    resize(true);});
   resize(true);
 }
 function resize(force){
@@ -57,7 +70,7 @@ function placeCam(){
 }
 /* which scene shows: the workshop (bench, lights, bot) or the arena */
 function showView(){const ws=V.view==="workshop"||!AR.g;
-  for(const o of [V.shop,V.lights,V.bot])if(o)o.visible=ws;if(AR.g){AR.g.visible=!ws;AR.lights.visible=!ws;}
+  for(const o of [V.shop,V.lights,V.bot,V.blob])if(o)o.visible=ws;if(AR.g){AR.g.visible=!ws;AR.lights.visible=!ws;}
   V.scene.fog.near=ws?12:40;V.scene.fog.far=ws?28:110;V.cam.near=ws?.1:.3;V.cam.far=ws?100:200;V.cam.fov=ws?36:50;V.cam.updateProjectionMatrix();}
 /* one finger turns, two fingers pinch to zoom, the mouse wheel zooms. Each finger is tracked by pointerId. Workshop only:
    in the arena the fingers drive (app/controls.js). */
@@ -77,8 +90,8 @@ function bindOrbit(el){
    w x h canvas (2x supersampled, then scaled down), so the screen never flickers. No bloom; shadows as the tier has them.
    null when there is no renderer. */
 function shotBot(w,h){if(!V.r||!V.bot)return null;const ss=2,W=w*ss,H=h*ss,mx=V.r.capabilities.maxTextureSize||4096;if(W>mx||H>mx)return null;
-  const vis=[V.shop,V.lights,V.bot].map(o=>o&&o.visible),ag=AR.g&&AR.g.visible,al=AR.lights&&AR.lights.visible;
-  for(const o of [V.shop,V.lights,V.bot])if(o)o.visible=true;if(AR.g){AR.g.visible=false;AR.lights.visible=false;}
+  const vis=[V.shop,V.lights,V.bot,V.blob].map(o=>o&&o.visible),ag=AR.g&&AR.g.visible,al=AR.lights&&AR.lights.visible;
+  for(const o of [V.shop,V.lights,V.bot,V.blob])if(o)o.visible=true;if(AR.g){AR.g.visible=false;AR.lights.visible=false;}
   const cam=new THREE.PerspectiveCamera(30,w/h,.1,100),yaw=-.75,pitch=.42,dist=6.4,cp=Math.cos(pitch);
   cam.position.set(Math.sin(yaw)*cp*dist,.3+Math.sin(pitch)*dist,Math.cos(yaw)*cp*dist);cam.lookAt(0,.3,0);
   const fn=V.scene.fog.near,ff=V.scene.fog.far;V.scene.fog.near=12;V.scene.fog.far=28;
@@ -90,7 +103,7 @@ function shotBot(w,h){if(!V.r||!V.bot)return null;const ss=2,W=w*ss,H=h*ss,mx=V.
     bg.putImageData(img,0,0);out=document.createElement("canvas");out.width=w;out.height=h;const g=out.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(big,0,0,w,h);}
   catch(e){out=null;}
   finally{V.r.setRenderTarget(null);rt.dispose();V.scene.fog.near=fn;V.scene.fog.far=ff;
-    [V.shop,V.lights,V.bot].forEach((o,i)=>{if(o)o.visible=vis[i];});if(AR.g){AR.g.visible=ag;AR.lights.visible=al;}}
+    [V.shop,V.lights,V.bot,V.blob].forEach((o,i)=>{if(o)o.visible=vis[i];});if(AR.g){AR.g.visible=ag;AR.lights.visible=al;}}
   return out;}
 /* Lite renders at most 30 frames a second (plan section 16); Full and Ultra follow the display */
 function frame(now){
