@@ -13,8 +13,9 @@
    opponents, the test builds. Formats: a club meet is a four-bot round robin; tournaments and championships are
    eight-bot brackets with a best-of-three final; a rumble is one four-bot free-for-all; tag team is you and a partner
    against two. Before each of your fights: drive it (the Fight tab's fight mode, app/fight.js ftEvent, with the pit
-   window after it when you have another fight) or Quick sim (the AI drives your bot at your driver skill and your crew
-   does the pit work). The other fights are simulated. Damage carries through the day and home: S.bots[cls].damage and
+   window after it when you have another fight) or Watch it / Quick sim (the AI drives your bot at your driver skill and your crew
+   does the pit work; Watch it plays it back like a live bout, 0.1.29). Skip ahead (crSkip) closes the weeks out to
+   the next event you have a bot fitted for. The other fights are simulated. Damage carries through the day and home: S.bots[cls].damage and
    flags, repaired in the workshop card (REPAIR_COST / REPAIR_HOURS via rpBill, money and hours) or not at all.
    Money: prizes in, and out go parts (app/build.js), repairs, pit kits, entries, travel, tools and the workshop (Shop
    tab), rent. Going broke at Close week brings the Haldis Savings Bank's one loan; broke again ends the run.
@@ -239,9 +240,16 @@ function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],p
 
 /* ---- your fights ---- */
 function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
-  const res=crSimMatch(day,nx.idx,nx.teams,nx.bo,true);crAfterMine(day,nx,res,false,false);
+  toastHold(true);const res=crSimMatch(day,nx.idx,nx.teams,nx.bo,true);crAfterMine(day,nx,res,false,false);
   ftShowSim(res.Fs,res,day,nx);CR.seen=true;const f=day.fights[day.fights.length-1];
   toast(`${f.draw?"Draw":f.won?"Won":"Lost"}: ${f.label} vs ${f.vs}`);}
+/* Watch it (0.1.29): the AI drives your bot as in a quick sim, and the match is recorded at once; then the Fight tab
+   plays it back like a live bout and the result comes at the bell (app/fight.js ftWatch) */
+function crWatch(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const e=crEv(day.ev),rv={};
+  nx.idx.forEach((i,k)=>{const f=day.field[i];if(f&&f.rival)rv[k]=f.rival;});const voice=crVoice(day,nx,e);
+  toastHold(true);const res=crSimMatch(day,nx.idx,nx.teams,nx.bo,true);crAfterMine(day,nx,res,false,false);
+  ftShowSim(res.Fs,res,day,nx);CR.seen=true;for(const F of res.Fs)F.vRiv=rv;
+  const banner=crBanner(day,nx,res);ST().buildCls=day.cls;showTab("fight");ftWatch(banner,voice);}
 function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const e=crEv(day.ev),T=nx.teams||[0,1];
   ST().buildCls=day.cls;day.live=nx.label;save();showTab("fight");
   ftEvent({arena:crArena(day),rules:crRulesOf(day),bots:nx.idx.map((i,k)=>crSpec(day,i,T[k],false)),seed:crMatchSeed(day,nx.idx,0),seedN:n=>crMatchSeed(day,nx.idx,n),bo:nx.bo,teams:T,
@@ -298,11 +306,27 @@ function crClose(force){const c=S.career;if(!crOn())return;
   if(c.day&&!force){openSheet("Close the week?",`<p>You're entered in <b>${esc(crEv(c.day.ev).name)}</b> and it isn't over. Closing the week forfeits the rest of it; the damage so far comes home with the bot.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Forfeit and close the week</button></div>`);return;}
   if(c.day){const d=c.day;d.out=true;const b=bBot(d.cls);if(bnSig(b.cfg)===bnSig(d.field[0].cfg)){b.damage=clone(d.field[0].dmg);b.flags=crFlags(d.field[0].flags);}
     c.events[d.key]={place:null,prize:0,rep:0,forfeit:true};c.day=null;c.entered=null;}
-  closeSheet();const st=crStage();crPay(st.rent,`Rent: ${st.name.toLowerCase()}`);tmWages();CR.end=null;c.last=null;
-  if(c.money<0&&crBroke())return;
-  c.week++;if(c.week>TIME.weeks){crSeasonEnd();}
-  c.hours=crR1(Math.min(st.hours*TIME.bankWeeks,c.hours+st.hours));save();hud();crRender();
+  closeSheet();crCloseWeek();if(c.over)return;save();hud();crRender();
   const e=crThisWeek();toast(`Week ${c.week}${e?` · ${e.name} this week`:""}`);shopSfx("charger");}
+/* one week closed: rent and wages out, the next week's hours in. False when the bank stepped in (a sheet is up) */
+function crCloseWeek(){const c=S.career,st=crStage();crPay(st.rent,`Rent: ${st.name.toLowerCase()}`);tmWages();CR.end=null;c.last=null;
+  const broke=c.money<0;if(broke&&crBroke())return false;
+  c.week++;if(c.week>TIME.weeks){crSeasonEnd();}
+  c.hours=crR1(Math.min(st.hours*TIME.bankWeeks,c.hours+st.hours));return!broke;}
+/* ---- skip ahead (0.1.29): close the weeks out to the next event this season in a class you have a bot fitted for ---- */
+function crSkipTarget(){const c=S.career;if(!c||c.day||c.over)return null;
+  return crCalendar().find(e=>e.week>c.week&&e.week<=TIME.weeks&&!c.events[crKey(e)]&&!crClassLock(e.cls)&&S.bots[e.cls]&&S.bots[e.cls].cfg)||null;}
+const crWeekCost=()=>crStage().rent+S.staff.reduce((a,s)=>{const p=tmPerson(s.id);return a+(p?tmWeek(p):0);},0);
+function crSkipHtml(){const n=crSkipTarget();if(!n)return"";const w=n.week-S.career.week;
+  return`<div class="row"><button type="button" class="btn" data-cr="skip">Skip to week ${n.week}: ${esc(SIM.CLASSES[n.cls].name.toLowerCase())}</button></div>
+    <p class="hint">Next fight you can enter: <b>${esc(n.name)}</b>. Skipping closes ${w} week${w>1?"s":""}: about ${fmt$(crWeekCost()*w)} in rent${S.staff.length?" and wages":""}.</p>`;}
+function crSkipAsk(){const c=S.career,n=crSkipTarget();if(!n)return;const w=n.week-c.week;
+  openSheet(`Skip to week ${n.week}?`,`<p>This closes ${w} week${w>1?"s":""}, the same as pressing Close week ${w>1?w+" times":"once"}: about <b>${fmt$(crWeekCost()*w)}</b> in rent${S.staff.length?" and wages":""} comes out and your workshop hours carry over (up to ${crStage().hours*TIME.bankWeeks} h).</p>
+    <p>Then it's <b>${esc(n.name)}</b>: ${esc(SIM.CLASSES[n.cls].name)} at ${esc(WORLD.venues[n.venue].name)}.</p>
+    <div class="row"><button type="button" class="btn pri" data-cr="skip-ok">Skip ${w} week${w>1?"s":""}</button></div>`);}
+function crSkip(){const c=S.career,n=crSkipTarget();closeSheet();if(!n)return;let guard=0;
+  while(c.week<n.week&&!c.over&&guard++<TIME.weeks){if(!crCloseWeek())break;}
+  if(c.over)return;save();hud();crRender();const e=crThisWeek();toast(`Week ${c.week}${e?` · ${e.name} this week`:""}`);shopSfx("charger");}
 /* rent you can't pay: the one loan, or the end */
 function crBroke(){const c=S.career;c.broke++;
   if(!c.loan.taken){c.loan={taken:true,owed:Math.round(TIME.loan*(1+TIME.loanRate))};c.money+=TIME.loan;crLedger(TIME.loan,`Loan from ${WORLD.bank}`);save();hud();
@@ -351,13 +375,13 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
 function crEventCard(){const c=S.career;
   if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
     ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
-    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p></div>`;
+    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p>${crSkipHtml()}</div>`;
   if(c.day)return crDayCard(c.day);
-  const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p></div>`;}
-  const r=c.events[crKey(e)];if(r)return`<div class="card"><h3>${esc(e.name)}</h3><p>${r.forfeit?"Forfeited.":"Done: "+crPlaceTxt(e.kind,r.place)+"."}</p></div>`;
-  const why=crCantEnter(e,"none");
+  const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p>${crSkipHtml()}</div>`;}
+  const r=c.events[crKey(e)];if(r)return`<div class="card"><h3>${esc(e.name)}</h3><p>${r.forfeit?"Forfeited.":"Done: "+crPlaceTxt(e.kind,r.place)+"."}</p>${crSkipHtml()}</div>`;
+  const why=crCantEnter(e,"none"),noCls=!!(crClassLock(e.cls)||!S.bots[e.cls]||!S.bots[e.cls].cfg);
   return`<div class="card"><h3>This week: ${esc(e.name)}</h3>${crEvLine(e)}${crRivalsAt(e)}
-    ${why?`<p class="worn">${esc(why)}</p>`:""}<div class="row"><button type="button" class="btn pri" data-cr="enter"${why&&!/^Need|takes/.test(why)?" disabled":""}>Enter…</button></div></div>`;}
+    ${why?`<p class="worn">${esc(why)}</p>`:""}<div class="row"><button type="button" class="btn pri" data-cr="enter"${why&&!/^Need|takes/.test(why)?" disabled":""}>Enter…</button></div>${noCls?crSkipHtml():""}</div>`;}
 function crEvLine(e){const k=EVENT_KINDS[e.kind],v=WORLD.venues[e.venue],t=crTravel(e);
   const fmt=k.format==="league"?"four-bot round robin, three fights":k.format==="bracket"?"eight-bot bracket, best-of-three final":k.format==="rumble"?"four-bot rumble":"you and a partner against two";
   return`<p>${esc(SIM.CLASSES[e.cls].name)} · ${esc(k.name.toLowerCase())} at ${esc(v.name)} · ${fmt}.</p>
@@ -389,8 +413,8 @@ function crDayCard(day){const e=crEv(day.ev),k=EVENT_KINDS[day.kind],nx=crNext(d
     ${crFightsHtml(day.fights)}
     ${nx?`<div class="crnext"><p><b>Next: the ${esc(nx.label)}</b>${nx.bo>1?" (best of three)":""} against ${crAnd(opp.map(o=>`<b>${esc(o.name)}</b>${o.who?` (${esc(o.who)})`:""}`))}${partner?`, with ${esc(partner.name)} as your partner`:""}.</p>
       ${rv.map(r=>`<p class="crtalk">“${esc(crTalk(r))}” <small>${esc(r.name)}</small></p>`).join("")}
-      <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
-      <p class="hint">Quick sim: ${esc(crSimWho())} and your crew does the pit work. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
+      <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="watch">Watch it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
+      <p class="hint">Watch it or Quick sim: ${esc(crSimWho())} and your crew does the pit work. Watch it plays the fight out; Quick sim jumps to the result. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
 function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${f.esc} speed controller dead`:""].filter(Boolean).join(", ");}
 function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}</small></li>`).join("")}</ul>`;}
 /* the round robin's table, or the bracket so far */
@@ -449,10 +473,12 @@ function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[da
   else if(a==="enter")crEnterOpen();
   else if(a==="drive")crDrive();
   else if(a==="quick"){crQuick();crRender();}
+  else if(a==="watch")crWatch();
+  else if(a==="skip")crSkipAsk();
   else if(a==="see"){const d=S.career.day,r=S.career.results[0];ST().buildCls=d?d.cls:r?r.cls:ST().buildCls;showTab("fight");const el=$("ftResCard");if(el)el.scrollIntoView({block:"start"});}
   else if(a==="restart-ask"){if(CR.restartAsk){CR.restartAsk=false;crRestart();}else{CR.restartAsk=true;crRender();}}}
 function crRestart(){S.career=null;closeSheet();crStart();}
 /* sheet buttons are outside the tab */
 document.addEventListener("click",e=>{const x=e.target.closest&&e.target.closest("[data-cr]");if(!x||!$("sheet").contains(x))return;const a=x.dataset.cr;
-  if(a==="start-ok")crStart();else if(a==="enter-ok")crEnter();else if(a==="close-ok")crClose(true);else if(a==="restart")crRestart();});
+  if(a==="start-ok")crStart();else if(a==="enter-ok")crEnter();else if(a==="close-ok")crClose(true);else if(a==="skip-ok")crSkip();else if(a==="restart")crRestart();});
 TAB_RENDER.career=function(){if(!crRender.bound){crRender.bound=true;$("tab-career").addEventListener("click",crClick);}crRender();};
