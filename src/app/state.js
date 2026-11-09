@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.30.1";
+const VERSION="0.1.30.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -329,7 +329,7 @@ const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
 function hud(){const c=S.mode==="career"?S.career:null;
-  $("weekLbl").textContent=S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;
+  $("weekLbl").textContent=TUT_ON?`Tutorial · loaner bot`:S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;   // the tutorial runs on a loaner in the sandbox: say "Tutorial", not "Sandbox", or a new player thinks they picked the wrong mode
   $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent=c?`rep ${c.rep||0}`:"";}
 
 /* ---- toast ---- */
