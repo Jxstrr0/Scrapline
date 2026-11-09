@@ -7,8 +7,12 @@
                 edge round the pit. Lite bakes them, with a soft pool of light, into the floor's own texture (one texture
                 lookup, no lights and no grid lines to draw); Full and Ultra lay them over the photo plate as a see-through
                 decal, under a spotlight over the arena. The floor round the arena is darker than the arena (arenaOut).
+                0.1.42: on Full and Ultra the plate is its look's baked tile (vis/props.js floorDress) and the grid is not
+                painted (the tile has real joints); on every tier the markings are worn (arenaWear: rubbed lines, tyre
+                marks, soot, scrapes by the rams, grime at the kerbs; seeded from the arena's id).
      walls      steel kerbs with a glass screen on top; the side nearest the camera has no screen, no top rail and short
-                posts (0.1.21.0), so nothing crosses in front of the bots
+                posts (0.1.21.0), so nothing crosses in front of the bots. 0.1.42: a strip of printed boards along the
+                screens above the kerb, the venue's name between SCRAPLINE panels (wallBoards; Lite: the far wall only)
      pit        a black hole under a hatched cover that slides away when it opens
      pusher     a slab in the wall that shoves out and lights amber while it fires
      spinner    a disc in the floor that spins and lights while it fires
@@ -32,16 +36,17 @@
 /* the venue looks (0.1.28.0): floor (Lite's baked plate: centre, middle, edge), wash (Full and Ultra: a tint laid over the
    photo plate in the decal), and the lights: hemisphere sky and ground, key, rim (colour, strength), spot */
 const ARENA_LOOK={
-  base:{floor:["#45433d","#35332f","#1f1e1b"],wash:null,sky:0xc4ccd6,gnd:0x1a1816,key:0xeef3fa,rim:[0xffd2b8,.35],spot:0xfff1df},
-  mill:{floor:["#4a3f36","#372f29","#1e1a17"],wash:"rgba(150,82,34,.2)",sky:0xd6c4b4,gnd:0x1e1712,key:0xfff0dc,rim:[0xff9a50,.55],spot:0xffd7a8},
-  port:{floor:["#3d4446","#2f3537","#1a1e20"],wash:"rgba(60,92,122,.2)",sky:0xb8c8da,gnd:0x141a1e,key:0xe6f0ff,rim:[0x9cc4e8,.4],spot:0xe8f2ff},
-  shed:{floor:["#43443a","#33352d","#1d1e19"],wash:"rgba(92,100,60,.17)",sky:0xc8d0bc,gnd:0x181a14,key:0xf2f6e4,rim:[0xffd9a0,.4],spot:0xf4f0dc}};
+  base:{floor:["#45433d","#35332f","#1f1e1b"],plate:0x343331,sign:"#d8d2c4",wash:null,sky:0xc4ccd6,gnd:0x1a1816,key:0xeef3fa,rim:[0xffd2b8,.35],spot:0xfff1df},
+  mill:{floor:["#4a3f36","#372f29","#1e1a17"],plate:0x363330,sign:"#e9a866",wash:"rgba(150,82,34,.2)",sky:0xd6c4b4,gnd:0x1e1712,key:0xfff0dc,rim:[0xff9a50,.55],spot:0xffd7a8},
+  port:{floor:["#3d4446","#2f3537","#1a1e20"],plate:0x32302d,sign:"#9cc4e4",wash:"rgba(60,92,122,.2)",sky:0xb8c8da,gnd:0x141a1e,key:0xe6f0ff,rim:[0x9cc4e8,.4],spot:0xe8f2ff},
+  shed:{floor:["#43443a","#33352d","#1d1e19"],plate:0x31322e,sign:"#cdd3a0",wash:"rgba(92,100,60,.17)",sky:0xc8d0bc,gnd:0x181a14,key:0xf2f6e4,rim:[0xffd9a0,.4],spot:0xf4f0dc}};
 const arenaLook=F=>ARENA_LOOK[F.arena.def&&F.arena.def.look]||ARENA_LOOK.base;
-const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
+const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],floorMat:null,floorTex:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots){disposeClone(B.mesh);blobDrop(B.blob);}
   if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
+  if(AR.floorMat){AR.floorMat.dispose();AR.floorMat=null;}for(const t of AR.floorTex)t.dispose();AR.floorTex=[];   // the floor's own material and its tile (the photo plate it starts with is M.arenaFloor's)
   AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
 /* the dressing scale: scene units per real metre for everything outside the walls (props, stands, the flat crowd), so they
    agree with each other. Real size (AR.U) where that is small enough, else capped, so a beetle arena (4 units a metre) isn't
@@ -53,6 +58,25 @@ function crowdTex(){const c=document.createElement("canvas");c.width=512;c.heigh
   g.fillStyle="#141311";g.fillRect(0,0,512,64);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;   // fixed pattern, no Math.random
   for(let i=0;i<420;i++){const x=r()*512,y=14+r()*46,l=40+r()*60|0;g.fillStyle=`hsl(${r()*360|0},${10+r()*25|0}%,${l*0.4|0}%)`;g.beginPath();g.arc(x,y,3+r()*2,0,7);g.fill();}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;return t;}
+/* the venue's boards (0.1.42): printed panels along the screens above the kerb. One strip, 16 times as long as it is tall:
+   the venue's name (in its look's sign colour) between two SCRAPLINE panels, repeated so a wall always ends on a whole
+   panel with the name in its middle. Lite: half the pixels and the far wall only. The kit hangs each in a steel frame
+   (vis/props.js kitBuild, the piece "board"); the faces are one-sided, so a board never hides the floor from behind */
+const BOARD={y:0.62,h:0.42,out:0.05,panel:1.68};
+function boardTex(F,lite){const c=document.createElement("canvas"),k=lite?.5:1;c.width=2048*k;c.height=128*k;const g=c.getContext("2d"),LK=arenaLook(F);g.scale(k,k);
+  const name=String((F.arena.def&&F.arena.def.name)||"Scrapline").toUpperCase(),font=px=>`700 ${px}px "Space Grotesk",system-ui,sans-serif`;
+  const put=(t,cx,w,px,col)=>{g.font=font(px);const m=g.measureText(t).width;if(m>w)g.font=font(Math.floor(px*w/m));g.fillStyle=col;g.textAlign="center";g.textBaseline="middle";g.fillText(t,cx,68);};
+  g.fillStyle="#131217";g.fillRect(0,0,2048,128);
+  for(const x of [0,1536]){g.fillStyle="#8a3a22";g.fillRect(x+6,10,500,108);g.fillStyle="#b9502f";g.fillRect(x+6,10,500,5);g.fillRect(x+6,113,500,5);put("SCRAPLINE",x+256,430,70,"#f3e9d8");}
+  g.fillStyle="#1d1c22";g.fillRect(518,10,1012,108);g.fillStyle=LK.sign;g.globalAlpha=.55;g.fillRect(518,10,1012,4);g.fillRect(518,114,1012,4);g.globalAlpha=1;
+  for(const x of [560,1488]){g.save();g.translate(x,64);g.rotate(Math.PI/4);g.fillRect(-11,-11,22,22);g.restore();}   // a lozenge at each end of the name
+  put(name,1024,820,74,LK.sign);
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;if(!lite&&V.r)t.anisotropy=Math.min(8,V.r.capabilities.getMaxAnisotropy());return t;}
+function wallBoards(g,F,H,lite){const tex=boardTex(F,lite),n=Math.max(2,2*Math.round(H/BOARD.panel)),rep=n/4,o=H+0.075-BOARD.out;   // n panels along a wall, an even number; the wall's middle line is 0.075 behind its inner face
+  tex.repeat.set(rep,1);tex.offset.set(0.5-rep/2,0);
+  const m=new THREE.MeshLambertMaterial(lite?{map:tex}:{map:tex,emissive:0x2a2a2a,emissiveMap:tex});let first=true;
+  for(const [x,z,ry] of lite?[[0,-o,0]]:[[0,-o,0],[-o,0,Math.PI/2],[o,0,-Math.PI/2]]){const b=new THREE.Mesh(new THREE.PlaneGeometry(2*H,BOARD.h),m);
+    b.position.set(x,BOARD.y,z);b.rotation.y=ry;b.userData.own=first;first=false;b.renderOrder=3;g.add(b);}}
 function buildArena(F){
   arenaClear();const M=V.mats,lite=V.tier==="lite",U=AR.U=4/F.M.len,D=AR.D=Math.min(U,ARENA_PROP_UNITS),A=F.arena,H=A.half*U,g=new THREE.Group();
   const kit=AR.kit={walls:[],posts:[],crowd:[],pit:null,floor:null,grid:null,H};
@@ -60,7 +84,7 @@ function buildArena(F){
   /* floor and grid */
   const deco=arenaDecal(F,U,H,lite);
   let fl;if(lite){const fm=new THREE.MeshLambertMaterial({map:deco});fl=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),fm);fl.userData.own=true;}   // the markings and the light are the floor's texture
-  else fl=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),M.arenaFloor);
+  else{const fm=AR.floorMat=M.arenaFloor.clone();fl=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),fm);floorDress(fm,A.def&&A.def.look,H,(A.turn||0)%2);}   // its look's baked tile lands on it (vis/props.js)
   fl.rotation.x=-Math.PI/2;fl.receiveShadow=!lite;g.add(fl);
   let grid=null;if(!lite){const dm=new THREE.MeshLambertMaterial({map:deco,transparent:true,premultipliedAlpha:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});   // Lambert: lit and shadowed, half the cost of a second PBR pass
     grid=new THREE.Mesh(new THREE.PlaneGeometry(2*H,2*H),dm);grid.rotation.x=-Math.PI/2;grid.position.y=0.003;grid.receiveShadow=true;grid.renderOrder=-1;grid.userData.own=true;g.add(grid);}   // before every other see-through thing
@@ -74,6 +98,7 @@ function buildArena(F){
     kit.walls.push({k,x,z,len:Math.max(w,d),along:w>d?"x":"z",near});
     if(!near){const s=new THREE.Mesh(new THREE.BoxGeometry(w,sh,d*0.3),M.glass);s.position.set(x,kh+sh/2,z);s.renderOrder=2;g.add(s);}
     if(!near){const rail=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),M.wall);rail.position.set(x,kh+sh,z);g.add(rail);}}
+  wallBoards(g,F,H,lite);
   /* posts at the corners carry the hazard lights */
   AR.lamps=[];for(const sx of [-1,1])for(const sz of [-1,1]){const ph=sz>0?kh+0.1:kh+sh+0.2,p=new THREE.Mesh(new THREE.BoxGeometry(0.2,ph,0.2),M.wall);p.position.set(sx*(H+t/2),ph/2,sz*(H+t/2));g.add(p);   // the near posts stop at the kerb
     const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.12,0.24),M.haz.clone());lamp.userData.own=true;lamp.position.set(sx*(H+t/2),ph+0.06,sz*(H+t/2));g.add(lamp);AR.lamps.push(lamp);kit.posts.push({p,lamp,near:sz>0});}
@@ -133,11 +158,11 @@ function arenaDecal(F,U,H,lite){const S=lite?512:1024,c=document.createElement("
   const px=x=>(x*U+H)*k,py=y=>(-y*U+H)*k,u=v=>v*U*k;   // sim metres to canvas px
   const LK=arenaLook(F),lk=A.def&&A.def.look;
   if(lite){const r=g.createRadialGradient(S/2,S/2,S*0.05,S/2,S/2,S*0.72);r.addColorStop(0,LK.floor[0]);r.addColorStop(.6,LK.floor[1]);r.addColorStop(1,LK.floor[2]);g.fillStyle=r;g.fillRect(0,0,S,S);}
-  else if(LK.wash){g.fillStyle=LK.wash;g.fillRect(0,0,S,S);}
+
   if(lk)arenaPaint(g,lk,A,S,k,px,py,u,lite);   // the venue's own floor (under the markings)
-  const step=0.3*4*k,lw=Math.max(1,S/512);   // the grid
-  g.strokeStyle=lite?"rgba(120,114,100,.32)":"rgba(170,162,145,.22)";g.lineWidth=lw;g.beginPath();
-  for(let v=step;v<S-1;v+=step){g.moveTo(v,0);g.lineTo(v,S);g.moveTo(0,v);g.lineTo(S,v);}g.stroke();
+  const step=0.3*4*k,lw=Math.max(1,S/512);   // the grid: Lite only (0.1.42: Full and Ultra have real seams in the floor's tile)
+  if(lite){g.strokeStyle="rgba(120,114,100,.32)";g.lineWidth=lw;g.beginPath();
+    for(let v=step;v<S-1;v+=step){g.moveTo(v,0);g.lineTo(v,S);g.moveTo(0,v);g.lineTo(S,v);}g.stroke();}
   const line=lite?"rgba(226,220,206,.5)":"rgba(226,220,206,.55)";g.strokeStyle=line;   // the border, a little in from the kerb, and the centre circle
   const ins=0.18*4*k;g.lineWidth=lw*3;g.strokeRect(ins,ins,S-2*ins,S-2*ins);
   g.lineWidth=lw*2.5;g.beginPath();g.arc(S/2,S/2,Math.min(S*0.14,u(A.half*0.28)),0,7);g.stroke();
@@ -153,24 +178,59 @@ function arenaDecal(F,U,H,lite){const S=lite?512:1024,c=document.createElement("
       g.beginPath();for(let i=1;i<nb;i++){if(alongX){const x=X0+W*i/nb;g.moveTo(x,Y0);g.lineTo(x,Y1);}else{const y=Y0+Hh*i/nb;g.moveTo(X0,y);g.lineTo(X1,y);}}g.stroke();g.strokeRect(X0,Y0,W,Hh);
       g.strokeStyle="rgba(226,169,59,.6)";g.lineWidth=lw*3;g.setLineDash([lw*10,lw*7]);g.strokeRect(X0-m,Y0-m,W+2*m,Hh+2*m);g.setLineDash([]);}
     else{g.strokeStyle="rgba(226,169,59,.6)";g.lineWidth=lw*4;g.setLineDash([lw*10,lw*7]);g.beginPath();g.arc(px(h.at[0]),py(h.at[1]),u(h.rM)*1.35,0,7);g.stroke();g.setLineDash([]);}}
+  arenaWear(g,S,k,F,LK,lite);   // 0.1.42: a floor that has been fought on (before the pit, whose edge is kept fresh)
   if(A.pit){const r=A.pit.rect,X0=px(r[0]),X1=px(r[2]),Y0=py(r[3]),Y1=py(r[1]),b=0.06*4*k;   // the pit: striped edge, the hole cut out on Full
     g.save();g.beginPath();g.rect(X0-b,Y0-b,X1-X0+2*b,Y1-Y0+2*b);g.clip();g.fillStyle="#e2a93b";g.fillRect(X0-b,Y0-b,X1-X0+2*b,Y1-Y0+2*b);
     g.strokeStyle="#141311";g.lineWidth=b*0.7;g.beginPath();const D=Y1-Y0+2*b;for(let t=-D;t<X1-X0+2*b+D;t+=b*1.6){g.moveTo(X0-b+t,Y1+b);g.lineTo(X0-b+t+D,Y0-b);}g.stroke();g.restore();
     if(lite){g.fillStyle="#050505";g.fillRect(X0,Y0,X1-X0,Y1-Y0);}else g.clearRect(X0,Y0,X1-X0,Y1-Y0);}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.premultiplyAlpha=!lite;t.anisotropy=lite?1:Math.min(8,V.r.capabilities.getMaxAnisotropy());return t;}
+/* wear over the whole floor (0.1.42), drawn once into the markings' canvas, so it costs nothing per frame on any tier and
+   does not repeat the way the floor's tile does: the painted lines rubbed through in strokes and specks, pairs of tyre
+   marks in arcs, soot in patches and round each floor spinner, bright scrapes where the rams push, and grime along the
+   kerbs. From a seed made of the arena's id, so an arena is worn the same way every time. Lite paints the rubbing in the
+   floor's colour (its canvas is the floor itself); Full and Ultra cut it out of the see-through markings. */
+function arenaWear(g,S,k,F,LK,lite){const A=F.arena,lw=S/512;let q=7;for(const c of String(A.id||"arena"))q=(q*31+c.charCodeAt(0))%2147483647;q=q||7;const r=()=>(q=(q*16807)%2147483647)/2147483647;
+  g.save();g.lineCap="round";
+  /* the paint, rubbed through */
+  if(lite)g.strokeStyle=g.fillStyle=LK.floor[1];else g.globalCompositeOperation="destination-out";
+  for(let i=0;i<150;i++){const x=r()*S,y=r()*S,a=r()*6.283,l=S*(0.01+r()*0.05);g.globalAlpha=lite?0.25+r()*0.3:0.3+r()*0.5;g.lineWidth=lw*(1.5+r()*5);if(!lite)g.strokeStyle="#000";
+    g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a)*l*0.5+(r()-.5)*l*0.4,y+Math.sin(a)*l*0.5+(r()-.5)*l*0.4,x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
+  if(!lite)g.fillStyle="#000";for(let i=0;i<(lite?260:700);i++){g.globalAlpha=0.3+r()*0.6;g.beginPath();g.arc(r()*S,r()*S,lw*(0.5+r()*1.6),0,7);g.fill();}
+  g.globalCompositeOperation="source-over";
+  /* tyre marks: two short arcs a track apart, each through a spot of its own on the floor with a turn of its own (arcs
+     that shared a middle read as rings) */
+  const tw=0.7*k;g.strokeStyle="#0a0a0a";g.lineWidth=Math.max(1,0.11*k);
+  for(let i=0;i<(lite?10:22);i++){const px=S*(0.08+r()*0.84),py=S*(0.08+r()*0.84),R=S*(0.04+r()*0.22),a0=r()*6.283,da=Math.min(1.3,S*(0.05+r()*0.13)/R);
+    const cx=px-Math.cos(a0)*R,cy=py-Math.sin(a0)*R;g.globalAlpha=0.06+r()*0.1;
+    for(const o of [0,tw]){g.beginPath();g.arc(cx,cy,R+o,a0-da/2,a0+da/2);g.stroke();}}
+  /* soot: patches, and a ring round each floor spinner */
+  const soot=(x,y,R,al)=>{const gr=g.createRadialGradient(x,y,0,x,y,R);gr.addColorStop(0,"rgba(8,7,6,"+al+")");gr.addColorStop(1,"rgba(8,7,6,0)");g.fillStyle=gr;g.fillRect(x-R,y-R,2*R,2*R);};
+  g.globalAlpha=1;for(let i=0;i<(lite?6:12);i++)soot(r()*S,r()*S,S*(0.03+r()*0.07),0.1+r()*0.16);
+  for(const h of A.haz){if(h.type==="spinner"){const x=(h.at[0]*AR.U+A.half*AR.U)*k,y=(-h.at[1]*AR.U+A.half*AR.U)*k,R=h.rM*AR.U*k;
+      const gr=g.createRadialGradient(x,y,R*0.9,x,y,R*1.9);gr.addColorStop(0,"rgba(8,7,6,.34)");gr.addColorStop(1,"rgba(8,7,6,0)");g.fillStyle=gr;g.fillRect(x-R*2,y-R*2,R*4,R*4);}
+    else if(h.type==="pusher"){   // scrapes the way the ram shoves
+      const rc=h.rect,X=v=>(v*AR.U+A.half*AR.U)*k,Y=v=>(-v*AR.U+A.half*AR.U)*k,reach=Math.min(rc[2]-rc[0],rc[3]-rc[1])*1.6*AR.U*k,nx=h.n[0],ny=-h.n[1];
+      g.strokeStyle=lite?"rgba(150,146,136,.5)":"rgba(206,204,196,.5)";g.lineWidth=Math.max(1,lw);
+      for(let i=0;i<26;i++){const t=r(),x0=nx?X(nx>0?rc[2]:rc[0]):X(rc[0]+(rc[2]-rc[0])*t),y0=ny?Y(ny<0?rc[3]:rc[1]):Y(rc[1]+(rc[3]-rc[1])*t),l=reach*(0.3+r()*0.9),o=r()*reach*0.4;
+        g.globalAlpha=0.15+r()*0.3;g.beginPath();g.moveTo(x0+nx*o,y0+ny*o);g.lineTo(x0+nx*(o+l),y0+ny*(o+l));g.stroke();}g.globalAlpha=1;}}
+  /* grime along the kerbs */
+  const e=S*0.075,al=lite?0.16:0.34;for(const [x0,y0,x1,y1,w,h] of [[0,0,e,0,e,S],[S,0,S-e,0,-e,S],[0,0,0,e,S,e],[0,S,0,S-e,S,-e]]){const gr=g.createLinearGradient(x0,y0,x1,y1);
+    gr.addColorStop(0,"rgba(9,8,7,"+al+")");gr.addColorStop(1,"rgba(9,8,7,0)");g.fillStyle=gr;g.fillRect(Math.min(x0,x0+w),Math.min(y0,y0+h),Math.abs(w),Math.abs(h));}
+  g.restore();}
 /* a venue's floor paint (0.1.28.0), under the common markings: canvas g, S px a side, px/py/u sim metres to px (k px a
    scene unit). Drawn once into the floor's texture, so it costs nothing per frame on any tier. */
 function arenaPaint(g,lk,A,S,k,px,py,u,lite){const lw=Math.max(1,S/512),m=0.3*4*k/0.3;   // m: px per beetle metre
   if(lk==="mill"){   // steel plates, 60 cm, rivets at the corners; the slag trough glows
-    const p=0.6*m;g.strokeStyle=lite?"rgba(16,12,10,.55)":"rgba(16,12,10,.45)";g.lineWidth=lw*2.5;g.beginPath();
-    for(let v=p;v<S-1;v+=p){g.moveTo(v,0);g.lineTo(v,S);g.moveTo(0,v);g.lineTo(S,v);}g.stroke();
-    g.fillStyle=lite?"rgba(150,140,128,.35)":"rgba(170,160,145,.3)";for(let x=p;x<S;x+=p)for(let y=p;y<S;y+=p)for(const [dx,dy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){g.beginPath();g.arc(x+dx*lw*6,y+dy*lw*6,lw*1.6,0,7);g.fill();}
+    if(lite){const p=0.6*m;g.strokeStyle="rgba(16,12,10,.55)";g.lineWidth=lw*2.5;g.beginPath();   // Full and Ultra: the welded plates are the floor's tile
+      for(let v=p;v<S-1;v+=p){g.moveTo(v,0);g.lineTo(v,S);g.moveTo(0,v);g.lineTo(S,v);}g.stroke();
+      g.fillStyle="rgba(150,140,128,.35)";for(let x=p;x<S;x+=p)for(let y=p;y<S;y+=p)for(const [dx,dy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){g.beginPath();g.arc(x+dx*lw*6,y+dy*lw*6,lw*1.6,0,7);g.fill();}}
     if(A.pit){const r=A.pit.rect,X0=px(r[0]),X1=px(r[2]),Y0=py(r[3]),Y1=py(r[1]),cx=(X0+X1)/2,cy=(Y0+Y1)/2,R=Math.max(X1-X0,Y1-Y0)*0.9;
       const gr=g.createRadialGradient(cx,cy,0,cx,cy,R);gr.addColorStop(0,"rgba(255,120,40,.32)");gr.addColorStop(1,"rgba(255,120,40,0)");g.fillStyle=gr;g.fillRect(cx-R,cy-R,2*R,2*R);}}
   else if(lk==="port"){   // a timber deck: 15 cm planks with staggered butt joints, a yellow quay line, bollards in the corners
-    const turn=(A.turn||0)%2,p=0.15*m,j=1.2*m;g.strokeStyle=lite?"rgba(14,16,18,.5)":"rgba(14,16,18,.4)";g.lineWidth=lw*1.5;g.beginPath();
-    for(let v=p,i=0;v<S-1;v+=p,i++){if(turn){g.moveTo(v,0);g.lineTo(v,S);}else{g.moveTo(0,v);g.lineTo(S,v);}
-      for(let w=(i%3)*j/3;w<S;w+=j){if(turn){g.moveTo(v-p,w);g.lineTo(v,w);}else{g.moveTo(w,v-p);g.lineTo(w,v);}}}g.stroke();
+    const turn=(A.turn||0)%2,p=0.15*m,j=1.2*m;
+    if(lite){g.strokeStyle="rgba(14,16,18,.5)";g.lineWidth=lw*1.5;g.beginPath();   // Full and Ultra: the planks are the floor's tile
+      for(let v=p,i=0;v<S-1;v+=p,i++){if(turn){g.moveTo(v,0);g.lineTo(v,S);}else{g.moveTo(0,v);g.lineTo(S,v);}
+        for(let w=(i%3)*j/3;w<S;w+=j){if(turn){g.moveTo(v-p,w);g.lineTo(v,w);}else{g.moveTo(w,v-p);g.lineTo(w,v);}}}g.stroke();}
     const q=0.32*m;g.strokeStyle="rgba(226,190,60,.5)";g.lineWidth=lw*4;g.setLineDash([lw*18,lw*10]);g.strokeRect(q,q,S-2*q,S-2*q);g.setLineDash([]);
     const b=0.09*m,o=0.3*m;g.fillStyle="rgba(20,22,24,.75)";g.strokeStyle="rgba(226,190,60,.55)";g.lineWidth=lw*2;
     for(const [x,y] of [[o,o],[S-o,o],[o,S-o],[S-o,S-o]]){g.beginPath();g.arc(x,y,b,0,7);g.fill();g.stroke();}}
@@ -201,7 +261,7 @@ function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.
 function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.arena.id||AR.F.bots.length!==F.bots.length)return false;
   AR.F=F;AR.pitOpenAt=null;AR.bots.forEach((B,i)=>{const o=F.bots[i];B.o=o;B.fall=0;B.inv=o.inverted?1:0;B.shots=o.wp.shots;B.flipT=-9;B.kshots=o.kick?o.kick.shots:0;B.kickT=-9;B.mesh.visible=true;wearClear(B);});
   for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
-  for(const n of FX.nums)fxNumDrop(n);FX.nums=[];return true;}
+  for(const n of FX.nums)fxNumDrop(n);FX.nums=[];markClear();return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
 function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;

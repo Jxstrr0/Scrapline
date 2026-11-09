@@ -9,8 +9,17 @@ Every piece is one top-level node the game picks by name (vis/props.js, arenaKit
 arena view runs at 4 units a beetle metre): the kerb is 0.35 high and 0.15 thick, the screen 1.1 high on top, as the coded
 walls in vis/arena.js, so a piece swaps in where the coded box was. Coordinates below are three.js's (y up, +z towards the
 camera); B() turns them into Blender's (z up). Colours are sRGB hex like the game's, turned linear for glTF.
-  kerb      one metre-ish of wall (x -0.5..0.5): kerb, sloped steel face on the arena side (+z), bolts, a steel cap
-  frame     the screen's upright at x -0.5 and a bottom rail, to tile along the far and side walls
+  kerb      one metre-ish of wall (x -0.5..0.5): kerb, sloped steel face on the arena side (+z), bolts, a steel cap;
+            0.1.42: a rub rail on brackets along the top of the face, a kick strip at the floor, a joint at each end
+  frame     the screen's upright at x -0.5 and a bottom rail, to tile along the far and side walls; 0.1.42: a bolted
+            foot, a rail half way up and a brace leaning out behind
+  lamphead  (0.1.42) a work light for the top of an upright, looking down into the arena (its lens, lamphead_lens, is
+            the material kit-glow, which gives off light); the game fits one to every other upright
+  board     (0.1.42) one unit of the frame for the venue's boards, which run along the screens above the kerb on the arena
+            side, y 0.41 to 0.83: a lip above and below and a bracket; the game hangs the printed face in it
+            (vis/arena.js wallBoards)
+  tower     (0.1.42) in metres like the stands: a lattice lighting mast 3.4 m tall with a head of four floodlights that
+            look down and along +z (lenses: kit-glow); the game stands one outside each far corner, turned to the middle
   post      a corner post with a base plate and gussets, and a beacon on top (post_lamp, tinted by the game)
   pusher    a wall ram 1 deep (x, face at +x), 1 high and 3 long (z): yellow with black stripes on top and face, a light
             bar along the back of the top (pusher_glow)
@@ -62,6 +71,14 @@ YEL = mat("kit-yellow", 0xd9a52f, 0.0, 0.55)
 BLK = mat("kit-black", 0x1c1b19, 0.0, 0.7)
 LAMP = mat("kit-lamp", 0x6b5b3c, 0.0, 0.4)
 HOLE = mat("kit-hole", 0x0a0a0a, 0.0, 1.0)
+GLOW = mat("kit-glow", 0xfff1dc, 0.0, 0.4)           # a lamp's lens: it gives off its own light
+_p = GLOW.node_tree.nodes.get("Principled BSDF")
+for _k in ("Emission Color", "Emission"):
+    if _k in _p.inputs:
+        _p.inputs[_k].default_value = lin(0xfff1dc)
+        break
+if "Emission Strength" in _p.inputs:
+    _p.inputs["Emission Strength"].default_value = 1.0
 SEAT = mat("kit-seat", 0x2c2f33, 0.3, 0.6)
 SHIRTS = [mat("kit-shirt%d" % i, h, 0.0, 0.9) for i, h in enumerate([0x7a3b33, 0x2f4a6b, 0x56614a, 0x8a7a5a, 0x3a3a40, 0x6a4f7a, 0x9a9690])]
 SKINS = [mat("kit-skin%d" % i, h, 0.0, 0.8) for i, h in enumerate([0xc99a7a, 0x8a5f45, 0xe0bfa0])]
@@ -91,6 +108,23 @@ def box(parent, name, sx, sy, sz, x, y, z, m, bevel=0.0, rz=0.0):
     o.scale = (sx, sz, sy)
     o.rotation_euler = (0, -rz, 0) if rz else (0, 0, 0)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    if bevel:
+        b = o.modifiers.new("b", "BEVEL")
+        b.width = bevel
+        b.segments = 1
+        b.limit_method = "ANGLE"
+    return link(o, parent, m)
+
+
+def rbox(parent, name, sx, sy, sz, x, y, z, m, rx=0.0, rz=0.0, bevel=0.0):
+    """a box turned about three's x (rx: its top leans towards +z) or z (rz), then placed"""
+    bpy.ops.mesh.primitive_cube_add(size=1, location=B(x, y, z))
+    o = bpy.context.object
+    o.name = name
+    o.scale = (sx, sz, sy)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    o.rotation_euler = (rx, -rz, 0)
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
     if bevel:
         b = o.modifiers.new("b", "BEVEL")
         b.width = bevel
@@ -148,14 +182,46 @@ p.append(face)
 for bx in (-0.36, 0, 0.36):
     p.append(cyl(g, "k", 0.016, 0.02, bx, 0.17, 0.085, STEEL, 6, "z"))
     p.append(cyl(g, "k", 0.016, 0.02, bx, 0.07, 0.086, STEEL, 6, "z"))
+p.append(cyl(g, "k", 0.02, 1.0, 0, 0.292, 0.092, STEEL, 10, "x"))                 # 0.1.42: the rub rail
+for bx in (-0.3, 0.3):
+    p.append(box(g, "k", 0.03, 0.05, 0.05, bx, 0.285, 0.07, DARK, 0.004))         # its brackets
+p.append(rbox(g, "k", 1.0, 0.045, 0.03, 0, 0.022, 0.082, DARK, rx=math.radians(-30)))   # a kick strip where the face meets the floor
+for bx in (-0.5, 0.5):
+    p.append(box(g, "k", 0.012, 0.335, 0.15, bx, 0.168, -0.004, BLK))             # the joint between two units
 join(g, "kerb_body", p)
 
 # ---- frame: an upright for the screen at x -0.5, and a bottom rail ----
 g = empty("frame")
-p = [box(g, "f", 0.05, 1.1, 0.05, -0.5, 0.35 + 0.55, 0, STEEL, 0.006),
+p = [box(g, "f", 0.06, 1.1, 0.06, -0.5, 0.35 + 0.55, 0, STEEL, 0.008),
      box(g, "f", 1.0, 0.04, 0.05, 0, 0.37, 0, DARK),
-     box(g, "f", 0.08, 0.06, 0.07, -0.5, 1.42, 0, DARK, 0.006)]
+     box(g, "f", 0.08, 0.06, 0.07, -0.5, 1.42, 0, DARK, 0.006),
+     box(g, "f", 0.14, 0.02, 0.12, -0.5, 0.36, 0, DARK, 0.004),                    # 0.1.42: the foot, bolted to the cap
+     box(g, "f", 1.0, 0.022, 0.028, 0, 0.92, -0.005, DARK),                        # a rail half way up
+     rbox(g, "f", 0.035, 0.94, 0.035, -0.5, 0.80, -0.215, DARK, rx=0.42),          # a brace leaning out behind
+     box(g, "f", 0.12, 0.015, 0.12, -0.5, 0.36, -0.40, DARK),                      # the brace's foot
+     ]
+for bx, bz in ((-0.55, 0.04), (-0.45, 0.04), (-0.55, -0.04), (-0.45, -0.04)):
+    p.append(cyl(g, "f", 0.011, 0.012, bx, 0.374, bz, STEEL, 6))
 join(g, "frame_body", p)
+
+# ---- lamphead: a work light for the top of an upright (origin at the wall line, at the floor), looking down into the arena ----
+g = empty("lamphead")
+LT = math.radians(40)
+p = [box(g, "h", 0.03, 0.1, 0.03, 0, 1.49, 0.0, STEEL),                            # the stalk
+     rbox(g, "h", 0.2, 0.07, 0.15, 0, 1.56, 0.07, DARK, rx=LT, bevel=0.01),        # the head
+     rbox(g, "h", 0.22, 0.012, 0.05, 0, 1.56 + 0.09 * math.sin(LT) * 0.9, 0.07 - 0.085 * math.cos(LT) + 0.06, DARK, rx=LT)]   # a hood over the lens
+join(g, "lamphead_body", p)
+rbox(g, "lamphead_lens", 0.17, 0.01, 0.12, 0, 1.56 - 0.036 * math.cos(LT), 0.07 + 0.036 * math.sin(LT), GLOW, rx=LT)
+
+# ---- board: the frame the venue's boards hang in, one unit along x, on the arena side of the screen ----
+g = empty("board")
+p = [box(g, "b", 1.0, 0.022, 0.04, 0, 0.84, 0.045, STEEL, 0.004),
+     box(g, "b", 1.0, 0.022, 0.04, 0, 0.40, 0.045, STEEL, 0.004),
+     box(g, "b", 0.03, 0.46, 0.022, -0.5, 0.62, 0.034, DARK, 0.004)]             # the bracket, behind the printed face
+for bx in (-0.25, 0.25):
+    for by, bz in ((0.84, 0.066), (0.40, 0.066)):
+        p.append(cyl(g, "b", 0.008, 0.006, bx, by, bz, DARK, 6, "z"))
+join(g, "board_body", p)
 
 # ---- post: 0.2 square, 1.65 tall, a beacon on top ----
 g = empty("post")
@@ -338,6 +404,43 @@ for k, (zb, th) in enumerate(tiers):
         people.setdefault(legs.name, []).extend([th_, sh_])
 for i, (mn, parts) in enumerate(sorted(people.items())):
     join(g, "stands_crowd%d" % i, parts)
+
+# ---- tower: in metres, a lattice lighting mast with four floodlights (0.1.42) ----
+g = empty("tower")
+TH, TW = 3.4, 0.17                               # the mast's height, half its width
+p = [box(g, "t", 0.62, 0.05, 0.62, 0, 0.025, 0, DARK, 0.01)]
+for sx in (-1, 1):
+    for sz in (-1, 1):
+        p.append(box(g, "t", 0.045, TH, 0.045, sx * TW, TH / 2, sz * TW, STEEL))
+        p.append(cyl(g, "t", 0.022, 0.03, sx * 0.25, 0.06, sz * 0.25, STEEL, 6))
+bay = 0.56
+nb = int(TH / bay)
+for k in range(nb + 1):
+    y = min(TH - 0.03, 0.08 + k * bay)
+    for s2 in (-1, 1):                            # the rings
+        p.append(box(g, "t", 2 * TW, 0.028, 0.028, 0, y, s2 * TW, STEEL))
+        p.append(box(g, "t", 0.028, 0.028, 2 * TW, s2 * TW, y, 0, STEEL))
+dl = math.hypot(2 * TW, bay)
+da = math.atan2(2 * TW, bay)
+for k in range(nb):                               # the lacing, leaning one way then the other up each face
+    y = 0.08 + (k + 0.5) * bay
+    d = da if k % 2 == 0 else -da
+    for s2 in (-1, 1):
+        p.append(rbox(g, "t", 0.022, dl, 0.022, 0, y, s2 * TW, STEEL, rz=d * s2))
+        p.append(rbox(g, "t", 0.022, dl, 0.022, s2 * TW, y, 0, STEEL, rx=d * s2))
+p.append(box(g, "t", 1.5, 0.07, 0.09, 0, TH + 0.035, 0, DARK, 0.008))            # the head: a bar across the top
+p.append(box(g, "t", 0.3, 0.16, 0.24, 0, TH - 0.2, -0.3, DARK, 0.01))            # the ballast box on the back
+tilt = math.radians(52)
+for i, lx in enumerate((-0.57, -0.19, 0.19, 0.57)):
+    p.append(box(g, "t", 0.035, 0.16, 0.035, lx, TH + 0.14, 0, STEEL))           # each lamp's yoke
+    p.append(rbox(g, "t", 0.3, 0.24, 0.15, lx, TH + 0.26, 0.05, DARK, rx=tilt, bevel=0.012))
+    for f in (-0.1, 0, 0.1):                      # cooling fins on the back
+        p.append(rbox(g, "t", 0.26, 0.012, 0.05, lx, TH + 0.26 + f * math.sin(tilt) - 0.085 * math.cos(tilt) * 0, 0.05 - 0.1 * math.sin(tilt) * 0 - 0.0, DARK, rx=tilt))
+join(g, "tower_body", p)
+q = []
+for lx in (-0.57, -0.19, 0.19, 0.57):             # the lenses, on the faces that look down and along +z
+    q.append(rbox(g, "l", 0.26, 0.2, 0.012, lx, TH + 0.26 - 0.08 * math.sin(tilt), 0.05 + 0.08 * math.cos(tilt), GLOW, rx=tilt))
+join(g, "tower_lamp", q)
 
 bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLTF_SEPARATE", export_apply=True, export_yup=True,
                           export_normals=True, export_materials="EXPORT", use_selection=False)
