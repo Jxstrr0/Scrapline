@@ -325,6 +325,7 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .crtalk{font-style:italic;color:var(--ink)!important}.crtalk small{font-style:normal;color:var(--muted);margin-left:4px}
 .crfights,.crres,.crriv,.crcal,.crrep,.shlist{list-style:none;margin:0 0 8px;padding:0;font-size:14px}
 .crfights li,.crres li{padding:4px 0;color:var(--muted)}
+.crhall{margin:0 0 8px;padding:0 0 0 22px;font-size:14px}.crhall li{padding:5px 0;color:var(--muted)}.crhall b{color:var(--ink)}.crhall li.now{color:var(--ink)}.crhall .readout{color:var(--lilac);font-family:var(--mono)}
 .crfights li>span:first-child{display:inline-block;min-width:52px;font-weight:600}
 .crriv li{padding:8px 0;border-top:1px solid var(--rule);color:var(--muted)}.crriv li:first-child{border-top:0}
 .crriv b{color:var(--ink)}.crriv .readout,.crres .readout,.crcal .readout{color:var(--lilac);font-family:var(--mono)}

@@ -4,7 +4,9 @@
    blueprints and the Beetle draft is the starter bot.
    Time: you act (fit, bench, repair, enter the week's event and fight it), then Close week: rent comes out, the week's
    workshop hours come in (WORKSHOP_STAGES; unused hours carry over up to TIME.bankWeeks weeks' worth). 52 weeks a
-   season, 20 seasons. At the end of a season you move up an act (TIME.acts: Garage, Circuit, Heavyweight, Legacy) if
+   season, 20 seasons. Life after the Open (0.1.39): in the Legacy act you hold the title until you lose the Final; each
+   Open in a row is a legend level that cuts your own weight limit and sharpens every field (crTitle, crLegend, LEGACY); every career that ends gets a
+   line in the hall of fame (S.hall, crHallAdd, crHallCard). At the end of a season you move up an act (TIME.acts: Garage, Circuit, Heavyweight, Legacy) if
    you placed top two at the act's championship or your rep reached its repTo; the Heavyweight act only by winning the
    Scrapline Open Final (repTo is not used there).
    Events (SEASON_EVENTS, EVENT_KINDS): one a week at most, in your act's calendar and the one before's. Entering pays the
@@ -121,6 +123,7 @@ function crCantEnter(e,kit){const c=S.career,b=S.bots[e.cls];
   if(c.events[crKey(e)])return"Already done this season";
   const cl=crClassLock(e.cls);if(cl)return`${SIM.CLASSES[e.cls].name}: ${cl}`;
   if(!b||!b.cfg)return`No ${SIM.CLASSES[e.cls].name.toLowerCase()} fitted yet`;
+  const w=bEv(b.cfg);if(w.totalG>w.limitG)return`Your ${SIM.CLASSES[e.cls].name.toLowerCase()} is ${fmtG(w.totalG-w.limitG)} over ${crLegend()&&e.cls===LEGACY.cls?"the champion's limit":"the limit"}: fit a lighter build`;
   const t=crTravel(e),cost=crEntry(e)+t.cost+crKitPrice(kit||"none",e.cls);
   if(c.money<cost)return`Need ${fmt$(cost-c.money)} more`;
   if(c.hours<t.hours)return`It takes ${t.hours} h of your week; you have ${crR1(c.hours)} h`;
@@ -131,16 +134,46 @@ function crBaseCfg(base,cls){const k=base.split(":");
   if(k[0]==="op"){const op=SIM.OPPONENTS.find(o=>o.id===k[1]);if(op)return Object.assign(SIM.opponentCfg(op),{cls});}
   const t=SIM.TEST_BUILDS.find(x=>x.id===k[1])||SIM.TEST_BUILDS[0];return Object.assign(clone(t.cfg),{cls});}
 function crMerge(cfg,step){const c=clone(cfg);for(const k in step){if(k==="armour")Object.assign(c.armour,step.armour);else if(k==="extras")c.extras=Array.from(new Set(c.extras.concat(step.extras)));else c[k]=step[k];}return c;}
-function crRivalLevel(rv){const m=S.rivals[rv.id]||{};return(S.career?S.career.season:0)+Math.floor((m.w||0)/2);}
+function crRivalLevel(rv){const m=S.rivals[rv.id]||{};return(S.career?S.career.season:0)+Math.floor((m.w||0)/2)+crLegend()*LEGACY.rivalStep;}
 function crRivalCfg(rv,cls){let cfg=crBaseCfg(rv.bots[cls].base,cls);const n=Math.min(crRivalLevel(rv),rv.steps.length);
   for(let i=0;i<n;i++){const t=crMerge(cfg,rv.steps[i]);if(SIM.evalBuild(t).valid)cfg=t;}return cfg;}
 function crTalk(rv){const m=S.rivals[rv.id];if(!m||!m.last)return rv.talk.first;if(m.last.won&&m.run>=2)return rv.talk.streak;return m.last.won?rv.talk.lost:rv.talk.won;}   // last.won: you won it
 
 /* ---- the field: who else is there ---- */
+/* ---- life after the Open (0.1.39; LEGACY, app/state.js) ----
+   crTitle(): the Open title, worked out from the career's event results (nothing extra is saved): wins (the years you won
+   the Final), run (Opens in a row, up to now), best (the longest run), held (you are the champion), level (the legend
+   level, run capped at LEGACY.maxLevel). A Final lost, forfeited or not entered ends the run. */
+function crTitle(c){c=c||S.career;const out={wins:[],run:0,best:0,held:false,level:0};if(!c||!buObjS(c.events))return out;
+  const won={};let y0=c.year;for(const k in c.events){const p=k.split(":"),y=+p[0];if(p[1]!==LEGACY.final||!(y>0))continue;won[y]=!!(c.events[k]&&c.events[k].place===1);if(y<y0)y0=y;}
+  let r=0;for(let y=y0;y<=c.year;y++){if(won[y]){out.wins.push(y);r++;if(r>out.best)out.best=r;}else if(y<c.year||won[y]===false)r=0;}
+  out.run=r;out.held=r>0;out.level=Math.min(LEGACY.maxLevel,r);return out;}
+/* the legend level in force: only in the Legacy act */
+function crLegend(){const c=S.career;return c&&c.act>=3?crTitle(c).level:0;}
+const crLegendName=l=>LEGACY.names[Math.max(0,Math.min(LEGACY.names.length-1,l))];
+function crTitleLine(){const c=S.career;if(!c||c.act<3)return"";const T=crTitle(c),n=T.wins.length,yrs=T.wins.join(", ");
+  if(T.held){const L=T.level,pz=Math.round(LEGACY.prizeStep*L*100),f=crEv(LEGACY.final);
+    return`<p class="ok"><b>${esc(ftCap(WORLD.open))} champion</b>${T.run>1?`, ${T.run} in a row`:""} <small>(${yrs})</small></p>
+      <p class="hint">Legend level ${L}, ${esc(crLegendName(L))}: the champion's ballast takes ${Math.round(LEGACY.ballast*L*100)}% off your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit (${fmtG(crLimitG(LEGACY.cls))}), drivers are a little sharper and your rivals' bots are ${L*LEGACY.rivalStep} step${L*LEGACY.rivalStep>1?"s":""} further on. Defend it at the ${esc(f.name)} in week ${f.week}: it pays ${pz}% more, and rep +${LEGACY.repDefend}.</p>`;}
+  return`<p class="worn"><b>The title is someone else's.</b> ${n?`You've won the Open ${n===1?"once":n+" times"} <small>(${yrs})</small>.`:""}</p><p class="hint">Your weight limit and the fields are back to normal. Win the ${esc(crEv(LEGACY.final).name)} to take it back.</p>`;}
+/* the hall of fame: a line for a career as it stands (crHallRow), kept when the career ends (crHallAdd, once a career) */
+function crHallRow(c,end){const T=crTitle(c),ev=buObjS(c.events)?Object.keys(c.events).map(k=>c.events[k]).filter(r=>r&&!r.forfeit&&!r.dev):[];
+  return{team:String(lvMine().name||"").slice(0,40),y0:c.year-c.season,y1:c.year,seasons:Math.min(WORLD.seasons,c.season+(end==="done"?0:1)),events:ev.length,wins:ev.filter(r=>r.place===1).length,titles:T.wins,best:T.best,rep:c.rep|0,act:c.act|0,end};}
+function crHallAdd(end){const c=S.career;if(!c||c.hof)return;const row=crHallRow(c,end);if(!row.events)return;c.hof=true;
+  if(!Array.isArray(S.hall))S.hall=[];S.hall.push(row);S.hall.sort((a,b)=>b.titles.length-a.titles.length||b.rep-a.rep);if(S.hall.length>LEGACY.hallMax)S.hall.length=LEGACY.hallMax;}
+function crHallCard(){const c=S.career,rows=(Array.isArray(S.hall)?S.hall:[]).filter(r=>buObjS(r)&&Array.isArray(r.titles)).map(r=>({r,now:false}));
+  if(c&&!c.hof&&!crSandbox()){const r=crHallRow(c,null);if(r.events)rows.push({r,now:true});}
+  if(!rows.length)return"";rows.sort((a,b)=>b.r.titles.length-a.r.titles.length||b.r.rep-a.r.rep);
+  const END={done:"twenty seasons",broke:"went broke",left:"left the circuit"};
+  return`<div class="card"><h3>Hall of fame</h3><ol class="crhall">${rows.map(({r,now})=>{const n=r.titles.length;
+    return`<li${now?' class="now"':""}><b>${esc(r.team)}</b> <small>${now?"this career":`${r.y0} to ${r.y1}${END[r.end]?", "+END[r.end]:""}`}</small><br>
+      ${n?`<span class="ok">${n} Open${n>1?"s":""}</span> <small>(${r.titles.join(", ")})</small>${r.best>1?` · ${r.best} in a row`:""}`:`reached the ${esc((TIME.acts[r.act]||TIME.acts[0]).name)} act`} · ${r.wins} of ${r.events} events won · rep <span class="readout">${r.rep}</span> · ${r.seasons} season${r.seasons>1?"s":""}</li>`;}).join("")}</ol>
+    <p class="hint">A career goes up here when it ends. Titles first, then rep.</p></div>`;}
 function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crHash(crKey(e)))>>>0),cls=e.cls;
-  const skill=Math.min(EVENT_SKILL_MAX,k.skill+EVENT_SKILL_ACT*e.act),out=[];
-  const rv=RIVALS.filter(r=>r.bots[cls]).map(r=>({id:"rv:"+r.id,rival:r.id,name:r.bots[cls].name,who:r.name,cfg:crRivalCfg(r,cls),driver:{style:"auto",skill:Math.min(EVENT_SKILL_MAX,Math.max(skill,r.skill+0.03*crRivalLevel(r)))}}));
-  let pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,o.driver.skill)}}))
+  const L=crLegend(),up=LEGACY.skillStep*L,cap=L?LEGACY.skillMax:EVENT_SKILL_MAX;   // a champion's fields are sharper (0.1.39)
+  const skill=Math.min(cap,k.skill+EVENT_SKILL_ACT*e.act+up),out=[];
+  const rv=RIVALS.filter(r=>r.bots[cls]).map(r=>({id:"rv:"+r.id,rival:r.id,name:r.bots[cls].name,who:r.name,cfg:crRivalCfg(r,cls),driver:{style:"auto",skill:Math.min(cap,Math.max(skill,r.skill+0.03*crRivalLevel(r)))}}));
+  let pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>({id:"op:"+o.id,name:o.name,cfg:SIM.opponentCfg(o),driver:{style:o.driver.style,skill:Math.max(skill,Math.min(cap,o.driver.skill+up))}}))
     .concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy"||e.kind==="club").map(t=>({id:"tb:"+t.id,name:lvOppName("tb:"+t.id,t.name),cfg:Object.assign(clone(t.cfg),{cls}),driver:{style:"auto",skill}})));
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(R()*(i+1)),t=pool[i];pool[i]=pool[j];pool[j]=t;}
   pool=crMetaOrder(pool,c.season);   // the season's meta (META_WAVES) comes first
@@ -235,14 +268,18 @@ function crPlaceTxt(kind,place){const f=EVENT_KINDS[kind].format;
   return["","1st","2nd","3rd","4th"][place]||place+"th";}
 /* the day is over: prize, rep, the damage goes home with the bot */
 function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],place=crPlace(day);
-  const pi=k.format==="bracket"?Math.min(place-1,3):place-1,prize=crPrize(e,pi),rep=k.rep[Math.min(pi,k.rep.length-1)]||0;
-  if(prize>0)crEarn(prize,`${e.name}: ${crPlaceTxt(day.kind,place)}`);c.rep+=rep;
+  const pi=k.format==="bracket"?Math.min(place-1,3):place-1;let prize=crPrize(e,pi),rep=k.rep[Math.min(pi,k.rep.length-1)]||0;
+  /* the Open title (0.1.39): a champion who wins the Final again has defended it (more money and rep a legend level); one who doesn't has lost it */
+  const T0=e.id===LEGACY.final?crTitle(c):null,holder=!!(T0&&T0.held&&c.act>=3),def=holder&&place===1;
+  if(def){prize=Math.round(prize*(1+LEGACY.prizeStep*T0.level));rep+=LEGACY.repDefend;}
+  if(prize>0)crEarn(prize,`${e.name}: ${def?"title defended":crPlaceTxt(day.kind,place)}`);c.rep+=rep;
   const b=bBot(day.cls),me=day.field[0];if(bnSig(b.cfg)===bnSig(me.cfg)){b.damage=clone(me.dmg);b.flags=crFlags(me.flags);}
   c.events[day.key]={place,prize,rep};
   c.seq=(c.seq||0)+1;c.results.unshift({seq:c.seq,y:c.year,w:c.week,ev:e.id,name:e.name,cls:day.cls,kind:day.kind,place,prize,rep,fights:day.fights});if(c.results.length>40)c.results.length=40;
-  if(place===1)tpAward(day.kind==="champ"?"title":"win",e,day.cls);   // a trophy card (app/help.js)
+  if(place===1)tpAward(def?"defend":day.kind==="champ"?"title":"win",def?{id:e.id,name:`${e.name}: defence ${T0.run}`,venue:e.venue}:e,day.cls);   // a trophy card (app/help.js)
   const offer=tmAfterEvent(day,place);
-  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null,br:k.format==="bracket"?crBracketHtml(day):""};save();hud();}
+  c.last={key:day.key,place,prize,rep};c.entered=null;c.day=null;CR.end={name:e.name,place,prize,rep,kind:day.kind,offer:offer?offer.id:null,br:k.format==="bracket"?crBracketHtml(day):"",
+    title:!T0?null:place===1?(def?{k:"defended",n:T0.run+1}:{k:"won"}):holder?{k:"lost",n:T0.run}:null};save();hud();}
 
 /* ---- your fights ---- */
 function crQuick(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;
@@ -347,20 +384,24 @@ function crSkip(){const c=S.career,n=crSkipTarget();closeSheet();if(!n)return;le
 function crBroke(){const c=S.career;c.broke++;
   if(!c.loan.taken){c.loan={taken:true,owed:Math.round(TIME.loan*(1+TIME.loanRate))};c.money+=TIME.loan;crLedger(TIME.loan,`Loan from ${WORLD.bank}`);save();hud();
     openSheet("Broke",`<p>The rent bounced. ${esc(ftCap(WORLD.bank))} lends you <b>${fmt$(TIME.loan)}</b>, once. You owe ${fmt$(c.loan.owed)}; half of every prize goes to paying it back.</p><p class="hint">They won't do it twice.</p>`);return false;}
-  c.over=true;save();hud();crRender();
+  crHallAdd("broke");c.over=true;save();hud();crRender();
   openSheet("The end of the line",`<p>Broke again, and ${esc(WORLD.bank)} doesn't lend twice. The workshop's keys go back to the owner.</p><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p>`);return true;}
 function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).length;return`${c.season+1} season${c.season?"s":""} · ${c.results.length} events · ${wins} won · rep ${c.rep}`;}
 function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act],ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];
   const best=c.results.filter(x=>x.y===c.year).sort((x,y)=>x.place-y.place||y.prize-x.prize)[0];
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
+  const T0=crTitle(c),fin=c.events[c.year+":"+LEGACY.final],vacant=c.act>=3&&T0.held&&!fin;   // a champion who never turned up to the Final
   const tl=tmSeasonEnd();   // sponsors renew or go, the kit pays, the new season's rules and meta (app/team.js)
   c.seasons.push({y:c.year,act:c.act,rep:c.rep,money:c.money,best:best?`${best.name}: ${crPlaceTxt(best.kind,best.place)}`:null});
   rlSeasonEnd(c.year);   // this season's best five become its reel (app/reel.js)
   if(up){c.act++;tpAward("promo",{id:"act"+c.act,name:`Up to the ${TIME.acts[c.act].name} act`,venue:null},null);}c.year++;c.season++;c.week=1;c.repY0=c.rep;
-  if(c.season>=WORLD.seasons){c.over=true;c.done=true;}
+  if(c.season>=WORLD.seasons){crHallAdd("done");c.over=true;c.done=true;}
+  const T=crTitle(c),tline=c.act<3?"":vacant?`<p class="worn"><b>You didn't defend the Open</b>, so the title has gone to someone else. Your weight limit and the fields go back to normal; win the Final to take it back.</p>`
+    :T.held?`<p class="ok"><b>You go into ${c.year} as the champion</b>${T.run>1?`, ${T.run} Opens in a row`:""}. Legend level ${T.level}, ${esc(crLegendName(T.level))}: your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit is now ${fmtG(crLimitG(LEGACY.cls))}, so check the Build tab before your next event.</p>`
+    :T.wins.length?`<p class="hint">You go into ${c.year} as the challenger.</p>`:"";
   setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
     ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
-    ${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
+    ${c.done?"":tline}${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>`}`),200);}
 
 /* ---- the tab ---- */
@@ -368,9 +409,9 @@ function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();c
   if(crSandbox()){el.innerHTML=crSandboxCard();return;}
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start with its own garage: your Sandbox bots stay in the Sandbox. Your saved designs come with you, to load and pay for.</p>
-    <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}`;return;}
-  if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${tpShelf()}${crResultsCard()}`;return;}
-  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+
+    <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}${crHallCard()}`;return;}
+  if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${crHallCard()}${tpShelf()}${crResultsCard()}`;return;}
+  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+crHallCard()+
     `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
@@ -386,10 +427,14 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
     <dl class="crdl"><div><dt>Week</dt><dd class="readout">${c.week} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
       <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${c.rep}</dd></div>
       <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-c.driverXp} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
-    <p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p>
+    ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p>
     <div class="row"><button type="button" class="btn pri" data-cr="close">Close week</button></div></div>`;}
+function crTitleEnd(t){if(!t)return"";
+  return t.k==="defended"?`<p class="ok"><b>Title defended:</b> ${t.n} Opens in a row. Next season the champion's ballast takes more off your weight limit.</p>`
+    :t.k==="won"?`<p class="ok"><b>You are ${esc(WORLD.open)} champion.</b> ${S.career.act>=3?"The title is yours again.":"There is life after this: the Legacy act starts next season."}</p>`
+    :`<p class="worn"><b>You've lost the title</b>${t.n>1?` after ${t.n} in a row`:""}. Next season you're the challenger, and your weight limit goes back to normal.</p>`;}
 function crEventCard(){const c=S.career;
-  if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
+  if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${crTitleEnd(CR.end.title)}${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
     ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
     <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p><div class="row"><button type="button" class="btn" data-cr="close">Close week</button></div>${crSkipHtml()}</div>`;
   if(c.day)return crDayCard(c.day);
@@ -493,7 +538,7 @@ function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[da
   else if(a==="skip")crSkipAsk();
   else if(a==="see"){const d=S.career.day,r=S.career.results[0];ST().buildCls=d?d.cls:r?r.cls:ST().buildCls;showTab("fight");const el=$("ftResCard");if(el)el.scrollIntoView({block:"start"});}
   else if(a==="restart-ask"){if(CR.restartAsk){CR.restartAsk=false;crRestart();}else{CR.restartAsk=true;crRender();}}}
-function crRestart(){S.career=null;closeSheet();crStart();}
+function crRestart(){crHallAdd("left");S.career=null;closeSheet();crStart();}   // the career you walk away from still goes in the hall of fame
 /* sheet buttons are outside the tab */
 document.addEventListener("click",e=>{const x=e.target.closest&&e.target.closest("[data-cr]");if(!x||!$("sheet").contains(x))return;const a=x.dataset.cr;
   if(a==="start-ok")crStart();else if(a==="enter-ok")crEnter();else if(a==="close-ok")crClose(true);else if(a==="skip-ok")crSkip();else if(a==="restart")crRestart();});

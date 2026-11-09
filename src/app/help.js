@@ -81,7 +81,7 @@ function tpAward(k,e,cls){const c=S.career;if(!c)return;if(!Array.isArray(c.trop
   if(c.trophies.length>TP_MAX)c.trophies.length=TP_MAX;setTimeout(()=>toast(k==="promo"?"A gold trophy for the shelf":`Trophy: ${e.name}`),2800);}
 const tpGold=t=>t.k!=="win";
 const tpCup=gold=>`<svg viewBox="0 0 24 24" class="tpcup ${gold?"gold":""}" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/></svg>`;
-function tpWhat(t){return t.k==="promo"?"Promotion":t.k==="title"?"Champions":"Winners";}
+function tpWhat(t){return t.k==="promo"?"Promotion":t.k==="defend"?"Title defended":t.k==="title"?"Champions":"Winners";}
 function tpShelf(){const c=S.career;if(!c)return"";const T=Array.isArray(c.trophies)?c.trophies:[];
   return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${t.y}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
     :`<p>Win an event and its trophy goes here. Championships and moving up an act are gold.</p>`}</div>`;}
