@@ -188,7 +188,7 @@ for (const cls of SIM.CLASS_IDS) {
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
   const KIND = { vsp: "slot", saw: "slot", drum: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
-    lifter: "deck", crusher: "deck", wedge: "none", none: "none" }, eps = 1e-9;
+    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
     if (!y) { fail(`${lbl}: no bay`); continue; }
@@ -220,6 +220,39 @@ for (const cls of SIM.CLASS_IDS) {
   if (flat1 !== flat3) fail("a fight with no open bay should not change with DAMAGE.bayMul");
   if (!bayHits) fail("a hammer should land in a horizontal disc's well now and then");
   console.log("0.1.15.3 checks: weapon bays in every class, hits into the bay");
+}
+
+/* 0.1.32: front attachments, the back slot, the grabber */
+{
+  const T = (id) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls: "beetle" });
+  for (const f of SIM.PARTS.front) for (const k of SIM.PARTS.back) {
+    const b = SIM.evalBuild(Object.assign(T("vsp"), { front: f.id, back: k.id }));
+    if (!b.front || b.front.id !== f.id || !b.back || b.back.id !== k.id) fail(`vsp + ${f.id} + ${k.id}: front/back missing from evalBuild`);
+    if (!(b.height.frontEdgeMm > 0) || !(b.height.backEdgeMm > 0) || !(b.height.frontBareMm >= b.height.frontEdgeMm - 1e-9)) fail(`vsp + ${f.id} + ${k.id}: edges ${b.height.frontEdgeMm} / ${b.height.backEdgeMm} / ${b.height.frontBareMm}`);
+    if (f.id !== "none" && !b.parts.some((p) => p.key === "front")) fail(`vsp + ${f.id}: the front isn't a part that can be hit`);
+    if (k.id !== "none" && !b.parts.some((p) => p.key === "back")) fail(`vsp + ${k.id}: the back part isn't a part that can be hit`);
+  }
+  const base = SIM.evalBuild(T("vsp")), wl = SIM.evalBuild(Object.assign(T("vsp"), { front: "wedgelets" }));
+  if (!(wl.height.frontEdgeMm < base.height.frontEdgeMm) && base.height.frontEdgeMm > 1) fail("wedgelets should lower a box's front edge");
+  if (Math.abs(wl.totalG - base.totalG - SIM.part("front", "wedgelets").massG) > 1) fail(`wedgelets should weigh ${SIM.part("front", "wedgelets").massG} g, added ${wl.totalG - base.totalG}`);
+  for (const w of ["wedge", "lifter", "flipper", "grabber"]) { const b = SIM.evalBuild(Object.assign(T("lifter"), { weapon: w, front: "spike" }));
+    if (b.valid || !b.errors.some((e) => /own front/.test(e))) fail(`a ${w} with a front attachment should be refused`); }
+  const kk = SIM.evalBuild(Object.assign(T("hsp"), { back: "kicker" }));
+  if (!kk.back.kick || !(kk.back.kick.canLiftKg > 0) || !kk.height.selfRight) fail("a kicker should flick, and self-right a bot with no other righter");
+  if (!(kk.power.idleW > base.power.idleW - 1e-9)) fail("a kicker should draw from the battery");
+  const gb = SIM.evalBuild(T("lifter")), gr = SIM.evalBuild(Object.assign(T("lifter"), { weapon: "grabber" }));
+  if (!gr.valid) fail(`the lifter test build with a grabber should be valid: ${gr.errors.join("; ")}`);
+  if (!(gr.weapon.canLiftKg >= SIM.CLASSES.beetle.limitG / 1000)) fail(`a beetle grabber should lift a beetle (${gr.weapon.canLiftKg} kg)`);
+  /* a grabber fight and a kicker fight replay the same from their logs; a grabber gets a grab in */
+  const fight = (a, b, seed) => SIM.runFight({ seed, arena: "clubbox", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+  let grabs = 0, kicks = 0;
+  for (let s = 1; s <= 6; s++) {
+    const r = fight(Object.assign(T("lifter"), { weapon: "grabber" }), T("brick"), s), r2 = fight(Object.assign(T("hsp"), { back: "kicker", front: "plow" }), T("flipper"), s);
+    for (const x of [r, r2]) { const rp = SIM.replayFight(JSON.parse(JSON.stringify(x.log))); if (!rp || rp.winner !== x.winner || rp.timeS !== x.timeS) fail(`seed ${s}: a 0.1.32 fight replays differently`); }
+    grabs += r.log.entries.filter((e) => e.k === "grab" && e.a === 0).length; kicks += r2.log.entries.filter((e) => e.k === "kick" && e.a === 0).length;
+  }
+  if (!grabs) fail("a grabber should grab in six fights against the brick");
+  console.log(`0.1.32 checks: fronts x backs, own fronts, the kicker, the grabber (${grabs} grabs, ${kicks} kicks in 6 fights; replays match)`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }

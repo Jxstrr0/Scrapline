@@ -35,12 +35,12 @@ function botMesh(b,team,paint,liv){const k=botHash(b,team,paint,liv);let g=BOT_C
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
 /* clone keeps geometry shared; part materials that get tinted by damage are cloned per instance (userData.own) */
-function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,wheels:[]});
+function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,flip:null,jaw:null,kick:null,wheels:[]});
   g.traverse(o=>{if(!o.isMesh)return;const u=o.userData;
     if(u.part){o.material=o.material.clone();o.userData={part:u.part,own:true,base:o.material.color.clone()};(g.userData.parts[u.part]||(g.userData.parts[u.part]=[])).push(o);}
     else if(u.role==="blur"){o.material=o.material.clone();o.userData={role:"blur",own:true};g.userData.blur=o;}
     if(u.wheel)g.userData.wheels.push(o);});
-  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;});
+  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;});
   return g;}
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
@@ -68,7 +68,7 @@ function buildBot(b,team,sp,liv){
   /* armour panels, per face; thickness drawn at least 2 mm (x class) so a plate reads on a phone. The front plate parts
      round a bay that opens at the front */
   const A=b.armourMapJ||{},th=f=>A[f]&&A[f].id!=="none"?Math.max(0.002*len,(A[f].thickMm||0)/1000):0;
-  const front=P(0,hl),back=P(0,-hl),sloped=["wedge","lifter","flipper"].indexOf(b.weapon.type)>=0;
+  const front=P(0,hl),back=P(0,-hl),sloped=["wedge","lifter","flipper","grabber"].indexOf(b.weapon.type)>=0;
   if(th("front")&&!sloped){const t=th("front"),fm=armourMat(A.front.id),ya=bh*0.02,yb=bh*0.94,xa=cut?frontGap(bay,hw,hl):null;
     const piece=(x0,x1,y0,y1)=>{if(x1-x0>1e-4&&y1-y0>1e-4)add(new THREE.BoxGeometry(x1-x0,y1-y0,t),fm,(x0+x1)/2-cx,clr+(y0+y1)/2,front[1]-t/2,"armour_front");};
     if(xa){piece(-hw,xa[0],ya,yb);piece(xa[1],hw,ya,yb);piece(xa[0],xa[1],ya,Math.min(yb,span[0]));piece(xa[0],xa[1],Math.max(ya,span[1]),yb);}
@@ -145,6 +145,7 @@ function buildBot(b,team,sp,liv){
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
   buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,wellD:bk==="well"||bk==="underwell"?dep:0,
     lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:body==="wedge"?-drop/2:th("top")?tt:0});
+  buildAttach(g,b,{P,add,Wd,L,hw,hl,clr,bh,bodyH,boxTop,len,seg,front,back,lite});
   if(!lite){g.updateMatrixWorld(true);g.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;
     if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
@@ -286,7 +287,7 @@ const SHELL_BAYS={slot:[[.058,-.139],[.058,-.194]],pocket:[[.267,-.289],[.267,-.
   hammer:[[.25,.187],[.167,.187]],flip:[[.47,.08],[.47,.08]],lift:[[.25,-.167],[.167,-.278]],crush:[[.25,0],[.167,-.167]]};
 const SHELL_PIECE={wedge:"wedge_top",dome:"dome_shell",pancake:"pancake_lid",invert:"invert_plate"};
 function shellVariant(bay,w,body){if(!bay)return{top:null,bottom:null};const u=bay.u;if(!u||!u.rect)return null;
-  const v=bay.kind==="deck"?{hammer:"hammer",flipper:"flip",lifter:"lift",crusher:"crush"}[w.type]:{slot:"slot",pocket:"pocket",well:"well",underwell:"under"}[bay.kind];
+  const v=bay.kind==="deck"?{hammer:"hammer",flipper:"flip",lifter:"lift",grabber:"lift",crusher:"crush"}[w.type]:{slot:"slot",pocket:"pocket",well:"well",underwell:"under"}[bay.kind];
   if(!v||!SHELL_BAYS[v])return null;const R=u.rect,hwU=(R[2]-R[0])/2;
   if(Math.abs(R[0]+R[2])>0.01||Math.abs(R[1]+0.5)>0.01)return null;
   const set=SHELL_BAYS[v].findIndex(q=>Math.abs(q[0]-hwU)<0.025&&Math.abs(q[1]-R[3])<0.025);if(set<0)return null;
@@ -332,17 +333,19 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     if(spin.userData.axis==="y")blur.rotation.x=-Math.PI/2;else blur.rotation.y=Math.PI/2;
     blur.position.copy(spin.position);blur.position.y+=spin.userData.axis==="y"?r*0.05:0;g.add(blur);
     return;}
-  if(T==="wedge"||T==="lifter"||T==="flipper"){
+  if(T==="wedge"||T==="lifter"||T==="flipper"||T==="grabber"){
     /* a ramp from the front edge to the floor ahead of the bot */
     const reach=Math.max(0.01*len,(w.reachM||0.04)),top=clr+bh*0.95,run=reach+0.004*len,slope=Math.atan2(top,run),rl=Math.hypot(top,run),rm=T==="wedge"?M.steel:M.alu;
     const ramp=pc(g,"wp_ramp",rm,front[0],top/2,front[1]-run/2,b.widthM,0.003*len,rl,"weapon")||new THREE.Mesh(new THREE.BoxGeometry(b.widthM,0.003*len,rl),rm);
     ramp.position.set(front[0],top/2,front[1]-run/2);ramp.rotation.x=-slope;ramp.userData.part=ramp.isMesh?"weapon":undefined;
     if(T==="wedge"){g.add(ramp);return;}
-    if(T==="lifter"){const f=new THREE.Group();f.userData.role="forks";
+    if(T==="lifter"||T==="grabber"){const f=new THREE.Group();f.userData.role="forks";
       for(const s of [-1,1]){const fl=reach+bodyH;if(!pc(f,"wp_fork",M.steel,s*b.widthM*0.25,0,-fl/2,0.006*len,0.004*len,fl,"weapon")){
         const fk=new THREE.Mesh(new THREE.BoxGeometry(0.006*len,0.004*len,fl),M.steel);fk.position.set(s*b.widthM*0.25,0,-fl/2);fk.userData.part="weapon";f.add(fk);}}
       f.position.set(front[0],clr+0.002*len,front[1]+bodyH*0.3);g.add(f);
-      ramp.scale.z*=0.4;ramp.position.set(front[0],top*0.8,front[1]-run*0.2);g.add(ramp);return;}
+      ramp.scale.z*=0.4;ramp.position.set(front[0],top*0.8,front[1]-run*0.2);g.add(ramp);
+      if(T==="grabber")grabJaw(g,b,k,pc,reach);
+      return;}
     /* flipper: the ramp is the plate, hinged at the top front, swinging up when it fires */
     const f=new THREE.Group();f.userData.role="flip";const pl=b.lengthM*0.55;
     if(!pc(f,"wp_flip",M.alu,0,0,0,b.widthM*0.9,pl,pl,"weapon")){const plate=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.9,0.003*len,pl),M.alu);
@@ -360,6 +363,51 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     return;}
   /* a pusher: a plain plate on the front */
   if(!k.th("front"))add(new THREE.BoxGeometry(b.widthM,bodyH*0.7,0.003*len),M.hdpe,front[0],clr+bodyH*0.4,front[1]-0.0015*len);}
+
+/* ---- the grabber's top jaw (0.1.32): hinged over the front of the deck, its toothed tip reaching down past the forks.
+   arena.js swings it: open while it hunts, shut on a bot it holds (o.wp.grab). Full and Ultra: gr_jaw from
+   models/bot-attach.glb; Lite: two side arms and a tip bar in code ---- */
+function grabJaw(g,b,k,pc,reach){const M=V.mats,{hl,H,clr,bodyH,len,front,lift}=k,A=V.tier!=="lite"?botAttach():null;
+  const j=new THREE.Group();j.userData.role="jaw";const jw=b.widthM*0.7,jh=Math.max(0.01*len,H+lift-clr)*0.95,jl=reach+bodyH*0.9;
+  if(!(A&&shellAdd(j,A,"gr_jaw",M.alu,"weapon",0,-jh*0.4,-jl*0.4,jw,jh,jl))){const t=0.004*len;
+    for(const s of [-1,1]){const a=new THREE.Mesh(new THREE.BoxGeometry(t,t,jl),M.alu);a.position.set(s*jw*0.4,0,-jl/2);a.userData.part="weapon";j.add(a);}
+    const tip=new THREE.Mesh(new THREE.BoxGeometry(jw,jh*0.7,t*1.2),M.steel);tip.position.set(0,-jh*0.35,-jl);tip.userData.part="weapon";j.add(tip);}
+  j.position.set(front[0],H+lift+0.003*len,front[1]+bodyH*0.3);j.rotation.x=0.35;g.add(j);}
+
+/* ---- the swappable front and the back slot (0.1.32, b.front and b.back). Each piece is drawn in its own box, ahead of
+   the front edge or behind the back one, with the part key "front" or "back" so damage greys it. Full and Ultra use the
+   Blender pieces (models/bot-attach.glb, tools/blender-bot-attach.py) stretched to the same box; Lite draws them in code:
+     wedgelets  two small ramps at the front corners           forks      four tines low on the floor
+     plow       a ramp the whole width, taller                 spike      a cone pointing forwards
+     rearwedge  a ramp the whole width, facing back            rearspike  two cones pointing back
+     kicker     a plate hinged at the top of the back, sloping down behind; arena.js swings it up when it fires ---- */
+let ATT_WEDGE=null;   // a unit ramp (tip low at -z, tall at +z), shared by every bot and never disposed
+function attWedge(){if(!ATT_WEDGE){const s=new THREE.Shape();s.moveTo(-0.5,-0.5);s.lineTo(0.5,-0.5);s.lineTo(0.5,0.5);s.closePath();
+  const e=new THREE.ExtrudeGeometry(s,{depth:1,bevelEnabled:false});e.rotateY(-Math.PI/2);e.translate(0.5,0,0);ATT_WEDGE=e;}return ATT_WEDGE;}
+function buildAttach(g,b,k){const M=V.mats,{Wd,L,hw,clr,bh,boxTop,len,front,back,lite}=k,fr=b.front||{id:"none"},bk=b.back||{id:"none"};
+  if(fr.id==="none"&&bk.id==="none")return;
+  const A=lite?null:botAttach();
+  /* one piece: the Blender one in its box when loaded, else the coded mesh (geo a unit-box geometry), scaled to the box */
+  const piece=(par,name,geo,mat,part,x,y,z,sx,sy,sz,flipZ)=>{if(A&&shellAdd(par,A,name,mat,part,x,y,z,sx,sy,sz))return;
+    const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);if(flipZ)m.rotation.y=Math.PI;m.userData.part=part;if(geo===ATT_WEDGE)m.userData.keep=1;par.add(m);};
+  const cone=back=>{const c=new THREE.ConeGeometry(0.5,1,lite?10:20);c.rotateX(back?Math.PI/2:-Math.PI/2);return c;};
+  const fz=front[1],bz=back[1],W=attWedge();
+  if(fr.id==="wedgelets"){const d=L*0.12,h=clr+bh*0.45,w=Wd*0.3;
+    if(!(A&&shellAdd(g,A,"at_wedgelets",M.steel,"front",front[0],h/2,fz-d/2,Wd,h,d)))
+      for(const s of [-1,1])piece(g,"",W,M.steel,"front",front[0]+s*(hw-w/2),h/2,fz-d/2,w,h,d);}
+  else if(fr.id==="forks"){const d=L*0.18,h=clr+bh*0.35;
+    if(!(A&&shellAdd(g,A,"at_forks",M.steel,"front",front[0],h/2,fz-d/2,Wd*0.9,h,d)))
+      for(const x of [-0.375,-0.125,0.125,0.375])piece(g,"",W,M.steel,"front",front[0]+x*Wd*0.9,h/2,fz-d/2,Wd*0.08,h,d);}
+  else if(fr.id==="plow"){const d=L*0.13,h=clr+bh*0.7;piece(g,"at_plow",W,M.steel,"front",front[0],h/2,fz-d/2,Wd*1.04,h,d);}
+  else if(fr.id==="spike"){const d=L*0.2,s=Math.min(Wd*0.22,bh*0.5);piece(g,"at_spike",cone(false),M.steel,"front",front[0],clr+bh*0.5,fz-d/2,s,s,d);}
+  if(bk.id==="rearwedge"){const d=L*0.12,h=clr+bh*0.6;piece(g,"at_rearwedge",W,M.steel,"back",back[0],h/2,bz+d/2,Wd,h,d,true);}
+  else if(bk.id==="rearspike"){const d=L*0.15,s=Math.min(Wd*0.18,bh*0.4);
+    if(!(A&&shellAdd(g,A,"at_rearspike",M.steel,"back",back[0],clr+bh*0.5,bz+d/2,Wd*0.6,s,d))){const c=cone(true);
+      for(const x of [-0.3,0.3])piece(g,"",c,M.steel,"back",back[0]+x*Wd*0.6,clr+bh*0.5,bz+d/2,s,s,d);}}
+  else if(bk.id==="kicker"){   /* hinged at the top back edge; the plate runs back and down to the floor (rotation.x > 0 lowers its tip) */
+    const reach=Math.max(0.01*len,(bk.kick&&bk.kick.reachM)||0.04),hy=boxTop,pl=Math.hypot(hy,reach+0.004*len),t=0.004*len,kp=new THREE.Group();kp.userData.role="kick";
+    piece(kp,"at_kick",new THREE.BoxGeometry(1,1,1),M.alu,"back",0,0,pl/2,Wd*0.9,t*2,pl);
+    kp.position.set(back[0],hy,bz);kp.userData.rest=Math.atan2(hy,reach+0.004*len);kp.rotation.x=kp.userData.rest;g.add(kp);}}
 
 /* ---- Full and Ultra: the weapon parts (models/bot-weapons.glb, tools/blender-bot-weapons.py; loaded by botWeapons in
    vis/props.js). Each piece is modelled in its own unit box (the script's header gives each one's axes) and stretched to
