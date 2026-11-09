@@ -15,6 +15,7 @@ camera); B() turns them into Blender's (z up). Colours are sRGB hex like the gam
   pusher    a wall ram 1 deep (x, face at +x), 1 high and 3 long (z): yellow with black stripes on top and face, a light
             bar along the back of the top (pusher_glow)
   spinner   a floor turntable, unit radius: bolted disc, a toothed bar, a light ring (spinner_glow)
+  flame     a floor grate one unit square (0.1.37): a frame, nine bars, burner nozzles, a glow under the bars (flame_glow)
   pitedge   one unit of striped pit edge along x (0.1 wide), to tile round a pit
   pitwell   a unit open-topped well under the pit hole (x, z -0.5..0.5, y 0..-1)
   stands    in metres, not arena units: a 4 m bleacher block, four 0.45 m tiers rising away from the arena (front at z 0,
@@ -256,6 +257,19 @@ bpy.ops.mesh.primitive_torus_add(major_radius=0.96, minor_radius=0.035, major_se
 ring = bpy.context.object
 ring.name = "spinner_glow"
 link(ring, g, LAMP)
+
+# ---- flame: a floor grate one unit square (x by z), flush with the floor; the vis scales it to the hazard's rect ----
+g = empty("flame")
+p = [box(g, "f", 1.0, 0.02, 1.0, 0, -0.012, 0, HOLE)]                       # the dark tray under the bars
+for sx in (-1, 1):                                                          # the frame
+    p.append(box(g, "f", 0.06, 0.03, 1.0, sx * 0.47, 0.012, 0, STEEL, 0.006))
+    p.append(box(g, "f", 0.88, 0.03, 0.06, 0, 0.012, sx * 0.47, STEEL, 0.006))
+for i in range(9):                                                          # the bars, along z
+    p.append(box(g, "f", 0.035, 0.022, 0.88, -0.36 + i * 0.09, 0.012, 0, DARK, 0.004))
+for i in range(4):                                                          # burner nozzles under the bars
+    p.append(cyl(g, "f", 0.05, 0.02, -0.3 + i * 0.2, 0.0, 0, STEEL, 10))
+join(g, "flame_body", p)
+box(g, "flame_glow", 0.86, 0.006, 0.86, 0, -0.002, 0, LAMP)                 # the pilot's glow under the bars
 
 # ---- pit edge: one unit along x, 0.1 wide, hazard stripes ----
 g = empty("pitedge")
