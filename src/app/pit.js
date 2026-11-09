@@ -28,7 +28,7 @@ function pitTunes(cfg){const t=SIM.normTune(cfg.tune);
   return SIM.TUNE_IDS.map(k=>{const T=SIM.TUNE[k],v=t[k];
     return{k,name:T.name,v,label:T.labels[v-T.min],steps:[-1,1].map(d=>{const n=v+d;if(n<T.min||n>T.max)return{d,ok:false,why:"end of the dial"};
       const r=SIM.evalBuild(Object.assign({},cfg,{tune:Object.assign({},t,{[k]:n})}));return{d,ok:!r.errors.length,why:r.errors.length?"over the limit":""};})};});}
-function pitFronts(cfg){const w=SIM.part("weapon",cfg.weapon);if(!w||SIM.OWN_FRONT.indexOf(w.type)>=0)return null;
+function pitFronts(cfg){const w=SIM.part("weapon",cfg.weapon);if(!w||SIM.OWN_FRONT.indexOf(w.type)>=0||SIM.ALL_ROUND.indexOf(w.id)>=0)return null;
   return SIM.PARTS.front.map(p=>{const lock=crPartLock("front",p.id),r=SIM.evalBuild(Object.assign({},cfg,{front:p.id}));
     return{id:p.id,name:p.name,cur:p.id===(cfg.front||"none"),ok:!lock&&!r.errors.length,why:lock||(r.errors.length?"over the limit":"")};});}
 /* hp of a damage key on a build */

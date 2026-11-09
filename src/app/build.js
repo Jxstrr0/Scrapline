@@ -126,13 +126,14 @@ const B_SECS=[
   {id:"power",t:"Power",sum:()=>bName("battery",draft().battery)+" · "+bName("electronics",draft().electronics),
     body:()=>`<h4>Battery</h4>`+bOpts("battery",draft().battery,bFit("battery"),(c,id)=>{c.battery=id;})+`<h4>Speed controllers</h4>`+bOpts("electronics",draft().electronics,bFit("electronics"),(c,id)=>{c.electronics=id;})},
   {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon)+(draft().disc?` · “${draft().disc.name}”`:""),
-    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;})+bDisc()},
+    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;if(SIM.ALL_ROUND.indexOf(id)>=0){c.front="none";c.back="none";}})+bDisc()},
   {id:"material",t:"Weapon material",sum:()=>draft().weapon==="none"?"no weapon":bName("weaponMaterial",draft().weaponMaterial),
     body:()=>draft().weapon==="none"?"<p>No weapon fitted, so there is nothing to make out of anything.</p>":bOpts("weaponMaterial",draft().weaponMaterial,bFit("weaponMaterial"),(c,id)=>{c.weaponMaterial=id;})+"<p>The disc, arm or wedge plate. Tougher stock bends later and bites harder; lighter stock stores less energy.</p>"},
   /* 0.1.32: a front attachment (not on a bot whose weapon is its own front) and the back slot */
   {id:"attach",t:"Front & back",sum:()=>{const d=draft(),f=d.front&&d.front!=="none"?bName("front",d.front):"",k=d.back&&d.back!=="none"?bName("back",d.back):"";
       return f||k?[f,k].filter(Boolean).join(" · ").toLowerCase().replace(/^./,c=>c.toUpperCase()):"nothing fitted";},
-    body:()=>{const d=draft(),own=SIM.OWN_FRONT.indexOf(SIM.part("weapon",d.weapon).type)>=0,pf=SIM.part("front",d.front||"none"),pk=SIM.part("back",d.back||"none");
+    body:()=>{const d=draft(),own=SIM.OWN_FRONT.indexOf(SIM.part("weapon",d.weapon).type)>=0,round=SIM.ALL_ROUND.indexOf(d.weapon)>=0,pf=SIM.part("front",d.front||"none"),pk=SIM.part("back",d.back||"none");
+      if(round)return`<p>The ${esc(bName("weapon",d.weapon).toLowerCase())} spins all the way round the bot: there is no room for a front or a back.</p>`;
       return`<h4>Front</h4>`+(own?`<p>The ${esc(bName("weapon",d.weapon).toLowerCase())} is its own front: there is no room for an attachment.</p>`:(pf&&pf.line?`<p>${esc(pf.line)}</p>`:"")+bOpts("front",d.front||"none",bFit("front"),(c,id)=>{c.front=id;}))
       +`<h4>Back</h4>`+(pk&&pk.line?`<p>${esc(pk.line)}</p>`:"")+bOpts("back",d.back||"none",bFit("back"),(c,id)=>{c.back=id;})
       +`<p class="hint">Swap the front between rounds in the pit to suit the bot you're fighting.</p>`;}},
@@ -150,7 +151,7 @@ const B_SECS=[
   {id:"designs",t:"Designs",sum:()=>{const n=bDesigns().length;return n?`${n} saved`:"none saved";},body:()=>bDesignsBody()}
 ];
 /* your own disc profile (sim/parts.js DISC_PROFILES): any spinner but the saw; teeth, rim and a name */
-function bDisc(){const d=draft(),w=SIM.part("weapon",d.weapon);if(!w||w.type!=="spinner")return"";const lock=crDiscLock(),dp=d.disc,base=bEval();
+function bDisc(){const d=draft(),w=SIM.part("weapon",d.weapon);if(!w||w.type!=="spinner"||w.bodyR)return"";const lock=crDiscLock(),dp=d.disc,base=bEval();
   const tryD=x=>{const c=bTry(q=>{q.disc=x;});return bEv(c);};
   const opt=(lbl,x,on,key)=>{const r=on?base:tryD(x);return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-disc="${key}" aria-pressed="${on}"><span>${lbl}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,"weapon")}</small></button>`;};
   const cur=dp||{name:"",teeth:2,rim:"mid"};

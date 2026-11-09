@@ -212,7 +212,7 @@ function ftFeedback(now){const F=FT.F,q=F.fxq,mm=Math.max(F.M.mass,1e-6),snd=ST(
    synth.js drops the Full / Ultra ones on Lite. ---- */
 const FT_MAT={ply:"ply",hdpe:"hdpe",hdpe6:"hdpe",hdpe10:"hdpe",hdpe15:"hdpe",ti:"ti"};   // anything else metal rings as steel ("ar")
 const FT_BED={regional:"reg",stahl:"reg",eisenau:"reg",grauwald:"reg",eisenhalle:"big"};   // the crowd bed by arena; the rest are a club crowd
-const FT_SPIN={hsp:"spin_h",vsp:"spin_v",drum:"spin_drum",saw:"spin_saw",under:"spin_under"};
+const FT_SPIN={hsp:"spin_h",vsp:"spin_v",drum:"spin_drum",saw:"spin_saw",under:"spin_under",shell:"spin_shell",ring:"spin_shell",melty:"spin_shell"};
 function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=null&&e.a>=0?F.bots[e.a]:null,V=e.v!=null&&e.v>=0?F.bots[e.v]:null,wid=A?A.b.cfg.weapon:"";
   const crowd=k=>{if(now-(FT.crowdT||0)<3500)return;if(SS.sfx(k,0.55))FT.crowdT=now;};
   if(e.k==="hit"&&V){const En=(e.E||0)/mm,v=0.25+0.5*Math.min(1,En/140);
@@ -228,6 +228,7 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="haz")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);
   else if(e.k==="pitopen")SS.sfx("pitopen",0.7);
   else if(e.k==="right")SS.sfx("selfright",0.6);
+  else if(e.k==="self"&&e.what==="sync")SS.sfx("warble",0.6);
   else if(e.k==="self"&&(e.what==="bent"||e.what==="shear")){SS.sfx(e.what==="bent"?"bend":"snap",0.7);crowd("groan");}
   else if(e.k==="fail"){if(e.what==="smoke")SS.sfx("smoke",0.55);else if(e.what==="dead"||e.what==="flat"||e.what==="cell"){SS.sfx("powerdown",0.6);if(V&&!V.mini)crowd("groan");}
     else if(e.what==="weapon")crowd("groan");}
@@ -236,9 +237,11 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
 /* a spinner coming up to speed (its share of full speed climbs past a third from under a tenth): its spin-up, once each time */
 function ftSpinUp(F,o,i){const id=FT_SPIN[o.b.cfg.weapon];if(!id)return;const w=o.b.weapon,r=o.out||!o.fx.weaponOk?0:o.wp.om/(w.omega||1),m=FT.spin||(FT.spin={});
   if(r<0.1)m[i]=1;else if(r>0.33&&m[i]){m[i]=0;SCRAP_SOUND.sfx(id,i===0?0.5:0.35);}}
-/* the wheel layouts (0.1.31, Full / Ultra): a mecanum or swerve bot starting a slide, a caster bot changing direction */
+/* the wheel layouts (0.1.31, Full / Ultra): a mecanum or swerve bot starting a slide, a caster bot changing direction, a walker setting off (0.1.34) */
 function ftWheelSfx(F,o,i){const wb=o.b.wheelbase;if(!wb||o.out)return;const m=FT.whl||(FT.whl={}),s=m[i]||(m[i]={sl:0,dir:0,t:-9}),v=i===0?0.45:0.3;
   if(wb.strafe>0){const sl=Math.abs((o.input&&o.input.strafe)||0)>0.3;if(sl&&!s.sl&&F.t-s.t>0.6){s.t=F.t;SCRAP_SOUND.sfx(wb.id==="swerve"?"swerve":"mecanum",v);}s.sl=sl;}
+  else if(wb.legs){const sp=Math.hypot(o.vx,o.vy),go=sp>0.3*Math.max(o.b.driveSpeed,0.1)?1:0;   // shuffler legs (0.1.34): a clank as it sets off
+    if(go&&!s.dir&&F.t-s.t>1.0){s.t=F.t;SCRAP_SOUND.sfx("legs",v*0.9);}s.dir=go;}
   else if(wb.caster){const vf=Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy,d=Math.abs(vf)>0.2*Math.max(o.b.driveSpeed,0.1)?Math.sign(vf):0;
     if(d&&s.dir&&d!==s.dir&&F.t-s.t>0.8){s.t=F.t;SCRAP_SOUND.sfx("caster",v*0.8);}if(d)s.dir=d;}}
 /* ---- fight mode: the overlay on the 3D view ---- */
@@ -466,7 +469,7 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
       return`${e.n>1?"Hard landings":"Hard landing"} for ${N(v)}: ${J(tot)} into ${e.inv?"the top":"the wheels and drive"}${dead.length?" · "+dead.map(p=>`${esc(SIM.benchPartName(F.bots[v].b,p[0]))} <span class="broke">destroyed</span>`).join(", "):""}`;}
     case"right":return`${ftCap(N(v))} ${V(v,"self-rights","self-right")}`;
     case"heat":return`${ftCap(N(v,1))} ${e.what==="drive"?"drive motors":"weapon motor"} overheat: half power until they cool`;
-    case"self":return e.what==="flip"?`${ftCap(N(v))} ${V(v,"throws itself","throw yourself")} over on the recoil`:e.what==="bent"?`${ftCap(N(v,1))} disc bends on that ${J(e.E)} hit: half the energy from now on`:`${ftCap(N(v,1))} weapon shaft shears!`;
+    case"self":return e.what==="sync"?`${ftCap(N(v,1))} meltybrain loses its sync on the hit: it wobbles for a second while it finds its heading again`:e.what==="flip"?`${ftCap(N(v))} ${V(v,"throws itself","throw yourself")} over on the recoil`:e.what==="bent"?`${ftCap(N(v,1))} disc bends on that ${J(e.E)} hit: half the energy from now on`:`${ftCap(N(v,1))} weapon shaft shears!`;
     case"fail":{const P=N(v,1);switch(e.what){
       case"part":return e.key==="weapon"?null:`${ftCap(P)} ${esc(SIM.benchPartName(F.bots[v].b,e.key))} is <span class="broke">destroyed</span>`;
       case"side":return`${ftCap(P)} ${e.side} side is out`;

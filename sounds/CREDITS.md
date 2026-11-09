@@ -37,9 +37,9 @@ The announcer (Duncan Steiner) and commentator (Jess Moser), 214 lines: voices g
 
 ## sfx/: the effects pack (original)
 
-Kelbo's own work: generated with ElevenLabs (eleven_text_to_sound_v2), November 2026, from the prompts in Kelbo's SFX sheet; two takes each, the better one kept. Changes: trimmed, peak-normalised to -1 dBFS, a 40 ms fade-out, mono 44.1 kHz mp3 at 80 kbps; the three crowd beds are 20 s loops with the last second crossfaded into the first (no fade), so they loop without a seam. The wheel layouts' effects (caster, mecanum, swerve; 0.1.31) and 0.1.32's grabber clamp and back-up flipper (grab, kick) and 0.1.33's tuning-dial click (dial) were generated the same way from prompts written for them, and both takes of each are kept as variants.
+Kelbo's own work: generated with ElevenLabs (eleven_text_to_sound_v2), November 2026, from the prompts in Kelbo's SFX sheet; two takes each, the better one kept. Changes: trimmed, peak-normalised to -1 dBFS, a 40 ms fade-out, mono 44.1 kHz mp3 at 80 kbps; the three crowd beds are 20 s loops with the last second crossfaded into the first (no fade), so they loop without a seam. The wheel layouts' effects (caster, mecanum, swerve; 0.1.31) and 0.1.32's grabber clamp and back-up flipper (grab, kick) and 0.1.33's tuning-dial click (dial) and 0.1.34's odd bodies (spin_shell, the shell and ring spinners' hum; warble, a meltybrain losing its sync; legs, a walker's steps) were generated the same way from prompts written for them, and both takes of each are kept as variants.
 
-Every tier: crowd_club, crowd_reg, crowd_big (looped beds), cheer1-2, ooh1-2, groan1-2, clap1-2, bell, pitopen, ratchet, drill, clamp, charger, dial1-2. Full and Ultra only (with the recorded clangs): spin_h, spin_v, spin_drum, spin_saw, spin_under, flip1-2, fliphp, hammer1-2, lifter, crush, ply1-2, hdpe, ti, ar, tyre1-2, scrape1-2, snap1-2, bend1-2, partoff1-2, thud, land1-2, pusher, floorspin, selfright, powerdown, smoke.
+Every tier: crowd_club, crowd_reg, crowd_big (looped beds), cheer1-2, ooh1-2, groan1-2, clap1-2, bell, pitopen, ratchet, drill, clamp, charger, dial1-2. Full and Ultra only (with the recorded clangs): spin_h, spin_v, spin_drum, spin_saw, spin_under, flip1-2, fliphp, hammer1-2, lifter, crush, ply1-2, hdpe, ti, ar, tyre1-2, scrape1-2, snap1-2, bend1-2, partoff1-2, thud, land1-2, pusher, floorspin, selfright, powerdown, smoke, spin_shell, warble1-2, legs1-2.
 
 | File | Author | Licence |
 |---|---|---|
@@ -107,3 +107,8 @@ Every tier: crowd_club, crowd_reg, crowd_big (looped beds), cheer1-2, ooh1-2, gr
 | sfx/dial2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
 | sfx/kick1.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
 | sfx/kick2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/spin_shell.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/warble1.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/warble2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/legs1.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
+| sfx/legs2.mp3 | Kelbo (ElevenLabs, original) | Original work, Longlight Interactive |
