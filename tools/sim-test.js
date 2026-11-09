@@ -43,7 +43,7 @@ for (const slot in NEED) {
     for (const k of ["id", "name", "unlock"]) if (typeof p[k] !== "string") fail(`PARTS.${slot}.${p.id} has no ${k}`);
     if (!/^(start|tool:[a-z]+|rnd:[a-z]+)$/.test(p.unlock || "")) fail(`PARTS.${slot}.${p.id} unlock "${p.unlock}"`);
     for (const k of ["cost", "hours"].concat(NEED[slot])) if (!Number.isFinite(p[k])) fail(`PARTS.${slot}.${p.id}.${k} is not a number`);
-    if (p.type === "spinner" || p.type === "saw") for (const k of ["discMass", "radius", "rpmMax", "shapeK", "bite", "recoil"]) if (!Number.isFinite(p[k])) fail(`PARTS.weapon.${p.id}.${k}`);
+    if (p.type === "spinner" || p.type === "saw") for (const k of ["discMass", p.bodyR ? "bodyR" : "radius", "rpmMax", "shapeK", "bite", "recoil"]) if (!Number.isFinite(p[k])) fail(`PARTS.weapon.${p.id}.${k}`);
   }
 }
 
@@ -188,7 +188,7 @@ for (const cls of SIM.CLASS_IDS) {
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
   const KIND = { vsp: "slot", saw: "slot", drum: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
-    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none" }, eps = 1e-9;
+    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
     if (!y) { fail(`${lbl}: no bay`); continue; }
@@ -253,6 +253,34 @@ for (const cls of SIM.CLASS_IDS) {
   }
   if (!grabs) fail("a grabber should grab in six fights against the brick");
   console.log(`0.1.32 checks: fronts x backs, own fronts, the kicker, the grabber (${grabs} grabs, ${kicks} kicks in 6 fights; replays match)`);
+}
+
+/* 0.1.34: the odd bodies (shell, ring, meltybrain, shuffler legs) */
+{
+  const T = (id) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls: "beetle" });
+  for (const id of SIM.ALL_ROUND) {
+    const c = Object.assign(T("hsp"), { weapon: id, front: "none", back: "none" }), b = SIM.evalBuild(c);
+    if (!b.weapon.allRound || b.weapon.mountM[0] !== 0 || b.weapon.mountM[1] !== 0) fail(`${id}: not all round at the middle`);
+    if (!(b.weapon.storedJ > 60 && b.weapon.storedJ < 260)) fail(`${id}: beetle stores ${b.weapon.storedJ} J`);
+    for (const k of [{ front: "spike" }, { back: "rearspike" }]) { const r = SIM.evalBuild(Object.assign({}, c, k));
+      if (r.valid || !r.errors.some((e) => /all the way round/.test(e))) fail(`${id} with ${JSON.stringify(k)} should be refused`); }
+    if (b.bay && b.bay.kind !== "none") fail(`${id}: bay ${b.bay.kind}`);
+  }
+  if (!SIM.evalBuild(Object.assign(T("hsp"), { weapon: "melty", front: "none", back: "none" })).height.drivesInverted) fail("a meltybrain should drive either way up");
+  const lw = SIM.evalBuild(Object.assign(T("vsp"), { wheelbase: "legs" })), sw = SIM.evalBuild(T("vsp")), L = SIM.part("wheelbase", "legs");
+  if (lw.limitG !== Math.round(sw.limitG * L.limitMul)) fail(`legs: limit ${lw.limitG}, should be ${sw.limitG} x ${L.limitMul}`);
+  if (!(lw.driveSpeed < sw.driveSpeed * 0.6)) fail(`legs should be slow: ${lw.driveSpeed} vs ${sw.driveSpeed}`);
+  /* fights replay the same; a meltybrain loses its sync at least once in a few fights against heavy hitters */
+  const fight = (a, b, seed) => SIM.runFight({ seed, arena: "clubbox", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+  let sync = 0;
+  for (let s = 1; s <= 6; s++) for (const [a, b] of [[Object.assign(T("hsp"), { weapon: "melty", front: "none", back: "none" }), T(s % 2 ? "vsp" : "drum")],
+    [Object.assign(T("hsp"), { weapon: s % 2 ? "shell" : "ring", front: "none", back: "none" }), T("wedge")], [Object.assign(T("vsp"), { wheelbase: "legs" }), T("brick")]]) {
+    const r = fight(a, b, s), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a 0.1.34 fight (${a.weapon}/${a.wheelbase}) replays differently`);
+    sync += r.log.entries.filter((e) => e.k === "self" && e.what === "sync").length;
+  }
+  if (!sync) fail("a meltybrain should lose its sync at least once in six fights against spinners");
+  console.log(`0.1.34 checks: shell, ring and meltybrain all round, legs (limit x${L.limitMul}), ${sync} lost syncs in 6 fights; replays match`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }

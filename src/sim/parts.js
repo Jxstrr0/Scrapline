@@ -101,7 +101,9 @@ const PARTS={
      resistance, powerMul x the drive's draw and heat, underMul x the grip kept while sat on a wedge (the back wheels still
      reach the floor), strafe: the share of top speed it can slide sideways at (0: it can't), podsNeed: drive pods it
      needs (a mecanum wheel needs its own motor), caster: a swivel wheel at the back that can be hit (casterHp) and, broken,
-     drags (DAMAGE.casterDrag). hpMul x each wheel's hp. Tracks run the whole side, so they only go with "std". */
+     drags (DAMAGE.casterDrag). hpMul x each wheel's hp. Tracks run the whole side, so they only go with "std".
+     Legs (0.1.34): speedMul x the top speed; limitMul x the class's weight limit (leagues let walkers and shufflers
+     carry more, as they're so slow); the "wheels" are its feet. */
   wheelbase:[
     {id:"std",    name:"Wheel on each pod",   perSide:null,wheelMul:1,  massG:0, podG:0, gripMul:1,   latMul:1,   scrubMul:1,   crrMul:1,   powerMul:1,   underMul:1,  strafe:0,   hpMul:1,  cost:0,  hours:0,  unlock:"start",
       line:"A wheel on every drive pod. Nothing to add, nothing to go wrong."},
@@ -114,7 +116,9 @@ const PARTS={
     {id:"mecanum",name:"Mecanum wheels",      perSide:null,wheelMul:1.4,massG:0, podG:0, gripMul:0.8, latMul:0.35,scrubMul:0.8, crrMul:1.1, powerMul:1.1, underMul:1,  strafe:0.7, hpMul:0.7,cost:80, hours:3,  unlock:"tool:printer",podsNeed:4,
       line:"Rollers round each wheel let it slide sideways: step round a spinner and hit it in the side. It pushes badly and gets shoved about."},
     {id:"swerve", name:"Swerve pods",         perSide:null,wheelMul:1.1,massG:0, podG:50,gripMul:0.9, latMul:0.75,scrubMul:0.7, crrMul:1,   powerMul:1.2, underMul:1,  strafe:0.95,hpMul:0.75,cost:260,hours:6,  unlock:"rnd:swerve",
-      line:"Every wheel turns on its own servo: it slides sideways and still pushes. Heavy, dear and hungry."}
+      line:"Every wheel turns on its own servo: it slides sideways and still pushes. Heavy, dear and hungry."},
+    {id:"legs",   name:"Shuffler legs",       perSide:2,   wheelMul:1.8,massG:40,podG:0, gripMul:1,   latMul:1.3, scrubMul:1.3, crrMul:1.6, powerMul:1.15,underMul:2.5,strafe:0,   hpMul:1.5,cost:220,hours:6,  unlock:"rnd:legs",legs:true,speedMul:0.45,limitMul:1.15,
+      line:"Cams and feet instead of wheels: four big shuffling legs. Slow, but the rules give walkers 15% more weight, and they're hard to shove."}
   ],
   /* capacityWs stored energy (W s), dischargeW the most it can deliver at once */
   battery:[
@@ -138,7 +142,13 @@ const PARTS={
      Spinners: discMass (g, x material), radius (mm), rpmMax, shapeK (I = shapeK m r^2: 0.5 a disc), bite (how much of the
      disc catches), recoil (how hard it kicks the attacker back). Flipper: shots, forceN, strokeMm, rechargeS. Lifter:
      liftN, liftMm. Hammer: swingS, energyJ. Crusher: forceN, crushJ. Saw: a small spinner that grinds (sawJps).
-     selfRights: the weapon can push the bot back over. */
+     selfRights: the weapon can push the bot back over.
+     The odd ones (0.1.34, Kelbo's build features, part four) hit all the way round (ALL_ROUND in sim/build.js): bodyR
+     sizes the spinning part from the chassis instead of radius (x half its diagonal), bendMul x the hp it bends and
+     shears at. Shell spinner: the whole shell over the bot spins. Ring spinner: a toothed hoop round a body that stays
+     still. Meltybrain (melty): the whole bot spins on its drive and steers by pulsing its wheels once a turn; its
+     stored energy is the whole bot's (bodyK x its mass x the radius squared), it drives both ways up (inverts), and a
+     hard hit can lose its heading (FIGHT.melty). None of them leaves room for a front or a back. */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -152,6 +162,9 @@ const PARTS={
     {id:"under",  name:"Undercutter",         type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:40,edgeMm:3,   hp:70,cost:140,hours:5,unlock:"start",discMass:250,radius:60,rpmMax:5500, shapeK:0.5, bite:0.62,recoil:0.9},
     {id:"crusher",name:"Crusher",             type:"crusher",fp:[2,3],mount:"front",massG:150,motorMassG:120,powerW:220,heatW:35,edgeMm:3,   hp:90,cost:260,hours:8,unlock:"rnd:crusher",forceN:900,crushJ:30},
     {id:"grabber",name:"Grabber",             type:"grabber",fp:[2,2],mount:"front",massG:170,motorMassG:120,powerW:150,heatW:25,edgeMm:2,   hp:70,cost:200,hours:7,unlock:"rnd:grabber",reachMm:50,liftN:95,liftMm:30},
+    {id:"shell",  name:"Shell spinner",       type:"spinner",fp:[2,2],mount:"any",  massG:60, motorMassG:100,powerW:300,heatW:45,edgeMm:2,   hp:110,cost:260,hours:8,unlock:"tool:lathe",discMass:380,bodyR:1.0, rpmMax:2100, shapeK:0.75,bite:0.42,recoil:1.0},
+    {id:"ring",   name:"Ring spinner",        type:"spinner",fp:[2,2],mount:"any",  massG:50, motorMassG:90, powerW:220,heatW:45,edgeMm:null,hp:60, cost:240,hours:8,unlock:"rnd:ring",discMass:200,bodyR:1.12,rpmMax:2000, shapeK:1.0, bite:0.4, recoil:1.0,bendMul:0.5},
+    {id:"melty",  name:"Meltybrain",          type:"spinner",fp:null, mount:"front",massG:30, motorMassG:0,  powerW:200,heatW:0, edgeMm:null,hp:70, cost:300,hours:8,unlock:"rnd:melty",discMass:60,bodyR:1.05,rpmMax:1400, shapeK:1.0, bite:0.5, recoil:1.3,bodyK:0.33,inverts:true},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
   ],
   /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends
@@ -263,7 +276,7 @@ function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
   o.tune=normTune(cfg.tune);   // 0.1.33: the tuning dials (all 0 for a cfg from before them)
-  const dp=normDisc(cfg.disc);if(dp&&part("weapon",o.weapon).type==="spinner")o.disc=dp;   // spinners only
+  const dp=normDisc(cfg.disc);if(dp&&part("weapon",o.weapon).type==="spinner"&&!part("weapon",o.weapon).bodyR)o.disc=dp;   // spinners with a disc only (not a shell, ring or meltybrain)
   return o;}
 /* a disc profile, cleaned: {name, teeth, rim}, or null for the stock disc (or anything that isn't one) */
 function normDisc(d){if(!d||typeof d!=="object")return null;const t=+d.teeth,r=d.rim;
@@ -309,7 +322,7 @@ function placeOk(cfg,f,x,y,taken){const c=CLASSES[cfg.cls];
 /* where a part goes if the player hasn't put it anywhere: weapon front and centre, drive pods on the sides (two near the
    middle, four front and back), battery in the middle, electronics behind it, extras at the back */
 function preferred(c,f,podIndex,pods){const W=c.gridW,H=c.gridH,cx=Math.round((W-f.w)/2);
-  if(f.slot==="weapon")return[cx,0];
+  if(f.slot==="weapon")return f.mount==="any"?[cx,Math.round((H-f.h)/2)]:[cx,0];   // an all-round spinner's motor sits in the middle
   if(f.slot==="back")return[cx,H-f.h];
   if(f.slot==="drive"){const x=f.mount==="left"?0:W-f.w;
     if(pods<=2)return[x,Math.round((H-f.h)/2)];

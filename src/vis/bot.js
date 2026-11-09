@@ -35,12 +35,12 @@ function botMesh(b,team,paint,liv){const k=botHash(b,team,paint,liv);let g=BOT_C
   return cloneBot(g);}
 function botCacheClear(){for(const g of BOT_CACHE.values())disposeTree(g);BOT_CACHE.clear();}
 /* clone keeps geometry shared; part materials that get tinted by damage are cloned per instance (userData.own) */
-function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,flip:null,jaw:null,kick:null,wheels:[]});
+function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.userData,{parts:{},spin:null,arm:null,forks:null,flip:null,jaw:null,kick:null,wheels:[],legs:[]});
   g.traverse(o=>{if(!o.isMesh)return;const u=o.userData;
     if(u.part){o.material=o.material.clone();o.userData={part:u.part,own:true,base:o.material.color.clone()};(g.userData.parts[u.part]||(g.userData.parts[u.part]=[])).push(o);}
     else if(u.role==="blur"){o.material=o.material.clone();o.userData={role:"blur",own:true};g.userData.blur=o;}
     if(u.wheel)g.userData.wheels.push(o);});
-  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;});
+  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="leg")g.userData.legs.push(o);});
   return g;}
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
@@ -133,6 +133,7 @@ function buildBot(b,team,sp,liv){
   const wx=p=>Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
   if(Wh&&wl.id==="mecanum")for(const p of wheels){const q=P(p.pos[0],p.pos[1]);   // Full / Ultra: the Blender mecanum wheel, both pieces turn
     for(const [n,m] of [["wh_mec_hub",M.alu],["wh_mec_rollers",M.rubber]]){const o=shellAdd(g,Wh,n,m,p.key,wx(p)-cx,wr,q[1],ww,wr,wr);if(o)o.traverse(x=>{if(x.isMesh)x.userData.wheel=1;});}}
+  else if(wl.legs)botLegs(g,wheels,{P,wr,ww,hw,cx,lite,lh:Math.max(wr*2,clr+bodyH*0.75),Wh:!lite?botOdd():null});   // 0.1.34: shuffler legs where the wheels would be
   else if(wp.tracks){for(const s of [-1,1]){const t=add(new THREE.BoxGeometry(ww,wr*2,L*0.8),M.rubber,s*(hw-ww/2)-cx,wr,cy,s<0?"wheel0":"wheel1");t.userData.wheel=1;}}
   else if(lite){const wg=new THREE.CylinderGeometry(wr,wr,ww,seg);wg.rotateZ(Math.PI/2);
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
@@ -152,6 +153,19 @@ function buildBot(b,team,sp,liv){
     if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
+
+/* ---- shuffler legs (0.1.34, wheelbase legs): at each wheel's place a cam on the axle, a strut and a flat foot, in a
+   group (role "leg") that app/arena lifts and swings in turn as the bot walks (B.wheelA). Full / Ultra: the Blender
+   leg (models/bot-odd.glb, tools/blender-bot-odd.py) where it is loaded ---- */
+function botLegs(g,wheels,k){const M=V.mats,{P,ww,cx,lite,Wh}=k;
+  wheels.forEach((p,i)=>{const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(k.hw+ww*0.8)-cx,G=new THREE.Group();G.userData.role="leg";
+    G.userData.ph=(i%2?Math.PI:0)+(p.pos[0]<0?Math.PI:0);G.position.set(x,0,q[1]);g.add(G);
+    const put=(geo,mat,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(0,y,z||0);m.userData.part=p.key;G.add(m);return m;};
+    if(Wh&&shellAdd(G,Wh,"odd_leg",M.alu,p.key,0,0,0,ww,k.lh,k.lh))return;
+    const h=k.lh,f=h*0.6;
+    put(new THREE.BoxGeometry(ww*1.6,h*0.08,f*1.4),M.rubber,h*0.04);                          // the foot
+    put(new THREE.BoxGeometry(ww*0.5,h*0.85,ww*0.5),M.alu,h*0.47);                            // the strut
+    const cam=new THREE.CylinderGeometry(h*0.2,h*0.2,ww*0.9,lite?10:20);cam.rotateZ(Math.PI/2);put(cam,M.steel,h*0.82,h*0.06);});}
 
 /* ---- the wheel layouts' extra parts (0.1.31, PARTS.wheelbase): Lite draws them in code, Full and Ultra use the Blender
    pieces (models/bot-wheels.glb, tools/blender-bot-wheels.py) once loaded.
@@ -304,6 +318,32 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
   const teeth=(grp,R,n,thick,axis)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(R*0.32,thick*1.4,R*0.18),M.steel);
     t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.rotation.y=-a;grp.add(t);}};
   if(T==="spinner"||T==="saw"){const spin=new THREE.Group();spin.userData.role="spin";
+    /* 0.1.34, the odd ones: all round the bot, at its middle. Full / Ultra: the Blender pieces (models/bot-odd.glb) */
+    if(w.allRound){const Od=V.tier!=="lite"?botOdd():null,c=P(0,0),op=(name,m,y,sx,sy,sz)=>Od?shellAdd(spin,Od,name,m,"weapon",0,y,0,sx,sy,sz):null;
+      if(id==="shell"){   /* a dome over the whole body, from just off the floor to above the lid, with two teeth on its rim */
+        /* a lathe profile: a short wall, then a cone up to a flat crown, sized so the box's corners stay inside it */
+        const y0=clr*0.6,R=r*1.08,h1=(H-y0)*1.05+0.003*len,hh=h1+0.35*(H-y0);
+        if(!op("odd_shell",mat,0,R,hh,R)){const pr=[[0,0],[R,0],[R,h1],[R*0.6,hh],[0,hh]].map(q=>new THREE.Vector2(q[0],q[1]));
+          const d=new THREE.Mesh(new THREE.LatheGeometry(pr,seg),mat);d.userData.part="weapon";spin.add(d);
+          teeth(spin,R,2,Math.max(0.004*len,h1*0.5));}
+        spin.position.set(c[0],y0,c[1]);}
+      else if(id==="ring"){   /* a toothed ring round the body at half its height, on four rollers */
+        const tube=Math.max(0.003*len,r*0.08),y=clr+bodyH*0.45;
+        if(!op("odd_ring",mat,0,r,r,r)){const d=new THREE.Mesh(new THREE.TorusGeometry(r,tube,6,seg*2),mat);d.rotation.x=Math.PI/2;d.userData.part="weapon";spin.add(d);teeth(spin,r,3,tube*2);}
+        spin.position.set(c[0],y,c[1]);
+        for(let i=0;i<4;i++){const a=Math.PI/4+i*Math.PI/2,rr=Math.min(r-tube,Math.hypot(hw,hl)*0.98);
+          add(new THREE.CylinderGeometry(tube*1.6,tube*1.6,tube*3,10),M.steel,c[0]+Math.cos(a)*rr,y,c[1]+Math.sin(a)*rr);}}
+      else{   /* the meltybrain: the whole bot spins (app/arena turns the mesh), so the "spin" is only its blur; one tooth on a corner */
+        spin.position.set(c[0],clr+bodyH*0.5,c[1]);
+        const tl=Math.max(0.01*len,r*0.32),tx=hw*0.95,tz=-hl*0.95,a=Math.atan2(tz,tx);
+        const t=op("odd_tooth",M.steel,0,tl,Math.max(0.004*len,bodyH*0.5),tl*0.6);
+        if(t){t.position.set(c[0]+tx,clr+bodyH*0.3,c[1]+tz);t.rotation.y=-a;g.add(t);}
+        else{const b2=new THREE.Mesh(new THREE.BoxGeometry(tl,Math.max(0.004*len,bodyH*0.5),tl*0.6),M.steel);b2.position.set(c[0]+tx,clr+bodyH*0.3,c[1]+tz);b2.rotation.y=-a;b2.userData.part="weapon";g.add(b2);}
+}
+      g.add(spin);g.userData.melty=!!w.melty;
+      const blur=new THREE.Mesh(new THREE.CircleGeometry(r*1.05,seg),M.blur.clone());blur.userData.role="blur";blur.userData.own=true;blur.rotation.x=-Math.PI/2;
+      blur.position.set(c[0],id==="shell"?H+0.003*len:spin.position.y+0.001*len,c[1]);g.add(blur);
+      return;}
     if(id==="hsp"||id==="under"){const thick=Math.max(0.004*len,r*0.08);
       if(!wpDisc(spin,pc,"wp_disc",mat,r,thick,M)){const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,2,thick);}
       const wd=k.wellD||0,dy=id==="under"?(wd?clr+Math.max(thick*0.6,wd*0.45):clr+thick):wd?k.boxTop-wd+thick*0.5+0.0015*len:clr+bodyH*0.55;

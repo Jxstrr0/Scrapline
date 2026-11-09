@@ -15,6 +15,7 @@ Kelbo's own Blender models go here too, credited as original work ("Kelbo / Long
 | bot-shells.glb | The body styles' shells: wedge lid and cheeks, dome, slab skirts and corner guards, pancake lid, invertible plates, scrap-frame tube and weld | Built in Blender 5.2 from code, `tools/blender-bot-shells.py`, packed with `tools/pack-model.py` | Scrapline's own |
 | bot-wheels.glb | The wheel layouts' parts: mecanum wheel plates and rollers, swerve pod, swivel caster | Built in Blender 5.2 from code, `tools/blender-bot-wheels.py`, packed with `tools/pack-model.py` | Scrapline's own |
 | bot-attach.glb | Front attachments (wedgelets, forks, plow, ram spike), the back slot (rear wedge, rear spike, the back-up flipper's plate) and the grabber's jaw | Built in Blender 5.2 from code, `tools/blender-bot-attach.py`, packed with `tools/pack-model.py` | Scrapline's own |
+| bot-odd.glb | The odd bodies: the shell spinner's dome, the ring spinner's ring, the meltybrain's tooth and the walker's leg | Built in Blender 5.2 from code, `tools/blender-bot-odd.py`, packed with `tools/pack-model.py` | Scrapline's own |
 
 The Poly Haven props:
 
