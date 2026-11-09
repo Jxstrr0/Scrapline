@@ -82,7 +82,7 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
       hitJ,rpmAfter:after*60/(2*Math.PI),recoverS:back.t,recoilMm:1000*hitJ*BENCH.kickShare*(w.recoil||0)/(Math.max(b.grip,0.1)*m*g),
       shearJ:w.shearJ,bendJ:w.bendJ});
     return r;}
-  if(w.type==="flipper"||w.type==="lifter"){const rows=BENCH.testMass.map(f=>{const kg=f*b.limitKg,lifts=w.canLiftKg>=kg;
+  if(w.type==="flipper"||w.type==="lifter"||w.type==="grabber"){const rows=BENCH.testMass.map(f=>{const kg=f*b.limitKg,lifts=w.canLiftKg>=kg;
       const h=!lifts?0:w.type==="flipper"?Math.max(0,w.launchJ*K.flipEff/(kg*g)-(wp.strokeMm*classMult(b.cls).len/1000)):w.liftM;
       return{kg,lifts,heightM:h};});
     const lim=rows.find(q=>q.kg===b.limitKg)||rows[2],v0=Math.sqrt(2*g*lim.heightM),tr=[];
@@ -137,7 +137,7 @@ function benchDrop(x){const b=asBuild(x),M=classMult(b.cls),hM=BENCH.dropM*M.len
   /* on its wheels: the landing goes through the unarmoured underside into the wheels and drive pods (landHit, sim/damage.js) */
   const up=damageState(b),upParts=landHit(b,up,E,false).parts.map(p=>({key:p.key,name:benchPartName(b,p.key),dmg:p.dmg,frac:p.dmg/b.parts.find(q=>q.key===p.key).hpJ,destroyed:p.destroyed}));
   const inv=damageState(b),hit=hitFace(b,"top",E,inv);
-  const righter=b.cfg.extras.indexOf("selfright")>=0?alive(inv,"selfright"):b.height.selfRight&&alive(inv,"weapon");
+  const righter=b.cfg.extras.indexOf("selfright")>=0?alive(inv,"selfright"):b.back&&b.back.selfRights&&!part("weapon",b.cfg.weapon).selfRights?alive(inv,"back"):b.height.selfRight&&alive(inv,"weapon");
   const invDrive=canDrive(inv);
   const outcome=b.height.drivesInverted&&invDrive?"drives":b.height.selfRight&&righter&&invDrive?"rights":"stuck";
   return{id:"drop",heightM:hM,energyJ:E,skidJ:Math.min(E,skid),

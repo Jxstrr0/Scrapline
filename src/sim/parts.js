@@ -151,6 +151,7 @@ const PARTS={
     {id:"drum",   name:"Drum",                type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:45,edgeMm:3,   hp:80,cost:140,hours:5,unlock:"start",discMass:280,radius:30,rpmMax:11000,shapeK:0.55,bite:0.88,recoil:0.4},
     {id:"under",  name:"Undercutter",         type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:40,edgeMm:3,   hp:70,cost:140,hours:5,unlock:"start",discMass:250,radius:60,rpmMax:5500, shapeK:0.5, bite:0.62,recoil:0.9},
     {id:"crusher",name:"Crusher",             type:"crusher",fp:[2,3],mount:"front",massG:150,motorMassG:120,powerW:220,heatW:35,edgeMm:3,   hp:90,cost:260,hours:8,unlock:"rnd:crusher",forceN:900,crushJ:30},
+    {id:"grabber",name:"Grabber",             type:"grabber",fp:[2,2],mount:"front",massG:170,motorMassG:120,powerW:150,heatW:25,edgeMm:2,   hp:70,cost:200,hours:7,unlock:"rnd:grabber",reachMm:50,liftN:95,liftMm:30},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
   ],
   /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends
@@ -160,6 +161,39 @@ const PARTS={
     {id:"steel",name:"Steel",      massMult:1.00,hp:160,shearMult:1.5,bite:0.90,cost:30, hours:0,  unlock:"start"},
     {id:"s7",   name:"S7 tool steel",massMult:1.00,hp:260,shearMult:1.5,bite:1.00,cost:70,hours:1, unlock:"tool:mill"},
     {id:"ti",   name:"Titanium",   massMult:0.62,hp:220,shearMult:1.5,bite:0.85,cost:120,hours:1.5,unlock:"rnd:titanium"}
+  ],
+  /* front (0.1.32): a swappable front on a bot whose weapon leaves the front free (a pusher, a spinner, a hammer, a
+     crusher, a saw; a wedge, lifter, flipper or grabber is its own front). No cells: it hangs off the front face like a
+     wedge plate. edgeMm the leading edge it gives (the lower of it and the weapon's), slope added to the chance a
+     horizontal disc glances off the front (and a vertical disc bites its lip, FIGHT.lip), absorbJ added to the front
+     plate's absorb, ramMul x the damage a ram with the front does to what it hits, underGrip the share of grip a bot it
+     is under keeps on top of WEDGE_RULES.underGrip (forks have gaps: the other bot's wheels still touch). */
+  front:[
+    {id:"none",     name:"Plain front",  massG:0, hp:0, cost:0, hours:0,  unlock:"start",edgeMm:null,slope:0,   absorbJ:0, ramMul:1,  underGrip:0,
+      line:"Whatever the armour and the weapon make of it."},
+    {id:"wedgelets",name:"Wedgelets",    massG:60,hp:50,cost:30,hours:1.5,unlock:"start",edgeMm:1,   slope:0.35,absorbJ:0, ramMul:1,  underGrip:0,
+      line:"Two little hinged wedges either side of the weapon. Gets under, and turns some of a spinner's hit."},
+    {id:"forks",    name:"Forks",        massG:45,hp:35,cost:35,hours:2,  unlock:"tool:drillpress",edgeMm:0.6,slope:0,absorbJ:0,ramMul:1,underGrip:0.15,
+      line:"Steel tines lower than any wedge: under almost anything. Gaps between them let a spinner in, and the bot on top keeps some grip."},
+    {id:"plow",     name:"Plow",         massG:115,hp:75,cost:40,hours:2,  unlock:"tool:welder",edgeMm:1.5,slope:0.5,absorbJ:6, ramMul:1,  underGrip:0,
+      line:"A wide curved scoop. Heavy, but a horizontal spinner skates off it and it soaks a hit."},
+    {id:"spike",    name:"Ram spike",    massG:50,hp:60,cost:25,hours:1,  unlock:"start",edgeMm:null,slope:0,   absorbJ:0, ramMul:2.5,underGrip:0,
+      line:"A hardened point on the front. Every ram hurts more; no help getting under."}
+  ],
+  /* back (0.1.32): the rear. edgeMm a low rear edge that gets under like a front one (null: the clearance), ramMul and
+     absorbJ as the front's, on the back face. A kicker is a small pneumatic flipper facing backwards: it fires with the
+     weapon button at a bot touching the back (kickN, strokeMm, shots, rechargeS; its own gas, its own power), and pushes
+     the bot back over (selfRights). It takes cells (fp, mount "back": its footprint on the back row). */
+  back:[
+    {id:"none",     name:"Plain back",   fp:null, massG:0, motorMassG:0, powerW:0,hp:0, cost:0,  hours:0,  unlock:"start",edgeMm:null,absorbJ:0, ramMul:1,
+      line:"Turn your back and it's a box."},
+    {id:"rearwedge",name:"Rear wedge",   fp:null, massG:70,motorMassG:0, powerW:0,hp:50,cost:25, hours:1.5,unlock:"start",edgeMm:1.5,absorbJ:0, ramMul:1,
+      line:"A low plate on the back. Something that comes at you from behind finds a wedge, not a wall."},
+    {id:"rearspike",name:"Rear spike",   fp:null, massG:55,motorMassG:0, powerW:0,hp:55,cost:25, hours:1,  unlock:"start",edgeMm:null,absorbJ:10,ramMul:2,
+      line:"A point on the back: a bot that shoves you from behind pays for it."},
+    {id:"kicker",   name:"Back-up flipper",fp:[2,1],mount:"back",massG:80,motorMassG:90,powerW:5,hp:40,cost:150,hours:5,unlock:"tool:drillpress",edgeMm:2,absorbJ:0,ramMul:1,
+      kickN:400,strokeMm:25,shots:10,rechargeS:1.5,reachMm:45,selfRights:true,
+      line:"A small flipper facing backwards, on its own gas: flicks off anything that gets behind you, and rights you. Takes room and weight."}
   ],
   /* any number of these. effect fields are read by evalBuild: selfRight, edgeMm (added to the front edge), underAbsorbJ
      (underside armour), frontAbsorbJ and frontDeflect (an anti-spinner bar), minibot */
@@ -183,14 +217,14 @@ const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite
 const MINIBOT={cls:{beetle:"ant",hobby:"ant",feather:"beetle",heavy:"feather"},
   cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe6",left:"hdpe6",right:"hdpe6",top:"none"},drive:"single",wheels:"rubber",battery:"small",electronics:"basic",weapon:"wedge",weaponMaterial:"alu",extras:[]},
   driver:{style:"rush"}};
-const PART_SLOTS=["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","weaponMaterial"];   // single-choice slots
+const PART_SLOTS=["chassis","body","drive","wheels","wheelbase","battery","electronics","weapon","weaponMaterial","front","back"];   // single-choice slots
 const FACES=["front","back","left","right","top"];
 function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if(p.id===id)return p;return null;}
 
 /* a balanced first beetle: HDPE box, dual drive, vertical spinner, close to the limit */
 const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
-  drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[],layout:{}};
+  drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",front:"none",back:"none",extras:[],layout:{}};
 
 /* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
    part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them
@@ -234,11 +268,13 @@ function footprints(cfg){cfg=normCfg(cfg);const c=CLASSES[cfg.cls],m=c.fp,out=[]
   for(let i=0;i<d.pods;i++)add("drive"+i,"drive",d.id,d.fp,i%2?"right":"left");
   const b=part("battery",cfg.battery);if(b)add("battery","battery",b.id,b.fp,"any");
   const e=part("electronics",cfg.electronics);if(e)add("electronics","electronics",e.id,e.fp,"any");
+  const k=part("back",cfg.back);if(k&&k.fp)add("back","back",k.id,k.fp,k.mount);
   for(const x of cfg.extras){const p=part("extras",x);if(p)add(x,"extras",x,p.fp,"any");}
   return out;}
 /* may a part of this footprint sit with its top-left cell at (x,y)? taken: a Set of "x,y" cells already used */
 function placeOk(cfg,f,x,y,taken){const c=CLASSES[cfg.cls];
   if(f.mount==="front"&&y!==0)return false;
+  if(f.mount==="back"&&y+f.h!==c.gridH)return false;
   if(f.mount==="edge"&&!(y===0||x===0||y+f.h===c.gridH||x+f.w===c.gridW))return false;
   if(f.mount==="left"&&x!==0)return false;
   if(f.mount==="right"&&x+f.w!==c.gridW)return false;
@@ -248,6 +284,7 @@ function placeOk(cfg,f,x,y,taken){const c=CLASSES[cfg.cls];
    middle, four front and back), battery in the middle, electronics behind it, extras at the back */
 function preferred(c,f,podIndex,pods){const W=c.gridW,H=c.gridH,cx=Math.round((W-f.w)/2);
   if(f.slot==="weapon")return[cx,0];
+  if(f.slot==="back")return[cx,H-f.h];
   if(f.slot==="drive"){const x=f.mount==="left"?0:W-f.w;
     if(pods<=2)return[x,Math.round((H-f.h)/2)];
     return[x,podIndex<2?Math.round(H*0.25-f.h/2):Math.round(H*0.75-f.h/2)];}
