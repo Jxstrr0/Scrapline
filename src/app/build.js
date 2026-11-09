@@ -47,8 +47,9 @@ const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c);
   if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
   bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
-/* moving parts is free: if the draft and the fitted bot have the same parts, the fitted bot takes the new layout */
-function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft))b.cfg.layout=clone(b.draft.layout);}
+/* moving parts and turning the dials are free: if the draft and the fitted bot have the same parts, the fitted bot takes
+   the new layout and dials (0.1.33) */
+function bLayoutSync(){const b=bBot();if(b.cfg&&SIM.sameParts(b.cfg,b.draft)){b.cfg.layout=clone(b.draft.layout);b.cfg.tune=clone(b.draft.tune);}}
 const buzz=ms=>{try{if(!reduced()&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
 
 /* the stress report: with measured numbers from the bench when the draft is the fitted, tested bot (app/bench.js) */
@@ -71,7 +72,8 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const armour=x=>{let t=0;for(const f of ["front","back","left","right","top"])t+=x.armourMapJ[f].absorbJ+x.armourMapJ[f].hpJ;return t;};
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
   const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
-    battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],front:["edge","armour","speed"],back:["right","armour","run","speed"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
+    battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],front:["edge","armour","speed"],back:["right","armour","run","speed"],
+    volt:["speed","wj","heat","run"],wheel:["inv","clr","speed","edge"],bias:["edge","push"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
     if(k==="inv"&&!!r.height.drivesInverted!==!!base.height.drivesInverted)cand.push(r.height.drivesInverted?'<i class="up">drives upside down</i>':'<i class="dn">can\'t drive upside down</i>');
     if(k==="right"&&!!r.height.selfRight!==!!base.height.selfRight)cand.push(r.height.selfRight?'<i class="up">self-rights</i>':'<i class="dn">no self-righter</i>');
@@ -83,10 +85,11 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
     if(k==="wj")num(x=>x.weapon.energyJ||0,r,base," J",0,true,Math.max(1,(base.weapon.energyJ||0)*0.01));
     if(k==="armour")num(armour,r,base," J armour",0,true,Math.max(1,armour(base)*0.01));
     if(k==="run")num(run,r,base," s run",0,true,2);
+    if(k==="clr")num(x=>x.height.clearanceMm,r,base," mm ride",1,false,0.1);
     if(k==="edge")num(x=>x.height.frontEdgeMm,r,base," mm edge",1,false,0.1);
     if(k==="heat")num(x=>x.heat.fightDerateS==null?999:x.heat.fightDerateS,r,base," s heat",0,true,2);
     if(k==="bend")num(x=>x.weapon.bendJ||0,r,base," J to bend",0,true,1);}
-  return out.concat(cand.slice(0,slot==="body"?3:2)).join("");}
+  return out.concat(cand.slice(0,slot==="body"||SIM.TUNE[slot]?3:2)).join("");}
 
 /* ---- option rows ---- */
 function bOpts(slot,cur,fittedId,mk,price){const base=bEval(),cls=bCls(),M=SIM.classMult(cls);
@@ -137,6 +140,9 @@ const B_SECS=[
     body:()=>{const base=bEval(),M=SIM.classMult(bCls()),f=bBot().cfg;
       return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=bEv(c);
         return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}${bLock("extras",p.id)}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
+  /* 0.1.33: the tuning dials (sim/parts.js TUNE), free to turn like moving parts */
+  {id:"tune",t:"Tuning",sum:()=>{const t=draft().tune||{},on=SIM.TUNE_IDS.filter(k=>t[k]);return on.length?on.map(k=>SIM.TUNE[k].name+" "+bTuneLbl(k,t[k]).toLowerCase()).join(" · "):"all stock";},
+    body:()=>bTune()},
   {id:"layout",t:"Layout & side profile",sum:()=>{const r=bEval();return`COM ${Math.round(r.com.x*1000)}, ${Math.round(r.com.y*1000)} mm`;},
     body:()=>bLayout()+bProfile()},
   {id:"stress",t:"Stress report",sum:()=>{const s=bStress(),n=k=>s.filter(x=>x.sev===k).length,b=n("bad"),w=n("warn");return b?`${b} bad${w?`, ${w} weak`:""}`:w?`${w} weak`:"nothing serious";},
@@ -154,6 +160,16 @@ function bDisc(){const d=draft(),w=SIM.part("weapon",d.weapon);if(!w||w.type!=="
       <div class="opts">${Object.keys(SIM.DISC_PROFILES.rim).map(k=>opt(ftCap(SIM.DISC_PROFILES.rim[k].name),Object.assign({},cur,{rim:k}),cur.rim===k,"r"+k)).join("")}</div>
       <div class="dname"><input id="discName" maxlength="${SIM.DISC_PROFILES.nameMax}" value="${esc(dp.name)}" aria-label="Disc name" autocomplete="off"><button type="button" class="btn sm" data-act="disc-name">Name it</button></div>`:""}
     <p>Fewer teeth bite deeper; a heavier rim stores more energy and spins up slower.${lock?" You can design one here; fitting it needs the R&amp;D and a fabricator.":""} A new profile is a new disc: fitting it pays for the material again.</p>`;}
+/* the tuning dials: a row of steps each, with what the chosen step changes against stock. Free, no Fit needed when only
+   the dials (or the layout) differ from the fitted bot */
+const bTuneLbl=(k,v)=>SIM.TUNE[k].labels[v-SIM.TUNE[k].min];
+function bTune(){const d=draft(),t=d.tune||{},base=bEval();
+  return SIM.TUNE_IDS.map(k=>{const T=SIM.TUNE[k],cur=t[k]||0,steps=[];for(let v=T.min;v<=T.max;v++)steps.push(v);
+    const stock=cur?bEv(bTry(c=>{c.tune[k]=0;})):base;
+    return`<h4>${esc(T.name)}</h4><p>${esc(T.line)}</p><div class="seg tune" role="group" aria-label="${esc(T.name)}">${steps.map(v=>{const on=v===cur,r=on?base:bEv(bTry(c=>{c.tune[k]=v;}));
+      return`<button type="button" data-tune="${k}" data-v="${v}" class="${on?"on":""}${!on&&r.totalG>r.limitG?" over":""}" aria-pressed="${on}">${esc(T.labels[v-T.min])}</button>`;}).join("")}</div>
+      <p class="d tuned">${cur?bDelta(base,stock,k)+" <span>against stock</span>":"<i>stock</i>"}</p>`;}).join("")
+    +`<p class="hint">Free to turn, and the fitted bot takes them at once: no Fit needed.</p>`;}
 /* the fitted bot's part in a slot (for the "fitted" tag) */
 function bFit(slot,face){const f=bBot().cfg;if(!f)return null;const n=SIM.normCfg(f);return face?n.armour[face]:n[slot];}
 
@@ -197,7 +213,7 @@ function bCellAt(ev){const g=$("lGrid");if(!g)return null;const rc=g.getBounding
 
 /* ---- side profile: the bot from the side, to scale, front to the right ---- */
 function bProfile(){const r=bEval(),h=r.height,cfg=draft(),wp=SIM.part("weapon",cfg.weapon),M=SIM.classMult(cfg.cls);
-  const L=r.lengthM*1000,H=h.heightMm,rad=SIM.part("wheels",cfg.wheels).radiusMm*M.len;
+  const L=r.lengthM*1000,H=h.heightMm,rad=r.wheelRadiusMm||SIM.part("wheels",cfg.wheels).radiusMm*M.len;
   const axleY=rad,bodyY=h.drivesInverted?rad-H/2:h.clearanceMm;   // centred axles, or low axles under a box that sits on its clearance
   let wpn="",reach=0,top=bodyY+H;
   if(wp.type==="wedge"||wp.type==="lifter"||wp.type==="flipper"){reach=(wp.reachMm||40)*M.len;wpn=`<path class="wp" d="M${L},${bodyY+H*0.6} L${L+reach},${h.frontEdgeMm} L${L},${bodyY}"/>`;}
@@ -283,6 +299,8 @@ function bClick(e){const t=e.target;let x;
     bSet(c=>{if(s==="armour")c.armour[B.face]=id;else c[s]=id;});return;}
   if((x=t.closest(".opt[data-disc]"))){const k=x.dataset.disc,d=draft().disc,cur=d||{name:"Own disc",teeth:2,rim:"mid"};
     bSet(c=>{if(k==="stock")delete c.disc;else if(k==="own")c.disc=cur;else if(k[0]==="t")c.disc=Object.assign({},cur,{teeth:+k.slice(1)});else c.disc=Object.assign({},cur,{rim:k.slice(1)});});return;}
+  if((x=t.closest("[data-tune]"))){const k=x.dataset.tune,v=+x.dataset.v;if((draft().tune||{})[k]===v)return;
+    if(bSet(c=>{c.tune=Object.assign({},c.tune,{[k]:v});}))shopSfx("dial");buzz(8);return;}
   if((x=t.closest(".opt[data-extra]"))){const id=x.dataset.extra;bSet(c=>{c.extras=c.extras.indexOf(id)>=0?c.extras.filter(e=>e!==id):c.extras.concat([id]);});return;}
   if((x=t.closest("[data-load]"))){const k=x.dataset.load,src=k[0]==="t"?SIM.TEST_BUILDS.find(t=>"t:"+t.id===k):bDesigns()[+k.slice(1)];if(!src||!src.cfg||typeof src.cfg!=="object")return;
     const cfg=Object.assign(clone(src.cfg),{cls:bCls()}),r=bEv(cfg);

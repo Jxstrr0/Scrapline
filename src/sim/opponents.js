@@ -1,5 +1,5 @@
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
-   (cfg; its cls is the entry's), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
+   (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
    stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -19,8 +19,8 @@ const OPPONENTS=[
     line:"Low, quick and always eating something. Started life as a plywood offcut and holds a grudge about it.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"under",weaponMaterial:"steel",extras:[]}},
   {id:"kehrschaufel",name:"Kehrschaufel",cls:"beetle",from:"club",driver:{style:"boxrush",skill:0.5},
-    line:"A dustpan with opinions. Sweeps you into the corner and leans on you until the clock runs out.",
-    cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe15",left:"ar500",right:"ar500",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"wedge",weaponMaterial:"steel",extras:["skid"]}},
+    line:"A dustpan with opinions, low on small wheels. Sweeps you into the corner and leans on you until the clock runs out.",
+    cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe15",left:"ar500",right:"ar500",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"wedge",weaponMaterial:"steel",extras:["skid"],tune:{wheel:-1,bias:-1}}},
   {id:"schraubstock",name:"Schraubstock",cls:"beetle",from:"stahl",driver:{style:"aggressive",skill:0.6},
     line:"Built in a Stahlbrück tool room by people who measure in hundredths. Bites, holds, and doesn't apologise.",
     cfg:{chassis:"alu",armour:{front:"steel",back:"hdpe15",left:"ar500",right:"ar500",top:"steel"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"crusher",weaponMaterial:"steel",extras:[]}},
@@ -32,8 +32,8 @@ const OPPONENTS=[
     line:"From the Eisenau docks. Picks you up and carries you to the pit, unhurried, like freight.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"lifter",weaponMaterial:"steel",extras:[]}},
   {id:"prellbock",name:"Prellbock",cls:"hobby",from:"grauwald",driver:{style:"boxrush",skill:0.55},
-    line:"A buffer stop from the Grauwald yards. No weapon, no hurry, no give. You'll meet the wall eventually.",
-    cfg:{chassis:"steel",armour:{front:"ar500",back:"ar500",left:"ar500",right:"ar500",top:"steel"},drive:"gearbox",wheels:"solid",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",extras:["skid"]}},
+    line:"A buffer stop from the Grauwald yards, on small wheels with lead in the tail. No weapon, no hurry, no give. You'll meet the wall eventually.",
+    cfg:{chassis:"steel",armour:{front:"ar500",back:"ar500",left:"ar500",right:"ar500",top:"steel"},drive:"gearbox",wheels:"solid",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",extras:["skid"],tune:{wheel:-1,bias:-2}}},
   /* featherweights: the regional arenas */
   {id:"walzwerk",name:"Walzwerk",cls:"feather",from:"stahl",driver:{style:"aggressive",skill:0.7},
     line:"A rolling mill on wheels. Feeds you in at one end and doesn't much care what comes out.",
@@ -56,7 +56,7 @@ const OPPONENTS=[
     cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe10",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"rubber",battery:"large",electronics:"dual",weapon:"crusher",weaponMaterial:"steel",extras:[]}}
 ];
 const opponentCfg=op=>Object.assign({},op.cfg,{cls:op.cls});
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
