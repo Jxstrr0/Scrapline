@@ -407,13 +407,31 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
 /* ---- the tab ---- */
 function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
   {const ld=$("crLede");if(ld)ld.hidden=!!c&&!crSandbox();}   // the pitch is for someone who hasn't started (0.1.43)
+  crHead(false);
   if(crSandbox()){el.innerHTML=crSandboxCard();return;}
   if(!c){el.innerHTML=`<div class="card"><h3>Start a career</h3><p>Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}. You start with <b>${fmt$(TIME.startMoney)}</b>, hand tools and ${WORKSHOP_STAGES[0].hours} workshop hours a week.</p>
     <p class="hint">A fresh start with its own garage: your Sandbox bots stay in the Sandbox. Your saved designs come with you, to load and pay for.</p>
     <div class="row"><button type="button" class="btn pri" data-cr="start">Start a career</button></div></div>${crHelpCard()}${crHallCard()}`;return;}
   if(c.over){el.innerHTML=`<div class="card"><h3>${c.done?"Twenty seasons":"The end of the line"}</h3><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p></div>${crHallCard()}${tpShelf()}${crResultsCard()}`;return;}
-  el.innerHTML=crStatusCard()+crEventCard()+crRepairCard()+tmSponsorCard()+crCalendarCard()+tmSeasonCard()+tmKitCard()+crRivalsCard()+tpShelf()+crResultsCard()+crHallCard()+
-    `<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
+  /* four short pages behind a strip (0.1.44): what to do now, the season ahead, the money people, the record */
+  if(!CR_SUBS.some(x=>x[0]===CR.sub))CR.sub="week";
+  const dot='<i class="dot" aria-hidden="true"></i><span class="vh"> (an offer is waiting)</span>',offers=Array.isArray(c.offers)&&c.offers.length;
+  const nav=subNav("crSub","crsub",CR_SUBS.map(x=>x[0]==="money"&&offers?[x[0],x[1]+dot]:x),CR.sub,"Career");
+  let h;
+  if(CR.sub==="season")h=crCalendarCard()+tmSeasonCard()+crRivalsCard();
+  else if(CR.sub==="money")h=tmSponsorCard()+tmKitCard();
+  else if(CR.sub==="record"){h=tpShelf()+crResultsCard()+crHallCard();if(!h)h=`<div class="card empty"><h3>Nothing on the shelf yet</h3><p>Results, trophies and finished careers are kept here. Enter an event from This week to start filling it.</p></div>`;
+    h+=`<p class="hint"><button type="button" class="lnk" data-cr="restart-ask">${CR.restartAsk?"Sure? This ends this career (designs stay)":"Start a new career"}</button></p>`;}
+  else h=crEventCard()+crRepairCard()+crStatusCard()+crWeekBar();
+  el.innerHTML=nav+h;crHead(true);}
+const CR_SUBS=[["week","This week"],["season","Season"],["money","Sponsors"],["record","Record"]];
+/* the tab's title shows only when there is no strip of pages to stand in for it */
+function crHead(strip){const h=$("h-career");if(h)h.classList.toggle("vh",!!strip);}
+/* Close week, pinned at the bottom of the This week page like the Build tab's Fit bar. It is the main button unless an
+   event you could still enter is waiting (then Enter is), and it is not shown during an event day. */
+function crWeekBar(){const c=S.career;if(c.day)return"";const st=crStage(),e=crThisWeek(),open=!!(e&&!c.events[crKey(e)]&&!crCantEnter(e));
+  return`<div class="fitbar gobar"><span class="ft"><b>Week ${c.week} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
+document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;});
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
   const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
@@ -428,16 +446,15 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
     <dl class="crdl"><div><dt>Week</dt><dd class="readout">${c.week} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
       <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${c.rep}</dd></div>
       <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-c.driverXp} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
-    ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p>
-    <div class="row"><button type="button" class="btn pri" data-cr="close">Close week</button></div></div>`;}
+    ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p></div>`;}
 function crTitleEnd(t){if(!t)return"";
   return t.k==="defended"?`<p class="ok"><b>Title defended:</b> ${t.n} Opens in a row. Next season the champion's ballast takes more off your weight limit.</p>`
     :t.k==="won"?`<p class="ok"><b>You are ${esc(WORLD.open)} champion.</b> ${S.career.act>=3?"The title is yours again.":"There is life after this: the Legacy act starts next season."}</p>`
     :`<p class="worn"><b>You've lost the title</b>${t.n>1?` after ${t.n} in a row`:""}. Next season you're the challenger, and your weight limit goes back to normal.</p>`;}
 function crEventCard(){const c=S.career;
   if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${crTitleEnd(CR.end.title)}${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
-    ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
-    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p><div class="row"><button type="button" class="btn" data-cr="close">Close week</button></div>${crSkipHtml()}</div>`;
+    ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see the Sponsors page.</p>`:""}
+    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p>${crSkipHtml()}</div>`;
   if(c.day)return crDayCard(c.day);
   const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p>${crSkipHtml()}</div>`;}
   const r=c.events[crKey(e)];if(r)return`<div class="card"><h3>${esc(e.name)}</h3><p>${r.forfeit?"Forfeited.":"Done: "+crPlaceTxt(e.kind,r.place)+"."}</p>${crSkipHtml()}</div>`;
