@@ -24,7 +24,19 @@
                 flashes the bot's parts white-hot for a moment (at most four times a second, softer under reduced motion).
                 Lite: the same, with a smaller tag texture. (The floor ring under each bot went in 0.1.16.1, Kelbo: it hid
                 the contact between the bots.)
+   looks      (0.1.28.0) a venue arena names a look (ARENAS[id].look; ARENA_LOOK here): the floor's colour, what is painted on
+                it (mill: steel plates and the glow of the slag trough; port: a timber deck, a quay line and bollards;
+                shed: rails across the floor and the turntable's spokes) and the colour of every light. Lite gets the same
+                colours and paint in its baked floor; nothing extra is drawn, and no light is added on any tier.
    Lite: flat materials, no shadows, no spotlight (the pool of light is painted into the floor). ---- */
+/* the venue looks (0.1.28.0): floor (Lite's baked plate: centre, middle, edge), wash (Full and Ultra: a tint laid over the
+   photo plate in the decal), and the lights: hemisphere sky and ground, key, rim (colour, strength), spot */
+const ARENA_LOOK={
+  base:{floor:["#45433d","#35332f","#1f1e1b"],wash:null,sky:0xc4ccd6,gnd:0x1a1816,key:0xeef3fa,rim:[0xffd2b8,.35],spot:0xfff1df},
+  mill:{floor:["#4a3f36","#372f29","#1e1a17"],wash:"rgba(150,82,34,.2)",sky:0xd6c4b4,gnd:0x1e1712,key:0xfff0dc,rim:[0xff9a50,.55],spot:0xffd7a8},
+  port:{floor:["#3d4446","#2f3537","#1a1e20"],wash:"rgba(60,92,122,.2)",sky:0xb8c8da,gnd:0x141a1e,key:0xe6f0ff,rim:[0x9cc4e8,.4],spot:0xe8f2ff},
+  shed:{floor:["#43443a","#33352d","#1d1e19"],wash:"rgba(92,100,60,.17)",sky:0xc8d0bc,gnd:0x181a14,key:0xf2f6e4,rim:[0xffd9a0,.4],spot:0xf4f0dc}};
+const arenaLook=F=>ARENA_LOOK[F.arena.def&&F.arena.def.look]||ARENA_LOOK.base;
 const AR={F:null,g:null,U:4,bots:[],haz:[],kit:null,kitMats:[],pitCover:null,pitOpenAt:null,cam:{x:0,z:0,d:9,shake:0},lights:null,hidden:false};
 function arenaClear(){fxClear();for(const B of AR.bots)disposeClone(B.mesh);
   if(AR.g){V.scene.remove(AR.g);AR.g.traverse(o=>{if(o.userData.keep)return;if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.own){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
@@ -88,12 +100,12 @@ function buildArena(F){
     if(!o.mini){B.tag=botTag(o.name,team,lite,o.livery);g.add(B.tag);}
     return B;});
   /* lights for the arena: a soft sky, one key light (shadows on Full and Ultra), a warm rim */
-  const L=new THREE.Group();L.add(new THREE.HemisphereLight(0xc4ccd6,0x1a1816,lite?.85:.34));
-  const key=new THREE.DirectionalLight(0xeef3fa,lite?1.0:1.1);key.position.set(-H*0.6,H*2.2,H*0.9);
+  const LK=arenaLook(F),L=new THREE.Group();L.add(new THREE.HemisphereLight(LK.sky,LK.gnd,lite?.85:.34));
+  const key=new THREE.DirectionalLight(LK.key,lite?1.0:1.1);key.position.set(-H*0.6,H*2.2,H*0.9);
   if(!lite){key.castShadow=true;key.shadow.mapSize.set(1024,1024);const c=key.shadow.camera;c.left=c.bottom=-H-1;c.right=c.top=H+1;c.near=1;c.far=H*5;key.shadow.bias=-.0008;key.shadow.radius=2;}
-  L.add(key);const rim=new THREE.DirectionalLight(0xffd2b8,.35);rim.position.set(H,H*0.6,-H*1.5);L.add(rim);
+  L.add(key);const rim=new THREE.DirectionalLight(LK.rim[0],LK.rim[1]);rim.position.set(H,H*0.6,-H*1.5);L.add(rim);
   /* Full and Ultra: the rig over the arena, a warm white spot that lights the square and lets the floor round it fall away */
-  if(!lite){const sp=new THREE.SpotLight(0xfff1df,1.25,0,Math.atan(1.25/2.6),0.55,0);sp.position.set(0,H*2.6,0);sp.target.position.set(0,0,0);L.add(sp,sp.target);}
+  if(!lite){const sp=new THREE.SpotLight(LK.spot,1.25,0,Math.atan(1.25/2.6),0.55,0);sp.position.set(0,H*2.6,0);sp.target.position.set(0,0,0);L.add(sp,sp.target);}
   AR.lights=L;AR.g=g;AR.F=F;AR.pitOpenAt=null;
   AR.cam={x:0,z:0,d:H*3,shake:0};
   V.scene.add(g,L);propArena(F);return g;}
@@ -118,7 +130,10 @@ const FLASH_COL=new THREE.Color(0xfff1d6).convertSRGBToLinear();
    in; Full and Ultra a see-through decal over the photo plate, with the pit cut out so the kit's real hole shows. */
 function arenaDecal(F,U,H,lite){const S=lite?512:1024,c=document.createElement("canvas");c.width=c.height=S;const g=c.getContext("2d"),A=F.arena,k=S/(2*H);
   const px=x=>(x*U+H)*k,py=y=>(-y*U+H)*k,u=v=>v*U*k;   // sim metres to canvas px
-  if(lite){const r=g.createRadialGradient(S/2,S/2,S*0.05,S/2,S/2,S*0.72);r.addColorStop(0,"#45433d");r.addColorStop(.6,"#35332f");r.addColorStop(1,"#1f1e1b");g.fillStyle=r;g.fillRect(0,0,S,S);}
+  const LK=arenaLook(F),lk=A.def&&A.def.look;
+  if(lite){const r=g.createRadialGradient(S/2,S/2,S*0.05,S/2,S/2,S*0.72);r.addColorStop(0,LK.floor[0]);r.addColorStop(.6,LK.floor[1]);r.addColorStop(1,LK.floor[2]);g.fillStyle=r;g.fillRect(0,0,S,S);}
+  else if(LK.wash){g.fillStyle=LK.wash;g.fillRect(0,0,S,S);}
+  if(lk)arenaPaint(g,lk,A,S,k,px,py,u,lite);   // the venue's own floor (under the markings)
   const step=0.3*4*k,lw=Math.max(1,S/512);   // the grid
   g.strokeStyle=lite?"rgba(120,114,100,.32)":"rgba(170,162,145,.22)";g.lineWidth=lw;g.beginPath();
   for(let v=step;v<S-1;v+=step){g.moveTo(v,0);g.lineTo(v,S);g.moveTo(0,v);g.lineTo(S,v);}g.stroke();
@@ -137,6 +152,29 @@ function arenaDecal(F,U,H,lite){const S=lite?512:1024,c=document.createElement("
     g.strokeStyle="#141311";g.lineWidth=b*0.7;g.beginPath();const D=Y1-Y0+2*b;for(let t=-D;t<X1-X0+2*b+D;t+=b*1.6){g.moveTo(X0-b+t,Y1+b);g.lineTo(X0-b+t+D,Y0-b);}g.stroke();g.restore();
     if(lite){g.fillStyle="#050505";g.fillRect(X0,Y0,X1-X0,Y1-Y0);}else g.clearRect(X0,Y0,X1-X0,Y1-Y0);}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.premultiplyAlpha=!lite;t.anisotropy=lite?1:Math.min(8,V.r.capabilities.getMaxAnisotropy());return t;}
+/* a venue's floor paint (0.1.28.0), under the common markings: canvas g, S px a side, px/py/u sim metres to px (k px a
+   scene unit). Drawn once into the floor's texture, so it costs nothing per frame on any tier. */
+function arenaPaint(g,lk,A,S,k,px,py,u,lite){const lw=Math.max(1,S/512),m=0.3*4*k/0.3;   // m: px per beetle metre
+  if(lk==="mill"){   // steel plates, 60 cm, rivets at the corners; the slag trough glows
+    const p=0.6*m;g.strokeStyle=lite?"rgba(16,12,10,.55)":"rgba(16,12,10,.45)";g.lineWidth=lw*2.5;g.beginPath();
+    for(let v=p;v<S-1;v+=p){g.moveTo(v,0);g.lineTo(v,S);g.moveTo(0,v);g.lineTo(S,v);}g.stroke();
+    g.fillStyle=lite?"rgba(150,140,128,.35)":"rgba(170,160,145,.3)";for(let x=p;x<S;x+=p)for(let y=p;y<S;y+=p)for(const [dx,dy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){g.beginPath();g.arc(x+dx*lw*6,y+dy*lw*6,lw*1.6,0,7);g.fill();}
+    if(A.pit){const r=A.pit.rect,X0=px(r[0]),X1=px(r[2]),Y0=py(r[3]),Y1=py(r[1]),cx=(X0+X1)/2,cy=(Y0+Y1)/2,R=Math.max(X1-X0,Y1-Y0)*0.9;
+      const gr=g.createRadialGradient(cx,cy,0,cx,cy,R);gr.addColorStop(0,"rgba(255,120,40,.32)");gr.addColorStop(1,"rgba(255,120,40,0)");g.fillStyle=gr;g.fillRect(cx-R,cy-R,2*R,2*R);}}
+  else if(lk==="port"){   // a timber deck: 15 cm planks with staggered butt joints, a yellow quay line, bollards in the corners
+    const turn=(A.turn||0)%2,p=0.15*m,j=1.2*m;g.strokeStyle=lite?"rgba(14,16,18,.5)":"rgba(14,16,18,.4)";g.lineWidth=lw*1.5;g.beginPath();
+    for(let v=p,i=0;v<S-1;v+=p,i++){if(turn){g.moveTo(v,0);g.lineTo(v,S);}else{g.moveTo(0,v);g.lineTo(S,v);}
+      for(let w=(i%3)*j/3;w<S;w+=j){if(turn){g.moveTo(v-p,w);g.lineTo(v,w);}else{g.moveTo(w,v-p);g.lineTo(w,v);}}}g.stroke();
+    const q=0.32*m;g.strokeStyle="rgba(226,190,60,.5)";g.lineWidth=lw*4;g.setLineDash([lw*18,lw*10]);g.strokeRect(q,q,S-2*q,S-2*q);g.setLineDash([]);
+    const b=0.09*m,o=0.3*m;g.fillStyle="rgba(20,22,24,.75)";g.strokeStyle="rgba(226,190,60,.55)";g.lineWidth=lw*2;
+    for(const [x,y] of [[o,o],[S-o,o],[o,S-o],[S-o,S-o]]){g.beginPath();g.arc(x,y,b,0,7);g.fill();g.stroke();}}
+  else if(lk==="shed"){   // two rails through the turntable, on sleepers; the turntable's spokes
+    const turn=(A.turn||0)%2,c=S/2,gauge=0.16*m,sl=0.26*m,sw=0.05*m;
+    g.fillStyle=lite?"rgba(40,32,24,.6)":"rgba(40,32,24,.5)";for(let v=sl/2;v<S;v+=sl){if(turn)g.fillRect(c-gauge*0.85,v-sw/2,gauge*1.7,sw);else g.fillRect(v-sw/2,c-gauge*0.85,sw,gauge*1.7);}
+    g.strokeStyle=lite?"rgba(170,172,168,.55)":"rgba(190,192,188,.5)";g.lineWidth=lw*3;g.beginPath();
+    for(const s of [-1,1]){const o=c+s*gauge/2;if(turn){g.moveTo(o,0);g.lineTo(o,S);}else{g.moveTo(0,o);g.lineTo(S,o);}}g.stroke();
+    const tt=A.haz.find(h=>h.type==="spinner");if(tt){const x=px(tt.at[0]),y=py(tt.at[1]),R=u(tt.rM);g.fillStyle=lite?"rgba(20,20,18,.45)":"rgba(20,20,18,.35)";g.beginPath();g.arc(x,y,R*1.12,0,7);g.fill();
+      g.strokeStyle="rgba(190,192,188,.35)";g.lineWidth=lw*2;g.beginPath();for(let i=0;i<12;i++){const a=i*Math.PI/6;g.moveTo(x+Math.cos(a)*R*0.2,y+Math.sin(a)*R*0.2);g.lineTo(x+Math.cos(a)*R,y+Math.sin(a)*R);}g.stroke();}}}
 /* lamps and hazards: amber while they fire, and glowing on Full and Ultra (Lite keeps the plain colour change) */
 function hazLit(m,on){m.color.copy(on?V.mats.hazOn.color:V.mats.haz.color);if(m.emissive&&V.tier!=="lite")m.emissive.copy(V.mats.hazOn.color).multiplyScalar(on?.7:0);}
 /* the same fight again from another moment (a replay seek: the app re-runs the sim from the start): keep the scene, point
