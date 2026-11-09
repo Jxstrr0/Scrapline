@@ -10,7 +10,12 @@
      arena kit  models/arena-kit.glb, original work built in Blender from tools/blender-arena-kit.py: kerbs with a steel face,
                 screen uprights, corner posts with beacons, striped wall rams, toothed floor spinners, a striped pit edge and
                 well, and stands with a crowd. arenaKit swaps it in for the coded pieces vis/arena.js listed in AR.kit, merging
-                the many kerb and stand clones into one mesh per material so it costs a few draw calls.
+                the many kerb and stand clones into one mesh per material so it costs a few draw calls. 0.1.42: a rub rail
+                on the kerb, braced uprights, a work light on every other upright, the frame round the venue's boards and
+                a lighting mast outside each far corner; the lamps' lenses take the venue's light colour.
+     floors     (0.1.42) textures/floor-<look>_{diff,nor,orm}.webp, original work modelled and baked in Blender by
+                tools/blender-arena-floors.py: one tile 2.4 scene units a side for each venue look (FLOOR_TEX). floorDress
+                puts it on the arena floor's own material when it lands; only the look in use is held.
      shells     models/bot-shells.glb, original work built in Blender from tools/blender-bot-shells.py: the body styles' shells
                 (wedge lid and cheeks, dome, slab skirts and corner guards, pancake lid, invertible plates, scrap tubes and
                 welds). botShells loads it the first time a bot is drawn on Full or Ultra; vis/bot.js shellBody uses it.
@@ -70,16 +75,37 @@ const ARENA_SPOTS={
   eisenau:[["crate",-.6,0,-1,-1.3,.1],["crate",-.25,0,-1,-1.35,-.3],["tyre",-1,-1.15,.1,0,1.57],["tyre",1,1.15,.1,0,1.57],["truck",1,1.4,-.5,0,-1.5],["barrel",.55,0,-1,-1.3,0]],
   grauwald:[["chest",-1,-1.4,-.4,0,1.57],["oil",.3,0,-1,-1.1,.4],["tyre",1,1.2,-.2,0,1.57],["crate",.65,0,-1,-1.3,-.2],["propane",-1,-1.05,.35,0,0]],
   eisenhalle:[["gen",-.4,0,-1,-1.5,0],["truck",1,1.4,-.3,0,-1.5],["crate",-1,-1.3,.2,0,.4],["barrel",.5,0,-1,-1.4,0],["chest",-1,-1.4,-.6,0,1.57]]};
-const PROPS={img:{},imgWait:{},models:{},texList:[],gen:0};
+const PROPS={img:{},imgWait:{},models:{},texList:[],gen:0,floor:null};
 /* ---- textures ---- */
 function propImg(name,cb){const c=PROPS.img[name];if(c){cb(c);return;}
   if(PROPS.imgWait[name]){PROPS.imgWait[name].push(cb);return;}PROPS.imgWait[name]=[cb];
   const out={diff:null,nor:null,avg:null};let n=0;const done=()=>{if(++n<2)return;const w=PROPS.imgWait[name];delete PROPS.imgWait[name];if(!out.diff)return;PROPS.img[name]=out;w.forEach(f=>f(out));};
   const L=new THREE.ImageLoader();
-  L.load(PROP_TEX[name]+"_diff.jpg",im=>{out.diff=im;try{const c=document.createElement("canvas");c.width=c.height=8;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(im,0,0,8,8);
-      const d=g.getImageData(0,0,8,8).data;let r=0,gg=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];gg+=d[i+1];b+=d[i+2];}
-      out.avg=new THREE.Color(r/64/255,gg/64/255,b/64/255).convertSRGBToLinear();}catch(e){out.avg=null;}done();},undefined,()=>done());
+  L.load(PROP_TEX[name]+"_diff.jpg",im=>{out.diff=im;out.avg=imgAvg(im);done();},undefined,()=>done());
   L.load(PROP_TEX[name]+"_nor.jpg",im=>{out.nor=im;done();},undefined,()=>done());}
+/* the arena floors (0.1.42): one tile per look, baked in Blender by tools/blender-arena-floors.py (colour, normal, and
+   roughness with metalness in one file), FLOOR_TILE scene units square, repeated from the arena's near left corner. Only
+   the look in use is held: a fight at another venue drops it and fetches its own (the service worker keeps the files). */
+const FLOOR_TEX={base:"deck",mill:"mill",port:"port",shed:"shed"},FLOOR_TILE=2.4;
+function imgAvg(im){try{const c=document.createElement("canvas");c.width=c.height=8;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(im,0,0,8,8);
+    const d=g.getImageData(0,0,8,8).data;let r=0,gg=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];gg+=d[i+1];b+=d[i+2];}
+    return new THREE.Color(r/64/255,gg/64/255,b/64/255).convertSRGBToLinear();}catch(e){return null;}}
+function floorImg(name,cb){const c=PROPS.floor;if(c&&c.name===name){if(c.im)cb(c.im);else c.wait.push(cb);return;}
+  const e=PROPS.floor={name,im:null,wait:[cb]},out={},L=new THREE.ImageLoader();let n=0;
+  const done=()=>{if(++n<3||PROPS.floor!==e)return;if(!out.diff||!out.nor||!out.orm){PROPS.floor=null;return;}   // a file missing: the photo plate stays
+    out.avg=imgAvg(out.diff);e.im=out;const w=e.wait;e.wait=[];w.forEach(f=>f(out));};
+  for(const k of ["diff","nor","orm"])L.load("textures/floor-"+name+"_"+k+".webp",im=>{out[k]=im;done();},undefined,()=>done());}
+/* dress the arena's own floor material m (a copy of M.arenaFloor, vis/arena.js) in its look's tile, scaled so it is on
+   average as bright as the look's coded plate (ARENA_LOOK.plate): steel stays steel and timber stays timber, and the
+   arena is as dark as it was */
+function floorDress(m,look,H,turn){if(!window.THREE||!THREE.ImageLoader)return;const LK=ARENA_LOOK[look]||ARENA_LOOK.base;
+  floorImg(FLOOR_TEX[look]||FLOOR_TEX.base,im=>{if(AR.floorMat!==m||V.tier==="lite")return;
+    const rep=2*H/FLOOR_TILE,an=Math.min(8,V.r.capabilities.getMaxAnisotropy());
+    const mk=(img,srgb)=>{const t=new THREE.Texture(img);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rep,rep);t.anisotropy=an;if(turn)t.rotation=Math.PI/2;
+      if(srgb)t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;AR.floorTex.push(t);return t;};
+    m.map=mk(im.diff,true);m.normalMap=mk(im.nor,false);m.normalScale.set(LK.bump||1,LK.bump||1);m.roughnessMap=m.metalnessMap=mk(im.orm,false);m.roughness=1;m.metalness=1;
+    const lum=c=>0.2126*c.r+0.7152*c.g+0.0722*c.b,want=lum(new THREE.Color(LK.plate).convertSRGBToLinear()),k=im.avg?want/Math.max(lum(im.avg),.01):1;m.color.setRGB(k,k,k);   // as bright as the coded plate; the hue is the tile's own
+    m.needsUpdate=true;});}
 /* called by makeMats on Full and Ultra with the new materials */
 function propDropTex(){for(const t of PROPS.texList)t.dispose();PROPS.texList=[];}
 function propDressMats(M){
@@ -136,12 +162,17 @@ function kitOwn(o,name){const m=o.getObjectByName(name);if(!m)return null;let me
   if(!mesh.isMesh)return null;const mat=mesh.material.clone();mesh.material=mat;AR.kitMats.push(mat);return mat;}
 function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))return;
   /* walls: kerb units along each wall, screen uprights on the three far ones; the coded kerbs hide */
-  const walls=[],kh=0.35;
+  const walls=[],kh=0.35,LK=arenaLook(AR.F);
+  /* the lamps' lenses (the kit's material kit-glow) give off the venue's own light colour: one material for all of them */
+  let glow=null;const lit=o=>{o.traverse(m=>{if(!m.isMesh||!m.material||m.material.name!=="kit-glow")return;
+    if(!glow){glow=m.material.clone();glow.emissive=new THREE.Color(LK.spot).convertSRGBToLinear();glow.emissiveIntensity=1.5;glow.color.setHex(0x222222);AR.kitMats.push(glow);}m.material=glow;});return o;};
   for(const W of K.walls){const n=Math.max(1,Math.round(W.len/1.1)),seg=W.len/n;W.k.visible=false;
     /* turn each unit so its steel face (+z) looks into the arena */
     const ry=W.along==="x"?(W.z<0?0:Math.PI):(W.x<0?Math.PI/2:-Math.PI/2),ax=W.along==="x"?[1,0]:[0,1];
     for(let i=0;i<n;i++){const off=-W.len/2+seg*(i+.5);
-      for(const nm of W.near?["kerb"]:["kerb","frame"]){const o=kitPiece(src,nm);o.position.set(W.x+ax[0]*off,0,W.z+ax[1]*off);o.rotation.y=ry;o.scale.set(seg,1,1);walls.push(o);}}}
+      for(const nm of W.near?["kerb"]:["kerb","frame","board"]){const o=kitPiece(src,nm);if(!o)continue;o.position.set(W.x+ax[0]*off,0,W.z+ax[1]*off);o.rotation.y=ry;o.scale.set(seg,1,1);walls.push(o);}
+      /* a work light on every other upright (the upright is at the unit's left end), looking down into the arena */
+      if(!W.near&&i%2===1){const o=kitPiece(src,"lamphead");if(o){const a=off-seg/2;o.position.set(W.x+ax[0]*a,0,W.z+ax[1]*a);o.rotation.y=ry;walls.push(lit(o));}}}}
   kitBake(G,walls,true);
   /* corner posts with their beacons */
   const lamps=[];for(const P of K.posts){if(P.near){lamps.push({material:P.lamp.material});continue;}   // the near posts stay short and coded
@@ -181,6 +212,9 @@ function kitBuild(G,src){const K=AR.kit,H=K.H,M=V.mats;if(!kitPiece(src,"kerb"))
       for(let i=0;i<n;i++){const a=(i-(n-1)/2)*bw,o=kitPiece(src,"stands");if(!o)break;
         o.position.set(ax?ax*off:a,0,az?az*off:a);o.rotation.y=ry;o.scale.setScalar(D);st.push(o);}}
     kitBake(G,st,false);
+    /* a lighting mast outside each far corner, between the screens and the stands, turned to the middle of the floor */
+    const tw=[],ta=H+0.8*D;for(const sx of [-1,1]){const o=kitPiece(src,"tower");if(!o)break;o.position.set(sx*ta,0,-ta);o.rotation.y=Math.atan2(-sx,1);o.scale.setScalar(D);tw.push(lit(o));}
+    kitBake(G,tw,false);
     const o2=off+deep;for(const c of K.crowd){c.position.y=top+(0.4+CROWD_M/2)*D;   // above the back wall (top row + 0.3 m)
       if(Math.abs(c.position.z)>Math.abs(c.position.x))c.position.z=Math.sign(c.position.z)*o2;else c.position.x=Math.sign(c.position.x)*o2;}}}
 /* ---- the body shells and the weapon parts ---- */

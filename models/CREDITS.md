@@ -10,7 +10,7 @@ Kelbo's own Blender models go here too, credited as original work ("Kelbo / Long
 
 | File | What | How | Licence |
 |---|---|---|---|
-| arena-kit.glb | The arena kit: kerbs, screen uprights, corner posts and beacons, wall rams, floor spinners, pit edge and well, stands with a crowd | Built in Blender 5.2 from code, `tools/blender-arena-kit.py`, packed with `tools/pack-model.py` | Scrapline's own |
+| arena-kit.glb | The arena kit: kerbs with a rub rail, braced screen uprights, work lights, board frames, corner posts and beacons, wall rams, floor spinners, the flame grate, pit edge and well, stands with a crowd, lighting masts (0.1.42: the rail, braces, lights, board frames and masts) | Built in Blender 5.2 from code, `tools/blender-arena-kit.py`, packed with `tools/pack-model.py` | Scrapline's own |
 | bot-weapons.glb | Weapon parts: disc, teeth, hub and bolts, saw, drum and strikers, uprights, ramp, lifter tine, flipper plate, arm, hammer head, crusher beak and jaw | Built in Blender 5.2 from code, `tools/blender-bot-weapons.py`, packed with `tools/pack-model.py` | Scrapline's own |
 | bot-shells.glb | The body styles' shells: wedge lid and cheeks, dome, slab skirts and corner guards, pancake lid, invertible plates, scrap-frame tube and weld | Built in Blender 5.2 from code, `tools/blender-bot-shells.py`, packed with `tools/pack-model.py` | Scrapline's own |
 | bot-wheels.glb | The wheel layouts' parts: mecanum wheel plates and rollers, swerve pod, swivel caster | Built in Blender 5.2 from code, `tools/blender-bot-wheels.py`, packed with `tools/pack-model.py` | Scrapline's own |
