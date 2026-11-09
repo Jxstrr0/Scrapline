@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.27.0";
+const VERSION="0.1.28.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -21,12 +21,13 @@ const WORLD={
   bank:"the Haldis Savings Bank",   // lends once when you go broke (PR 7)
   league:"the Scrapline",           // Velmark's robot-combat circuit
   open:"the Scrapline Open",        // its televised heavyweight league
-  venues:{                          // km from the Haldis (one way) and nights away: travel costs and workshop hours (TIME)
-    club:{name:"the Haldis Gemeindehalle",what:"club meets in the valley's community hall",km:6,nights:0},
-    stahl:{name:"Stahlbrück",what:"regional tournaments in the steel-mill city",km:85,nights:1},
-    eisenau:{name:"Eisenau",what:"regional tournaments at the river port",km:140,nights:1},
-    grauwald:{name:"Grauwald",what:"regional tournaments in the forest rail town",km:120,nights:1},
-    eisenhalle:{name:"the Eisenhalle",what:"home arena of the televised Scrapline Open",km:210,nights:2}
+  venues:{                          // km from the Haldis (one way) and nights away: travel costs and workshop hours (TIME);
+                                    // arena: the ARENAS id its events fight in (0.1.28.0), else the class's own (the club's two)
+    club:{name:"the Haldis Gemeindehalle",what:"club meets in the valley's community hall",km:6,nights:0,arena:null},
+    stahl:{name:"Stahlbrück",what:"regional tournaments in the steel-mill city",km:85,nights:1,arena:"stahl"},
+    eisenau:{name:"Eisenau",what:"regional tournaments at the river port",km:140,nights:1,arena:"eisenau"},
+    grauwald:{name:"Grauwald",what:"regional tournaments in the forest rail town",km:120,nights:1,arena:"grauwald"},
+    eisenhalle:{name:"the Eisenhalle",what:"home arena of the televised Scrapline Open",km:210,nights:2,arena:"eisenhalle"}
   },
   startYear:2026,                   // present day; the year advances per season, 20-year career
   seasons:20

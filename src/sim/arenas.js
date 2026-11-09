@@ -13,8 +13,10 @@
    seed (the same seed, the same layout), so a hazard isn't always on the same side of the start. Bots start on a ring at
    0.6 x half the side, turned so the pit and the floor spinners are as far from the starts as they can be (sim/fight.js
    newFight).
+   line: one sentence for the player on what is in it (the career's event line, app/career.js crEvLine).
    Each class has its usual arena (CLASSES[cls].arenaId), which is where tools/fight-test.js balances it (Kelbo, PR 4b);
-   the plain test box has walls only.
+   the plain test box has walls only. A career event fights in its venue's arena instead where the venue has one
+   (WORLD.venues[v].arena, 0.1.28.0); tools/fight-test.js -a <id> balances a class there.
    JUDGE_WEIGHTS: a time-up decision (sim/fight.js judgeFight). Each term is shared between the teams in proportion to
    what each did, then weighted, so the scores add up to 100:
      damage      hp each team took off the other in this fight (carried-in damage doesn't count)
@@ -23,20 +25,38 @@
                  down and stuck, plus a few for each time it was shoved into a hazard
    A pin (under a wedge or against a wall) lasts at most FIGHT.holdMaxS in one spell: then the pinner backs off. ---- */
 const ARENAS={
-  box:{id:"box",name:"Test box",sizeM:2.4,wallE:0.35,pit:null,hazards:[]},
+  box:{id:"box",name:"Test box",line:"Walls only.",sizeM:2.4,wallE:0.35,pit:null,hazards:[]},
   /* the antweights' table at club meets: small, an open pit on one side (narrowed in 0.1.12.0: it decided 79% of ant fights; again in 0.1.17.5) */
-  tabletop:{id:"tabletop",name:"Tabletop",sizeM:2.0,wallE:0.3,pit:{rect:[0.84,-0.12,1.0,0.12],openS:0},hazards:[]},
+  tabletop:{id:"tabletop",name:"Tabletop",line:"A small table with an open pit on one side.",sizeM:2.0,wallE:0.3,pit:{rect:[0.84,-0.12,1.0,0.12],openS:0},hazards:[]},
   /* the Gemeindehalle's box: a pit near one wall and a pusher opposite it (narrowed in 0.1.12.0, as the tabletop's; smaller again
      and opening at 0:30 from 0.1.17.5) */
-  clubbox:{id:"clubbox",name:"Club box",sizeM:2.4,wallE:0.35,pit:{rect:[0.98,-0.17,1.2,0.17],openS:30},
+  clubbox:{id:"clubbox",name:"Club box",line:"A pit by one wall opens at 0:30; a ram in the wall opposite.",sizeM:2.4,wallE:0.35,pit:{rect:[0.98,-0.17,1.2,0.17],openS:30},
     hazards:[{type:"pusher",rect:[-1.2,-0.3,-0.98,0.3],n:[1,0],kickMs:2.2,J:6,vzMs:0,activeS:0.35,periodS:4,startS:0}]},
   /* the regional arenas (Stahlbrück, Eisenau, Grauwald): the pit opens a third of the way in; two pushers and a floor spinner */
-  regional:{id:"regional",name:"Regional arena",sizeM:2.6,wallE:0.35,pit:{rect:[0.7,0.7,1.3,1.3],openS:30},
+  regional:{id:"regional",name:"Regional arena",line:"A corner pit opens at 0:30; two rams and a floor spinner.",sizeM:2.6,wallE:0.35,pit:{rect:[0.7,0.7,1.3,1.3],openS:30},
     hazards:[{type:"pusher",rect:[-1.3,-0.35,-1.06,0.35],n:[1,0],kickMs:2.4,J:8,vzMs:0,activeS:0.35,periodS:4,startS:0},
       {type:"pusher",rect:[-0.35,-1.3,0.35,-1.06],n:[0,1],kickMs:2.4,J:8,vzMs:0,activeS:0.35,periodS:4,startS:0},
       {type:"spinner",at:[-0.33,0.33],rM:0.16,kickMs:1.6,J:10,vzMs:1.1,spinRad:14,activeS:0.25,periodS:5,startS:0}]},
+  /* the three regional venues (0.1.28.0, Kelbo: the arena follows the venue, WORLD.venues[v].arena; the hazards are the same
+     three kinds, laid out for the place). look names the vis's dressing for it (vis/arena.js ARENA_LOOK). The "regional"
+     arena above stays as the featherweights' test arena and a Sandbox choice. */
+  /* Stahlbrück's rolling mill: a slag trough along one wall opens at 0:30; the press in the wall opposite shoves hard but
+     slowly; one floor roller */
+  stahl:{id:"stahl",name:"Stahlbrück Mill",line:"A slag trough along one wall opens at 0:30; a heavy press opposite and a floor roller.",look:"mill",sizeM:2.6,wallE:0.3,pit:{rect:[1.06,-0.45,1.3,0.45],openS:30},
+    hazards:[{type:"pusher",rect:[-1.3,-0.5,-1.06,0.5],n:[1,0],kickMs:2.8,J:10,vzMs:0,activeS:0.35,periodS:5,startS:0},
+      {type:"spinner",at:[0,0.72],rM:0.15,kickMs:1.6,J:10,vzMs:1.1,spinRad:14,activeS:0.25,periodS:5,startS:0}]},
+  /* Eisenau's harbour shed: bigger and bouncier (timber fenders); the dock hatch in the middle of one wall opens at 0:20;
+     two soft, quick fender rams face each other across the floor; no spinner */
+  eisenau:{id:"eisenau",name:"Eisenau Harbour",line:"Bouncy timber fenders; the dock hatch opens early, at 0:20; two quick fender rams.",look:"port",sizeM:2.7,wallE:0.38,pit:{rect:[-0.4,1.03,0.4,1.35],openS:20},
+    hazards:[{type:"pusher",rect:[-1.4,-0.65,-1.16,0.05],n:[1,0],kickMs:2.4,J:7,vzMs:0,activeS:0.3,periodS:3.5,startS:0},
+      {type:"pusher",rect:[1.16,-0.65,1.4,0.05],n:[-1,0],kickMs:2.4,J:7,vzMs:0,activeS:0.3,periodS:3.5,startS:0}]},
+  /* Grauwald's engine shed: the turntable in the middle (a wide, slow floor spinner that turns more than it throws, from
+     0:10); a long, thin inspection pit near one wall opens at 0:30; one ram */
+  grauwald:{id:"grauwald",name:"Grauwald Engine Shed",line:"The turntable in the middle starts turning at 0:10; a long inspection pit opens at 0:30; one ram.",look:"shed",sizeM:2.6,wallE:0.35,pit:{rect:[-0.95,0.82,-0.25,0.98],openS:30},
+    hazards:[{type:"spinner",at:[0,0],rM:0.3,kickMs:0.8,J:3,vzMs:0.5,spinRad:9,activeS:0.5,periodS:6,startS:10},
+      {type:"pusher",rect:[1.06,-0.8,1.3,-0.2],n:[-1,0],kickMs:2.4,J:8,vzMs:0,activeS:0.35,periodS:4,startS:0}]},
   /* the Scrapline Open's Eisenhalle: the pit opens at 45 s; pushers on two walls; two floor spinners */
-  eisenhalle:{id:"eisenhalle",name:"The Eisenhalle",sizeM:2.8,wallE:0.3,pit:{rect:[-0.3,1.0,0.3,1.4],openS:45},
+  eisenhalle:{id:"eisenhalle",name:"The Eisenhalle",line:"The pit opens at 0:45; rams on two walls and two floor spinners.",sizeM:2.8,wallE:0.3,pit:{rect:[-0.3,1.0,0.3,1.4],openS:45},
     hazards:[{type:"pusher",rect:[-1.4,-0.4,-1.14,0.4],n:[1,0],kickMs:2.6,J:10,vzMs:0,activeS:0.35,periodS:4,startS:0},
       {type:"pusher",rect:[1.14,-0.4,1.4,0.4],n:[-1,0],kickMs:2.6,J:10,vzMs:0,activeS:0.35,periodS:4,startS:0},
       {type:"spinner",at:[-0.7,-0.75],rM:0.17,kickMs:1.8,J:12,vzMs:1.2,spinRad:14,activeS:0.25,periodS:5,startS:0},
