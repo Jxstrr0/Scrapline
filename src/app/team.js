@@ -164,7 +164,7 @@ function tmStaffWhat(p){if(p.role==="engineer")return`build and repair hours −
   return`pit repairs ${Math.round(p.cut*100)}% faster`;}
 /* Career tab: sponsors */
 function tmSponsorCard(){const c=tmC();const mine=S.sponsors.map(s=>({s,sp:tmSp(s.id)})).filter(x=>x.sp),offers=c.offers.map(o=>tmSp(o.id)).filter(Boolean);
-  if(!mine.length&&!offers.length)return`<div class="card"><h3>Sponsors</h3><p>No sponsors yet. A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.</p></div>`;
+  if(!mine.length&&!offers.length)return emptyHtml("tag","No sponsors yet","A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.",[["See the calendar","career/season"]]);
   return`<div class="card"><h3>Sponsors</h3>${mine.length?`<ul class="tmsp">${mine.map(({s,sp})=>{const p=tmProgress(s);
       return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
     ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);

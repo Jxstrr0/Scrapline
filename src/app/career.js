@@ -431,7 +431,7 @@ function crHead(strip){const h=$("h-career");if(h)h.classList.toggle("vh",!!stri
    event you could still enter is waiting (then Enter is), and it is not shown during an event day. */
 function crWeekBar(){const c=S.career;if(c.day)return"";const st=crStage(),e=crThisWeek(),open=!!(e&&!c.events[crKey(e)]&&!crCantEnter(e));
   return`<div class="fitbar gobar"><span class="ft"><b>Week ${c.week} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
-document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;});
+document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;pageIn($("crBody"));});
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
   const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`

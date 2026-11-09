@@ -416,6 +416,31 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .tmbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .field select,.field input{width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:var(--base);color:var(--ink);font:15px var(--font)}
 
+/* ---- feel (0.1.45): press feedback, pages that fade up, the counting header, empty pages ---- */
+.btn,.seg button,.ftopp button,.subnav button,.hudbtn,.tp,#tabs button svg{transition:transform .09s ease,background-color .15s,color .15s,box-shadow .15s,opacity .15s}
+.btn:active:not(:disabled),.seg button:active,.ftopp button:active,.hudbtn:active,.tp:active{transform:scale(.96)}
+.btn.pri:active:not(:disabled){filter:brightness(.92)}
+#tabs button:active svg{transform:scale(.86)}
+.subnav button:active{color:var(--ink)}
+.acch{transition:background-color .15s}
+.acch:active{background:var(--card2)}
+.subnav button.on::after{animation:navIn .2s ease}
+@keyframes navIn{from{transform:scaleX(.3);opacity:0}to{transform:none;opacity:1}}
+@keyframes pgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.tabpage.on{animation:pgIn .2s ease}
+.pgin{animation:pgIn .2s ease both}
+.pgin:nth-child(3){animation-delay:.04s}.pgin:nth-child(4){animation-delay:.08s}.pgin:nth-child(n+5){animation-delay:.12s}
+#hud .money{position:relative}
+#hud .money .delta{position:absolute;right:0;top:100%;margin-top:2px;font:600 12px/1.2 var(--mono);font-style:normal;white-space:nowrap;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s;pointer-events:none}
+#hud .money .delta.on{opacity:1;transform:none}
+#hud .money .delta.up{color:var(--good)}
+#hud .money .delta.dn{color:var(--muted)}
+.card.empty{padding:22px 16px 18px;text-align:center}
+.card.empty>svg{width:34px;height:34px;margin:0 auto 8px;display:block;fill:none;stroke:var(--dim);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.card.empty>p{max-width:34em;margin-left:auto;margin-right:auto}
+.card.empty>.row{justify-content:center;margin-top:14px}
+.card.empty>.row>.btn{flex:0 1 auto;min-width:160px}
+
 /* ---- 4. accessibility preferences ---- */
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
 html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!important;animation-duration:0s!important}
@@ -590,7 +615,7 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
     <canvas id="gl" aria-label="Your robot on the workbench" role="img"></canvas>
     <div id="hud">
       <div class="brand">Scrapline<small id="weekLbl">The Haldis · Velmark</small></div>
-      <div class="money"><b id="cashLbl"></b><span id="repLbl"></span></div>
+      <div class="money"><b id="cashLbl"></b><span id="repLbl"></span><i id="cashDelta" class="delta" aria-hidden="true"></i></div>
       <button class="hudbtn" id="cardOpen" aria-label="Bot card" title="Bot card" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
       <button class="hudbtn" id="setOpen" aria-label="Settings" title="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
@@ -5391,7 +5416,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.44.0";
+const VERSION="0.1.45.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -5737,7 +5762,11 @@ const fmtN=(n,d)=>Number(n).toFixed(d||0);
 /* ---- the header over the 3D view ---- */
 function hud(){const c=S.mode==="career"?S.career:null;
   $("weekLbl").textContent=TUT_ON?`Tutorial · loaner bot`:S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;   // the tutorial runs on a loaner in the sandbox: say "Tutorial", not "Sandbox", or a new player thinks they picked the wrong mode
-  $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent=c?`rep ${c.rep||0}`:"";}
+  /* money and rep count to their new value (0.1.45), but only inside one career: a loaded save or a new career just shows its numbers */
+  const cash=$("cashLbl"),rep=$("repLbl"),same=!!c&&hud.c===c;hud.c=c;
+  if(!c){cash._v=rep._v=null;cash.textContent="";rep.textContent="";return;}
+  const d=same&&cash._v!=null?(c.money||0)-cash._v:0;
+  countTo(cash,c.money||0,fmt$,same);countTo(rep,c.rep||0,n=>`rep ${n}`,same);if(d&&!reduced())hudDelta(d);}
 
 /* ---- toast ---- */
 /* toast.hold (0.1.29): while a simmed fight plays back, news it would spoil (a trophy, a sponsor) waits for the bell */
@@ -6092,6 +6121,27 @@ $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab
 
 /* a tab's own pages: a strip of text tabs under the title that stays at the top of the panel (0.1.43). opts: [[value, label html]] */
 function subNav(id,attr,opts,cur,label){return `<div class="subnav" id="${id}" role="group" aria-label="${label} pages">${opts.map(([v,l])=>`<button type="button" data-${attr}="${v}" class="${v===cur?"on":""}" aria-pressed="${v===cur}">${l}</button>`).join("")}</div>`;}
+
+/* ---- feel (0.1.45) ---- */
+/* pageIn: a page that was just drawn fades up; the strip and a pinned bar stay still. Nothing moves with Motion reduced. */
+function pageIn(el){if(!el||reduced())return;[].forEach.call(el.children,k=>{if(!k.classList.contains("subnav")&&!k.classList.contains("fitbar"))k.classList.add("pgin");});}
+/* emptyHtml: an empty page says what goes here and gives the button that fills it. btns: [[label, "tab" or "tab/page", primary]] */
+const EMPTY_ICON={cup:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7"/>',
+  film:'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/>',
+  tag:'<path d="M4 12V5h7l9 9-7 7z"/><circle cx="8.5" cy="8.5" r="1.3"/>',
+  tools:'<path d="M14.5 6.5a3.5 3.5 0 0 0 4.6 4.6L11 19.2a2 2 0 0 1-2.9-2.9l8.2-8.1"/><path d="M5 5l4 4"/>'};
+function emptyHtml(icon,title,text,btns){return`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON[icon]||EMPTY_ICON.tools}</svg><h3>${title}</h3><p>${text}</p>${btns&&btns.length?`<div class="row">${btns.map(([l,go,pri])=>`<button type="button" class="btn${pri?" pri":""}" data-go="${go}">${l}</button>`).join("")}</div>`:""}</div>`;}
+/* data-go="career/season": open a tab on one of its pages */
+function goTo(dest){const[t,s]=String(dest).split("/");
+  if(s){if(t==="career")CR.sub=s;else if(t==="shop")SH.sub=s;else if(t==="fight"){FT.sub=s;FT.open=null;}}
+  if(t==="settings"){openSettings();return;}
+  showTab(t);$("panel").scrollTop=0;pageIn(document.querySelector("#tab-"+t+">div"));}
+document.addEventListener("click",e=>{const x=e.target.closest("[data-go]");if(x)goTo(x.dataset.go);});
+/* countTo: a number in the header counts to its new value in half a second, with the change floating under it for a moment */
+function countTo(el,to,fmt,anim){const from=el._v;el._v=to;cancelAnimationFrame(el._raf||0);
+  if(!anim||from==null||from===to||reduced()||document.hidden){el.textContent=fmt(to);return;}
+  const t0=performance.now(),D=520;(function step(now){const k=Math.min(1,(now-t0)/D),e=1-Math.pow(1-k,3);el.textContent=fmt(Math.round(from+(to-from)*e));if(k<1)el._raf=requestAnimationFrame(step);})(t0);}
+function hudDelta(d){const el=$("cashDelta");if(!el||!d)return;el.textContent=(d>0?"+":"")+fmt$(d);el.className="delta "+(d>0?"up":"dn");void el.offsetWidth;el.classList.add("on");clearTimeout(hudDelta.t);hudDelta.t=setTimeout(()=>el.classList.remove("on"),1500);}
 
 /* ---- Settings ---- */
 function segHtml(id,attr,opts,cur){return `<div class="seg" id="${id}" role="group">${opts.map(([v,l,s])=>`<button type="button" data-${attr}="${v}" class="${String(v)===String(cur)?"on":""}" aria-pressed="${String(v)===String(cur)}">${l}${s?`<small>${s}</small>`:""}</button>`).join("")}</div>`;}
@@ -6479,7 +6529,7 @@ function bToHead(id){const r=document.querySelector(`#bRows [data-sec="${id}"]`)
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
   if(t.closest('[data-act="team"]')){lvOpen();return;}
-  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was)bToHead(id);return;}
+  if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was){bToHead(id);const nb=document.querySelector(`#bRows [data-sec="${id}"] .accb`);if(nb&&!reduced())nb.classList.add("pgin");}return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
@@ -6699,7 +6749,7 @@ function bnPlots(){const bot=bBot();if(!bot.cfg)return;
 /* ---- the tab ---- */
 function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls],career=crOn()?S.career:null;
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-bncls="${id}" class="${id===cls?"on":""}"${id===cls?' aria-pressed="true"':' aria-pressed="false"'}>${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
-  if(!bot.cfg){el.innerHTML=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>The bench tests the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+  if(!bot.cfg){el.innerHTML=chips+`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON.tools}</svg><h3>Nothing fitted in the ${c.name} yet</h3><p>The bench tests the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-bn="fit">Fit the draft</button><button type="button" class="btn" data-bn="build">Open Build</button></div></div>`;return;}
   const b=bnBuild(bot.cfg).b,done=bnDone(bot),stale=bot.bench&&bot.bench.sig&&bot.bench.sig!==bnSig(bot.cfg),wp=SIM.part("weapon",bot.cfg.weapon);
   const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg));
@@ -7463,7 +7513,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
   if(sub==="daily")h=dlCard()+res;
   else if(sub==="reel")h=rlCard();
   else if(sub==="codes")h=rcCard()+res;
-  else if(!bot.cfg)h=chips+`<div class="card"><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
+  else if(!bot.cfg)h=chips+`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON.tools}</svg><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+res;
   else{const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),you=FT.style==="you";
     h=chips+`${drafted?'<p class="hint ftnote">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
@@ -7510,7 +7560,7 @@ function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.
   if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
   const v=WORLD.venues[o.op.from];return`${tm}${v?` · ${esc(v.name)}`:""} · ${esc(SIM.part("weapon",o.cfg.weapon).name.toLowerCase())}, drives ${esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase())}. ${esc(o.op.line)}`;}
 function ftClick(e){const t=e.target;let x;
-  if((x=t.closest("[data-ftsub]"))){FT.sub=x.dataset.ftsub;ftRender();$("panel").scrollTop=0;return;}
+  if((x=t.closest("[data-ftsub]"))){FT.sub=x.dataset.ftsub;ftRender();$("panel").scrollTop=0;pageIn($("ftBody"));return;}
   if((x=t.closest("[data-ftrow]>.acch"))){const id=x.parentNode.dataset.ftrow,was=FT.open===id;FT.open=was?null:id;
     document.querySelectorAll("#ftBody [data-ftrow]").forEach(r=>{const o=r.dataset.ftrow===FT.open;r.classList.toggle("open",o);r.querySelector(".acch").setAttribute("aria-expanded",o);});
     if(!was){const P=$("panel"),top=x.getBoundingClientRect().top-P.getBoundingClientRect().top;if(top<0||top>P.clientHeight*0.5)P.scrollTo({top:P.scrollTop+top-64,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});}
@@ -7991,7 +8041,8 @@ function rlCard(){const R=rlState(),car=S.mode==="career";let h="";
   const block=(t,ids,k,btn)=>ids.length?`<div class="rlsec"><div class="rlhd"><h4>${t}</h4>${ids.length>1?`<button type="button" class="btn sm pri" data-rl="${k}">${btn}</button>`:""}</div>${rlRows(ids)}</div>`:"";
   if(car){h=block("This season",R.cur,"cur","Watch all")+block(`${R.lastY||"Last season"}'s reel`,R.last,"last","Watch the reel")+block("Career best",R.best,"best","Watch all");}
   else h=block("Your best spars",R.sb,"sb","Watch all");
-  return`<div class="card" id="rlCard"><h3>Highlights</h3>${h||`<p class="hint">${car?"Knockouts, pit falls, parts torn off and big hits from your event fights land here: the best five of each season, played back in slow motion. At the end of the season they become its reel.":"Knockouts, pit falls, parts torn off and big hits from your spars land here: your best five, played back in slow motion."}</p>`}</div>`;}
+  if(!h)return emptyHtml("film","No highlights yet",car?"Knockouts, pit falls, parts torn off and big hits from your event fights land here: the best five of each season, played back in slow motion. At the end of the season they become its reel.":"Knockouts, pit falls, parts torn off and big hits from your spars land here: your best five, played back in slow motion.",car?[["This week's events","career/week",1]]:[["Set up a spar","fight/spar",1]]).replace('class="card empty"','class="card empty" id="rlCard"');
+  return`<div class="card" id="rlCard"><h3>Highlights</h3>${h}</div>`;}
 const rlSheetBtn=()=>{const R=rlState();return R.last.length?`<div class="row"><button type="button" class="btn pri" data-rl="last">Watch the ${R.lastY||""} reel</button></div>`:"";};
 
 /* ---- playing the reel: one clip after another through the replay ---- */
@@ -8043,7 +8094,8 @@ function shRender(){const el=$("shBody");if(!el)return;const c=crOn()?S.career:n
   /* in a career the tab is five short pages behind a strip (0.1.44); without one it is the note, the slots and the saves */
   if(c){if(!SH_SUBS.some(x=>x[0]===SH.sub))SH.sub="shop";const s=SH.sub;
     el.innerHTML=subNav("shSub","shsub",SH_SUBS,s,"Shop")+(s==="rnd"?tmRndCard():s==="team"?tmTeamCard():s==="books"?shKits(c)+shBooks(c):s==="saves"?shSlots():shWorkshop(c)+shTools(c));return;}
-  el.innerHTML=(c?"":`<div class="card"><h3>Tools and workshop</h3><p>${crSandbox()?"The Sandbox has every part already. Tools, workshops, the team and the books belong to the career (Settings → Mode).":"Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it."}</p></div>`)+shSlots();}
+  el.innerHTML=(crSandbox()?emptyHtml("tools","Nothing to buy in the Sandbox","The Sandbox has every part already. Tools, workshops, the team and the books belong to the career.",[["Settings → Mode","settings"]])
+    :emptyHtml("tools","The shop opens with a career","Tools, bigger workshops, a team and the books. Sparring needs none of it.",[["Start a career","career",1]]))+shSlots();}
 function shWorkshop(c){const cur=crStage(),i=WORKSHOP_STAGES.indexOf(cur);
   return`<div class="card"><h3>Workshop</h3><ul class="shlist">${WORKSHOP_STAGES.map((w,k)=>`<li class="${k===i?"on":""}"><span class="nm"><b>${esc(ftCap(w.name))}</b><small>${esc(w.line)}</small>
     <small>${w.hours} h a week · rent ${fmt$(w.rent)} a week · up to ${esc(SIM.CLASSES[w.maxCls].name.toLowerCase())}${w.travel<1?` · travel ${Math.round((1-w.travel)*100)}% cheaper`:""}</small></span>
@@ -8080,7 +8132,7 @@ function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
     loadSlot(o,`Slot ${i} loaded`);}}
 TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;TM.ask=null;shRender();};
-document.addEventListener("click",e=>{const x=e.target.closest("#shBody [data-shsub]");if(!x)return;SH.sub=x.dataset.shsub;SH.ask=null;shRender();$("panel").scrollTop=0;});
+document.addEventListener("click",e=>{const x=e.target.closest("#shBody [data-shsub]");if(!x)return;SH.sub=x.dataset.shsub;SH.ask=null;shRender();$("panel").scrollTop=0;pageIn($("shBody"));});
 /* ===================== app/career.js: the career and the Career tab =====================
    The career (plan section 11) lives in S.career (null until Start career; crFresh() gives its shape). Starting one is a
    fresh start (Kelbo, PR 7): €2,500 (TIME.startMoney; €1,500 until 0.1.30), nothing fitted, hand tools only; saved designs stay as
@@ -8514,7 +8566,7 @@ function crHead(strip){const h=$("h-career");if(h)h.classList.toggle("vh",!!stri
    event you could still enter is waiting (then Enter is), and it is not shown during an event day. */
 function crWeekBar(){const c=S.career;if(c.day)return"";const st=crStage(),e=crThisWeek(),open=!!(e&&!c.events[crKey(e)]&&!crCantEnter(e));
   return`<div class="fitbar gobar"><span class="ft"><b>Week ${c.week} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
-document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;});
+document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;pageIn($("crBody"));});
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
   const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
@@ -8810,7 +8862,7 @@ function tmStaffWhat(p){if(p.role==="engineer")return`build and repair hours −
   return`pit repairs ${Math.round(p.cut*100)}% faster`;}
 /* Career tab: sponsors */
 function tmSponsorCard(){const c=tmC();const mine=S.sponsors.map(s=>({s,sp:tmSp(s.id)})).filter(x=>x.sp),offers=c.offers.map(o=>tmSp(o.id)).filter(Boolean);
-  if(!mine.length&&!offers.length)return`<div class="card"><h3>Sponsors</h3><p>No sponsors yet. A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.</p></div>`;
+  if(!mine.length&&!offers.length)return emptyHtml("tag","No sponsors yet","A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.",[["See the calendar","career/season"]]);
   return`<div class="card"><h3>Sponsors</h3>${mine.length?`<ul class="tmsp">${mine.map(({s,sp})=>{const p=tmProgress(s);
       return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
     ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
@@ -9054,8 +9106,9 @@ const tpGold=t=>t.k!=="win";
 const tpCup=gold=>`<svg viewBox="0 0 24 24" class="tpcup ${gold?"gold":""}" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/></svg>`;
 function tpWhat(t){return t.k==="promo"?"Promotion":t.k==="defend"?"Title defended":t.k==="title"?"Champions":"Winners";}
 function tpShelf(){const c=S.career;if(!c)return"";const T=Array.isArray(c.trophies)?c.trophies:[];
+  if(!T.length)return emptyHtml("cup","Nothing on the shelf yet","Win an event and its trophy goes here. Championships and moving up an act are gold.",[["This week","career/week"]]);
   return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${t.y}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
-    :`<p>Win an event and its trophy goes here. Championships and moving up an act are gold.</p>`}</div>`;}
+    :""}</div>`;}
 async function tpDraw(t){await cardFonts();const{c,g}=cardBase(),P=CARD.pad,gold=tpGold(t),cx=CARD.W/2;
   g.fillStyle=CARD.muted;g.font=`600 26px ${CARD.f}`;g.textAlign="right";g.fillText(tpWhat(t).toUpperCase(),CARD.W-P,96);g.textAlign="center";
   /* the cup: a bowl, two handles, a stem and a plinth, in gold or steel */

@@ -13,7 +13,8 @@ function shRender(){const el=$("shBody");if(!el)return;const c=crOn()?S.career:n
   /* in a career the tab is five short pages behind a strip (0.1.44); without one it is the note, the slots and the saves */
   if(c){if(!SH_SUBS.some(x=>x[0]===SH.sub))SH.sub="shop";const s=SH.sub;
     el.innerHTML=subNav("shSub","shsub",SH_SUBS,s,"Shop")+(s==="rnd"?tmRndCard():s==="team"?tmTeamCard():s==="books"?shKits(c)+shBooks(c):s==="saves"?shSlots():shWorkshop(c)+shTools(c));return;}
-  el.innerHTML=(c?"":`<div class="card"><h3>Tools and workshop</h3><p>${crSandbox()?"The Sandbox has every part already. Tools, workshops, the team and the books belong to the career (Settings → Mode).":"Start a career (Career tab) to buy tools, move workshops and keep the books. Sparring needs none of it."}</p></div>`)+shSlots();}
+  el.innerHTML=(crSandbox()?emptyHtml("tools","Nothing to buy in the Sandbox","The Sandbox has every part already. Tools, workshops, the team and the books belong to the career.",[["Settings → Mode","settings"]])
+    :emptyHtml("tools","The shop opens with a career","Tools, bigger workshops, a team and the books. Sparring needs none of it.",[["Start a career","career",1]]))+shSlots();}
 function shWorkshop(c){const cur=crStage(),i=WORKSHOP_STAGES.indexOf(cur);
   return`<div class="card"><h3>Workshop</h3><ul class="shlist">${WORKSHOP_STAGES.map((w,k)=>`<li class="${k===i?"on":""}"><span class="nm"><b>${esc(ftCap(w.name))}</b><small>${esc(w.line)}</small>
     <small>${w.hours} h a week · rent ${fmt$(w.rent)} a week · up to ${esc(SIM.CLASSES[w.maxCls].name.toLowerCase())}${w.travel<1?` · travel ${Math.round((1-w.travel)*100)}% cheaper`:""}</small></span>
@@ -50,4 +51,4 @@ function shClick(e){if(tmClick(e))return;const x=e.target.closest("[data-shstage
   if(x.dataset.shload){const i=+x.dataset.shload,o=buStored(slotKey(i));if(!o)return;if(!shSure("ld:"+i))return;
     loadSlot(o,`Slot ${i} loaded`);}}
 TAB_RENDER.shop=function(){if(!shRender.bound){shRender.bound=true;$("tab-shop").addEventListener("click",shClick);}SH.ask=null;TM.ask=null;shRender();};
-document.addEventListener("click",e=>{const x=e.target.closest("#shBody [data-shsub]");if(!x)return;SH.sub=x.dataset.shsub;SH.ask=null;shRender();$("panel").scrollTop=0;});
+document.addEventListener("click",e=>{const x=e.target.closest("#shBody [data-shsub]");if(!x)return;SH.sub=x.dataset.shsub;SH.ask=null;shRender();$("panel").scrollTop=0;pageIn($("shBody"));});

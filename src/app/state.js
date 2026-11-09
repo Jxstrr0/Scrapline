@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.44.0";
+const VERSION="0.1.45.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -354,7 +354,11 @@ const fmtN=(n,d)=>Number(n).toFixed(d||0);
 /* ---- the header over the 3D view ---- */
 function hud(){const c=S.mode==="career"?S.career:null;
   $("weekLbl").textContent=TUT_ON?`Tutorial · loaner bot`:S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;   // the tutorial runs on a loaner in the sandbox: say "Tutorial", not "Sandbox", or a new player thinks they picked the wrong mode
-  $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent=c?`rep ${c.rep||0}`:"";}
+  /* money and rep count to their new value (0.1.45), but only inside one career: a loaded save or a new career just shows its numbers */
+  const cash=$("cashLbl"),rep=$("repLbl"),same=!!c&&hud.c===c;hud.c=c;
+  if(!c){cash._v=rep._v=null;cash.textContent="";rep.textContent="";return;}
+  const d=same&&cash._v!=null?(c.money||0)-cash._v:0;
+  countTo(cash,c.money||0,fmt$,same);countTo(rep,c.rep||0,n=>`rep ${n}`,same);if(d&&!reduced())hudDelta(d);}
 
 /* ---- toast ---- */
 /* toast.hold (0.1.29): while a simmed fight plays back, news it would spoil (a trophy, a sponsor) waits for the bell */

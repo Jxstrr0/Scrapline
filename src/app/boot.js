@@ -24,6 +24,27 @@ $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab
 /* a tab's own pages: a strip of text tabs under the title that stays at the top of the panel (0.1.43). opts: [[value, label html]] */
 function subNav(id,attr,opts,cur,label){return `<div class="subnav" id="${id}" role="group" aria-label="${label} pages">${opts.map(([v,l])=>`<button type="button" data-${attr}="${v}" class="${v===cur?"on":""}" aria-pressed="${v===cur}">${l}</button>`).join("")}</div>`;}
 
+/* ---- feel (0.1.45) ---- */
+/* pageIn: a page that was just drawn fades up; the strip and a pinned bar stay still. Nothing moves with Motion reduced. */
+function pageIn(el){if(!el||reduced())return;[].forEach.call(el.children,k=>{if(!k.classList.contains("subnav")&&!k.classList.contains("fitbar"))k.classList.add("pgin");});}
+/* emptyHtml: an empty page says what goes here and gives the button that fills it. btns: [[label, "tab" or "tab/page", primary]] */
+const EMPTY_ICON={cup:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7"/>',
+  film:'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/>',
+  tag:'<path d="M4 12V5h7l9 9-7 7z"/><circle cx="8.5" cy="8.5" r="1.3"/>',
+  tools:'<path d="M14.5 6.5a3.5 3.5 0 0 0 4.6 4.6L11 19.2a2 2 0 0 1-2.9-2.9l8.2-8.1"/><path d="M5 5l4 4"/>'};
+function emptyHtml(icon,title,text,btns){return`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON[icon]||EMPTY_ICON.tools}</svg><h3>${title}</h3><p>${text}</p>${btns&&btns.length?`<div class="row">${btns.map(([l,go,pri])=>`<button type="button" class="btn${pri?" pri":""}" data-go="${go}">${l}</button>`).join("")}</div>`:""}</div>`;}
+/* data-go="career/season": open a tab on one of its pages */
+function goTo(dest){const[t,s]=String(dest).split("/");
+  if(s){if(t==="career")CR.sub=s;else if(t==="shop")SH.sub=s;else if(t==="fight"){FT.sub=s;FT.open=null;}}
+  if(t==="settings"){openSettings();return;}
+  showTab(t);$("panel").scrollTop=0;pageIn(document.querySelector("#tab-"+t+">div"));}
+document.addEventListener("click",e=>{const x=e.target.closest("[data-go]");if(x)goTo(x.dataset.go);});
+/* countTo: a number in the header counts to its new value in half a second, with the change floating under it for a moment */
+function countTo(el,to,fmt,anim){const from=el._v;el._v=to;cancelAnimationFrame(el._raf||0);
+  if(!anim||from==null||from===to||reduced()||document.hidden){el.textContent=fmt(to);return;}
+  const t0=performance.now(),D=520;(function step(now){const k=Math.min(1,(now-t0)/D),e=1-Math.pow(1-k,3);el.textContent=fmt(Math.round(from+(to-from)*e));if(k<1)el._raf=requestAnimationFrame(step);})(t0);}
+function hudDelta(d){const el=$("cashDelta");if(!el||!d)return;el.textContent=(d>0?"+":"")+fmt$(d);el.className="delta "+(d>0?"up":"dn");void el.offsetWidth;el.classList.add("on");clearTimeout(hudDelta.t);hudDelta.t=setTimeout(()=>el.classList.remove("on"),1500);}
+
 /* ---- Settings ---- */
 function segHtml(id,attr,opts,cur){return `<div class="seg" id="${id}" role="group">${opts.map(([v,l,s])=>`<button type="button" data-${attr}="${v}" class="${String(v)===String(cur)?"on":""}" aria-pressed="${String(v)===String(cur)}">${l}${s?`<small>${s}</small>`:""}</button>`).join("")}</div>`;}
 function openSettings(){
