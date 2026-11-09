@@ -159,7 +159,7 @@ for (const cls of SIM.CLASS_IDS) {
   if (!(capped.powerScale < 0.9) || Math.abs(ce.runtimeS / capped.runtimeS - 1) > 0.1) fail(`a power-capped bot's endurance (${ce.runtimeS} s) should match its prediction (${capped.runtimeS} s)`);
   const slow = Object.assign({}, B({}), {}); slow.weapon = Object.assign({}, slow.weapon, { spinPowerW: 0.5 });
   const sw = SIM.runBench(slow, "weapon"); if (sw.spinUpS !== null || !SIM.stressReport(slow, { weapon: sw }).some((l) => l.id === "spinup" && /never/.test(l.text))) fail("a disc that never gets to full speed should say so");
-  if (SIM.BENCH_TESTS.length !== 6 || SIM.BENCH_TESTS.filter((t) => t.hours === 0).map((t) => t.id).join() !== "drive,weapon") fail("six tests, the drive and weapon tests free");
+  if (SIM.BENCH_TESTS.length !== 7 || SIM.BENCH_TESTS.filter((t) => t.hours === 0).map((t) => t.id).join() !== "drive,weapon") fail("seven tests, the drive and weapon tests free");
 }
 
 /* ---- PR 8: your own disc profile, the high-pressure flipper, minibots, the season's rules ---- */
@@ -352,6 +352,29 @@ for (const cls of SIM.CLASS_IDS) {
     if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a flame-grate fight replays differently`);
   }
   console.log(`0.1.37 checks: ${grates} flame grates burn on time, heat and damage a parked bot, stay under the cap; ${n}/${n} replays match`);
+}
+
+/* ---------- 0.1.38: the bench test dummy ---------- */
+{
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls });
+  for (const cls of SIM.CLASS_IDS) for (const d of SIM.BENCH_DUMMIES) { const b = SIM.evalBuild(Object.assign({}, d.cfg, { cls })); if (!b.valid) fail(`the ${d.name} isn't a legal ${cls} (${b.totalG} g of ${b.limitG})`); }
+  let n = 0;
+  for (const cls of ["ant", "beetle", "heavy"]) for (const id of ["hsp", "vsp", "wedge", "flipper", "hammer"]) {
+    const cfg = T(id, cls), r = SIM.runBench(cfg, "dummy"), r2 = SIM.runBench(cfg, "dummy"); n++;
+    walk(r, `dummy ${cls} ${id}`);
+    if (JSON.stringify(r) !== JSON.stringify(r2)) fail(`${cls} ${id}: the dummy test gave two different answers`);
+    if (r.rows.length !== 3) fail(`${cls} ${id}: ${r.rows.length} dummies, expected 3`);
+    for (const q of r.rows) {
+      if (!(q.share >= 0 && q.share <= 1) || !(q.ranS <= r.S + 1e-6) || q.trace.length < 2) fail(`${cls} ${id} vs ${q.id}: a bad dummy row`);
+      const b = SIM.evalBuild(cfg), d = SIM.BENCH_DUMMIES.find((x) => x.id === q.id), sp = SIM.benchDummySpec(b, d), F = SIM.newFight(sp);
+      while (F.n < q.steps && !F.over) SIM.stepFight(F, null);
+      if (Math.abs(SIM.damageShare(F.bots[1].b, F.bots[1].st) - q.share) > 1e-9) fail(`${cls} ${id} vs ${q.id}: the spec doesn't play back to the same damage`);
+    }
+    if (id === "hsp" && !(r.rows[0].share > r.rows[2].share)) fail(`${cls} hsp: the plywood box (${(r.rows[0].share * 100).toFixed(0)}%) should take more than the brick (${(r.rows[2].share * 100).toFixed(0)}%)`);
+    if (id === "hsp" && !(r.rows[0].hits > 0)) fail(`${cls} hsp: no hits on the plywood box`);
+  }
+  const h = SIM.runBench(T("hsp", "beetle"), "dummy").rows;
+  console.log(`0.1.38 checks: 3 legal dummies in every class; ${n} dummy tests repeat and play back; beetle spinner does ${h.map((q) => (q.share * 100).toFixed(0) + "%").join(" / ")} to ply / alu / brick`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
