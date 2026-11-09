@@ -54,7 +54,7 @@ function wearTick(B,dt){if(V.tier==="lite")return;const o=B.o,m=B.mesh,u=m.userD
   if(u.spin){const a=o.flags&&o.flags.bent?WEAR.wobble*(V.run.reduce?0.5:1):0,sp=u.spin,ax=sp.userData.axis,t=sp.rotation[ax];
     if(ax==="y"){sp.rotation.x=a*Math.sin(t);sp.rotation.z=a*Math.cos(t);}else{sp.rotation.y=a*Math.sin(t);sp.rotation.z=a*Math.cos(t);}}
   B.wearT=(B.wearT||0)-dt;if(B.wearT>0||!o.st)return;B.wearT=WEAR.every;
-  const f=B.fresh||(B.fresh=window.SCRAP_SIM?SCRAP_SIM.damageState(o.b):null);if(!f)return;
+  const f=B.fresh||(B.fresh=typeof SCRAP_SIM!=="undefined"?SCRAP_SIM.damageState(o.b):null);if(!f)return;
   const lost=(left,hp)=>hp>0?Math.max(0,Math.min(1,1-left/hp)):0,w={chassis:lost(o.st.chassis,f.chassis)};
   for(const k in f.armour)w["armour_"+k]=lost(o.st.armour[k],f.armour[k]);for(const k in f.parts)w[k]=lost(o.st.parts[k],f.parts[k]);
   u.wear=w;wearApply(m);}
