@@ -32,7 +32,7 @@ Run all three before every commit, plus `node tools/sim-test.js`, `node tools/vo
 
 ## Deploy
 
-GitHub Pages serves the repo root from `main` (`.nojekyll` keeps Jekyll out). No workflow file: merging into `main` is the deploy. Allow a minute or two, then reload the live site. Installed copies show the "New version ready" bar because the service worker's cache name carries the version and a content hash.
+GitHub Pages serves the repo root from `main` (`.nojekyll` keeps Jekyll out). No deploy workflow: merging into `main` is the deploy. (`.github/workflows/publish-release.yml` only publishes a GitHub Release for each new `VERSION`, which is where the studio site gets this game's version number; free, no keys.) Allow a minute or two, then reload the live site. Installed copies show the "New version ready" bar because the service worker's cache name carries the version and a content hash.
 
 **Own address, same prefixes.** Since November 2026 every Longlight game has its own subdomain (Scrapline is `scrapline.longlight.games`), so each game has its own localStorage, Cache Storage and storage quota. Saves made before the move stay on the old shared origin, `jxstrr0.github.io` (Kelbo accepted that); the old address forwards here. The prefix rules still apply: Scrapline's localStorage keys all start `scr-` and its caches all start `scr-`; the service worker only ever deletes `scr-` caches. Never use another game's prefix (`pew2-`, or any other game's), and never delete or clear anything outside `scr-`. (That is why `build.js` is PEW's with only the cache prefix and the `SCR_LIBS` name changed.)
 
