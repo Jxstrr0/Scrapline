@@ -330,7 +330,7 @@ const fmtN=(n,d)=>Number(n).toFixed(d||0);
 
 /* ---- the header over the 3D view ---- */
 function hud(){const c=S.mode==="career"?S.career:null;
-  $("weekLbl").textContent=S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;
+  $("weekLbl").textContent=TUT_ON?`Tutorial · loaner bot`:S.mode!=="career"?`Sandbox · ${WORLD.regionCap}`:c?`${WORLD.regionCap} · ${c.year||WORLD.startYear} · week ${c.week||1}`:`${WORLD.regionCap} · ${WORLD.country}`;   // the tutorial runs on a loaner in the sandbox: say "Tutorial", not "Sandbox", or a new player thinks they picked the wrong mode
   $("cashLbl").textContent=c?fmt$(c.money||0):"";$("repLbl").textContent=c?`rep ${c.rep||0}`:"";}
 
 /* ---- toast ---- */

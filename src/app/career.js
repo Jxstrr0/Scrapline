@@ -289,12 +289,20 @@ function crAfterMine(day,nx,res,driven,stopped){const c=S.career,me=res.teams[0]
   crAdvance(day);
   if(!driven&&c.day&&crNext(c.day))crCrew(c.day,0);   // quick sim: your crew does the pit work before your next fight
   save();hud();}
+/* how the last bout was decided, for the banner: the knockout, the pit, or the judges' totals (FT.F is the fight just ended) */
+function crHowTxt(last){const F=typeof FT!=="undefined"&&FT.F;
+  if(last.how==="ko")return"By knockout. ";if(last.how==="pit")return"Into the pit. ";
+  if(last.how!=="judges")return"";
+  const sc=F&&F.judge&&F.judge.scores,me=F&&F.bots.find(o=>o.i===0);if(!sc||!me||!sc[me.team])return"On the judges' decision. ";
+  const them=Object.keys(sc).filter(k=>k!==String(me.team)).map(k=>sc[k].total),best=Math.max(...them);
+  return`On the judges' decision, ${sc[me.team].total.toFixed(1)} to ${best.toFixed(1)} (damage, aggression and control; the table is in the results). `;}
 /* the banner at the bell of an event bout (app/fight.js shows it) */
 function crBanner(day,nx,res){const me=res.teams[0],won=res.wt===me,e=crEv(day.ev),k=EVENT_KINDS[day.kind];const last=day.fights[day.fights.length-1]||{};
   const more=S.career.day&&crNext(S.career.day);let s;
   if(CR.end&&CR.end.name===e.name)s=`${e.name}: ${crPlaceTxt(day.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}.`;
   else s=more?`Next: the ${more.label}.`:"";
   const t=last.how==="forfeit"?"Forfeited":k.format==="rumble"&&CR.end?(CR.end.place===1?"You win the rumble":`You finish ${crPlaceTxt(day.kind,CR.end.place)}`):last.draw?"A draw":won?`You win the ${nx.label}`:`You lose the ${nx.label}`;
+  s=crHowTxt(last)+s;   // say how the bout was decided: a play-tester lost "on the judges" with no damage taken and no idea why
   return{t:t+(last.score?" "+last.score:""),s,cls:last.draw?"":won?"ok":"broke",pit:!!(more&&day.kit!=="none"&&Object.keys(day.field[0].left).some(x=>day.field[0].left[x]>0))};}
 
 /* ---- the workshop: repairs ---- */
@@ -310,6 +318,8 @@ function crFix(cls,key){const c=S.career;if(c.day){toast("Fix it after the event
 /* ---- Close week, the bank, the season ---- */
 function crClose(force){const c=S.career;if(!crOn())return;
   if(c.day&&!force){openSheet("Close the week?",`<p>You're entered in <b>${esc(crEv(c.day.ev).name)}</b> and it isn't over. Closing the week forfeits the rest of it; the damage so far comes home with the bot.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Forfeit and close the week</button></div>`);return;}
+  {const e=!c.day&&!force&&crThisWeek();   // an event this week you could still enter: say so before the week (and the event) goes (a play-tester skipped their first club meet without noticing)
+    if(e&&!c.events[crKey(e)]&&!crCantEnter(e)){openSheet("Skip this week's event?",`<p><b>${esc(e.name)}</b> is this week and you haven't entered. Closing the week skips it.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Skip it and close the week</button></div><p class="hint">To fight it instead, close this and enter it from its card on the Career tab.</p>`);return;}}
   if(c.day){const d=c.day;d.out=true;const b=bBot(d.cls);if(bnSig(b.cfg)===bnSig(d.field[0].cfg)){b.damage=clone(d.field[0].dmg);b.flags=crFlags(d.field[0].flags);}
     c.events[d.key]={place:null,prize:0,rep:0,forfeit:true};c.day=null;c.entered=null;}
   closeSheet();crCloseWeek();if(c.over)return;save();hud();crRender();
@@ -381,7 +391,7 @@ function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),n
 function crEventCard(){const c=S.career;
   if(CR.end&&!c.day)return`<div class="card"><h3>${esc(CR.end.name)}</h3><p class="${CR.end.place===1?"ok":""}">You ${CR.end.place===1?"<b>won it</b>":"finished "+crPlaceTxt(CR.end.kind,CR.end.place)}${CR.end.prize?` · ${fmt$(CR.end.prize)}`:""}${CR.end.rep?` · rep +${CR.end.rep}`:""}.</p>${CR.end.br||""}${crFightsHtml(c.results[0]?c.results[0].fights:[])}
     ${CR.end.offer&&tmSp(CR.end.offer)?`<p class="ok">${esc(tmSp(CR.end.offer).name)} wants to sponsor you: see Sponsors below.</p>`:""}
-    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p>${crSkipHtml()}</div>`;
+    <p class="hint">Damage comes home with the bot: see the workshop below. Close the week when you're done.</p><div class="row"><button type="button" class="btn" data-cr="close">Close week</button></div>${crSkipHtml()}</div>`;
   if(c.day)return crDayCard(c.day);
   const e=crThisWeek();if(!e){const n=crCalendar().find(x=>x.week>c.week);return`<div class="card"><h3>This week</h3><p>No event this week.${n?` Next: <b>${esc(n.name)}</b> in week ${n.week} (${n.week-c.week} week${n.week-c.week>1?"s":""}).`:""} Build, test, repair, then close the week.</p>${crSkipHtml()}</div>`;}
   const r=c.events[crKey(e)];if(r)return`<div class="card"><h3>${esc(e.name)}</h3><p>${r.forfeit?"Forfeited.":"Done: "+crPlaceTxt(e.kind,r.place)+"."}</p>${crSkipHtml()}</div>`;
