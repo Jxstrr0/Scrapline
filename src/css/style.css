@@ -443,6 +443,10 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fnote{flex:1;font-size:13px;color:var(--warn);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fbtn{min-height:40px;min-width:48px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:#1F1E1Bd9;color:var(--ink);font-size:14px;font-weight:600}
 .fbtn[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--clay)}
+@media (max-width:520px){   /* 0.1.51: while the clock is held (the intro, the first-fight tip) the note gets a line of its own, so it is never cut off */
+  .fov.hold:not(.pitting) .fovtop{flex-wrap:wrap}.fov.hold:not(.pitting) .fclock{margin-right:auto}
+  .fov.hold:not(.pitting) .fnote{order:9;flex:0 0 100%;white-space:normal;line-height:1.25}
+  .fov.hold:not(.pitting) .fbots{top:82px}}
 .fbots{position:absolute;z-index:2;top:56px;left:8px;right:8px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}
 /* a bot card (0.1.15.4): the bot map, then the name in its team colour, three labelled bars, the worst part and its state.
    The second card in a row mirrors (map on the right), so a duel reads you on the left, them on the right */
@@ -473,6 +477,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .lvpk button.on{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay)}
 .fbl{font-size:11px;line-height:1;color:var(--muted)}
 .fbinfo small{grid-column:1/-1;font-size:11.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbots:not(.many) .fbinfo small[data-b=worst]{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}   /* 0.1.51: a long damage line wraps to a second line instead of being cut off */
 .fbinfo small.none{color:var(--muted)}
 .fbinfo small.worn{color:var(--warn)}
 .fbinfo small.broke{color:var(--crit-t)}
@@ -519,7 +524,10 @@ html.reduce .fbtn.nudge{animation:none}
 .fpitclock{font-family:var(--mono);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--lilac)}
 .fpitclock.lo{color:var(--crit-t)}
 .fpitkit{margin:2px 0 8px;font-size:13px;color:var(--muted)}
-.fpitjob{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px;font-weight:600}
+.fpittop{position:sticky;top:-14px;z-index:1;margin:-14px -14px 8px;padding:14px 14px 8px;background:#1F1E1B;border-radius:14px 14px 0 0;border-bottom:1px solid var(--rule)}   /* 0.1.51: the clock and the job stay put while the list scrolls */
+.fpitjob{display:flex;align-items:center;gap:8px;margin:6px 0 0;min-height:22px;font-size:14px;font-weight:600}
+.fpitjob.idle{font-weight:500;color:var(--muted)}
+.fpithelp{margin-top:-4px}
 .fpitjob .ftbar{flex:1;height:8px}
 .fpitbody{display:flex;gap:10px;align-items:flex-start}
 .fpitsil{flex:none;width:88px;height:88px}

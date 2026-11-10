@@ -462,6 +462,10 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fnote{flex:1;font-size:13px;color:var(--warn);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fbtn{min-height:40px;min-width:48px;padding:0 12px;border-radius:10px;border:1px solid var(--rule);background:#1F1E1Bd9;color:var(--ink);font-size:14px;font-weight:600}
 .fbtn[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--clay)}
+@media (max-width:520px){   /* 0.1.51: while the clock is held (the intro, the first-fight tip) the note gets a line of its own, so it is never cut off */
+  .fov.hold:not(.pitting) .fovtop{flex-wrap:wrap}.fov.hold:not(.pitting) .fclock{margin-right:auto}
+  .fov.hold:not(.pitting) .fnote{order:9;flex:0 0 100%;white-space:normal;line-height:1.25}
+  .fov.hold:not(.pitting) .fbots{top:82px}}
 .fbots{position:absolute;z-index:2;top:56px;left:8px;right:8px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}
 /* a bot card (0.1.15.4): the bot map, then the name in its team colour, three labelled bars, the worst part and its state.
    The second card in a row mirrors (map on the right), so a duel reads you on the left, them on the right */
@@ -492,6 +496,7 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .lvpk button.on{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay)}
 .fbl{font-size:11px;line-height:1;color:var(--muted)}
 .fbinfo small{grid-column:1/-1;font-size:11.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbots:not(.many) .fbinfo small[data-b=worst]{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}   /* 0.1.51: a long damage line wraps to a second line instead of being cut off */
 .fbinfo small.none{color:var(--muted)}
 .fbinfo small.worn{color:var(--warn)}
 .fbinfo small.broke{color:var(--crit-t)}
@@ -538,7 +543,10 @@ html.reduce .fbtn.nudge{animation:none}
 .fpitclock{font-family:var(--mono);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--lilac)}
 .fpitclock.lo{color:var(--crit-t)}
 .fpitkit{margin:2px 0 8px;font-size:13px;color:var(--muted)}
-.fpitjob{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px;font-weight:600}
+.fpittop{position:sticky;top:-14px;z-index:1;margin:-14px -14px 8px;padding:14px 14px 8px;background:#1F1E1B;border-radius:14px 14px 0 0;border-bottom:1px solid var(--rule)}   /* 0.1.51: the clock and the job stay put while the list scrolls */
+.fpitjob{display:flex;align-items:center;gap:8px;margin:6px 0 0;min-height:22px;font-size:14px;font-weight:600}
+.fpitjob.idle{font-weight:500;color:var(--muted)}
+.fpithelp{margin-top:-4px}
 .fpitjob .ftbar{flex:1;height:8px}
 .fpitbody{display:flex;gap:10px;align-items:flex-start}
 .fpitsil{flex:none;width:88px;height:88px}
@@ -5725,7 +5733,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.50.0";
+const VERSION="0.1.51.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -7583,7 +7591,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();const tip=ftTipWant
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
-      ${ftGL()?`<button type="button" class="fbtn${tip&&tip.map?" nudge":""}" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
+      ${ftGL()?`<button type="button" class="fbtn${tip&&tip.map?" nudge":""}" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip intro</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
     <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${o.livery?lvBadge(o.livery,18,"in"):""}${esc(o.name)}</b>
       ${ftArmed(o)?'<span class="fbl">Weapon</span><span class="fbar"><i data-b="w"></i></span>':'<span class="fbl" data-nil="1">Weapon</span><span class="fnil">none</span>'}<span class="fbl">Drive</span><span class="fbar"><i data-b="dr"></i></span><span class="fbl">Battery</span><span class="fbar"><i data-b="bat"></i></span>
       <small data-b="worst"></small><small class="fbst" data-b="st"></small></div></div>`).join("")}</div>
@@ -7672,7 +7680,8 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
-    const s=FT.tipHold&&!F.over?"Starts when you tap Got it":F.drill?scNote(F):FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
+    const s=FT.tipHold&&!F.over?"Starts when you tap Got it":F.drill?scNote(F):FT.hold&&!F.over?"Intro: the controls unlock at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;
+    const ov=$("fov"),hd=!F.over&&!!(FT.tipHold||FT.hold);if(ov&&ov.classList.contains("hold")!==hd)ov.classList.toggle("hold",hd);}   // .hold gives the note a line of its own on a phone (0.1.51); the intro holds the clock: say so (a play-tester thought the fight had hung)
   if(!snd)SCRAP_SOUND.stop();}
 /* the bell at the end, and the crowd: a cheer for a knockout or the pit, applause for the judges (every tier) */
 function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);if(F.drill){if(F.drill.medal)SCRAP_SOUND.sfx("cheer",0.5);return;}
@@ -8017,9 +8026,10 @@ const PIT={on:false,kit:null};
 PIT.open=function(o){PIT.close();Object.assign(PIT,{on:true,o,kit:o.kit,t:PIT_S,job:null,done:[],last:performance.now(),raf:0});
   SCRAP_VOICE.seq(["pitwin","c:pitwin"]);   // the announcer opens the window, the commentator watches the crew (sound/voice.js)
   const el=document.createElement("div");el.className="fpit";el.id="fPit";el.setAttribute("role","dialog");el.setAttribute("aria-labelledby","fPitT");
-  el.innerHTML=`<div class="fpithd"><b id="fPitT">${esc(o.title||"Pit window")}</b><span class="fpitclock readout" id="fPitClock" role="timer" aria-label="Pit clock">1:00</span></div>
+  el.innerHTML=`<div class="fpittop"><div class="fpithd"><b id="fPitT">${esc(o.title||"Pit window")}</b><span class="fpitclock readout" id="fPitClock" role="timer" aria-label="Pit clock">1:00</span></div>
+    <div class="fpitjob idle" id="fPitJob"><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div></div>
     <p class="fpitkit"><b>${esc(PIT_KITS[o.kit].name)}</b> · <span id="fPitLeft"></span></p>
-    <div class="fpitjob" id="fPitJob" hidden><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div>
+    <p class="fpitkit fpithelp">A swap makes the part new. A bodge is a quick patch to half strength.</p>
     <div class="fpitbody"><canvas class="fpitsil" id="fPitSil" width="88" height="88" aria-hidden="true"></canvas><ul class="fpitlist" id="fPitList"></ul></div>
     ${o.fronts?`<div class="fpitfront"><b>Front</b> <span class="fpitopts" id="fPitFront"></span></div>`:""}
     ${o.tunes?`<div class="fpitfront fpittune"><b>Dials</b> <span id="fPitTune"></span></div>`:""}
@@ -8043,10 +8053,12 @@ function pitChange(o,j){if(j.kind==="front")o.onFront(j.key);else{const p=j.key.
   if(o.fronts)o.fronts=cfg?pitFronts(cfg):o.fronts.map(f=>Object.assign({},f,{cur:f.id===j.key}));
   if(o.tunes&&cfg)o.tunes=pitTunes(cfg);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
-  const j=PIT.job,box=$("fPitJob");if(box){box.hidden=!j;if(j){$("fPitJobT").textContent=`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`;$("fPitJobBar").style.width=Math.round((1-j.left/j.total)*100)+"%";}}}
+  const j=PIT.job,box=$("fPitJob");if(box){box.classList.toggle("idle",!j);   // always there, so starting a job never pushes the buttons down (0.1.51)
+    const s=j?`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`:"Crew ready: pick a job",T=$("fPitJobT");if(T.textContent!==s)T.textContent=s;
+    $("fPitJobBar").style.width=(j?Math.round((1-j.left/j.total)*100):0)+"%";}}
 function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
 function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
-  const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${o.left[k]||0}`).join(" · ");
+  const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k]} ×${o.left[k]||0}`).join(" · ");
   L.innerHTML=items.length?items.map(it=>`<li><span class="nm">${esc(ftCap(it.name))} <small class="${it.state==="destroyed"?"broke":"worn"}">${it.bent?"bent":it.state==="destroyed"?"destroyed":Math.round(it.frac*100)+"%"}</small></span>
       <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${tmPitS(p.kind)} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
