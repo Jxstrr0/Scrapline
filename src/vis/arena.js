@@ -24,6 +24,7 @@
    they fill the screen, in the band the app leaves clear between its bot cards and the controls (V.run.inset {t, b} in
    CSS px); a pinch or the mouse wheel nudges it (V.run.zoom, a multiplier on the distance). It shakes on hits (fx.js),
    never under reduced motion.
+     fwd        (0.1.49) a pale arrow on the floor ahead of the bot you drive (V.run.mark), every tier: fwdMark
      marks      (0.1.15.4) over each bot a name tag in its team colour that stays the same size on screen; a hit
                 flashes the bot's parts white-hot for a moment (at most four times a second, softer under reduced motion).
                 Lite: the same, with a smaller tag texture. (The floor ring under each bot went in 0.1.16.1, Kelbo: it hid
@@ -277,7 +278,7 @@ function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.a
 function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
     /* falling into the pit: sink and fade out over half a second */
-    botMarks(B,dt);
+    botMarks(B,dt);fwdMark(B);
     if(o.out==="pit"){B.fall=Math.min(1,B.fall+dt*2);m.position.y=-B.fall*3;m.visible=B.fall<1;if(B.blob)B.blob.visible=false;continue;}
     B.inv+=((o.inverted?1:0)-B.inv)*Math.min(1,dt*10);   // roll over smoothly when the sim flips it
     m.position.set(o.x*U,(o.z||0)*U+B.inv*(u.H||0.05)*U,-o.y*U);
@@ -345,6 +346,17 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   const tagPx=AR.bots.filter(B=>B.tag).length>2?18:22,tagS=tagPx/vh*2*tH;for(const B of AR.bots)if(B.tag)B.tag.scale.set(tagS*B.tag.userData.asp,tagS,1);
   V.cam.position.set(c.x+sx,Math.sin(pitch)*d+sy,c.z+Math.cos(pitch)*d);V.cam.lookAt(c.x+sx*0.5,0,c.z);}
 
+/* the forward arrow (0.1.49): a pale chevron on the floor just ahead of the bot the app names (V.run.mark: the bot you
+   are driving, or null), so which end is the front is never a guess. One flat two-triangle mesh, the same on every
+   tier; it fades as the bot leaves the floor and goes with the bot when it's out */
+function fwdMark(B){const o=B.o,U=AR.U,on=V.run.mark===o.i&&!o.out&&!!AR.g;
+  if(!on){if(B.fwd)B.fwd.visible=false;return;}
+  if(!B.fwd){const w=botR(o)*0.3*U,geo=new THREE.BufferGeometry();   // tip, left, notch; tip, notch, right (it points down -z, the bot's forward)
+    geo.setAttribute("position",new THREE.Float32BufferAttribute([0,0,-w*1.15, -w,0,0, 0,0,-w*0.45, 0,0,-w*1.15, 0,0,-w*0.45, w,0,0],3));
+    B.fwd=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:new THREE.Color(0xFAF9F5).convertSRGBToLinear(),transparent:true,opacity:0.55,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,fog:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}));
+    B.fwd.userData.own=true;B.fwd.raycast=()=>{};AR.g.add(B.fwd);}
+  const d=Math.max(o.rad||0,botR(o))*1.1*U,up=(o.z||0)*U,m=B.fwd;
+  m.visible=true;m.position.set(o.x*U+Math.cos(o.h)*d,0.012,-o.y*U-Math.sin(o.h)*d);m.rotation.y=o.h-Math.PI/2;m.material.opacity=0.55/(1+up*2.5);}
 /* a bot's tag and hit flash, each frame */
 function botMarks(B,dt){const o=B.o,U=AR.U,m=B.mesh,gone=!!o.out;wearTick(B,dt);
   if(B.tag){B.tag.visible=!gone;if(!gone)B.tag.position.set(o.x*U,((o.z||0)+(m.userData.H||0.05)*1.3)*U+0.3,-o.y*U);}
