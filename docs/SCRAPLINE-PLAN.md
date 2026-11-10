@@ -26,7 +26,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 - Comments in plain English at the top of each file say what it holds.
 - Real design decisions get asked, not guessed. End each PR with a plain-language "what changed / how to test on a phone" summary.
 - Deploy: GitHub Pages from `main` (`.nojekyll`). Merging into `main` is the deploy.
-- **Assets:** CC0 or CC-BY only, credited in `models/CREDITS.md`, `sounds/CREDITS.md`, `textures/CREDITS.md` (name, author, licence, URL). Kelbo's own Blender work is noted as original. No asset with NC or ND terms.
+- **Assets:** CC0 or CC-BY only (from 0.1.54 also art generated with Higgsfield, credited as generated: section 1), credited in `models/CREDITS.md`, `sounds/CREDITS.md`, `textures/CREDITS.md` (name, author, licence, URL). Kelbo's own Blender work is noted as original. No asset with NC or ND terms.
 - The site and the game use the name Kelbo only. Credit line: "© year Kelbo / Longlight Interactive".
 
 ---
@@ -119,6 +119,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | First build hours (0.1.52.2, Kelbo) | **"maybe let's make hours not apply to initial fitment?"** The first fit of a bot in a class costs money only, no workshop hours. Later changes cost hours and can run one week ahead (0.1.30.1). |
 | Champion's ballast (0.1.52.4, Kelbo) | Asked whether the weight cap makes sense. The 110 kg class limit stays. Offered: stop the ballast at level 3 (recommended), leave it at 2% a level, or halve it; he picked **halve it to 1% a level** (5% at level 5, a 104.5 kg limit). |
 | Box height and armour (0.1.53, Kelbo) | Asked why the cheaper plywood box showed more armour. Offered: plates protect the same on every box (recommended), fix the card only, or leave it. Kelbo picked the first: a side plate's absorb and hp are worked out at one reference height (`K.plateRefMm`), so a taller box only weighs more. |
+| Generated art (0.1.54, Kelbo) | Asked how the Higgsfield connector could help. Offered: promo art and a trailer (recommended), in-game 2D art, 3D props, or nothing; Kelbo picked in-game 2D art. On the asset rule (CC0, CC-BY or original), offered: allow it, credited as generated (recommended), use it only as a base to redraw, or keep the rule; Kelbo picked the first. So AI-generated art is a third allowed kind: each file is listed in its folder's `CREDITS.md` with the tool, model and date, and is never described as hand-made (Higgsfield's terms forbid that; they claim no ownership and allow commercial use). First batch: the six sponsor logos, on the Sponsors page and the bot, then twelve pickable team emblems. |
 ---
 
 ## 2. Direction
@@ -519,4 +520,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.52.3: a Build change that lowers the weight limit is refused when it would leave the bot over (`bSet`)
 - [x] 0.1.52.4: the champion's ballast halved to 1% a level (`LEGACY.ballast`)
 - [x] 0.1.53: side plates protect the same on every box (`K.plateRefMm`); box rows show hull hit points
+- [x] 0.1.54: sponsor logos on the Sponsors page and the bot, twelve more team emblems (generated with Higgsfield; `textures/marks/`, `tools/make-marks.js`, `src/vis/marks.js`)
 - [ ] Later: more of the polish pass, from Kelbo's list
