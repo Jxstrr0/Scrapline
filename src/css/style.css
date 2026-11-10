@@ -496,6 +496,18 @@ html.reduce *,html.reduce *::before,html.reduce *::after{transition-duration:0s!
 .fcv{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94%,calc(100% - 150px));aspect-ratio:1/1;max-height:calc(100% - 150px);border-radius:10px;background:#1A1917}
 .fpause,.fend{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 32px));padding:18px;border-radius:14px;background:#1F1E1Bf2;border:1px solid var(--rule);text-align:center;pointer-events:auto}
 .fpause p{margin:0 0 12px;font-size:18px;font-weight:700}
+/* the first-fight tip (0.1.49, app/fight.js ftTipHtml): a card in the middle that holds the clock, or docked small under the top bar when only the map is news */
+.ftip{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 32px));padding:16px;border-radius:14px;background:#1F1E1Bf2;border:1px solid var(--rule);color:#F2EFE8;text-align:left;pointer-events:auto}
+.ftip>b{display:block;margin:0 0 8px;font-size:17px}
+.ftip p{margin:0 0 10px;font-size:15px;line-height:1.4}
+.ftip .btn{width:100%;margin-top:2px}
+.ftip.dock{top:calc(176px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:12px;width:min(300px,calc(100% - 32px))}
+.ftip.dock p{font-size:14px}
+.fbtn.nudge{box-shadow:0 0 0 2px var(--clay);animation:fNudge 1.6s ease-in-out infinite}
+@keyframes fNudge{50%{box-shadow:0 0 0 5px #D9775755}}
+html.reduce .fbtn.nudge{animation:none}
+@media (prefers-reduced-motion:reduce){.fbtn.nudge{animation:none}}
+@media (prefers-reduced-transparency:reduce){.ftip{background:#1F1E1B}}
 .fend b{display:block;font-size:22px;margin-bottom:4px}
 .fend p{margin:0 0 14px;color:var(--muted)}
 /* the pit window (app/pit.js) over the arena, and the replay bar */

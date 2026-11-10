@@ -175,7 +175,7 @@ function ftPause(on){const F=FT.F;if(!F||F.over)return;FT.paused=on;if(on){SCRAP
   const p=$("fPause");if(p){p.hidden=!on||!!FT.rp;if(on){const r=p.querySelector("[data-fv=resume]");if(r)r.focus({preventScroll:true});}}const b=document.querySelector('[data-fv="pause"]');if(b)b.setAttribute("aria-pressed",on);if(FT.on)ftOverlay();}
 function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
   if(curTab!=="fight"||document.hidden){if(!F.over&&!FT.paused)ftPause(true);return;}
-  if(FT.hold&&!FT.paused&&!F.over)FT.last=now;   // the announcer's intro: the clock waits
+  if((FT.hold||FT.tipHold)&&!FT.paused&&!F.over)FT.last=now;   // the announcer's intro, or the first-fight tip: the clock waits
   else if(!FT.paused&&!F.over){let dt=(now-FT.last)/1000;FT.last=now;if(!(dt>0))dt=0;const sp=FT.rp?FT.rp.speed:FT.you?1:FT.speed,slow=FT.rp&&FT.rpAuto!==false&&FT.rp.slow?ftSlowAt(FT.rp.slow,F.t):1;FT.acc+=Math.min(dt,0.25)*sp*slow;
     if(FT.rp&&(slow<0.9)!==!!FT.rp.dip){FT.rp.dip=slow<0.9;const rb=$("fRp");if(rb)rb.classList.toggle("slow",FT.rp.dip);}
     let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,FT.you&&FT.on&&!FT.rp?{0:CONTROLS.read(F,F.bots[0])}:null);FT.acc-=1/60;k++;
@@ -248,18 +248,35 @@ function ftWheelSfx(F,o,i){const wb=o.b.wheelbase;if(!wb||o.out)return;const m=F
   else if(wb.caster){const vf=Math.cos(o.h)*o.vx+Math.sin(o.h)*o.vy,d=Math.abs(vf)>0.2*Math.max(o.b.driveSpeed,0.1)?Math.sign(vf):0;
     if(d&&s.dir&&d!==s.dir&&F.t-s.t>0.8){s.t=F.t;SCRAP_SOUND.sfx("caster",v*0.8);}if(d)s.dir=d;}}
 /* ---- fight mode: the overlay on the 3D view ---- */
-function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.add("fighting");
+/* ---- first-fight tips (0.1.49): what a play-tester had to find out the hard way. The stick steers from the bot's seat
+   (up drives toward its front, wherever that points on the screen), and 2D is a map from above. Shown once each, as plain
+   text: a card that holds the clock before your first driven fight with the stick (FT.tipHold), or a small note under
+   the top bar when only the map is news. Got it (or pressing 2D) is remembered in settings.tips, inside scr-save. ---- */
+function ftTips(){const s=ST();if(!buObjS(s.tips))s.tips={};return s.tips;}
+function ftTipWant(){if(FT.rp||TUT_ON)return null;   // not in a replay; the tutorial has its own line about the stick
+  const T=ftTips(),drive=FT.you&&ST().controls!=="tactical"&&!T.drive,map=ftGL()&&!T.map;return drive||map?{drive,map}:null;}
+function ftTipHtml(tip){if(!tip)return"";
+  return`<div class="ftip${tip.drive?"":" dock"}" id="fTip" role="${tip.drive?"alertdialog":"note"}" aria-labelledby="fTipT"><b id="fTipT">${tip.drive?"Before you drive":"A map from above"}</b>
+    ${tip.drive?`<p>The stick steers from <b>the bot's seat</b>. <b>Up</b> drives toward its front, the weapon end, wherever that points on the screen. <b>Left</b> and <b>right</b> turn it.</p><p>The pale arrow on the floor shows which way is forward.</p>`:""}
+    ${tip.map?`<p><b>2D</b>, top right, swaps to a map from above. Tap it again for the arena.</p>`:""}
+    <button type="button" class="btn pri" data-fv="tipok">${tip.drive?"Got it, start":"Got it"}</button></div>`;}
+function ftTipDone(all){const el=$("fTip"),T=ftTips(),was=!!FT.tipHold;
+  if(all&&el){T.map=true;if(!el.classList.contains("dock"))T.drive=true;}else T.map=true;   // all: Got it (both lines were read); else 2D was pressed
+  if(el&&(all||el.classList.contains("dock")))el.remove();
+  const b=document.querySelector('.fbtn[data-fv="2d"]');if(b)b.classList.remove("nudge");
+  if(all&&was){FT.tipHold=false;FT.last=performance.now();FT.acc=0;}save();if(FT.on)ftOverlay();}
+function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
   el.innerHTML=`<div class="fovtop"><span class="fclock readout" id="fClock" role="timer" aria-label="Round clock">${ftT(F.rules.roundS)}</span><span class="fnote" id="fNote" role="status" aria-live="polite"></span>
-      ${ftGL()?`<button type="button" class="fbtn" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
+      ${ftGL()?`<button type="button" class="fbtn${tip&&tip.map?" nudge":""}" data-fv="2d" aria-pressed="${FT.view2d}">2D</button>`:""}<button type="button" class="fbtn" data-fv="skip" id="fSkip" hidden>Skip</button>${FT.rp?'<button type="button" class="fbtn" data-fv="results">Close</button>':'<button type="button" class="fbtn" data-fv="pause" aria-pressed="false">Pause</button>'}</div>
     <div class="fbots${F.bots.filter(o=>!o.mini).length>2?" many":""}" id="fBots">${F.bots.filter(o=>!o.mini).map((o,n)=>`<div class="fbot${n%2?" r":""}" data-i="${o.i}" style="--tc:${ftTeamCol(o)}"><canvas class="fmap" aria-hidden="true"></canvas><div class="fbinfo"><b>${o.livery?lvBadge(o.livery,18,"in"):""}${esc(o.name)}</b>
       ${ftArmed(o)?'<span class="fbl">Weapon</span><span class="fbar"><i data-b="w"></i></span>':'<span class="fbl" data-nil="1">Weapon</span><span class="fnil">none</span>'}<span class="fbl">Drive</span><span class="fbar"><i data-b="dr"></i></span><span class="fbl">Battery</span><span class="fbar"><i data-b="bat"></i></span>
       <small data-b="worst"></small><small class="fbst" data-b="st"></small></div></div>`).join("")}</div>
     <canvas id="fCv" class="fcv" role="img" aria-label="Top-down view of the fight"${FT.view2d?"":" hidden"}></canvas>
     <div class="fpause" id="fPause" hidden><p>Paused</p><div class="row"><button type="button" class="btn pri" data-fv="resume">Resume</button><button type="button" class="btn" data-fv="quit">${FT.bout&&FT.bout.ev?"Forfeit":"Stop the fight"}</button></div></div>
-    <p class="fcap" id="fCap" aria-live="polite" hidden></p>
+    <p class="fcap" id="fCap" aria-live="polite" hidden></p>${ftTipHtml(tip)}
     <div class="fend" id="fEnd" hidden role="alertdialog" aria-labelledby="fEndT"><b id="fEndT"></b><p id="fEndS"></p><div class="row" id="fEndBtns"></div></div>
     ${FT.rp?`<div class="frp" id="fRp"><button type="button" class="fbtn" data-fv="rpplay" aria-pressed="false">Pause</button>
       <input type="range" id="fRpPos"${FT.rp.watch?" hidden":""} min="${FT.rp.s0||0}" max="${FT.rp.steps}" step="15" value="${FT.rp.s0||0}" aria-label="Replay position"><span class="readout" id="fRpT">${ftT(Math.max(0,FT.F.rules.roundS-FT.F.t))}</span>
@@ -271,9 +288,10 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();$("app").classList.
   const pos=$("fRpPos");if(pos){pos.addEventListener("pointerup",()=>{if(FT.rp)FT.rp.drag=false;});pos.addEventListener("blur",()=>{if(FT.rp)FT.rp.drag=false;});
     pos.addEventListener("input",()=>{FT.rp.drag=true;$("fRpT").textContent=ftT(Math.max(0,FT.F.rules.roundS-pos.value/SIM.STEP_HZ));});
     pos.addEventListener("change",()=>{FT.rp.drag=false;ftSeek(+pos.value);});}
-  SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow()});
+  SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow(),mark:FT.you&&!FT.rp?0:null});   // mark: the forward arrow on the bot you drive (vis/arena.js fwdMark)
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
   if(FT.you)CONTROLS.mount(el);
+  if(tip){const ok=el.querySelector("[data-fv=tipok]");if(ok&&tip.drive)ok.focus({preventScroll:true});}
   ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
 function ftInsets(){if(!FT.on||!window.SCRAP_VIS)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
@@ -293,12 +311,13 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   const wheel=e=>{if(!FT.on||skip(e))return;e.preventDefault();set((FT.zoom||1)*(1+Math.sign(e.deltaY)*0.08));};
   v.addEventListener("pointerdown",down);v.addEventListener("pointermove",move);v.addEventListener("pointerup",up);v.addEventListener("pointercancel",up);v.addEventListener("wheel",wheel,{passive:false});
   FT.pinch=()=>{v.removeEventListener("pointerdown",down);v.removeEventListener("pointermove",move);v.removeEventListener("pointerup",up);v.removeEventListener("pointercancel",up);v.removeEventListener("wheel",wheel);P.clear();};}
-function ftExit(){const rl=!!FT.reel;FT.reel=null;if(FT.watch)toastHold(false);FT.watch=null;clearTimeout(RL.t);if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
+function ftExit(){const rl=!!FT.reel;FT.reel=null;FT.tipHold=false;if(FT.watch)toastHold(false);FT.watch=null;clearTimeout(RL.t);if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
   if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
   FT.sub=rl?"reel":ftResSub();
   ftRender();const r=$(rl?"rlCard":"ftResCard");if(r)r.scrollIntoView({block:"start"});}
 function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a=b.dataset.fv,F=FT.F;
   if(a==="pause")ftPause(!FT.paused);
+  else if(a==="tipok")ftTipDone(true);
   else if(a==="skip")SCRAP_VOICE.skip();
   else if(a==="resume")ftPause(false);
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
@@ -315,7 +334,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="rlagain")rlAgain();
   else if(a==="rpslow"){FT.rpAuto=FT.rpAuto===false;b.setAttribute("aria-pressed",FT.rpAuto!==false);}
   else if(a==="results")ftExit();
-  else if(a==="2d"){FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
+  else if(a==="2d"){if(!ftTips().map)ftTipDone(false);FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
 const ftSpLbl=v=>(v===0.5?"½":v===0.25?"¼":v)+"×";
 /* the strip per bot, the clock and the notes, a few times a second */
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
@@ -340,7 +359,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
-    const s=F.drill?scNote(F):FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
+    const s=FT.tipHold&&!F.over?"Starts when you tap Got it":F.drill?scNote(F):FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
   if(!snd)SCRAP_SOUND.stop();}
 /* the bell at the end, and the crowd: a cheer for a knockout or the pit, applause for the judges (every tier) */
 function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);if(F.drill){if(F.drill.medal)SCRAP_SOUND.sfx("cheer",0.5);return;}
@@ -567,7 +586,7 @@ function ftBoutHtml(){const B=FT.bout,n=FT.rounds.length;let h="";
   if(n>1)h+=`<div class="seg ftrounds" role="group" aria-label="Round">${FT.rounds.map((r,i)=>`<button type="button" data-ftrv="${i}" class="${i===FT.rv?"on":""}" aria-pressed="${i===FT.rv}">Round ${i+1}</button>`).join("")}</div>`;
   return h;}
 function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watch.";
-  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. Change it in Settings.";}
+  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. The stick steers from the bot's seat: up drives toward its front. Change it in Settings.";}
 /* chip rows (wrap on a phone): [[value, label html]] */
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);

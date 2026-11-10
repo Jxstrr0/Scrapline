@@ -41,6 +41,8 @@ const DEBUGVIEW={
       g.fillStyle=mixDark(col,0.35+sh*0.5);g.fill();g.lineWidth=2*dpr;g.strokeStyle=col;g.setLineDash(o.inverted?[4*dpr,3*dpr]:[]);g.stroke();g.setLineDash([]);
       /* heading line */
       const c0=at(0,0),c1=at(0,o.b.lengthM*0.5-o.b.com.y);g.beginPath();g.moveTo(c0[0],c0[1]);g.lineTo(c1[0],c1[1]);g.strokeStyle=col;g.lineWidth=1.5*dpr;g.stroke();
+      {const hw=Math.max(0.012,o.b.lengthM*0.09),ty=o.b.lengthM*0.5-o.b.com.y,a1=at(-hw,ty-hw*1.5),a2=at(hw,ty-hw*1.5);   // an arrowhead at the front, so the map shows which way the stick's Up drives
+        g.beginPath();g.moveTo(a1[0],a1[1]);g.lineTo(c1[0],c1[1]);g.lineTo(a2[0],a2[1]);g.stroke();}
       /* the weapon's working zone */
       const Z=o.zone,wp=o.b.weapon;if(Z&&o.fx.weaponOk){let a=0.35;
         if(wp.type==="spinner"||wp.type==="saw")a=0.15+0.75*(o.wp.om/(wp.omega||1));

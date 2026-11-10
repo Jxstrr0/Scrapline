@@ -791,3 +791,11 @@ Two weapons beside the drum and the vertical disc, both in `PARTS.weapon` (`sim/
 ## The Tooth count dial (0.1.48)
 
 A fourth Tuning dial for any spinner with a disc or a drum (horizontal, vertical, drum, eggbeater, drisk, undercutter): one to five teeth, two stock. Fewer teeth bite deeper, kick the bot harder and bend sooner. More teeth take smaller bites, so the disc keeps its speed, hits the same bot again sooner, still bites when it is slow, and is harder to bend. It is free to turn, with no Fit, and one step can be turned in the pit between rounds. It took over the teeth from the R&D disc profile, which keeps the rim and the name. The numbers are `DISC_PROFILES.teeth` in `src/sim/parts.js`; `docs/HISTORY.md` has the balance table.
+
+## First-fight tips and the forward arrow (0.1.49)
+
+- **The stick steers from the bot's seat:** up drives toward the bot's front (its weapon end), wherever that points on the screen. That is unchanged; the game now says so.
+- **Tips, once each** (`settings.tips = {drive, map}`): before the first fight driven with the stick, a card explains the stick and the 2D map and the clock waits for **Got it, start** (`FT.tipHold`). When only the map is news (tap-to-drive controls, a watched fight), a small note under the bot cards says it and holds nothing. Pressing 2D counts as reading the map tip. Never in a replay or the tutorial.
+- **The forward arrow:** a pale chevron on the floor ahead of the bot you drive (`fwdMark`, `src/vis/arena.js`), on every tier, in live fights and drills. The 2D map's heading lines end in an arrowhead.
+- **Saves:** `SAVE_V` 18 (`settings.tips`). No new key.
+
