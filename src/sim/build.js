@@ -195,7 +195,10 @@ function evalBuild(cfgIn,opts){
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
     Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
       recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*TT.bite,teeth:nTeeth,hitGap:TT.gap,minSpin:TT.spin,profile:cfg.disc||null,
-      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1)*TT.bend,bendJ:wm.hp*M.mass*(wp.bendMul||1)*TT.bend,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
+      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1)*TT.bend,bendJ:wm.hp*M.mass*(wp.bendMul||1)*TT.bend,
+      /* the most one hit can land (0.1.48.2): a hit only takes the disc's bite out of what it stores, at the top of the bite's
+         jitter, and a vertical on a sloped front catches the lip. Bending and shearing are judged on this, not on storedJ */
+      hitMaxJ:storedJ*Math.min(0.98,Math.min(0.98,wp.bite*wm.bite*TT.bite*(1+FIGHT.biteJitter))*(FIGHT.lip[wp.id]||1)),reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}

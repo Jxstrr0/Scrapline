@@ -1342,7 +1342,10 @@ function evalBuild(cfgIn,opts){
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
     Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
       recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*TT.bite,teeth:nTeeth,hitGap:TT.gap,minSpin:TT.spin,profile:cfg.disc||null,
-      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1)*TT.bend,bendJ:wm.hp*M.mass*(wp.bendMul||1)*TT.bend,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
+      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1)*TT.bend,bendJ:wm.hp*M.mass*(wp.bendMul||1)*TT.bend,
+      /* the most one hit can land (0.1.48.2): a hit only takes the disc's bite out of what it stores, at the top of the bite's
+         jitter, and a vertical on a sloped front catches the lip. Bending and shearing are judged on this, not on storedJ */
+      hitMaxJ:storedJ*Math.min(0.98,Math.min(0.98,wp.bite*wm.bite*TT.bite*(1+FIGHT.biteJitter))*(FIGHT.lip[wp.id]||1)),reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
@@ -1501,6 +1504,8 @@ const SEV_ORDER={bad:0,warn:1,info:2,good:3};
 const FACE_NAME={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const PART_NAME={drive:"drive pods",battery:"battery",electronics:"speed controllers",weapon:"weapon",extras:"extras",wheels:"wheels"};
 const n0=v=>String(Math.round(v)),n1=v=>(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,"");
+/* what a spinner's working part is called when it isn't a disc (0.1.48.2) */
+const SPIN_NOUN={drum:"drum",beater:"frame",shell:"shell",ring:"ring",melty:"body",saw:"blade"};
 const gOrKg=g=>g>=1000?n1(g/1000)+" kg":n0(g)+" g";
 /* parts whose cells touch a face's edge row or column */
 function partsOnFace(b,f){const c=CLASSES[b.cls],out=new Set();
@@ -1514,10 +1519,10 @@ const COMBOS=[
   {id:"error",sev:"bad",test:b=>b.errors.filter(e=>e.indexOf("Over the")!==0).join(". "),text:(b,v)=>v+"."},
   {id:"under",sev:"warn",test:b=>b.underBudgetPct>5&&b.limitG-b.totalG,
     text:(b,v)=>gOrKg(v)+" unused ("+n0(b.underBudgetPct)+"% under the limit): that's armour you didn't fit."},
-  {id:"shear",sev:"bad",test:b=>b.weapon.storedJ>b.weapon.shearJ&&b.weapon.shearJ,
-    text:(b,v)=>"Spinner shaft will shear above "+n0(v)+" J on "+b.weapon.material.toLowerCase()+", and this disc stores "+n0(b.weapon.storedJ)+" J. Use a tougher material or a smaller disc."},
-  {id:"bend",sev:"warn",test:b=>b.weapon.storedJ>b.weapon.bendJ&&b.weapon.storedJ<=b.weapon.shearJ&&b.weapon.bendJ,
-    text:(b,v)=>"A full-speed hit bends a "+b.weapon.material.toLowerCase()+" disc above "+n0(v)+" J (it stores "+n0(b.weapon.storedJ)+" J): expect it to go out of true."},
+  {id:"shear",sev:"bad",test:b=>b.weapon.hitMaxJ>b.weapon.shearJ&&b.weapon.shearJ,
+    text:(b,v)=>"Spinner shaft will shear above "+n0(v)+" J on "+b.weapon.material.toLowerCase()+", and a full-speed hit lands up to "+n0(b.weapon.hitMaxJ)+" J. Use a tougher material or a smaller disc."},
+  {id:"bend",sev:"warn",test:b=>b.weapon.hitMaxJ>b.weapon.bendJ&&b.weapon.hitMaxJ<=b.weapon.shearJ&&b.weapon.bendJ,
+    text:(b,v)=>"A full-speed hit lands up to "+n0(b.weapon.hitMaxJ)+" J and "+b.weapon.material.toLowerCase()+" bends above "+n0(v)+" J: expect the "+(SPIN_NOUN[b.weapon.id]||"disc")+" to go out of true."},
   {id:"bare",sev:(b,v)=>v.parts.length?"bad":"warn",
     test:b=>{for(const f of ["front","back","left","right"])if(b.armourMapJ[f].id==="none"&&!(f==="front"&&["wedge","lifter","flipper","grabber"].indexOf(b.weapon.type)>=0))return{f,parts:partsOnFace(b,f)};return null;},
     text:(b,v)=>FACE_NAME[v.f]+" armour none"+(v.parts.length?": "+v.parts.map(s=>PART_NAME[s]).join(" and ")+" exposed.":". Nothing sits right behind it yet, but the chassis takes every hit there.")},
@@ -1658,7 +1663,7 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
     const full=up.tr[up.tr.length-1][1]>=0.99;   // spinUpS and t90 are null if it never gets there in 60 s
     Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:full?up.t:null,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
       hitJ,rpmAfter:after*60/(2*Math.PI),recoverS:back.t,recoilMm:1000*hitJ*BENCH.kickShare*(w.recoil||0)/(Math.max(b.grip,0.1)*m*g),
-      shearJ:w.shearJ,bendJ:w.bendJ});
+      shearJ:w.shearJ,bendJ:w.bendJ,hitMaxJ:w.hitMaxJ});
     return r;}
   if(w.type==="flipper"||w.type==="lifter"||w.type==="grabber"){const rows=BENCH.testMass.map(f=>{const kg=f*b.limitKg,lifts=w.canLiftKg>=kg;
       const h=!lifts?0:w.type==="flipper"?Math.max(0,w.launchJ*K.flipEff/(kg*g)-(wp.strokeMm*classMult(b.cls).len/1000)):w.liftM;
@@ -5733,7 +5738,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.52.0";
+const VERSION="0.1.52.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6982,7 +6987,7 @@ const BN_TEXT={
       `Stores ${rd(bn0(r.storedJ)+" J")}, tip speed ${bn0(r.tipSpeed)} m/s`,
       `Anvil hit: ${rd(bn0(r.hitJ)+" J")} lands, the disc drops to ${bn0(r.rpmAfter)} rpm and is back to 90% in ${bn1(r.recoverS)} s`,
       `Recoil throws you back ${rd(bn0(r.recoilMm)+" mm")}`,
-      r.storedJ>r.shearJ?`<span class="broke">At full speed the shaft shears (above ${bn0(r.shearJ)} J)</span>`:r.storedJ>r.bendJ?`<span class="worn">A full-speed hit bends the disc (above ${bn0(r.bendJ)} J)</span>`:`<span class="ok">Disc and shaft take a full-speed hit</span>`];
+      r.hitMaxJ>r.shearJ?`<span class="broke">A full-speed hit (up to ${bn0(r.hitMaxJ)} J) shears the shaft (above ${bn0(r.shearJ)} J)</span>`:r.hitMaxJ>r.bendJ?`<span class="worn">A full-speed hit (up to ${bn0(r.hitMaxJ)} J) bends it (above ${bn0(r.bendJ)} J)</span>`:`<span class="ok">Disc and shaft take a full-speed hit</span>`];
     if(r.kind==="flip"||r.kind==="lift")return r.rows.map(q=>`${bn1(q.kg)} kg: ${q.lifts?(r.kind==="flip"?`thrown ${rd(bn1(q.heightM)+" m")}`:`lifted ${rd(bn0(q.heightM*1000)+" mm")}`):'<span class="broke">stays down</span>'}`)
       .concat(r.kind==="flip"?[`${r.shots} shots, ${bn1(r.rechargeS)} s to recharge`]:[`Lifts up to ${rd(bn1(r.canLiftKg)+" kg")}`]);
     if(r.kind==="hammer")return[`Strike ${rd(bn0(r.energyJ)+" J")}, ${bn1(r.swingS)} s a swing`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}`];
