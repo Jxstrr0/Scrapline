@@ -274,7 +274,7 @@ function evalBuild(cfgIn,opts){
 
 /* ---- the weapon bay (0.1.15.3, Kelbo: real weapon bays): the opening the body leaves round the weapon. The 3D bot cuts
    it (vis/bot.js, and the slotted Blender shells), and the fight treats an open one as a weak spot (sim/fight.js).
-     kind       "slot" (vertical disc, saw: a slot through the top), "pocket" (drum: open at the front and top), "well"
+     kind       "slot" (vertical disc, drisk, saw: a slot through the top), "pocket" (drum, eggbeater: open at the front and top), "well"
                 (horizontal disc: a round recess in the top it sits in), "underwell" (undercutter: the same from below),
                 "deck" (hammer, flipper, lifter, crusher: a flat deck the arm or plate lies on), "none"
      rect       [x0, y0, x1, y1] m in build coords (+y forward), clipped to the body; circle {x, y, r} m for a well
@@ -291,7 +291,9 @@ function bayOf(wp,w,pos,fp,at,g){const hw=g.W/2,hl=g.L/2,len=g.M.len,bodyH=Math.
   const fr=fp&&at?[(at[0]-g.c.gridW/2)*g.cell,(g.c.gridH/2-(at[1]+fp.h))*g.cell,(at[0]+fp.w-g.c.gridW/2)*g.cell,(g.c.gridH/2-at[1])*g.cell]:null;
   let kind="none",rect=null,circle=null,depthM=0,openTop=false,openBelow=false;
   if(id==="vsp"||id==="saw"){kind="slot";const sw=Math.min(fr?fr[2]-fr[0]:g.W,0.3*r+0.006*len);rect=clip(cx-sw/2,cy-r*1.05,cx+sw/2,cy+r*1.05);openTop=true;openBelow=id==="vsp";}
-  else if(id==="drum"){kind="pocket";const dw=Math.min(g.W*0.7,Math.max(r*2,g.W*0.5))+0.006*len;rect=clip(cx-dw/2,cy-r*1.15,cx+dw/2,hl);openTop=openBelow=true;}
+  /* the drisk (0.1.46) is small for its bay: it sits forward, a third of it past the front, in a slot that runs out through the front */
+  else if(id==="drisk"){kind="slot";const sw=Math.min(fr?fr[2]-fr[0]:g.W,r+0.006*len),yd=Math.max(cy,hl-r*0.65);rect=clip(cx-sw/2,yd-r*1.05,cx+sw/2,hl);openTop=openBelow=true;}
+  else if(id==="drum"||id==="beater"){kind="pocket";const dw=Math.min(g.W*0.7,Math.max(r*2,g.W*0.5))+0.006*len;rect=clip(cx-dw/2,cy-r*1.15,cx+dw/2,hl);openTop=openBelow=true;}
   else if(id==="hsp"||id==="under"){kind=id==="hsp"?"well":"underwell";const rr=r*1.06;circle={x:cx,y:cy,r:rr};rect=clip(cx-rr,cy-rr,cx+rr,cy+rr);
     depthM=Math.min(bodyH*0.45,Math.max(0.004*len,r*0.08)*2.2+0.002*len);if(id==="hsp")openTop=true;else openBelow=true;}
   else if(T==="hammer"){kind="deck";const dw=Math.max(fr?fr[2]-fr[0]:0,0.034*len);rect=clip(-dw/2,-0.3*hl-0.01*len,dw/2,hl);}
