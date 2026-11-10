@@ -24,6 +24,8 @@
    they fill the screen, in the band the app leaves clear between its bot cards and the controls (V.run.inset {t, b} in
    CSS px); a pinch or the mouse wheel nudges it (V.run.zoom, a multiplier on the distance). It shakes on hits (fx.js),
    never under reduced motion.
+     camera     (0.1.50) calmer: it only zooms back in once the bots are a good deal closer (CAM), and in a live fight the
+                bot you drive (V.run.mark) is always on the screen, clear of the cards and the controls.
      fwd        (0.1.49) a pale arrow on the floor ahead of the bot you drive (V.run.mark), every tier: fwdMark
      marks      (0.1.15.4) over each bot a name tag in its team colour that stays the same size on screen; a hit
                 flashes the bot's parts white-hot for a moment (at most four times a second, softer under reduced motion).
@@ -275,6 +277,10 @@ function arenaRebind(F){if(!AR.F||!AR.g||AR.F.seed!==F.seed||AR.F.arena.id!==F.a
   for(const c of FX.chunks){c.m.parent&&c.m.parent.remove(c.m);c.m.material.dispose();}FX.chunks=[];
   for(const n of FX.nums)fxNumDrop(n);FX.nums=[];markClear();return true;}
 /* each frame: put the bots where the sim says, animate weapons, hazards and the pit, move the camera */
+/* the fight camera's feel (0.1.50): near, how much of the near side's narrowing the zoom allows for; band, how much closer
+   the bots must be before it zooms back in; out and inn, how fast it pulls out and closes in (per second); edge, the
+   margin (a share of the half screen) the bot you drive is kept inside */
+const CAM={near:0.85,band:0.14,out:4,inn:1.1,edge:0.07};
 function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   for(const B of AR.bots){const o=B.o,m=B.mesh,u=m.userData;
     /* falling into the pit: sink and fade out over half a second */
@@ -334,11 +340,22 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   const lim=H*0.95;let cx=Math.max(-lim,Math.min(lim,(x0+x1)/2)),cz=Math.max(-lim,Math.min(lim,(z0+z1)/2));
   const vh=V.h||1,vw=V.w||1,ins=V.run.inset||{},it=Math.max(0,ins.t||0),ib=Math.max(0,ins.b||0),fh=Math.max(0.4,(vh-it-ib)/vh);
   const tH=Math.tan(V.cam.fov*Math.PI/360),tW=tH*vw/vh,zoom=Math.max(0.5,Math.min(2,V.run.zoom||1));
-  const wantD=Math.max(spX/2/tW,spZ*1.15*sp/2/(tH*fh))*zoom;   // 1.15: the near side looks bigger in perspective
-  const kd=Math.min(1,dt*(wantD>c.d?4:1.6)),k=Math.min(1,dt*4);   // pull out quickly when they split, close in gently
-  c.d+=(wantD-c.d)*kd;
+  const cp=Math.cos(pitch),wantD=Math.max(spX/2/tW+cp*spZ/2*CAM.near,spZ*1.15*sp/2/(tH*fh))*zoom;   // 1.15: the near side looks bigger in perspective; cp*spZ/2: and it is narrower, so a wide box needs more room (0.1.50)
+  /* a calmer zoom (0.1.50): the distance it settles on follows the bots out at once, but only comes back in when they
+     are a good deal closer (CAM.band), so it stops breathing in and out with every shove */
+  if(!(c.wd>0)||wantD>c.wd||wantD<c.wd*(1-CAM.band))c.wd=wantD;
+  const kd=Math.min(1,dt*(c.wd>c.d?CAM.out:CAM.inn)),k=Math.min(1,dt*4);   // pull out quickly when they split, close in gently
+  c.d+=(c.wd-c.d)*kd;
   cz-=((it-ib)/vh)*c.d*tH/sp;   // aim past the middle so the bots sit in the clear band, not under the cards
   c.x+=(cx-c.x)*k;c.z+=(cz-c.z)*k;
+  /* the bot you drive is never off the screen (0.1.50; V.run.mark, live fights only): if the smoothed frame would cut it
+     off at a side, or put it under the cards or the controls, the frame moves over by just that much, this frame.
+     A point dz toward the camera from the aim sits at depth d-cp*dz, so the view is narrower there. */
+  {const me=V.run.mark!=null?AR.bots.find(B=>B.o.i===V.run.mark&&!B.o.out):null;
+    if(me){const mx=me.o.x*U,mz=-me.o.y*U,r=botR(me.o)*U*1.25,m=CAM.edge,D=c.d;
+      const dzAt=y=>-y*D*tH/(sp-y*cp*tH),yT=1-2*it/vh-m,yB=-1+2*ib/vh+m;   // how far from the aim a screen height (-1..1) is on the floor
+      if(yT>yB){const lo=dzAt(yT)+r,hi=dzAt(yB)-r;if(lo<hi){const dz=mz-c.z;if(dz<lo)c.z=mz-lo;else if(dz>hi)c.z=mz-hi;}}
+      const half=Math.max(0.05,(D-cp*(mz-c.z))*tW*(1-m)-r),dx=mx-c.x;if(dx>half)c.x=mx-half;else if(dx<-half)c.x=mx+half;}}
   const d=c.d;
   let sx=0,sy=0;if(c.shake>0&&!V.run.reduce){sx=(Math.sin(now*0.091)+Math.sin(now*0.137))*c.shake;sy=(Math.cos(now*0.083)+Math.sin(now*0.121))*c.shake;}
   c.shake=Math.max(0,c.shake-dt*c.shake*6-dt*0.01);
