@@ -73,7 +73,7 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const num=(v,a,b,unit,dp,goodUp,min)=>{const d=v(a)-v(b);if(!isFinite(d)||Math.abs(d)<min)return;cand.push(`<i class="${(d>0)===goodUp?"up":"dn"}">${d>0?"+":"−"}${Math.abs(d).toFixed(dp)}${unit}</i>`);};
   const armour=x=>{let t=0;for(const f of ["front","back","left","right","top"])t+=x.armourMapJ[f].absorbJ+x.armourMapJ[f].hpJ;return t;};
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
-  const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
+  const order={chassis:["hull","armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
     battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],front:["edge","armour","speed"],back:["right","armour","run","speed"],
     volt:["speed","wj","heat","run"],teeth:["hitj","kick","bend"],wheel:["inv","clr","speed","edge"],bias:["edge","push"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
@@ -85,6 +85,7 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
     if(k==="slide"&&!!r.wheelbase.strafe!==!!base.wheelbase.strafe)cand.push(r.wheelbase.strafe?'<i class="up">slides sideways</i>':'<i class="dn">no sideways slide</i>');
     if(k==="push")num(x=>x.pushN,r,base," N",base.pushN<100?1:0,true,base.pushN*0.03);
     if(k==="wj")num(x=>x.weapon.energyJ||0,r,base," J",0,true,Math.max(1,(base.weapon.energyJ||0)*0.01));
+    if(k==="hull")num(x=>{const ch=SIM.part("chassis",x.cfg.chassis),bd=SIM.part("body",x.cfg.body);return ch?ch.hp*(bd?bd.hpMul:1)*SIM.classMult(x.cls).mass:0;},r,base," J hull",0,true,1);   /* 0.1.53: the box's own strength; its plates no longer change with its height */
     if(k==="armour")num(armour,r,base," J armour",0,true,Math.max(1,armour(base)*0.01));
     if(k==="run")num(run,r,base," s run",0,true,2);
     if(k==="clr")num(x=>x.height.clearanceMm,r,base," mm ride",1,false,0.1);
