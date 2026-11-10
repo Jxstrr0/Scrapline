@@ -37,6 +37,7 @@ const K={
   topWeight:0.15,       // exposure from above, through the top plate
   protRefJ:40,          // armour "absorb + 0.3 hp" (beetle J) that halves a face's exposure
   protHp:0.3,
+  plateRefMm:46,        // the box height (beetle mm, HDPE's) a side plate's hp and absorb are worked out at, whatever box it is on
   runtimeMin:90         // a round is 90 s
 };
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -84,8 +85,9 @@ function evalBuild(cfgIn,opts){
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
   /* a plate's hp and absorb go with its thickness, not its height (0.1.15.2, Kelbo): a low body's shorter side plates weigh
-     less but stop a hit as well, and a tall body's bigger ones weigh more without adding hp. The top doesn't change height. */
-  for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000,gp=f==="top"?g:g/bd.heightMul;
+     less but stop a hit as well, and a tall body's bigger ones weigh more without adding hp. The top doesn't change height.
+     The same goes for the box's own height (0.1.53, Kelbo): every box's side plates protect as on a K.plateRefMm box. */
+  for(const f of FACES){const a=pick("armour",cfg.armour[f]),t=a.thickMm*M.thick,g=faceArea[f]*t*a.density/1000,gp=f==="top"?g:g/bd.heightMul*K.plateRefMm/ch.heightMm;
     let absorbJ=a.absorbPerG*gp,hpJ=a.hpPerG*gp,deflect=Math.min(0.8,a.deflect+(bd.deflect[f]||0));
     if(f==="front")for(const e of ex){if(e.frontAbsorbJ)absorbJ+=e.frontAbsorbJ*M.mass;if(e.frontDeflect)deflect=Math.min(0.8,deflect+e.frontDeflect);}
     if(f==="front"&&fr.absorbJ)absorbJ+=fr.absorbJ*M.mass;if(f==="back"&&bk.absorbJ)absorbJ+=bk.absorbJ*M.mass;

@@ -308,7 +308,8 @@ for (const cls of SIM.CLASS_IDS) {
     while (!F.over) {
       SIM.stepFight(F);
       for (const o of F.bots) { const t = F.bots[1 - o.i]; if (o.touch[t.i] != null && F.t - o.touch[t.i] < 0.05) last[o.i] = F.t; if (o.air) last[o.i] = F.t; }
-      for (; seen < F.log.length; seen++) { const e = F.log[seen]; if (e.k === "pit" && F.t - last[e.v] > 1) selfPit++; }
+      for (; seen < F.log.length; seen++) { const e = F.log[seen]; if (e.k === "hit") last[e.v] = F.t;   // a blade can reach a bot the body never touches (0.1.53)
+        if (e.k === "pit" && F.t - last[e.v] > 1) selfPit++; }
     }
     n++;
     const r = SIM.fightResult(F), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));

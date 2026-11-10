@@ -118,6 +118,7 @@ Commit this file as `docs/SCRAPLINE-PLAN.md` in the `Scrapline` repo so every se
 | Tooth count dial (0.1.48, Kelbo) | Kelbo asked for **"a tooth count dial"**. The game already had 1 to 3 teeth inside the R&D disc profile, so he was asked how the two should sit together (the dial takes over the teeth; keep both; the dial stays behind the R&D) and picked **the dial takes over the teeth**. A fourth Tuning dial, one to five teeth (two is stock), free to turn on any spinner with a disc or a drum, and turnable in the pit. The R&D disc profile keeps the rim and the name. A saved disc's teeth move onto the dial, so no bot changes. More teeth were given real upsides (hit again sooner, bite at a lower speed, harder to bend) after the first numbers made four and five teeth plainly worse. |
 | First build hours (0.1.52.2, Kelbo) | **"maybe let's make hours not apply to initial fitment?"** The first fit of a bot in a class costs money only, no workshop hours. Later changes cost hours and can run one week ahead (0.1.30.1). |
 | Champion's ballast (0.1.52.4, Kelbo) | Asked whether the weight cap makes sense. The 110 kg class limit stays. Offered: stop the ballast at level 3 (recommended), leave it at 2% a level, or halve it; he picked **halve it to 1% a level** (5% at level 5, a 104.5 kg limit). |
+| Box height and armour (0.1.53, Kelbo) | Asked why the cheaper plywood box showed more armour. Offered: plates protect the same on every box (recommended), fix the card only, or leave it. Kelbo picked the first: a side plate's absorb and hp are worked out at one reference height (`K.plateRefMm`), so a taller box only weighs more. |
 ---
 
 ## 2. Direction
@@ -517,4 +518,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.52.2: a first build takes no workshop hours (`crFitH`)
 - [x] 0.1.52.3: a Build change that lowers the weight limit is refused when it would leave the bot over (`bSet`)
 - [x] 0.1.52.4: the champion's ballast halved to 1% a level (`LEGACY.ballast`)
+- [x] 0.1.53: side plates protect the same on every box (`K.plateRefMm`); box rows show hull hit points
 - [ ] Later: more of the polish pass, from Kelbo's list
