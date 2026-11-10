@@ -78,6 +78,9 @@ function crFitBlock(cfg){if(!crOn())return null;if(S.career.day)return"You're at
   const L=crCfgLocks(cfg);return L.length?`${L[0].name} ${L[0].why}${L.length>1?` (and ${L.length-1} more)`:""}`:null;}
 /* tools cut build and repair hours: x (1 - cut) for each owned tool that names the slot, down to half */
 function crCut(slot){if(!crOn())return 1;let m=1;for(const t of TOOL_IDS)if(S.unlocks.tools[t]){const c=TOOLS[t].cut;m*=1-((c[slot]||0)+(c.all||0));}return Math.max(0.5,m)*(1-tmEngCut());}   // the engineer's cut on top of the tools'
+/* the first build of a bot in a class takes no workshop hours (Kelbo, 0.1.52.2): a whole new bot is more hours than two
+   weeks give, and splitting a first build over weeks is no fun. Money is still paid; later changes take hours as before */
+function crFitH(b,bill){return b&&b.cfg?crFitHours(bill):0;}
 function crFitHours(bill){return crR1(bill.lines.reduce((a,l)=>a+l.hours*crCut(l.slot)*(tmFab(l.slot,l.id)?1-tmFabCut():1),0));}
 /* a fit may run on into next week (0.1.30.1): a full new bot can take more hours than the workshop banks, so the hours
    can go below zero, by up to one week's worth; the next week's hours pay it back. Hours still missing after that, or 0 */
