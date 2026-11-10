@@ -36,6 +36,7 @@ function emptyHtml(icon,title,text,btns){return`<div class="card empty"><svg vie
 /* data-go="career/season": open a tab on one of its pages */
 function goTo(dest){const[t,s]=String(dest).split("/");
   if(s){if(t==="career")CR.sub=s;else if(t==="shop")SH.sub=s;else if(t==="fight"){FT.sub=s;FT.open=null;}}
+  closeSheet();   // a link inside a sheet (the first event's "Try the Bench first") goes to the page, not behind the sheet
   if(t==="settings"){openSettings();return;}
   showTab(t);$("panel").scrollTop=0;pageIn(document.querySelector("#tab-"+t+">div"));}
 document.addEventListener("click",e=>{const x=e.target.closest("[data-go]");if(x)goTo(x.dataset.go);});

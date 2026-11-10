@@ -5798,7 +5798,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.54.1";
+const VERSION="0.1.54.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6526,6 +6526,7 @@ function emptyHtml(icon,title,text,btns){return`<div class="card empty"><svg vie
 /* data-go="career/season": open a tab on one of its pages */
 function goTo(dest){const[t,s]=String(dest).split("/");
   if(s){if(t==="career")CR.sub=s;else if(t==="shop")SH.sub=s;else if(t==="fight"){FT.sub=s;FT.open=null;}}
+  closeSheet();   // a link inside a sheet (the first event's "Try the Bench first") goes to the page, not behind the sheet
   if(t==="settings"){openSettings();return;}
   showTab(t);$("panel").scrollTop=0;pageIn(document.querySelector("#tab-"+t+">div"));}
 document.addEventListener("click",e=>{const x=e.target.closest("[data-go]");if(x)goTo(x.dataset.go);});
@@ -8122,7 +8123,7 @@ function pitChange(o,j){if(j.kind==="front")o.onFront(j.key);else{const p=j.key.
   if(o.tunes&&cfg)o.tunes=pitTunes(cfg);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
   const j=PIT.job,box=$("fPitJob");if(box){box.classList.toggle("idle",!j);   // always there, so starting a job never pushes the buttons down (0.1.51)
-    const s=j?`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`:"Crew ready: pick a job",T=$("fPitJobT");if(T.textContent!==s)T.textContent=s;
+    const s=j?`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s · one job at a time, the rest wait`:"Crew ready: pick a job",T=$("fPitJobT");if(T.textContent!==s)T.textContent=s;
     $("fPitJobBar").style.width=(j?Math.round((1-j.left/j.total)*100):0)+"%";}}
 function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
 function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
@@ -8258,7 +8259,8 @@ function rpBill(o){const b=o.b,st=o.st,states=SIM.partStates(b,st),hs=SIM.classM
     const h=(REPAIR_HOURS[pr.kind]||0.5)*hs*(s==="destroyed"?1:0.2+0.6*lostSh);cost+=fee;hours+=h;
     lines.push({key,kind:pr.kind,name:pitName(b,key),state:s,cost:Math.round(fee),hours:Math.round(h*10)/10,lost:lostSh});}
   lines.sort((x,y)=>y.cost-x.cost);
-  return{lines,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
+  // the total is the sum of the rounded lines, so the quoted bill is what Fix everything charges (it was €266 quoted, €268 charged)
+  return{lines,cost:lines.reduce((a,l)=>a+l.cost,0),hours:Math.round(lines.reduce((a,l)=>a+l.hours,0)*10)/10};}
 function rpBillHtml(o,ev){const bill=rpBill(o);
   if(!bill.lines.length)return`<p class="ok">Nothing to pay: it came out without a scratch.</p>`;
   return`<table class="rpbill"><tbody>${bill.lines.map(l=>`<tr><th scope="row">${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></th><td class="readout">${fmt$(l.cost)}</td><td class="readout">${l.hours} h</td></tr>`).join("")}</tbody>
@@ -9105,11 +9107,16 @@ function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;const f=EVEN
   openSheet("Enter "+e.name,`${crEvLine(e)}${crDrawHtml(e)}${noPit?`<p class="hint">One fight and no pit window, so no pit kit.</p>`:`<div class="field"><span class="lbl">Pit kit</span>${segHtml("crKit","crkit",kits,CR.kit)}<p class="hint" id="crKitLine">${crKitLine(e)}</p></div>`}
     <ul class="bill"><li><span>Entry</span><span>${fmt$(crEntry(e))}</span></li><li><span>Travel</span><span>${fmt$(t.cost)}</span></li><li><span>Pit kit</span><span id="crKitP">${fmt$(crKitPrice(CR.kit,e.cls))}</span></li><li><b>Total</b><b id="crTot">${fmt$(tot())}</b></li></ul>
     <p class="hint">You have ${fmt$(c.money)} and ${crR1(c.hours)} h; the day takes ${t.hours} h. Your fitted ${esc(SIM.CLASSES[e.cls].name.toLowerCase())} goes as it is${crDmgTxt(e.cls)}.</p>
-    <p class="worn" id="crWhy"></p><div class="row"><button type="button" class="btn pri" data-cr="enter-ok">Enter</button></div>`);
+    ${crFirstNote(e)}<p class="worn" id="crWhy"></p><div class="row"><button type="button" class="btn pri" data-cr="enter-ok">Enter</button></div>`);
   const upd=()=>{$("crKitP").textContent=fmt$(crKitPrice(CR.kit,e.cls));$("crTot").textContent=fmt$(tot());if($("crKitLine"))$("crKitLine").textContent=crKitLine(e);const w=crCantEnter(e,CR.kit);$("crWhy").textContent=w||"";document.querySelector('[data-cr="enter-ok"]').disabled=!!w;};
   if($("crKit"))$("crKit").addEventListener("click",ev=>{const b=ev.target.closest("[data-crkit]");if(!b)return;CR.kit=CR.kitPick=b.dataset.crkit;$("crKit").querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});upd();});upd();}
 function crKitLine(e){return CR.kit==="none"?"No spares: the pit window has nothing to work with.":PIT_KITS[CR.kit].line+" "+Object.keys(PIT_KITS[CR.kit].allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${PIT_KITS[CR.kit].allow[k]}`).join(" · ");}
 function crDmgTxt(cls){const b=S.bots[cls];if(!b||!b.cfg)return"";const bill=crBill(cls);return bill&&bill.lines.length?`, <span class="worn">damage and all (${bill.lines.length} part${bill.lines.length>1?"s":""} still broken)</span>`:"";}
+/* the first event of a career: point at the Bench and say plainly that repairs can cost more than the prize
+   (a play-tester skipped the Bench, lost 0-3, won €50 and was billed €268 in repairs) */
+function crFirstNote(e){const c=S.career;if(c.season!==0||Object.keys(c.events||{}).length)return"";
+  const n=EVENT_KINDS[e.kind].prizes.length,lo=crPrize(e,n-1),hi=crPrize(e,0);
+  return`<div class="first"><p><b>Your first event.</b> Prizes run from ${fmt$(lo)} for last to ${fmt$(hi)} for first, and the repairs on a beaten bot can cost more than last place pays. The Bench shows where your bot is weak before it costs you anything.</p><div class="row"><button type="button" class="btn sm" data-go="bench">Try the Bench first</button></div></div>`;}
 function crEnter(){const c=S.career,e=crThisWeek();if(!e)return;const kit=CR.kit||"none",w=crCantEnter(e,kit);if(w){toast(w);return;}const t=crTravel(e);
   crPay(crEntry(e),`${e.name}: entry`);crPay(t.cost,`${e.name}: travel`);if(kit!=="none")crPay(crKitPrice(kit,e.cls),`${e.name}: ${PIT_KITS[kit].name.toLowerCase()}`);
   c.hours=crR1(c.hours-t.hours);c.entered=crKey(e);c.day=crNewDay(e,kit);crAdvance(c.day);save();hud();closeSheet();crRender();toast(`Entered ${e.name}`);}

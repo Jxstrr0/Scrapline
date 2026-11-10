@@ -480,11 +480,16 @@ function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;const f=EVEN
   openSheet("Enter "+e.name,`${crEvLine(e)}${crDrawHtml(e)}${noPit?`<p class="hint">One fight and no pit window, so no pit kit.</p>`:`<div class="field"><span class="lbl">Pit kit</span>${segHtml("crKit","crkit",kits,CR.kit)}<p class="hint" id="crKitLine">${crKitLine(e)}</p></div>`}
     <ul class="bill"><li><span>Entry</span><span>${fmt$(crEntry(e))}</span></li><li><span>Travel</span><span>${fmt$(t.cost)}</span></li><li><span>Pit kit</span><span id="crKitP">${fmt$(crKitPrice(CR.kit,e.cls))}</span></li><li><b>Total</b><b id="crTot">${fmt$(tot())}</b></li></ul>
     <p class="hint">You have ${fmt$(c.money)} and ${crR1(c.hours)} h; the day takes ${t.hours} h. Your fitted ${esc(SIM.CLASSES[e.cls].name.toLowerCase())} goes as it is${crDmgTxt(e.cls)}.</p>
-    <p class="worn" id="crWhy"></p><div class="row"><button type="button" class="btn pri" data-cr="enter-ok">Enter</button></div>`);
+    ${crFirstNote(e)}<p class="worn" id="crWhy"></p><div class="row"><button type="button" class="btn pri" data-cr="enter-ok">Enter</button></div>`);
   const upd=()=>{$("crKitP").textContent=fmt$(crKitPrice(CR.kit,e.cls));$("crTot").textContent=fmt$(tot());if($("crKitLine"))$("crKitLine").textContent=crKitLine(e);const w=crCantEnter(e,CR.kit);$("crWhy").textContent=w||"";document.querySelector('[data-cr="enter-ok"]').disabled=!!w;};
   if($("crKit"))$("crKit").addEventListener("click",ev=>{const b=ev.target.closest("[data-crkit]");if(!b)return;CR.kit=CR.kitPick=b.dataset.crkit;$("crKit").querySelectorAll("button").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});upd();});upd();}
 function crKitLine(e){return CR.kit==="none"?"No spares: the pit window has nothing to work with.":PIT_KITS[CR.kit].line+" "+Object.keys(PIT_KITS[CR.kit].allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${PIT_KITS[CR.kit].allow[k]}`).join(" · ");}
 function crDmgTxt(cls){const b=S.bots[cls];if(!b||!b.cfg)return"";const bill=crBill(cls);return bill&&bill.lines.length?`, <span class="worn">damage and all (${bill.lines.length} part${bill.lines.length>1?"s":""} still broken)</span>`:"";}
+/* the first event of a career: point at the Bench and say plainly that repairs can cost more than the prize
+   (a play-tester skipped the Bench, lost 0-3, won €50 and was billed €268 in repairs) */
+function crFirstNote(e){const c=S.career;if(c.season!==0||Object.keys(c.events||{}).length)return"";
+  const n=EVENT_KINDS[e.kind].prizes.length,lo=crPrize(e,n-1),hi=crPrize(e,0);
+  return`<div class="first"><p><b>Your first event.</b> Prizes run from ${fmt$(lo)} for last to ${fmt$(hi)} for first, and the repairs on a beaten bot can cost more than last place pays. The Bench shows where your bot is weak before it costs you anything.</p><div class="row"><button type="button" class="btn sm" data-go="bench">Try the Bench first</button></div></div>`;}
 function crEnter(){const c=S.career,e=crThisWeek();if(!e)return;const kit=CR.kit||"none",w=crCantEnter(e,kit);if(w){toast(w);return;}const t=crTravel(e);
   crPay(crEntry(e),`${e.name}: entry`);crPay(t.cost,`${e.name}: travel`);if(kit!=="none")crPay(crKitPrice(kit,e.cls),`${e.name}: ${PIT_KITS[kit].name.toLowerCase()}`);
   c.hours=crR1(c.hours-t.hours);c.entered=crKey(e);c.day=crNewDay(e,kit);crAdvance(c.day);save();hud();closeSheet();crRender();toast(`Entered ${e.name}`);}

@@ -111,7 +111,8 @@ function rpBill(o){const b=o.b,st=o.st,states=SIM.partStates(b,st),hs=SIM.classM
     const h=(REPAIR_HOURS[pr.kind]||0.5)*hs*(s==="destroyed"?1:0.2+0.6*lostSh);cost+=fee;hours+=h;
     lines.push({key,kind:pr.kind,name:pitName(b,key),state:s,cost:Math.round(fee),hours:Math.round(h*10)/10,lost:lostSh});}
   lines.sort((x,y)=>y.cost-x.cost);
-  return{lines,cost:Math.round(cost),hours:Math.round(hours*10)/10};}
+  // the total is the sum of the rounded lines, so the quoted bill is what Fix everything charges (it was €266 quoted, €268 charged)
+  return{lines,cost:lines.reduce((a,l)=>a+l.cost,0),hours:Math.round(lines.reduce((a,l)=>a+l.hours,0)*10)/10};}
 function rpBillHtml(o,ev){const bill=rpBill(o);
   if(!bill.lines.length)return`<p class="ok">Nothing to pay: it came out without a scratch.</p>`;
   return`<table class="rpbill"><tbody>${bill.lines.map(l=>`<tr><th scope="row">${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></th><td class="readout">${fmt$(l.cost)}</td><td class="readout">${l.hours} h</td></tr>`).join("")}</tbody>
