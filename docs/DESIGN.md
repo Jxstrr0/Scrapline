@@ -337,7 +337,7 @@ A Body option's delta line on Build now shows what it does to the bot's height (
 
 The body styles were balanced on beetle only. Run on every class (each body on each test build against the other eleven, 6 seeds x skills .5 / .85), the low bodies fell well under in feather and heavy: Pancake 4.5 and 8.5 points under the plain box on average, 20 to 25 under on the heavy hammer and horizontal spinner; Wedge shell 18 to 20 under on the heavy hammer and Brick. A low body shrinks the side, front and back plates, and their hp went with their mass, so it paid twice.
 
-**A plate's hp and absorb now go with its thickness, not its height** (`evalBuild` in `sim/build.js`; Kelbo: both ways). A low body's shorter plates weigh less and keep a full-height plate's hp; a tall body's bigger ones weigh more without adding hp. The top plate is unchanged.
+**A plate's hp and absorb now go with its thickness, not its height** (`evalBuild` in `sim/build.js`; Kelbo: both ways). A low body's shorter plates weigh less and keep a full-height plate's hp; a tall body's bigger ones weigh more without adding hp. The top plate is unchanged. From 0.1.53 the same holds for the box's own height: every box's side plates protect as on a 46 mm box (`K.plateRefMm`, beetle scale), and the Build tab's box rows show the hull's hit points.
 
 Mean change against the plain box on the same test build (worst single build in brackets), after:
 
