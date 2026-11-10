@@ -21,7 +21,12 @@ const DEBUGVIEW={
     for(let v=-H+step;v<H-1e-6;v+=step){g.moveTo(X(v),Y(-H));g.lineTo(X(v),Y(H));g.moveTo(X(-H),Y(v));g.lineTo(X(H),Y(v));}g.stroke();
     /* the pit (dashed while it's shut), wall pushers and floor spinners (lit while they fire) */
     if(F.arena.pit){const p=F.arena.pit.rect,open=F.t>=F.arena.pit.openS,x=X(p[0]),y=Y(p[3]),pw=(p[2]-p[0])*s,ph=(p[3]-p[1])*s;
-      if(open){g.fillStyle="#050505";g.fillRect(x,y,pw,ph);}g.strokeStyle=DV_COL.haz;g.lineWidth=1.5*dpr;g.setLineDash(open?[]:[5*dpr,4*dpr]);g.strokeRect(x,y,pw,ph);g.setLineDash([]);}
+      /* 0.1.55: an open pit stands out, a thick edge that pulses amber to red (steady with motion reduced) and its name in the middle */
+      if(open){g.fillStyle="#050505";g.fillRect(x,y,pw,ph);}
+      const pulse=open&&!red?0.5+0.5*Math.sin((now||0)/220):1;
+      g.strokeStyle=open?`rgb(${226},${Math.round(169-110*pulse)},${Math.round(59-10*pulse)})`:DV_COL.haz;g.lineWidth=(open?3:1.5)*dpr;g.setLineDash(open?[]:[5*dpr,4*dpr]);g.strokeRect(x,y,pw,ph);g.setLineDash([]);
+      const fs=Math.max(9,Math.min(14,Math.min(pw,ph)/dpr*0.35));g.font=`700 ${fs*dpr}px "Space Grotesk",system-ui,sans-serif`;g.textAlign="center";g.textBaseline="middle";
+      g.fillStyle=open?"#F2B46A":"rgba(226,169,59,.55)";g.fillText("PIT",x+pw/2,y+ph/2);g.textAlign="left";g.textBaseline="alphabetic";}
     F.arena.haz.forEach((h,i)=>{const on=F.hz&&F.t<F.hz[i].until;g.strokeStyle=DV_COL.haz;g.fillStyle=on?DV_COL.hazOn:"rgba(226,169,59,.12)";g.lineWidth=1.5*dpr;
       if(h.type==="spinner"){g.beginPath();g.arc(X(h.at[0]),Y(h.at[1]),h.rM*s,0,Math.PI*2);g.fill();g.stroke();}
       else{const r=h.rect;g.fillRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);g.strokeRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);}});
@@ -31,6 +36,8 @@ const DEBUGVIEW={
     g.strokeStyle=DV_COL.wall;g.lineWidth=3*dpr;g.strokeRect(X(-H),Y(H),2*H*s,2*H*s);
     const font=px=>`${px*dpr}px "JetBrains Mono",ui-monospace,monospace`;
     const placed=[];
+    /* 0.1.55: a lilac ring round the bot you drive, so you find yourself at a glance */
+    {const me=F.bots[0];if(typeof FT!=="undefined"&&FT.you&&me&&!me.out){g.strokeStyle="#B48CE8";g.lineWidth=2.5*dpr;g.beginPath();g.arc(X(me.x),Y(me.y),Math.max(me.rad*1.35*s,9*dpr),0,Math.PI*2);g.stroke();}}
     for(const o of F.bots){if(o.out==="pit")continue;const col=dvCol(o),lift=o.z*s*0.6,grow=1+Math.min(o.z,1)*0.35;
       const at=(lx,ly)=>{const p=toW(o,lx*grow,ly*grow);return[X(p[0]),Y(p[1])-lift];};
       /* shadow in the air */
