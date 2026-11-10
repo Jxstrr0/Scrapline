@@ -43,9 +43,11 @@ let bEvalKey="",bEvalRes=null;
 function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
 const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 
-/* change the draft. Refused (with the grams) if it would go over the limit and adds weight. */
-function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c);
-  if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
+/* change the draft. Refused (with the grams) if it would put the bot over the limit, or further over than it is: that
+   covers a change that lowers the limit too, like taking Shuffler legs off a bot built to their higher limit (0.1.52.3) */
+function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c),over=r.totalG-r.limitG;
+  if(over>0&&over>Math.max(0,before.totalG-before.limitG)){
+    toast(r.limitG<before.limitG?`That lowers the limit to ${fmtG(r.limitG)}: the bot would be ${fmtG(over)} over. Take something off first.`:`${fmtG(over)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
   bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
 /* moving parts and turning the dials are free: if the draft and the fitted bot have the same parts, the fitted bot takes
    the new layout and dials (0.1.33) */
