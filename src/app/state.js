@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.46.0";
+const VERSION="0.1.47.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -257,7 +257,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=15;
+const SAVE_V=16;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -272,6 +272,7 @@ function freshState(){return{v:SAVE_V,settings:freshSettings(),
   lastFight:null,                 // the latest fight log, for replay (PR 6)
   reel:{m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0},   // the highlight reel (0.1.27.0, app/reel.js): moments by id, this season's five, last season's reel (and its year), the career's best three, the Sandbox's five
   daily:{last:null,streak:0,top:0,best:null,tries:0},   // the daily challenge (0.1.20.0, app/daily.js): last day fought ("YYYY-MM-DD"), days in a row, longest run, today's best {score, txt, bring}, today's tries
+  school:{},                      // the driving school (0.1.47.0, app/school.js): {<SIM.DRILLS id>: {m, best, n}}: best medal (0 to 3), best score, tries
   hall:[],                        // the hall of fame (0.1.39, app/career.js crHallAdd): a line per career that ended: {team, y0, y1, seasons, events, wins, titles: [years], best, rep, act, end}
   lastBackup:0};}
 let S=freshState();
@@ -296,7 +297,8 @@ const MIGRATE={
   11:o=>{const d=o.career&&typeof o.career==="object"?o.career.day:null;if(d&&typeof d==="object"&&Array.isArray(d.pairs)&&Array.isArray(d.won)){d.hist=[];d.how=d.won.map(()=>null);d.sc=d.won.map(()=>"");}return o;},   // 0.1.26.0: the bracket screen keeps a tournament day's rounds (day.hist, how, sc); a day already under way has none of the earlier rounds
   12:o=>{o.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};return o;},   // 0.1.27.0: the highlight reel starts empty
   13:o=>{if(o.settings&&typeof o.settings==="object")o.settings.dev=o.settings.dev===true;return o;},   // 0.1.30.0: Dev mode (Settings) starts off
-  14:o=>{o.hall=[];return o;}   // 0.1.39.0: the hall of fame starts empty; the title and legend level are worked out from career.events (crTitle), so nothing else to add
+  14:o=>{o.hall=[];return o;},   // 0.1.39.0: the hall of fame starts empty; the title and legend level are worked out from career.events (crTitle), so nothing else to add
+  15:o=>{o.school={};return o;}   // 0.1.47.0: the driving school starts with no medals
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -309,7 +311,7 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   const n=freshState();Object.assign(n,o);
   n.settings=Object.assign(freshSettings(),o.settings);
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
-  for(const k of ["designs","rivals","parked"])if(!buObjS(n[k]))n[k]={};
+  for(const k of ["designs","rivals","parked","school"])if(!buObjS(n[k]))n[k]={};
   if(n.mode!=="career")n.mode="sandbox";
   if(!buObjS(n.daily))n.daily={last:null,streak:0,top:0,best:null,tries:0};
   if(!buObjS(n.reel)||!buObjS(n.reel.m))n.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};   // the lists are checked where they're used (rlState)

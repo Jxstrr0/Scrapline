@@ -18,8 +18,8 @@
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
 const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
   you:false,on:false,view2d:false,partN:0,buzzT:0,
-  sub:"spar",open:null,   // the Fight tab's page (spar / daily / reel / codes) and its open picker row
-  ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js)
+  sub:"spar",open:null,   // the Fight tab's page (spar / daily / school / reel / codes) and its open row (a picker, or "sc:<drill>")
+  ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js), {kind:"bench"} or {kind:"school", id, demo, res} (app/school.js)
 const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
@@ -46,7 +46,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.whl={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
-function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);
+function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);if(FT.ext&&FT.ext.kind==="school")scRecord(F);
   if(!FT.ext&&!(FT.bout&&FT.bout.ev)&&S.mode!=="career"){rlConsider(F,{});save();}const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
@@ -103,7 +103,7 @@ const ftShown=()=>FT.rounds[FT.rv]?FT.rounds[FT.rv].F:null;
 /* ---- replay: the same fight again from its log ---- */
 const ftReplayOk=F=>{const R=FT.rounds.find(x=>x.F===F);if(!R)return false;if(!R.log)R.log=SIM.fightResult(F).log;return!R.log.noReplay;};
 function ftRpFight(log,n){const play={};for(const k in log.inputs||{})play[k]=SIM.unpackInputs(log.inputs[k]);
-  const F=SIM.newFight({seed:log.seed,arena:log.arena,rules:log.rules,bots:log.bots,play,fx:true});F.fxq=null;
+  const F=SIM.newFight({seed:log.seed,arena:log.arena,rules:log.rules,drill:log.drill,bots:log.bots,play,fx:true});F.fxq=null;
   while(F.n<n&&!F.over)SIM.stepFight(F,null);F.fxq=[];
   if(F.n>=log.steps&&!F.over){F.over=true;F.endT=F.t;F.reason="stopped";}   // a jump to the end of a stopped round ends there
   return F;}
@@ -137,6 +137,7 @@ function ftVoiceLoad(){if(curTab==="fight"&&ST().sound!==false)SCRAP_SOUND.prep(
 const ftVKind=F=>{const M=F.bots.filter(o=>!o.mini);if(M.length<=2)return"duel";return new Set(M.map(o=>o.team)).size===M.length?"rumble":"tag";};
 const ftVName=F=>F.bots.filter(o=>!o.mini&&o.team!==F.bots[0].team).length===1?F.bots.find(o=>!o.mini&&o.team!==F.bots[0].team):null;
 function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden=true;
+  if(F.drill){SCRAP_VOICE.stop();if(!FT.rp&&!again&&ST().sound!==false)SCRAP_SOUND.sfx("bell",0.7);return;}   // a drill has no announcer: the bell, and off you go
   const W=FT.rp&&FT.rp.watch?FT.watch:null,rp=!!FT.rp&&!W,B=FT.bout,vc=W?W.voice||null:!rp&&B&&B.ev?B.ev.voice||null:null,src=FT.rp&&FT.rounds[FT.rp.i]?FT.rounds[FT.rp.i].F:null;   // W: a watched sim, voiced like a live bout
   const rivals=FT.rp?(src&&src.vRiv)||{}:vc?vc.rivals||{}:{};F.vRiv=rivals;const kind=ftVKind(F);
   SCRAP_VOICE.begin(F,{speed:FT.rp?FT.rp.speed:FT.you?1:FT.speed,replay:rp,rivals,kind});
@@ -158,14 +159,14 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
   else{SCRAP_VOICE.seq(cues);bell();}}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
 /* the bell: the result calls, then (in a career) a first win or the Open title */
-function ftVoiceEnd(F){if(F.reason==="stopped")return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
+function ftVoiceEnd(F){if(F.reason==="stopped"||F.drill)return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
   const bout=FT.watch&&FT.rounds.length>1?Object.assign(ftWatchScore(),{over:FT.watch.k>=FT.rounds.length-1}):!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
   if(!rp&&B&&B.ev&&B.over&&!B.stopped&&crOn()){const c=S.career,vc=B.ev.voice||{},won=(B.wins[me]||0)>=(B.need||1);
     if(won&&!c.fw){c.fw=true;extra.push("career:first");}
     if(won&&vc.event==="Scrapline Open Final"&&vc.label==="final")extra.push("career:open");save();}
   SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra});}
 /* the post-mortem line for the round on the results card, once (after the bell's calls) */
-function ftVoicePm(F){if(F.pmSaid||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true});}
+function ftVoicePm(F){if(F.pmSaid||F.drill||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true});}
 /* a caption: the line at the bottom of the fight for a few seconds (only when sound or voices are off) */
 SCRAP_VOICE.onCap=(text,who)=>{const el=$("fCap");if(!el||!FT.on)return;el.textContent=(who==="a"?"Duncan: ":"Jess: ")+text;el.hidden=false;el.classList.toggle("fcom",who!=="a");
   clearTimeout(ftVoicePm.t);ftVoicePm.t=setTimeout(()=>{el.hidden=true;},Math.max(2200,text.length*70));};
@@ -303,7 +304,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
   else if(a==="evback")ftEvBack();
-  else if(a==="again"){const dl=FT.ext&&FT.ext.kind==="daily";ftExit();if(dl)dlStart();else ftStart();}
+  else if(a==="again"){const dl=FT.ext&&FT.ext.kind==="daily",sc=FT.ext&&FT.ext.kind==="school"?FT.ext.id:null;ftExit();if(sc)scStart(sc);else if(dl)dlStart();else ftStart();}
   else if(a==="pit")ftPit();
   else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
@@ -319,7 +320,7 @@ const ftSpLbl=v=>(v===0.5?"½":v===0.25?"¼":v)+"×";
 /* the strip per bot, the clock and the notes, a few times a second */
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
-  const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
+  const c=$("fClock");if(c)c.textContent=F.drill?scClock(F):ftT(Math.max(0,F.rules.roundS-F.t));
   const many=F.bots.filter(o=>!o.mini).length>2;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
@@ -339,10 +340,10 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
-    const s=FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
+    const s=F.drill?scNote(F):FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
   if(!snd)SCRAP_SOUND.stop();}
 /* the bell at the end, and the crowd: a cheer for a knockout or the pit, applause for the judges (every tier) */
-function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);
+function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);if(F.drill){if(F.drill.medal)SCRAP_SOUND.sfx("cheer",0.5);return;}
   if(F.reason==="judges"||F.reason==="draw")SCRAP_SOUND.sfx("clap",0.6);else SCRAP_SOUND.sfx("cheer",0.6);}
 /* a bot's damage silhouette: the faces as its outline, the parts as dots where the layout put them, green / amber / cool red */
 const FT_SC={intact:"#4CC38A",damaged:"#E2A93B",destroyed:"#E5484D"};
@@ -414,10 +415,11 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
 function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
+  if(!FT.rp&&F.drill)btns='<button type="button" class="btn pri" data-fv="again">Again</button><button type="button" class="btn" data-fv="results">Back to the school</button>';
   if(FT.rp&&FT.watch){const W=FT.watch,sc=ftWatchScore();
     if(W.k>=FT.rounds.length-1){toastHold(false);const x=W.banner;r={t:x.t,s:x.s,cls:x.cls};btns='<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
     else{r={t:`Round ${W.k+1}: ${r.t}`,s:`${r.s} · ${sc.me}–${sc.them} in the bout.`,cls:r.cls};btns=`<button type="button" class="btn pri" data-fv="wnext">Round ${W.k+2}</button><button type="button" class="btn" data-fv="evback">Back to the event</button>`;}}
-  else if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
+  else if(FT.rp){r={t:(F.drill&&FT.ext&&FT.ext.demo?"":"Replay: ")+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
     btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
   else if(B&&F.reason!=="stopped"){const sc=`${B.wins[0]||0}–${B.wins[1]||0}`,w=ftBoutWinner(B);
@@ -426,7 +428,8 @@ function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reas
       btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
   $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
   const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
-function ftResult(F){if(F.reason==="stopped")return{t:"Fight stopped",s:"",cls:""};
+function ftResult(F){if(F.reason==="stopped")return{t:F.drill?"Drill stopped":"Fight stopped",s:"",cls:""};
+  if(F.drill)return scResult(F);
   const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
   if(!win)return{t:"Draw",s:`At ${ftT(F.endT)}, too close for the judges to split`,cls:""};
   return{t:win.i===0?"You win":`${win.name} wins`,s:`${F.reason==="ko"?"By knockout":F.reason==="pit"?"Into the pit":"On the judges' decision"} at ${ftT(F.endT)}`,cls:win.i===0?"ok":"broke"};}
@@ -500,11 +503,11 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
   el.innerHTML=html;FT.logN=L.length;}
 
 /* ---- the tab ---- */
-/* The tab is four short pages behind a strip (0.1.43): Spar, Daily, Highlights, Codes (FT.sub). A shown result sits
+/* The tab is five short pages behind a strip (0.1.43; School from 0.1.47): Spar, Daily, School, Highlights, Codes (FT.sub). A shown result sits
    under the page it came from; ftExit picks that page when a fight ends. On Spar the pickers are rows that open one
    at a time (FT.open), like the Build tab's, and the Fight bar stays pinned at the bottom of the panel. */
-const FT_SUBS=[["spar","Spar"],["daily","Daily"],["reel","Highlights"],["codes","Codes"]];
-function ftResSub(){return FT.ext?FT.ext.kind==="daily"?"daily":FT.ext.kind==="code"?"codes":"spar":"spar";}
+const FT_SUBS=[["spar","Spar"],["daily","Daily"],["school","School"],["reel","Highlights"],["codes","Codes"]];
+function ftResSub(){return FT.ext?FT.ext.kind==="daily"?"daily":FT.ext.kind==="code"?"codes":FT.ext.kind==="school"?"school":"spar":"spar";}
 function ftRow(id,t,sum,body){const o=FT.open===id;return`<div class="acc${o?" open":""}" data-ftrow="${id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${t}</span><span class="sum" data-ftsum="${id}">${sum}</span><span class="chev"></span></button><div class="accb">${body}</div></div>`;}
 /* what each closed row says, and the Fight bar's two lines */
 function ftSum(id){const cls=bCls(),c=SIM.CLASSES[cls];
@@ -522,9 +525,10 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg&&!ext){FT.F=null;FT.rounds=[];FT.bout=null;}
   if(bot.cfg){const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
-  const R=ftShown(),res=R&&ftResSub()===sub?ftResHtml(R):"";
+  const R=ftShown(),res=R&&ftResSub()===sub&&sub!=="school"?ftResHtml(R):"";   // a drill's result is a line in its own row (app/school.js)
   let h="";
   if(sub==="daily")h=dlCard()+res;
+  else if(sub==="school")h=scCard();
   else if(sub==="reel")h=rlCard();
   else if(sub==="codes")h=rcCard()+res;
   else if(!bot.cfg)h=chips+`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON.tools}</svg><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>

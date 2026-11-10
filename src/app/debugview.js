@@ -25,6 +25,9 @@ const DEBUGVIEW={
     F.arena.haz.forEach((h,i)=>{const on=F.hz&&F.t<F.hz[i].until;g.strokeStyle=DV_COL.haz;g.fillStyle=on?DV_COL.hazOn:"rgba(226,169,59,.12)";g.lineWidth=1.5*dpr;
       if(h.type==="spinner"){g.beginPath();g.arc(X(h.at[0]),Y(h.at[1]),h.rM*s,0,Math.PI*2);g.fill();g.stroke();}
       else{const r=h.rect;g.fillRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);g.strokeRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);}});
+    /* a drill's rings (0.1.47): the one you're on in clay, the ones to come faint; a hold drill's ring in lilac */
+    if(F.drill){const D=F.drill;g.lineWidth=2.5*dpr;D.steps.forEach((q,i)=>{if(!q.go||i<D.k)return;g.globalAlpha=i===D.k?1:0.35;g.strokeStyle="#D97757";g.beginPath();g.arc(X(q.go[0]),Y(q.go[1]),q.r*s,0,Math.PI*2);g.stroke();});g.globalAlpha=1;
+      if(D.zone){g.strokeStyle="#B48CE8";g.beginPath();g.arc(X(D.zone[0]),Y(D.zone[1]),D.zone[2]*s,0,Math.PI*2);g.stroke();}}
     g.strokeStyle=DV_COL.wall;g.lineWidth=3*dpr;g.strokeRect(X(-H),Y(H),2*H*s,2*H*s);
     const font=px=>`${px*dpr}px "JetBrains Mono",ui-monospace,monospace`;
     const placed=[];

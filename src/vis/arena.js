@@ -47,7 +47,7 @@ function arenaClear(){fxClear();for(const B of AR.bots){disposeClone(B.mesh);blo
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
   if(AR.floorMat){AR.floorMat.dispose();AR.floorMat=null;}for(const t of AR.floorTex)t.dispose();AR.floorTex=[];   // the floor's own material and its tile (the photo plate it starts with is M.arenaFloor's)
-  AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
+  AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.rings=null;AR.pitCover=null;fxClear();}
 /* the dressing scale: scene units per real metre for everything outside the walls (props, stands, the flat crowd), so they
    agree with each other. Real size (AR.U) where that is small enough, else capped, so a beetle arena (4 units a metre) isn't
    ringed by giants (0.1.21.1; the props used it alone from 0.1.21.0 and the people were drawn at about a third of it) */
@@ -119,6 +119,7 @@ function buildArena(F){
     const R=h.rM*U,m=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.03,lite?24:40),M.haz.clone());m.userData.own=true;m.position.set(X(h.at[0]),0.016,Z(h.at[1]));g.add(m);
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
     return{h,m,R,bar};});
+  AR.rings=drillRings(g,F,X,Z,U,lite);
   /* bots */
   AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null,o.livery||null);g.add(mesh);mesh.scale.setScalar(U);
     const B={o,mesh,flipT:-9,shots:o.wp.shots,kickT:-9,kshots:o.kick?o.kick.shots:0,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
@@ -244,6 +245,16 @@ function arenaPaint(g,lk,A,S,k,px,py,u,lite){const lw=Math.max(1,S/512),m=0.3*4*
 /* a flame grate (0.1.37): a dark plate in the floor (its bars are painted on the floor by arenaDecal; Full and Ultra put
    the kit's grate in it) and its flames, cones that stand up and flicker while it burns and sit low as a pilot light
    before. Lite: three plain cones, no blending. Full and Ultra: seven, two layers, additive. Nothing here casts a light. */
+/* a driving-school drill's rings (0.1.47, sim/school.js F.drill): flat rings on the floor on every tier. The one you're on
+   is clay, the ones to come are faint, the ones done are gone; a hold drill's ring is lilac and stays. */
+function drillRings(g,F,X,Z,U,lite){const D=F.drill;if(!D)return null;const out=[],C=x=>new THREE.Color(x).convertSRGBToLinear();
+  const mk=(x,y,r,col)=>{const m=new THREE.Mesh(new THREE.RingGeometry(r*U*0.8,r*U,lite?20:40),new THREE.MeshBasicMaterial({color:C(col),transparent:true,opacity:0.9,depthWrite:false,fog:false}));
+    m.userData.own=true;m.rotation.x=-Math.PI/2;m.position.set(X(x),0.022,Z(y));m.renderOrder=2;g.add(m);return m;};
+  D.steps.forEach((s,i)=>{if(s.go)out.push({i,m:mk(s.go[0],s.go[1],s.r,0xD97757),st:-1});});
+  if(D.zone)out.push({zone:true,m:mk(D.zone[0],D.zone[1],D.zone[2],0xB48CE8)});
+  return out;}
+function drillRingsTick(F){const D=F.drill;if(!D||!AR.rings)return;
+  for(const q of AR.rings){if(q.zone)continue;const st=q.i<D.k?0:q.i===D.k?2:1;if(q.st===st)continue;q.st=st;q.m.visible=st>0;q.m.material.opacity=st===2?0.95:0.28;}}
 function flameMesh(g,h,X,Z,lite){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.012,d),V.mats.haz.clone());m.userData.own=true;m.position.set(cx,0.008,cz);g.add(m);
   const long=w>=d,L=Math.max(w,d),T=Math.min(w,d),n=lite?3:4,fl=[],C=x=>new THREE.Color(x).convertSRGBToLinear();
@@ -305,6 +316,7 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(z.h.type==="pusher"){const k=on?Math.min(1,(z.h.activeS-(s.until-F.t))/0.08):0;z.m.position.set(z.base.x+z.n[0]*z.reach*k,z.base.y,z.base.z+z.n[1]*z.reach*k);}
     else if(on)z.m.rotation.y+=dt*18;});
   for(const l of AR.lamps||[])hazLit(l.material,any);
+  drillRingsTick(F);
   /* the pit cover slides off when it opens */
   if(AR.pitCover){const open=F.arena.pit&&F.t>=F.arena.pit.openS;if(open&&AR.pitOpenAt==null)AR.pitOpenAt=now;
     const k=AR.pitOpenAt==null?0:Math.min(1,(now-AR.pitOpenAt)/600);AR.pitCover.m.position.x=AR.pitCover.x0+AR.pitCover.w*1.05*k;AR.pitCover.m.visible=k<1;}
@@ -312,6 +324,10 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   let live=AR.bots.filter(B=>!B.o.out&&!B.o.mini);if(!live.length)live=AR.bots.filter(B=>!B.o.out);
   const H=F.arena.half*U,pitch=0.98,sp=Math.sin(pitch),c=AR.cam;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,rM=0.3;
   for(const B of live){const x=B.o.x*U,z=-B.o.y*U,r=botR(B.o)*U*1.25;rM=Math.max(rM,r);x0=Math.min(x0,x-r);x1=Math.max(x1,x+r);z0=Math.min(z0,z-r);z1=Math.max(z1,z+r);}
+  /* a drill (0.1.47): the ring you're on, the one after it and the hold ring are in the frame too, so you can see where to go */
+  if(F.drill&&live.length){const D=F.drill,inc=(px,py,r)=>{const x=px*U,z=-py*U,q=r*U;x0=Math.min(x0,x-q);x1=Math.max(x1,x+q);z0=Math.min(z0,z-q);z1=Math.max(z1,z+q);};
+    for(let i=D.k;i<D.k+2&&i<D.steps.length;i++){const q=D.steps[i];if(q.go)inc(q.go[0],q.go[1],q.r);}if(D.zone)inc(D.zone[0],D.zone[1],D.zone[2]);
+    if(D.steps[D.k]&&D.steps[D.k].pit&&F.arena.pit){const r=F.arena.pit.rect;inc((r[0]+r[2])/2,(r[1]+r[3])/2,(r[2]-r[0])/2);}}
   if(!live.length){x0=z0=-H;x1=z1=H;}
   const pad=rM*1.1,minS=Math.max(2.2,rM*4.6),maxS=2*H+1.5,spX=Math.max(minS,Math.min(maxS,x1-x0+2*pad)),spZ=Math.max(minS*0.8,Math.min(maxS,z1-z0+2*pad));
   const lim=H*0.95;let cx=Math.max(-lim,Math.min(lim,(x0+x1)/2)),cz=Math.max(-lim,Math.min(lim,(z0+z1)/2));
