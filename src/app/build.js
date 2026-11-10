@@ -40,12 +40,14 @@ function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
 const draft=()=>bBot().draft;
 /* evalBuild results for this draft, kept until it changes */
 let bEvalKey="",bEvalRes=null;
-function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
+function bEval(){const k=crLimitG(bCls())+JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
 const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 
-/* change the draft. Refused (with the grams) if it would go over the limit and adds weight. */
-function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c);
-  if(r.totalG>r.limitG&&r.totalG>before.totalG){toast(`${fmtG(r.totalG-r.limitG)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
+/* change the draft. Refused (with the grams) if it would put the bot over the limit, or further over than it is: that
+   covers a change that lowers the limit too, like taking Shuffler legs off a bot built to their higher limit (0.1.52.3) */
+function bSet(mut,why){const before=bEval(),c=bTry(mut),r=bEv(c),over=r.totalG-r.limitG;
+  if(over>0&&over>Math.max(0,before.totalG-before.limitG)){
+    toast(r.limitG<before.limitG?`That lowers the limit to ${fmtG(r.limitG)}: the bot would be ${fmtG(over)} over. Take something off first.`:`${fmtG(over)} over the ${r.className} limit. Take something off first.`);buzz(30);return false;}
   bBot().draft=SIM.normCfg(c);bNormed.add(bBot().draft);bLayoutSync();save();bRender();if(why)toast(why);return true;}
 /* moving parts and turning the dials are free: if the draft and the fitted bot have the same parts, the fitted bot takes
    the new layout and dials (0.1.33) */
@@ -264,7 +266,7 @@ function bFitBar(r){const b=bBot(),fb=$("fitBar");
   const what=[n?`${n} new part${n===1?"":"s"}`:"",off?`${off} taken off`:""].filter(Boolean).join(", ")||"Parts changed";
   fb.hidden=false;
   const blk=ok?crFitBlock(b.draft):null;
-  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${!ok?(r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")):blk?`<span class="worn">${esc(blk)}</span>`:`${fmt$(bill.cost)} · ${b.cfg||!crOn()?crFitHours(bill)+" h in the workshop":"first build, no hours"}`}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok&&!blk?"":" disabled"}>Fit</button>`;}
+  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${!ok?(r.totalG>r.limitG?(crOn()&&bCls()===LEGACY.cls&&crLegend()?`Over the champion's limit: ${fmtG(r.limitG)} at legend level ${crLegend()}, not ${fmtG(SIM.CLASSES[bCls()].limitG)}`:"Over the limit"):"Can't be fitted: "+esc(r.errors[0]||"")):blk?`<span class="worn">${esc(blk)}</span>`:`${fmt$(bill.cost)} · ${b.cfg||!crOn()?crFitHours(bill)+" h in the workshop":"first build, no hours"}`}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok&&!blk?"":" disabled"}>Fit</button>`;}
 
 /* ---- fit: show the bill, then charge it (once the career exists) ---- */
 function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
