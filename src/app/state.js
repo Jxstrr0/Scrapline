@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.54.2";
+const VERSION="0.1.55.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -257,8 +257,8 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=18;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false,tips:{}};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30; tips ({drive, map}: the first-fight tips already read, app/fight.js ftTips): 0.1.49
+const SAVE_V=19;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",stick:"point",map2d:false,leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false,tips:{}};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30; tips ({drive, map}: the first-fight tips already read, app/fight.js ftTips): 0.1.49
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   mode:"sandbox",                  // "career" or "sandbox" (0.1.18.0): which garage S.bots is; picked on the home screen and in Settings (setMode, app/career.js)
@@ -306,7 +306,8 @@ const MIGRATE={
     const walk=(x,dep)=>{if(!x||typeof x!=="object"||dep>4)return;if(Array.isArray(x)){x.forEach(y=>walk(y,dep+1));return;}
       if(x.cfg)fix(x.cfg);if(x.draft)fix(x.draft);for(const k in x)if(k!=="cfg"&&k!=="draft")walk(x[k],dep+1);};
     walk(o.bots,0);walk(o.designs,0);walk(o.parked,0);if(Array.isArray(o.designs))o.designs.forEach(fix);return o;},
-  17:o=>{if(o.settings&&typeof o.settings==="object")o.settings.tips={};return o;}   // 0.1.49.0: the first-fight tips (the stick, the 2D map) are shown once to everyone
+  17:o=>{if(o.settings&&typeof o.settings==="object")o.settings.tips={};return o;},   // 0.1.49.0: the first-fight tips (the stick, the 2D map) are shown once to everyone
+  18:o=>{const s=o.settings;if(s&&typeof s==="object"){s.stick="seat";s.map2d=false;}return o;},   // 0.1.55.0: Point to go is the stick for new players; a save from before keeps the stick it learned (seat). The 2D map choice is remembered
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */

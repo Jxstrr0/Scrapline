@@ -257,7 +257,7 @@ function ftTipWant(){if(FT.rp||TUT_ON)return null;   // not in a replay; the tut
   const T=ftTips(),drive=FT.you&&ST().controls!=="tactical"&&!T.drive,map=ftGL()&&!T.map;return drive||map?{drive,map}:null;}
 function ftTipHtml(tip){if(!tip)return"";
   return`<div class="ftip${tip.drive?"":" dock"}" id="fTip" role="${tip.drive?"alertdialog":"note"}" aria-labelledby="fTipT"><b id="fTipT">${tip.drive?"Before you drive":"A map from above"}</b>
-    ${tip.drive?`<p>The stick steers from <b>the bot's seat</b>. <b>Up</b> drives toward its front, the weapon end, wherever that points on the screen. <b>Left</b> and <b>right</b> turn it.</p><p>The pale arrow on the floor shows which way is forward.</p>`:""}
+    ${tip.drive?(ST().stick==="seat"?`<p>The stick steers from <b>the bot's seat</b>. <b>Up</b> drives toward its front, the weapon end, wherever that points on the screen. <b>Left</b> and <b>right</b> turn it.</p><p>The pale arrow on the floor shows which way is forward.</p>`:`<p>Push the stick <b>the way you want to go</b> on the screen. The bot turns to face that way and drives there. Let go to stop.</p><p>The pale arrow on the floor shows which way its front, the weapon end, points. Settings › Stick has the radio-style stick.</p>`):""}
     ${tip.map?`<p><b>2D</b>, top right, swaps to a map from above. Tap it again for the arena.</p>`:""}
     <button type="button" class="btn pri" data-fv="tipok">${tip.drive?"Got it, start":"Got it"}</button></div>`;}
 function ftTipDone(all){const el=$("fTip"),T=ftTips(),was=!!FT.tipHold;
@@ -265,7 +265,7 @@ function ftTipDone(all){const el=$("fTip"),T=ftTips(),was=!!FT.tipHold;
   if(el&&(all||el.classList.contains("dock")))el.remove();
   const b=document.querySelector('.fbtn[data-fv="2d"]');if(b)b.classList.remove("nudge");
   if(all&&was){FT.tipHold=false;FT.last=performance.now();FT.acc=0;}save();if(FT.on)ftOverlay();}
-function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
+function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL()||!!ST().map2d;const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
@@ -294,11 +294,14 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();const tip=ftTipWant
   if(tip){const ok=el.querySelector("[data-fv=tipok]");if(ok&&tip.drive)ok.focus({preventScroll:true});}
   ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
-function ftInsets(){if(!FT.on||!window.SCRAP_VIS)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
+function ftInsets(){if(!FT.on)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
   const q=b&&b.getBoundingClientRect(),c=b&&b.querySelector(".fbot"),cw=c?c.getBoundingClientRect().width:0;
   /* cards in the corners of a wide screen leave the middle clear: count half of them */
   const t=!q?56:Math.max(0,(q.bottom-r.top)*(r.width-2*cw>r.width*0.3?0.55:1)),bt=FT.rp?72:FT.you&&ST().controls!=="tactical"?Math.min(130,r.height*0.2):16;
-  SCRAP_VIS.setRun({inset:{t,b:bt}});}
+  ftCvFit(r,t,bt);if(window.SCRAP_VIS)SCRAP_VIS.setRun({inset:{t,b:bt}});}
+/* the 2D map (0.1.55) fills the same clear band as big as it will go, a square between the bot cards and the controls */
+function ftCvFit(r,t,bt){const cv=$("fCv");if(!cv)return;const side=Math.round(Math.max(160,Math.min(r.width-16,r.height-t-bt-12)));
+  cv.style.width=cv.style.height=side+"px";cv.style.maxHeight="none";cv.style.top=Math.round(t+(r.height-t-bt)/2)+"px";}
 /* pinch (or the mouse wheel) nudges the camera in and out. It listens on the whole view, so it works over the arena,
    the tap layer and between the controls; a finger that lands on a button, the stick or a card isn't counted */
 function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=new Map();let d0=0,z0=1;
@@ -334,7 +337,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="rlagain")rlAgain();
   else if(a==="rpslow"){FT.rpAuto=FT.rpAuto===false;b.setAttribute("aria-pressed",FT.rpAuto!==false);}
   else if(a==="results")ftExit();
-  else if(a==="2d"){if(!ftTips().map)ftTipDone(false);FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
+  else if(a==="2d"){if(!ftTips().map)ftTipDone(false);FT.view2d=!FT.view2d;ST().map2d=FT.view2d;save();b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;ftInsets();if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
 const ftSpLbl=v=>(v===0.5?"½":v===0.25?"¼":v)+"×";
 /* the strip per bot, the clock and the notes, a few times a second */
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
@@ -587,7 +590,7 @@ function ftBoutHtml(){const B=FT.bout,n=FT.rounds.length;let h="";
   if(n>1)h+=`<div class="seg ftrounds" role="group" aria-label="Round">${FT.rounds.map((r,i)=>`<button type="button" data-ftrv="${i}" class="${i===FT.rv?"on":""}" aria-pressed="${i===FT.rv}">Round ${i+1}</button>`).join("")}</div>`;
   return h;}
 function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watch.";
-  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. The stick steers from the bot's seat: up drives toward its front. Change it in Settings.";}
+  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. "+(ST().stick==="seat"?"The stick steers from the bot's seat: up drives toward its front.":"Push the stick the way you want to go and the bot turns and drives there.")+" Change it in Settings.";}
 /* chip rows (wrap on a phone): [[value, label html]] */
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
