@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.47.0";
+const VERSION="0.1.48.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -188,7 +188,7 @@ const ASSISTS={
    in. needs: a tool it needs first. fab: what it unlocks also needs a fabricator on the team to fit (custom work). */
 const RND={
   cells:     {name:"High-discharge cells",  price:400, hours:10,act:0,needs:null,       line:"A battery that gives everything at once. Spinners spin up faster."},
-  disc:      {name:"Your own disc profile", price:600, hours:14,act:0,needs:null,       fab:true,line:"Design the disc: one to three teeth, a light or heavy rim, and a name. The fabricator cuts it."},
+  disc:      {name:"Your own disc profile", price:600, hours:14,act:0,needs:null,       fab:true,line:"Design the disc: a light or heavy rim, and a name. The fabricator cuts it."},
   pneumatics:{name:"Pneumatics upgrade",    price:800, hours:18,act:0,needs:"drillpress",line:"The high-pressure flipper: twenty-four shots, harder, and a faster recharge."},
   crusher:   {name:"Crusher",               price:900, hours:20,act:0,needs:"drillpress",line:"Hydraulic jaws that bite down and hold on."},
   grabber:   {name:"Grabber",               price:700, hours:16,act:0,needs:"drillpress",line:"Jaws that clamp the other bot, lift its front off the floor and carry it to the pit."},
@@ -257,7 +257,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=16;
+const SAVE_V=17;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -298,7 +298,14 @@ const MIGRATE={
   12:o=>{o.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};return o;},   // 0.1.27.0: the highlight reel starts empty
   13:o=>{if(o.settings&&typeof o.settings==="object")o.settings.dev=o.settings.dev===true;return o;},   // 0.1.30.0: Dev mode (Settings) starts off
   14:o=>{o.hall=[];return o;},   // 0.1.39.0: the hall of fame starts empty; the title and legend level are worked out from career.events (crTitle), so nothing else to add
-  15:o=>{o.school={};return o;}   // 0.1.47.0: the driving school starts with no medals
+  15:o=>{o.school={};return o;},   // 0.1.47.0: the driving school starts with no medals
+  16:o=>{   // 0.1.48.0: the Tooth count dial. A disc profile's own teeth (1 to 3) move onto the dial, so every bot and design hits as it did
+    const fix=c=>{if(!c||typeof c!=="object"||!c.disc||typeof c.disc!=="object")return;const n=+c.disc.teeth;
+      if((n===1||n===2||n===3)&&!(c.tune&&typeof c.tune==="object"&&c.tune.teeth!=null))c.tune=Object.assign({},c.tune&&typeof c.tune==="object"?c.tune:{},{teeth:n-2});
+      delete c.disc.teeth;};
+    const walk=(x,dep)=>{if(!x||typeof x!=="object"||dep>4)return;if(Array.isArray(x)){x.forEach(y=>walk(y,dep+1));return;}
+      if(x.cfg)fix(x.cfg);if(x.draft)fix(x.draft);for(const k in x)if(k!=="cfg"&&k!=="draft")walk(x[k],dep+1);};
+    walk(o.bots,0);walk(o.designs,0);walk(o.parked,0);if(Array.isArray(o.designs))o.designs.forEach(fix);return o;}
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
