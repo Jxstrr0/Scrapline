@@ -107,6 +107,8 @@ function buildBot(b,team,sp,liv){
   const sv=S0&&SHELL_TOPS[body]?shellVariant(bay,b.weapon,body):null,S=S0&&(!SHELL_TOPS[body]||sv)?S0:null;
   const sk={M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt:th("top")?tt:0,topKey,topMat,sideMat,sideKey,sv:sv&&sv.top,svb:sv&&sv.bottom};
   const topCut=!!reg&&(bk==="slot"||bk==="pocket"||bk==="well"),raisedCut=!!reg&&(topCut||bk==="deck");   /* a deck cuts only a raised top */
+  if(body==="scrap"){const wt=b.weapon.type,wid=b.weapon.id,up=topCut||["hammer","crusher","flipper","grabber","saw"].indexOf(wt)>=0;   /* what the scrap frame has to clear (scrapFrame) */
+    sk.fr={none:wid==="shell",noPosts:wid==="ring",gap:topCut?frontGap(bay,hw,hl):null,over:up&&!(bay&&bay.rect[1]<-0.3*L)?1:0,cross:0};}
   const deck=bk==="deck"&&(S&&SHELL_TOPS[body]||(!S&&(body==="wedge"||body==="dome")));
   const bev=lite?0:Math.min(tt*0.4,0.0012*len),extB=(outline,holes,y0,y1,mat,part)=>y1-y0>1e-5?add(shapeGeo(outline,holes,y1-y0,cx,cy,y0,bev),mat,0,0,0,part):null;
   const flat=(w,l,y0,mat,part,c)=>{const p=rectPts(w,l),d=c?polyMinus(p,reg):null;return d?extB(d.outline,d.holes,y0,y0+tt,mat,part):extB(p,null,y0,y0+tt,mat,part);};
@@ -134,26 +136,48 @@ function buildBot(b,team,sp,liv){
   if(S&&(body==="slab"||body==="scrap"))shellBody(g,S,body,sk);   /* these keep the flat top above and add to it */
   if(body==="slab"&&!S)for(const sx of [-1,1])for(const sz of [-1,1]){   /* corner guards */
     const c=add(new THREE.BoxGeometry(0.016*len,bodyH*1.02,0.016*len),M.steel,sx*hw-cx,clr+bodyH*0.51,cy+sz*hl,"chassis");c.rotation.y=Math.PI/4;}
-  if(body==="scrap"&&!S){   /* scrap frame: bare tubes along the top edges and up the corners */
-    const r=0.0035*len,tg=new THREE.CylinderGeometry(r,r,L*0.98,lite?5:8),pg=new THREE.CylinderGeometry(r,r,bodyH,lite?5:8),cg2=new THREE.CylinderGeometry(r,r,Wd*0.98,lite?5:8);
-    for(const sx of [-1,1]){const t=add(tg,M.steel,sx*(hw+r)-cx,H+tt+r,cy,"chassis");t.rotation.x=Math.PI/2;
-      for(const sz of [-1,1])add(pg,M.steel,sx*(hw+r)-cx,clr+bodyH/2,cy+sz*(hl+r),"chassis");}
-    for(const sz of [-1,1]){const t=add(cg2,M.steel,-cx,H+tt+r,cy+sz*(hl+r),"chassis");t.rotation.z=Math.PI/2;}}
+  if(body==="scrap"&&!S)scrapFrame(g,null,sk);
   /* team paint: a stripe down the top, so you can tell the bots apart from above; it stops short of an open bay. With a
      livery (0.1.24) the stripe is the team's main colour, two pinstripes beside it the accent, and the badge sits on it */
   let ys0=-0.4*L,ys1=0.3*L;if(body==="dome"){ys0=-0.26*L;ys1=0.16*L;}
+  /* 0.1.48.1, the top deck is laid out once so nothing lands on anything else: the sponsor's patch owns the back, the stripe
+     stops short of it, the badge stays inside the stripe's length and between the fittings, and under a shell spinner there
+     is no paint at all (it used to poke through the shell). On a dome every decal is draped over the curve (drape) */
+  const dome=body==="dome",deco=b.weapon.id!=="shell";
+  const spz=dome?0.28:S&&(body==="wedge"||body==="pancake")?0.3:0.36,spd=dome?0.16:0.18,spw=dome?0.44:S&&body==="invert"?0.34:0.6;   /* the patch: how far back its middle is, its depth and width (over a shell: clear of the bolts and rails) */
+  const spOn=!!(sp&&sp.top&&deco);if(spOn)ys0=Math.max(ys0,-(spz-spd/2)*L+0.02*L);
   if(reg&&(topCut||(raisedCut&&(body==="wedge"||body==="dome"||(S&&SHELL_TOPS[body]))))&&bay.rect[0]<Wd*0.14&&bay.rect[2]>-Wd*0.14)ys1=Math.max(ys0+0.12*L,Math.min(ys1,bay.rect[1]-0.03*L));
-  const yc=(ys0+ys1)/2,paint=new THREE.Mesh(new THREE.BoxGeometry(Wd*0.28,0.0015*len,ys1-ys0),liv?spMat(liv.main):M.team[team%BOT_TEAM.length]);const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt;paint.position.set(-cx,H+lid+0.0008*len,cy-yc);if(body==="wedge"){const tl=Math.atan2(drop,L*0.98);paint.position.y=H-drop/2-yc*Math.tan(tl)+wt+0.0008*len;paint.rotation.x=-tl;}else if(body==="dome")paint.position.y=H+bodyH*0.5;g.add(paint);
-  if(liv){const pg=new THREE.BoxGeometry(Wd*0.035,0.0015*len,ys1-ys0),am=spMat(liv.accent);
-    for(const s of [-1,1]){const p=new THREE.Mesh(pg,am);p.position.copy(paint.position);p.position.x+=s*Wd*0.18;p.rotation.copy(paint.rotation);g.add(p);}
-    const bs=Math.min(Wd*0.56,L*0.42,(ys1-ys0)*1.1),bd=new THREE.Mesh(new THREE.PlaneGeometry(bs,bs),badgeMat(liv));
-    bd.position.copy(paint.position);bd.position.y+=0.0012*len;bd.rotation.set(-Math.PI/2+paint.rotation.x,0,Math.PI);   /* the badge reads upright from in front of the bot */g.add(bd);}
+  const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt,wtl=body==="wedge"?Math.atan2(drop,L*0.98):0;
+  /* a flat decal: a thin box w wide and l long, its middle at (x, y) in build coords, up above the top (a wedge: on its slope) */
+  const slab=(w,l,x,y,mat,up)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.0015*len,l),mat);m.position.set(x-cx,H+lid+up,cy-y);
+    if(body==="wedge"){m.position.y=H-drop/2-y*Math.tan(wtl)+wt+up;m.rotation.x=-wtl;}g.add(m);return m;};
+  let drape=null;
+  if(dome&&deco){g.updateMatrixWorld(true);const tops=[];g.traverse(o=>{if(o.isMesh&&o.userData.part===topKey)tops.push(o);});
+    const rc=new THREE.Raycaster(),dn=new THREE.Vector3(0,-1,0),o3=new THREE.Vector3();
+    const hAt=(x,y)=>{o3.set(x-cx,H+bodyH*3,cy-y);rc.set(o3,dn);const h=rc.intersectObjects(tops,false);return h.length?h[0].point.y:H;};
+    /* the same decal as a grid laid on the dome: each corner of the grid is dropped onto the shell (turn: the badge, which reads from the front) */
+    drape=(w,l,x,y,mat,up,turn)=>{const ge=new THREE.PlaneGeometry(w,l,lite?3:6,lite?4:8);ge.rotateX(-Math.PI/2);if(turn)ge.rotateY(Math.PI);
+      const Q=ge.attributes.position;for(let i=0;i<Q.count;i++){const px=Q.getX(i)+x,py=y-Q.getZ(i);Q.setXYZ(i,px-cx,hAt(px,py)+up+0.0006*len,cy-py);}
+      ge.computeVertexNormals();const m=new THREE.Mesh(ge,mat);g.add(m);return m;};}
+  const decal=drape||slab,yc=(ys0+ys1)/2,e=0.0008*len;
+  if(deco){decal(Wd*0.28,ys1-ys0,0,yc,liv?spMat(liv.main):M.team[team%BOT_TEAM.length],e);
+    if(liv){const am=spMat(liv.accent);for(const s of [-1,1])decal(Wd*0.035,ys1-ys0,s*Wd*0.18,yc,am,e);
+      /* the badge: its halo covers the pinstripes and stops short of the lamp and the link beside it */
+      const bs=Math.min(Wd*0.48,L*0.42,ys1-ys0),bm=badgeMat(liv);let bd;
+      if(drape)bd=drape(bs,bs,0,yc,bm,e+0.0012*len,true);
+      else{bd=new THREE.Mesh(new THREE.PlaneGeometry(bs,bs),bm);bd.position.set(-cx,(body==="wedge"?H-drop/2-yc*Math.tan(wtl)+wt:H+lid)+e+0.0012*len,cy-yc);
+        bd.rotation.set(-Math.PI/2-wtl,0,Math.PI);g.add(bd);}   /* the badge reads upright from in front of the bot */
+      bd.userData.role="decal";}}   /* a decal keeps its own UVs (the grain projection below used to redo them, which slid the badge off its stripe on Full and Ultra) */
   /* sponsors: a panel on each side, a patch at the back of the top plate */
-  if(sp&&sp.side)for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,bh*0.5,L*0.5),spMat(sp.side));
-    m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*0.5,cy);g.add(m);}
-  if(sp&&sp.top){const sw=S&&body==="invert"?0.34:0.6,pz=S&&(body==="wedge"||body==="pancake")?0.3:0.36;   /* over a shell: between the invertible's rails, clear of the bolts */
-    const m=new THREE.Mesh(new THREE.BoxGeometry(Wd*sw,0.0015*len,L*0.18),spMat(sp.top));
-    m.position.set(-cx,(body==="dome"?H+bodyH*0.27:S&&body==="wedge"?H-drop*(0.5-pz)+wt:H-drop*0.13+lid)+0.0009*len,cy+L*pz);if(body==="wedge")m.rotation.x=-Math.atan2(drop,L*0.98);g.add(m);}
+  /* 0.1.48.1: a side panel goes in the longest stretch of the side clear of the wheel arches (it used to lie across a middle
+     wheel on a caster, six or eight wheel bot, and along a track); no stretch long enough, no panel. Lower under a dome's rim */
+  if(sp&&sp.side)for(const s of [-1,1]){let a=-0.25*L,e=0.25*L;
+    if(wells){const blk=wp.tracks?[[-0.4*L-wr*0.2,0.4*L+wr*0.2]]:wheels.filter(p=>(p.pos[0]<0?-1:1)===s).map(p=>[p.pos[1]-wr*1.22,p.pos[1]+wr*1.22]).sort((u,v)=>u[0]-v[0]);
+      let at=-0.46*L,best=null;for(const q of blk.concat([[0.46*L,0.46*L]])){if(q[0]-at>(best?best[1]-best[0]:0))best=[at,q[0]];at=Math.max(at,q[1]);}
+      if(!best||best[1]-best[0]<0.16*L)continue;const ln=Math.min(0.5*L,best[1]-best[0]-0.02*L),c=Math.max(best[0]+0.01*L+ln/2,Math.min(best[1]-0.01*L-ln/2,0));a=c-ln/2;e=c+ln/2;}
+    const ph=bh*(dome?0.36:0.5),m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,ph,e-a),spMat(sp.side));
+    m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*(dome?0.4:0.5),cy-(a+e)/2);g.add(m);}
+  if(spOn)decal(Wd*spw,L*spd,0,-spz*L,spMat(sp.top),0.0009*len);
   /* wheels (or tracks), from the layout */
   const Wh=!lite&&!wp.tracks&&wl.id!=="std"&&wl.id!=="six"&&wl.id!=="eight"?botWheels():null;   // the Blender wheel parts (models/bot-wheels.glb)
   const wx=p=>Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
@@ -175,11 +199,29 @@ function buildBot(b,team,sp,liv){
     for(const p of wheels){const q=P(p.pos[0],p.pos[1]),x=Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);
       const w=add(tg,M.rubber,x-cx,wr,q[1],p.key);w.userData.wheel=1;const h=add(hg,M.alu,x-cx,wr,q[1],p.key);h.userData.wheel=1;}}
   botWheelParts(g,b,wl,Wh,{P,add,wheels,wx,wr,ww,hw,hl,cx,clr,len,seg,lite});
+  /* wheel guards (0.1.48.1, every tier): where a wheel stands taller than the top beside it (the low end of a wedge, the
+     deck round a dome, big wheels on the dial) it used to poke straight through the plate. Now an arch in the side plate's
+     material covers the part that shows, like a mudguard. Not for tracks or legs, under a slab's skirts, in a scrap frame
+     (its wheels stand bare between the rails), for swerve pods or under an all-round weapon */
+  const guards=[];
+  if(!wp.tracks&&!wl.legs&&wl.id!=="swerve"&&body!=="slab"&&body!=="scrap"&&!allRound)for(const p of wheels){const q=P(p.pos[0],p.pos[1]),sd=p.pos[0]<0?"left":"right";
+    const hs=body==="wedge"?H-drop/2-p.pos[1]*Math.tan(wtl)+wt:body==="dome"?boxTop:H+lid;if(2*wr-hs<0.003*len)continue;
+    const R=wr*1.13,ri=wr*1.04,w=ww+0.003*len,a0=Math.asin(Math.max(-0.45,Math.min(0.9,(hs-0.001*len-wr)/R))),a1=Math.PI-a0,sh=new THREE.Shape();
+    sh.absarc(0,0,R,a0,a1,false);sh.absarc(0,0,ri,a1,a0,true);sh.closePath();
+    const ge=new THREE.ExtrudeGeometry(sh,{depth:w,bevelEnabled:false,curveSegments:lite?6:14});ge.rotateY(Math.PI/2);ge.translate(-w/2,0,0);
+    add(ge,th(sd)?armourMat(A[sd].id):chassisMat(cfg.chassis),wx(p)-cx,wr,q[1],th(sd)?"armour_"+sd:"chassis");
+    guards.push([wx(p),p.pos[1],w/2,R]);}
+  /* a track the same way: one cover over the top run and round both ends, where the track stands above the top (a wedge's slope) */
+  if(wp.tracks&&body!=="slab"&&body!=="scrap"&&!allRound){const zs=Math.max(wr*0.2,0.4*L-wr),hs=body==="wedge"?H-drop/2-zs*Math.tan(wtl)+wt:dome?boxTop:H+lid;
+    if(2*wr-hs>=0.003*len)for(const sg of [-1,1]){const sd=sg<0?"left":"right",R=wr*1.13,ri=wr*1.04,w=ww+0.003*len,sh=new THREE.Shape();
+      sh.moveTo(zs+R,0);sh.absarc(zs,0,R,0,Math.PI/2,false);sh.absarc(-zs,0,R,Math.PI/2,Math.PI,false);sh.lineTo(-zs-ri,0);sh.absarc(-zs,0,ri,Math.PI,Math.PI/2,true);sh.absarc(zs,0,ri,Math.PI/2,0,true);sh.closePath();
+      const ge=new THREE.ExtrudeGeometry(sh,{depth:w,bevelEnabled:false,curveSegments:lite?5:10});ge.rotateY(Math.PI/2);ge.translate(-w/2,0,0);
+      add(ge,th(sd)?armourMat(A[sd].id):chassisMat(cfg.chassis),sg*(hw-ww/2-0.001*len)-cx,wr,cy,th(sd)?"armour_"+sd:"chassis");guards.push([sg*(hw-ww/2),0,w/2,zs+R]);}}
   /* the deck fittings (0.1.41, Full / Ultra): the power light, lit in the team's colour (app/arena puts it out with the bot),
      and the removable link, either side of the stripe behind the middle. On a flat top or a wedge's slope; not on a dome,
      under an all-round weapon or where a bay opens */
-  if(D&&!allRound&&body!=="dome"){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
-    const free=x=>!(reg&&raisedCut&&rectHitsPoly(x-r*2.2,yf-r*2.2,x+r*2.2,yf+r*2.2,reg));
+  if(D&&!allRound&&body!=="dome"){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=spOn?Math.max(-0.17*L,-(spz-spd/2)*L+0.075*L):-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
+    const free=x=>!(reg&&raisedCut&&rectHitsPoly(x-r*2.2,yf-r*2.2,x+r*2.2,yf+r*2.2,reg))&&!guards.some(q=>Math.abs(q[0]-x)<q[2]+r*2.2&&Math.abs(q[1]-yf)<q[3]+r*2.2);
     const fit=x=>{const G=new THREE.Group();G.position.set(x-cx,fy,cy-yf);G.rotation.x=-tl;g.add(G);return G;};
     if(free(-0.34*Wd)){const G=fit(-0.34*Wd),col=new THREE.Color(liv?parseInt(String(liv.main).slice(1),16)||0x888888:BOT_TEAM[team%BOT_TEAM.length]).convertSRGBToLinear();
       shellAdd(G,D,"dt_lamp_base",M.steel,null,0,0,0,r,r,r);
@@ -189,11 +231,11 @@ function buildBot(b,team,sp,liv){
   boltMeshes(g,D,bolts);
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
-  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,wellD:bk==="well"||bk==="underwell"?dep:0,
+  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,crown:body==="dome"?H+bodyH*0.52:H+lid,wellD:bk==="well"||bk==="underwell"?dep:0,
     lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:body==="wedge"?-drop/2:th("top")?tt:0});
   buildAttach(g,b,{P,add,Wd,L,hw,hl,clr,bh,bodyH,boxTop,len,seg,front,back,lite});
   if(!lite){g.updateMatrixWorld(true);g.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;
-    if(o.material!==M.disc&&o.userData.role!=="blur")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
+    if(o.material!==M.disc&&o.userData.role!=="blur"&&o.userData.role!=="decal")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
   g.userData.H=H;g.userData.L=L;g.userData.W=Wd;g.userData.type=b.weapon.type;g.userData.wid=b.weapon.id;
   return g;}
 
@@ -361,16 +403,29 @@ function shellBody(g,S,body,k){const {M,cx,cy,H,clr,bodyH,Wd,L,hw,hl,len,tt,topK
     shellAdd(g,S,vn("invert_plate",k.svb),topMat,"chassis",-cx,clr,cy,Wd,dn,L);shellAdd(g,S,vn("invert_bolts",k.svb),M.steel,"chassis",-cx,clr,cy,Wd,dn,L);}
   else if(body==="slab"){for(const s of ["left","right"]){const n=s==="left"?"l":"r";U("slab_skirt_"+n,sideMat(s),sideKey(s));U("slab_bolts_"+n,M.steel,sideKey(s));}
     const gs=0.024*len;for(const mx of [-1,1])for(const mz of [-1,1])shellAdd(g,S,"slab_guard",M.steel,"chassis",mx*hw-cx,clr,cy+mz*hl,mx*gs,bodyH,mz*gs);}
-  else if(body==="scrap"){   /* the frame: rails along the top edges, posts up the corners, a cross brace over the top, welds at the joints */
-    const r=0.0035*len,yT=H+tt+r,up=new THREE.Vector3(0,1,0);
-    const tube=(x0,y0,z0,x1,y1,z1)=>{const d=new THREE.Vector3(x1-x0,y1-y0,z1-z0),l=d.length(),o=shellAdd(g,S,"scrap_tube",M.steel,"chassis",(x0+x1)/2,(y0+y1)/2,(z0+z1)/2,r,l,r);
-      if(o)o.quaternion.setFromUnitVectors(up,d.normalize());};
-    const X=[-(hw+r)-cx,(hw+r)-cx],Z=[cy-(hl+r),cy+(hl+r)];
-    for(const x of X){tube(x,yT,Z[0],x,yT,Z[1]);for(const z of Z)tube(x,clr,z,x,yT,z);}
-    for(const z of Z)tube(X[0],yT,z,X[1],yT,z);
-    tube(X[0],yT+r,Z[0],X[1],yT+r,Z[1]);tube(X[1],yT+r*1.2,Z[0],X[0],yT+r*1.2,Z[1]);
-    for(const x of X)for(const z of Z)shellAdd(g,S,"scrap_weld",M.steel,"chassis",x,yT,z,r*1.7,r*1.7,r*1.7);
-    shellAdd(g,S,"scrap_weld",M.steel,"chassis",-cx,yT+r*1.1,cy,r*1.5,r*1.2,r*1.5);}}
+  else if(body==="scrap")scrapFrame(g,S,k);}
+/* ---- the scrap frame (0.1.48.1: one frame for every tier, and it makes room): tubes along the top edges, posts up the
+   corners, welds at the joints and a brace over the top. Full and Ultra use the Blender tube and weld, Lite plain
+   cylinders. k.fr says what is in the way: gap, the stretch of the front rail a weapon's bay opens through (the rail stops
+   either side of it); over, something works above the deck (an arm, a flipper's plate, a disc standing in its slot), so the
+   X brace gives way to one bar across the back; none, a shell spinner covers the lot; noPosts, a ring runs round the corners ---- */
+function scrapFrame(g,S,k){const {M,cx,cy,H,clr,hw,hl,len,tt,L}=k,fr=k.fr||{};if(fr.none)return;
+  const r=0.0035*len,yT=H+tt+r,up=new THREE.Vector3(0,1,0),cg=S?null:new THREE.CylinderGeometry(1,1,1,5);
+  const tube=(x0,y0,z0,x1,y1,z1)=>{const d=new THREE.Vector3(x1-x0,y1-y0,z1-z0),l=d.length();if(l<r*2)return;
+    let o=S?shellAdd(g,S,"scrap_tube",M.steel,"chassis",(x0+x1)/2,(y0+y1)/2,(z0+z1)/2,r,l,r):null;
+    if(!o){o=new THREE.Mesh(cg||new THREE.CylinderGeometry(1,1,1,5),M.steel);o.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);o.scale.set(r,l,r);o.userData.part="chassis";g.add(o);}
+    o.quaternion.setFromUnitVectors(up,d.normalize());};
+  const weld=(x,y,z,a,b)=>{if(S)shellAdd(g,S,"scrap_weld",M.steel,"chassis",x,y,z,r*a,r*b,r*a);};
+  const X=[-(hw+r)-cx,(hw+r)-cx],Z=[cy-(hl+r),cy+(hl+r)];   /* Z[0] is the front edge (mesh z runs backwards) */
+  for(const x of X){tube(x,yT,Z[0],x,yT,Z[1]);if(!fr.noPosts)for(const z of Z)tube(x,clr,z,x,yT,z);}
+  tube(X[0],yT,Z[1],X[1],yT,Z[1]);
+  if(fr.gap){const m=r*3,a=fr.gap[0]-m-cx,b=fr.gap[1]+m-cx;   /* the front rail, either side of the bay, each end closed with a weld */
+    if(a>X[0]+r*4){tube(X[0],yT,Z[0],a,yT,Z[0]);weld(a,yT,Z[0],1.3,1.3);}if(b<X[1]-r*4){tube(b,yT,Z[0],X[1],yT,Z[0]);weld(b,yT,Z[0],1.3,1.3);}}
+  else tube(X[0],yT,Z[0],X[1],yT,Z[0]);
+  if(fr.over){const z=cy+L*0.36;tube(X[0],yT,z,X[1],yT,z);for(const x of X)weld(x,yT,z,1.5,1.5);}   /* one bar across the back, clear of the weapon */
+  else if(S||fr.cross){tube(X[0],yT+r,Z[0],X[1],yT+r,Z[1]);tube(X[1],yT+r*1.2,Z[0],X[0],yT+r*1.2,Z[1]);weld(-cx,yT+r*1.1,cy,1.5,1.2);}
+  for(const x of X)for(const z of Z)weld(x,yT,z,1.7,1.7);}
+
 
 /* ---- weapon bays (0.1.15.3, Kelbo: real bays). Polygons are in build coords (m, +y forward) like b.polygon. ---- */
 /* the bay's outline as a polygon, its edges on the body's outline pushed out by e so a cut there opens cleanly */
@@ -471,11 +526,11 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     if(w.allRound){const Od=V.tier!=="lite"?botOdd():null,c=P(0,0),op=(name,m,y,sx,sy,sz)=>Od?shellAdd(spin,Od,name,m,"weapon",0,y,0,sx,sy,sz):null;
       if(id==="shell"){   /* a dome over the whole body, from just off the floor to above the lid, with two teeth on its rim */
         /* a lathe profile: a short wall, then a cone up to a flat crown, sized so the box's corners stay inside it */
-        const y0=clr*0.6,R=r*1.08,h1=(H-y0)*1.05+0.003*len,hh=h1+0.35*(H-y0);
+        const y0=clr*0.6,R=r*1.08,h1=(H-y0)*1.05+0.003*len,hh=Math.max(h1+0.35*(H-y0),(k.crown||H)-y0+0.004*len);   /* the crown clears a dome under it (0.1.48.1: the dome used to show through) */
         if(!op("odd_shell",mat,0,R,hh,R)){const pr=[[0,0],[R,0],[R,h1],[R*0.6,hh],[0,hh]].map(q=>new THREE.Vector2(q[0],q[1]));
           const d=new THREE.Mesh(new THREE.LatheGeometry(pr,seg),mat);d.userData.part="weapon";spin.add(d);
           teeth(spin,R,2,Math.max(0.004*len,h1*0.5));}
-        spin.position.set(c[0],y0,c[1]);}
+        spin.position.set(c[0],y0,c[1]);spin.userData.topY=y0+hh;}
       else if(id==="ring"){   /* a toothed ring round the body at half its height, on four rollers */
         const tube=Math.max(0.003*len,r*0.08),y=clr+bodyH*0.45;
         if(!op("odd_ring",mat,0,r,r,r)){const d=new THREE.Mesh(new THREE.TorusGeometry(r,tube,6,seg*2),mat);d.rotation.x=Math.PI/2;d.userData.part="weapon";spin.add(d);teeth(spin,r,3,tube*2);}
@@ -491,7 +546,7 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
 }
       g.add(spin);g.userData.melty=!!w.melty;
       const blur=new THREE.Mesh(new THREE.CircleGeometry(r*1.05,seg),M.blur.clone());blur.userData.role="blur";blur.userData.own=true;blur.rotation.x=-Math.PI/2;
-      blur.position.set(c[0],id==="shell"?H+0.003*len:spin.position.y+0.001*len,c[1]);g.add(blur);
+      blur.position.set(c[0],id==="shell"?spin.userData.topY+0.002*len:spin.position.y+0.001*len,c[1]);g.add(blur);
       return;}
     if(id==="hsp"||id==="under"){const thick=Math.max(0.004*len,r*0.08);
       if(!wpDisc(spin,pc,"wp_disc",mat,r,thick,M,!stockT)){const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,nT,thick);}
@@ -592,14 +647,31 @@ function buildAttach(g,b,k){const M=V.mats,{Wd,L,hw,clr,bh,boxTop,len,front,back
     const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);if(flipZ)m.rotation.y=Math.PI;m.userData.part=part;if(geo===ATT_WEDGE)m.userData.keep=1;par.add(m);};
   const cone=back=>{const c=new THREE.ConeGeometry(0.5,1,lite?10:20);c.rotateX(back?Math.PI/2:-Math.PI/2);return c;};
   const fz=front[1],bz=back[1],W=attWedge();
+  /* 0.1.48.1, a front makes room for the weapon: where a spinner's disc, a drum or a crusher's jaw comes out of the front, the
+     attachment parts round it (kh: half the width the weapon needs, about its mount) and is drawn in single pieces
+     (at_wedgelet, at_tine, a plow or a spike per side) in the room left either side. spans: null when nothing is in the way */
+  const wpn=b.weapon,wR=wpn.radiusM||0,mx=wpn.mountM?wpn.mountM[0]:0,my=wpn.mountM?wpn.mountM[1]:L/2;let kh=0;
+  if(wpn.id==="hsp"||wpn.id==="under"){const dd=L/2-my;kh=wR>dd?Math.sqrt(wR*wR-dd*dd):0;}
+  else if(wpn.id==="drum"||wpn.id==="beater")kh=Math.min(Wd*0.7,Math.max(wR*2,Wd*0.5))/2+0.008*len;
+  else if(wpn.id==="drisk")kh=wR*0.45+0.008*len;
+  else if(wpn.id==="vsp")kh=Math.max(0.005*len,wR*0.14)/2+0.008*len;
+  else if(wpn.type==="crusher")kh=Wd*0.2;
+  const spans=kh&&fr.id!=="none"?[[-hw,Math.min(hw,mx-kh-0.006*len)],[Math.max(-hw,mx+kh+0.006*len),hw]].filter(q=>q[1]-q[0]>Wd*0.07):null;
   if(fr.id==="wedgelets"){const d=L*0.12,h=clr+bh*0.45,w=Wd*0.3;
-    if(!(A&&shellAdd(g,A,"at_wedgelets",M.steel,"front",front[0],h/2,fz-d/2,Wd,h,d)))
+    if(spans)for(const q of spans){const ww=Math.min(w,q[1]-q[0]),xc=q[0]<=-hw+1e-6?-hw+ww/2:hw-ww/2;piece(g,"at_wedgelet",W,M.steel,"front",front[0]+xc,h/2,fz-d/2,ww,h,d);}
+    else if(!(A&&shellAdd(g,A,"at_wedgelets",M.steel,"front",front[0],h/2,fz-d/2,Wd,h,d)))
       for(const s of [-1,1])piece(g,"",W,M.steel,"front",front[0]+s*(hw-w/2),h/2,fz-d/2,w,h,d);}
-  else if(fr.id==="forks"){const d=L*0.18,h=clr+bh*0.35;
-    if(!(A&&shellAdd(g,A,"at_forks",M.steel,"front",front[0],h/2,fz-d/2,Wd*0.9,h,d)))
+  else if(fr.id==="forks"){const d=L*0.18,h=clr+bh*0.35,tw=A?Wd*0.13:Wd*0.08;
+    if(spans)for(const q of spans){const a=Math.max(q[0],-Wd*0.45),e=Math.min(q[1],Wd*0.45),n=e-a>=Wd*0.2?2:1;if(e-a<tw*0.6)continue;
+      for(let i=0;i<n;i++)piece(g,"at_tine",W,M.steel,"front",front[0]+a+(e-a)*(i+0.5)/n,h/2,fz-d/2,Math.min(tw,(e-a)/n),h,d);}
+    else if(!(A&&shellAdd(g,A,"at_forks",M.steel,"front",front[0],h/2,fz-d/2,Wd*0.9,h,d)))
       for(const x of [-0.375,-0.125,0.125,0.375])piece(g,"",W,M.steel,"front",front[0]+x*Wd*0.9,h/2,fz-d/2,Wd*0.08,h,d);}
-  else if(fr.id==="plow"){const d=L*0.13,h=clr+bh*0.7;piece(g,"at_plow",W,M.steel,"front",front[0],h/2,fz-d/2,Wd*1.04,h,d);}
-  else if(fr.id==="spike"){const d=L*0.2,s=Math.min(Wd*0.22,bh*0.5);piece(g,"at_spike",cone(false),M.steel,"front",front[0],clr+bh*0.5,fz-d/2,s,s,d);}
+  else if(fr.id==="plow"){const d=L*0.13,h=clr+bh*0.7;
+    if(spans)for(const q of spans){const a=q[0]<=-hw+1e-6?-Wd*0.52:q[0],e=q[1]>=hw-1e-6?Wd*0.52:q[1];piece(g,"at_plow",W,M.steel,"front",front[0]+(a+e)/2,h/2,fz-d/2,e-a,h,d);}
+    else piece(g,"at_plow",W,M.steel,"front",front[0],h/2,fz-d/2,Wd*1.04,h,d);}
+  else if(fr.id==="spike"){const d=L*0.2,s=Math.min(Wd*0.22,bh*0.5);
+    if(spans)for(const q of spans){const s2=Math.min(s,(q[1]-q[0])*0.85),d2=d*(0.6+0.4*s2/s);piece(g,"at_spike",cone(false),M.steel,"front",front[0]+(q[0]+q[1])/2,clr+bh*0.5,fz-d2/2,s2,s2,d2);}
+    else piece(g,"at_spike",cone(false),M.steel,"front",front[0],clr+bh*0.5,fz-d/2,s,s,d);}
   if(bk.id==="rearwedge"){const d=L*0.12,h=clr+bh*0.6;piece(g,"at_rearwedge",W,M.steel,"back",back[0],h/2,bz+d/2,Wd,h,d,true);}
   else if(bk.id==="rearspike"){const d=L*0.15,s=Math.min(Wd*0.18,bh*0.4);
     if(!(A&&shellAdd(g,A,"at_rearspike",M.steel,"back",back[0],clr+bh*0.5,bz+d/2,Wd*0.6,s,d))){const c=cone(true);

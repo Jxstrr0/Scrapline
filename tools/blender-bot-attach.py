@@ -13,6 +13,8 @@ size it wants, so the sim's sizes still rule. The game puts its own materials on
                  rising to the full height at the back, with two bolt heads on each
   at_forks       four tines (each 0.09 wide) whose sharpened tips touch the floor at the front, joined by a cross bar at
                  the back
+  at_wedgelet    one of those ramps on its own, filling the box (0.1.48.1: placed singly where a weapon is in the way)
+  at_tine        one tine on its own with its piece of the cross bar (0.1.48.1)
   at_plow        a curved scoop across the whole width, its lip on the floor at the front curving up to the top at the
                  back, with a side cheek at each end
   at_spike       a turned spike pointing forwards (its point at z -0.5) on a square base plate at the back
@@ -206,6 +208,18 @@ fk.append(box(-0.5, 0.5, -0.12, 0.3, 0.32, 0.5, STEEL))
 for x in (-0.375, -0.125, 0.125, 0.375):
     fk.append(bolt(x, 0.3, 0.41, 0.035, 0.03))
 join("at_forks", fk, STEEL)
+
+# 0.1.48.1: one wedgelet and one tine, each filling its own unit box, for a front that has to part round a weapon
+# (a spinner's disc, a drum, a crusher's jaw): the game then places as many as fit, each as wide as the room it has
+w1 = [prism("w", [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (0.3, 0.5)], -0.5, 0.5, STEEL, "x")]
+w1.append(bolt(0.0, 0.24, 0.1, 0.11, 0.03))
+w1.append(bolt(0.0, 0.49, 0.38, 0.11, 0.03))
+join("at_wedgelet", w1, STEEL)
+
+t1 = [prism("t", [(-0.5, -0.5), (-0.3, -0.38), (0.5, -0.1), (0.5, 0.28), (0.3, 0.28), (-0.35, -0.45)], -0.3, 0.3, STEEL, "x")]
+t1.append(box(-0.5, 0.5, -0.12, 0.3, 0.32, 0.5, STEEL))
+t1.append(bolt(0.0, 0.3, 0.41, 0.2, 0.03))
+join("at_tine", t1, STEEL)
 
 pl = []
 curve = []
