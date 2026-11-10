@@ -95,6 +95,8 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0
   if(v){thr=v.y;st=v.x;steering=Math.abs(v.x)>0;}
   if(K.up||K.down||K.left||K.right){thr=(K.up?1:0)-(K.down?1:0);st=(K.right?1:0)-(K.left?1:0);steering=st!==0;}
   if(gp){if(gp.x||gp.y){thr=gp.y;st=gp.x;steering=!!gp.x;}if(gp.wpn&&!CTL.gpW)CTL.wPress=true;CTL.gpW=gp.wpn;sr=sr||gp.sr||K.sr;}else sr=sr||K.sr;
+  /* Point to go (0.1.55): the push is a direction on the screen, not from the bot's seat; turn toward it and drive */
+  if(steering||Math.abs(thr)>0){if(CTL.scheme!=="tactical"&&ST().stick!=="seat"&&!(CTL.slide||K.sl||(gp&&gp.sl))){const p=ctlPoint(o,st,thr);thr=p.throttle;st=p.steer;steering=true;}}
   const held=CTL.wDown||K.wpn||(gp&&gp.wpn);
   if(CTL.scheme==="tactical"&&CTL.order){const t=ctlTactical(F,o,CTL.order);if(t){if(!(v||K.up||K.down||K.left||K.right||(gp&&(gp.x||gp.y)))){thr=t.throttle;st=t.steer;steering=true;}if(t.weapon)wpn=true;}}
   /* the weapon */
@@ -125,5 +127,15 @@ function ctlTactical(F,o,ord){let tx,ty,wpn=false;
   else{tx=ord.x;ty=ord.y;if(Math.hypot(tx-o.x,ty-o.y)<o.rad*0.8){CTL.order=null;return null;}}
   const err=SIM_wrap(Math.atan2(ty-o.y,tx-o.x)-o.h),a=Math.abs(err);
   return{steer:Math.max(-1,Math.min(1,-2.2*err)),throttle:a<0.4?1:a<1.3?Math.cos(a):0,weapon:wpn};}
+/* Point to go: which way on the floor is the stick's push? On the 2D map (and with no 3D) screen up is the far wall, +y.
+   In 3D, pick the floor under the middle of the screen and a little way along the push, and take the difference, so it
+   follows the camera wherever it looks. The bot turns toward that heading and drives once it roughly faces it. */
+function ctlPoint(o,sx,sy){const m=Math.min(1,Math.hypot(sx,sy));if(m<0.05)return{throttle:0,steer:0};
+  let dir=Math.atan2(sy,sx);
+  if(!FT.view2d&&window.SCRAP_VIS&&SCRAP_VIS.view==="arena"&&CTL.el){const r=CTL.el.getBoundingClientRect(),cx=r.width/2,cy=r.height/2,k=Math.min(r.width,r.height)*0.12,
+      a=SCRAP_VIS.pick(cx,cy),b=SCRAP_VIS.pick(cx+sx/m*k,cy-sy/m*k);
+    if(a&&b&&(b.x!==a.x||b.y!==a.y))dir=Math.atan2(b.y-a.y,b.x-a.x);}
+  const err=SIM_wrap(dir-o.h),a=Math.abs(err);
+  return{steer:Math.max(-1,Math.min(1,-2.2*err)),throttle:m*(a<0.4?1:a<1.3?Math.cos(a):0)};}
 const SIM_wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
 const CONTROLS={read:ctlRead,mount:ctlMount,unmount:ctlUnmount};

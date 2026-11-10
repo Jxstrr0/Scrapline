@@ -62,6 +62,8 @@ function openSettings(){
 <p class="hint">Reduced keeps the fight readable with less going on: a few sparks, light smoke, no parts flying off, small steady hit rings in the 2D view. Motion covers camera shake and movement in the menus.</p></div>
 <div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
 <p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
+<div class="field"><span class="lbl">Stick</span>${segHtml("stkSeg","stk",[["point","Point to go","push where to drive"],["seat","From the seat","up drives forward"]],ST().stick==="seat"?"seat":"point")}
+<p class="hint">Point to go: push the stick the way you want the bot to go on the screen, and it turns and drives there. From the seat: up drives toward the bot's front and left and right turn it, like a real radio. Direct controls only.</p></div>
 <div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
 <div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
@@ -87,6 +89,7 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
   pick("fxSeg","fxl",v=>{ST().effects=v==="reduced"?"reduced":"full";applyReduce();});
   pick("ctlSeg","ctl",v=>{ST().controls=v;});
+  pick("stkSeg","stk",v=>{ST().stick=v==="seat"?"seat":"point";});
   pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
   pick("asSeg","assist",v=>{ST().assists=v==="1";});
   pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();applyVoice();ftVoiceLoad();});
