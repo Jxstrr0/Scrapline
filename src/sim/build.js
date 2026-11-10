@@ -15,7 +15,7 @@
      cells [[exposure]] per grid cell, parts [{key, slot, id, cells, massKg, hpJ, exposure, pos}]
      runtimeS, avgDrawW, peakW, heat {rateW, coolingW, secsToDerate, fightDerateS, drive{..}, weapon{..}}
      cost (euros), buildHours, layout {place, moved, unplaced}, stress (COMBOS lines, sim/combos.js)
-     tune {volt, wheel, bias} (the dials, 0.1.33: TUNE in sim/parts.js), wheelRadiusMm (after the wheel-size dial)
+     tune {volt, wheel, bias, teeth} (the dials, 0.1.33: TUNE in sim/parts.js), wheelRadiusMm (after the wheel-size dial)
    Coordinates: chassis centre is the origin, +x right, +y forward (the front face is +y). ---- */
 const K={
   g:9.81,
@@ -127,7 +127,8 @@ function evalBuild(cfgIn,opts){
   let wpos=centreOf("weapon")||[0,hl];
   const frontMounted=wp.mount==="front";
   const discPos=allRound?[0,0]:isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;   // an all-round spinner turns about the middle
-  const DP=cfg.disc?{t:DISC_PROFILES.teeth[cfg.disc.teeth],r:DISC_PROFILES.rim[cfg.disc.rim]}:null;   // your own disc profile (normCfg keeps it on spinners only)
+  const DP=cfg.disc?{r:DISC_PROFILES.rim[cfg.disc.rim]}:null;   // your own disc profile (normCfg keeps it on spinners only)
+  const nTeeth=TUNE.teeth.base+tu.teeth,TT=DISC_PROFILES.teeth[nTeeth];   // 0.1.48: the Tooth count dial (two, and every factor 1, on anything but a disc or a drum)
   const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass*(DP?DP.r.mass:1):0;
   if(structG)addM("weapon_struct","weapon",wp.id,structG,wpos[0],wp.fp?wpos[1]:hl);
   if(motorG)addM("weapon_motor","weapon",wp.id,motorG,wpos[0],wpos[1]);
@@ -190,11 +191,11 @@ function evalBuild(cfgIn,opts){
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:allRound?[0,0]:wpos,allRound,melty:!!wp.bodyK,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
-  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=wp.bodyK?wp.bodyK*massKg*radM*radM:shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*(DP?DP.t.recoil:1);
+  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=wp.bodyK?wp.bodyK*massKg*radM*radM:shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*TT.recoil;
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
     Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
-      recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*(DP?DP.t.bite:1),profile:cfg.disc||null,
-      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1),bendJ:wm.hp*M.mass*(wp.bendMul||1),reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
+      recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*TT.bite,teeth:nTeeth,hitGap:TT.gap,minSpin:TT.spin,profile:cfg.disc||null,
+      shearJ:wm.hp*wm.shearMult*M.mass*(wp.bendMul||1)*TT.bend,bendJ:wm.hp*M.mass*(wp.bendMul||1)*TT.bend,reachM:radM,sawJps:wp.sawJps?wp.sawJps*M.power:0});}
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}

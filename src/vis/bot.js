@@ -461,6 +461,11 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
   const Wp=V.tier!=="lite"?botWeapons():null,pc=(par,name,m,x,y,z,sx,sy,sz,part)=>Wp?wpPiece(par,Wp,name,m,part,x,y,z,sx,sy,sz):null;
   const teeth=(grp,R,n,thick,axis)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(R*0.32,thick*1.4,R*0.18),M.steel);
     t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.rotation.y=-a;grp.add(t);}};
+  /* 0.1.48, the Tooth count dial: nT teeth on a disc or a drum (two is stock, and the Blender tooth pieces are a pair, so
+     any other count is drawn in code on every tier). barsX: nT bars round the x axis, for a drum, a drisk or a vertical disc */
+  const nT=w.teeth||2,stockT=nT===2;
+  const barsX=(grp,R,n,wx,ty,tz,m)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(wx,ty,tz),m||M.steel);
+    t.position.set(0,Math.cos(a)*R,Math.sin(a)*R);t.rotation.x=a;t.userData.part="weapon";grp.add(t);}};
   if(T==="spinner"||T==="saw"){const spin=new THREE.Group();spin.userData.role="spin";
     /* 0.1.34, the odd ones: all round the bot, at its middle. Full / Ultra: the Blender pieces (models/bot-odd.glb) */
     if(w.allRound){const Od=V.tier!=="lite"?botOdd():null,c=P(0,0),op=(name,m,y,sx,sy,sz)=>Od?shellAdd(spin,Od,name,m,"weapon",0,y,0,sx,sy,sz):null;
@@ -489,7 +494,8 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
       blur.position.set(c[0],id==="shell"?H+0.003*len:spin.position.y+0.001*len,c[1]);g.add(blur);
       return;}
     if(id==="hsp"||id==="under"){const thick=Math.max(0.004*len,r*0.08);
-      if(!wpDisc(spin,pc,"wp_disc",mat,r,thick,M)){const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,2,thick);}
+      if(!wpDisc(spin,pc,"wp_disc",mat,r,thick,M,!stockT)){const d=new THREE.Mesh(new THREE.CylinderGeometry(r,r,thick,seg*2),mat);d.userData.part="weapon";spin.add(d);teeth(spin,r,nT,thick);}
+      else if(!stockT)teeth(spin,r,nT,thick);
       const wd=k.wellD||0,dy=id==="under"?(wd?clr+Math.max(thick*0.6,wd*0.45):clr+thick):wd?k.boxTop-wd+thick*0.5+0.0015*len:clr+bodyH*0.55;
       spin.position.set(mount[0],dy,mount[1]);spin.userData.axis="y";
       if(wd){const y0=id==="under"?dy:k.boxTop-wd,y1=id==="under"?clr+wd:dy;   /* the hub, from the well's floor (the recess's roof) to the disc */
@@ -500,19 +506,21 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
       const drum=id==="drum",beater=id==="beater",drisk=id==="drisk",width=drum||beater?Math.min(b.widthM*0.7,Math.max(r*2,b.widthM*0.5)):drisk?r*0.9:Math.max(0.005*len,r*0.14);
       /* the pieces: a drum lies along x as modelled; a disc or saw is modelled flat, so it goes in a group turned onto its side */
       const side=new THREE.Group();side.rotation.z=Math.PI/2;
-      const done=drum?!!pc(spin,"wp_drum",M.steel,0,0,0,width,r,r,"weapon")&&(pc(spin,"wp_drum_teeth",M.steel,0,0,0,width,r,r,"weapon"),true)
-        :beater?!!pc(spin,"wp_beater",mat,0,0,0,width,r,r,"weapon")
-        :drisk?!!pc(spin,"wp_drisk",mat,0,0,0,width,r,r,"weapon")&&(pc(spin,"wp_drisk_teeth",M.steel,0,0,0,width,r,r,"weapon"),true)
+      const done=drum?!!pc(spin,"wp_drum",M.steel,0,0,0,width,r,r,"weapon")&&(stockT?pc(spin,"wp_drum_teeth",M.steel,0,0,0,width,r,r,"weapon"):barsX(spin,r*1.08,nT,width*0.8,r*0.34,r*0.26),true)
+        :beater?stockT&&!!pc(spin,"wp_beater",mat,0,0,0,width,r,r,"weapon")   /* the frame is one piece with two bars: another count is the coded frame below */
+        :drisk?!!pc(spin,"wp_drisk",mat,0,0,0,width,r,r,"weapon")&&(stockT?pc(spin,"wp_drisk_teeth",M.steel,0,0,0,width,r,r,"weapon"):barsX(spin,r*0.9,nT,width*1.04,r*0.26,r*0.3),true)
         :id==="saw"?!!pc(side,"wp_saw",mat,0,0,0,r,width,r,"weapon")&&(pc(side,"wp_disc_hub",M.steel,0,0,0,r*0.7,width,r*0.7,"weapon"),true)
-        :wpDisc(side,pc,"wp_disc",mat,r,width,M);
+        :wpDisc(side,pc,"wp_disc",mat,r,width,M,!stockT)&&(stockT||teeth(side,r,nT,width),true);
       if(done){if(side.children.length)spin.add(side);wpDiscUV(spin,mat);}
-      else if(beater){const bar=r*0.24;for(const s of [-1,1]){   /* coded (Lite): the two bars and the two cheeks of the frame */
+      else if(beater&&stockT){const bar=r*0.24;for(const s of [-1,1]){   /* coded (Lite): the two bars and the two cheeks of the frame */
         const t=new THREE.Mesh(new THREE.BoxGeometry(width,bar,bar*1.3),mat);t.position.set(0,s*(r-bar/2),0);t.userData.part="weapon";spin.add(t);
         const e=new THREE.Mesh(new THREE.BoxGeometry(bar*0.6,r*2,bar*1.6),mat);e.position.set(s*(width/2-bar*0.3),0,0);e.userData.part="weapon";spin.add(e);}}
+      else if(beater){const bar=r*0.24;barsX(spin,r-bar/2,nT,width,bar,bar*1.3,mat);   /* 0.1.48: a bar for each tooth between two round cheeks */
+        for(const s of [-1,1]){const ge=new THREE.CylinderGeometry(r*0.92,r*0.92,bar*0.6,seg);ge.rotateZ(Math.PI/2);const e=new THREE.Mesh(ge,mat);e.position.set(s*(width/2-bar*0.3),0,0);e.userData.part="weapon";spin.add(e);}}
       else{const geo=new THREE.CylinderGeometry(drisk?r*0.88:r,drisk?r*0.88:r,width,drum?seg:seg*2);geo.rotateZ(Math.PI/2);
       const d=new THREE.Mesh(geo,drum&&V.tier!=="lite"?M.steel:mat);d.userData.part="weapon";spin.add(d);
-      if(drum){for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*0.9,r*0.25,r*0.25),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}
-      else{for(let i=0;i<2;i++){const t=new THREE.Mesh(new THREE.BoxGeometry(width*1.3,r*0.3,r*0.2),M.steel);t.position.set(0,i?-r:r,0);spin.add(t);}}}
+      if(drum)barsX(spin,r,nT,width*0.9,r*0.25,r*0.25);
+      else barsX(spin,r,nT,width*1.3,r*0.3,r*0.2);}
       const cyH=id==="saw"?H+r*0.6:r+Math.max(0.001,(b.height.frontEdgeMm||2)/1000);
       spin.position.set(mount[0],cyH,mount[1]);spin.userData.axis="x";
       /* the uprights that hold it */
@@ -606,8 +614,8 @@ function buildAttach(g,b,k){const M=V.mats,{Wd,L,hw,clr,bh,boxTop,len,front,back
    the coded box it replaces, so the sim's sizes still rule; its geometry is copied per bot like a shell's. ---- */
 function wpPiece(par,W,name,mat,part,x,y,z,sx,sy,sz){return shellAdd(par,W,name,mat,part,x,y,z,sx,sy,sz);}
 /* a disc with its teeth, hub and hub bolts, radius r and thickness t, into group par; false when the pieces aren't there */
-function wpDisc(par,pc,name,mat,r,t,M){if(!pc(par,name,mat,0,0,0,r,t,r,"weapon"))return false;
-  pc(par,"wp_disc_teeth",M.steel,0,0,0,r,t,r,"weapon");pc(par,"wp_disc_hub",M.steel,0,0,0,r,t,r);pc(par,"wp_disc_bolts",M.steel,0,0,0,r,t,r);
+function wpDisc(par,pc,name,mat,r,t,M,noTeeth){if(!pc(par,name,mat,0,0,0,r,t,r,"weapon"))return false;
+  if(!noTeeth)pc(par,"wp_disc_teeth",M.steel,0,0,0,r,t,r,"weapon");   /* the pair of teeth; another count (0.1.48) is drawn by the caller */pc(par,"wp_disc_hub",M.steel,0,0,0,r,t,r);pc(par,"wp_disc_bolts",M.steel,0,0,0,r,t,r);
   wpDiscUV(par,mat);return true;}
 /* the disc material's turned rings want the cylinder cap's UVs (centre at 0.5, 0.5, the rim at the edge): made here from
    each point's place in the unit disc (the quantized mesh's own offset and scale undone), as the bot's uvProject skips them */

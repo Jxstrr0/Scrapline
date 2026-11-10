@@ -167,11 +167,11 @@ for (const cls of SIM.CLASS_IDS) {
   const B = (cfg) => SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, cfg));
   const st = B({}), mid = B({ disc: { name: "Two", teeth: 2, rim: "mid" } });
   if (Math.abs(mid.weapon.storedJ - st.weapon.storedJ) > 1e-6 || Math.abs(mid.weapon.bite - st.weapon.bite) > 1e-9 || mid.totalG !== st.totalG) fail("two teeth and a medium rim should be the stock disc");
-  const heavy = B({ disc: { name: "Heavy", teeth: 1, rim: "heavy" } }), light = B({ disc: { name: "Light", teeth: 3, rim: "light" } });
+  const heavy = B({ tune: { teeth: -1 }, disc: { name: "Heavy", rim: "heavy" } }), light = B({ tune: { teeth: 1 }, disc: { name: "Light", rim: "light" } });   // 0.1.48: the teeth are the Tooth count dial
   if (!(heavy.weapon.storedJ > st.weapon.storedJ && heavy.weapon.spinUpS > st.weapon.spinUpS && heavy.weapon.bite > st.weapon.bite)) fail("a one-tooth heavy rim should store more, spin up slower and bite deeper");
   if (!(light.weapon.storedJ < st.weapon.storedJ && light.weapon.bite < st.weapon.bite && light.totalG < st.totalG)) fail("a three-tooth light rim should store less, bite less and weigh less");
   if (SIM.normCfg(Object.assign({}, SIM.DEFAULT_CFG, { weapon: "wedge", disc: { teeth: 1, rim: "mid" } })).disc) fail("a disc profile belongs on a spinner only");
-  if (SIM.normCfg({ disc: { teeth: 4, rim: "mid" } }).disc || SIM.normCfg({ disc: { teeth: 1, rim: "gold" } }).disc) fail("a disc profile with unknown teeth or rim should be dropped");
+  if (SIM.normCfg({ disc: { teeth: 1, rim: "gold" } }).disc) fail("a disc profile with an unknown rim should be dropped");
   if (SIM.normCfg({ disc: { teeth: 1, rim: "mid", name: "<b>" + "x".repeat(40) } }).disc.name.length > SIM.DISC_PROFILES.nameMax || /</.test(SIM.normCfg({ disc: { teeth: 1, rim: "mid", name: "<b>" } }).disc.name)) fail("a disc name is cleaned and cut short");
   const nd = Object.assign({}, SIM.DEFAULT_CFG, { disc: { name: "A", teeth: 1, rim: "mid" } });
   if (SIM.sameParts(SIM.DEFAULT_CFG, nd) || !SIM.fitBill(SIM.DEFAULT_CFG, nd).lines.some((l) => l.slot === "weaponMaterial")) fail("a new disc profile is a new disc on the bill");
@@ -412,6 +412,46 @@ for (const cls of SIM.CLASS_IDS) {
   let threw = false; try { SIM.newFight({ seed: 5, bots: [{ cfg: T("wedge", "beetle") }] }); } catch (e) { threw = true; }
   if (!threw) fail("newFight took one bot without a drill");
   console.log(`0.1.47 checks: ${SIM.DRILLS.length} drills, the instructor medals in each and replays to the same score: ${line.join(", ")}`);
+}
+
+/* ---- 0.1.48: the Tooth count dial ---- */
+{
+  const D = SIM.DEFAULT_CFG, B = (cfg) => SIM.evalBuild(Object.assign({}, D, cfg)), tn = (n) => ({ tune: { teeth: n } });
+  const T = SIM.TUNE.teeth, st = B({});
+  if (SIM.TUNE_IDS.indexOf("teeth") < 0 || T.labels.length !== T.max - T.min + 1 || T.base + T.min !== 1 || T.base + T.max !== 5) fail("the Tooth count dial should run from one tooth to five");
+  if (st.weapon.teeth !== 2 || st.weapon.hitGap !== 1 || B(tn(0)).weapon.bite !== st.weapon.bite) fail("two teeth are stock");
+  let prev = null; const row = [];
+  for (let n = T.min; n <= T.max; n++) {
+    const b = B(tn(n)), w = b.weapon;
+    if (!b.valid || w.teeth !== T.base + n || b.totalG !== st.totalG || Math.abs(w.storedJ - st.weapon.storedJ) > 1e-9) fail(`tooth count ${T.base + n}: the dial should change no weight and no stored energy`);
+    if (prev && !(w.bite < prev.bite && w.recoil < prev.recoil && w.hitGap < prev.hitGap && w.minSpin < prev.minSpin && w.bendJ > prev.bendJ && w.shearJ > prev.shearJ)) fail(`tooth count ${T.base + n}: more teeth should bite less, kick less, hit again sooner, bite at a lower speed and be harder to bend`);
+    prev = w; row.push(`${w.teeth}: bite ${w.bite.toFixed(2)}, ${(w.storedJ * w.bite).toFixed(0)} J a hit, kick x${(w.recoil / st.weapon.recoil).toFixed(2)}, gap ${(w.hitGap * SIM.FIGHT.hitGapS).toFixed(2)} s`);
+  }
+  if (SIM.normCfg(Object.assign({}, D, tn(9))).tune.teeth !== T.max || SIM.normCfg(Object.assign({}, D, tn(-9))).tune.teeth !== T.min) fail("the dial is kept inside its range");
+  for (const w of ["wedge", "hammer", "saw", "shell", "ring", "melty", "none"]) {
+    if (SIM.tuneOn("teeth", w) || SIM.normCfg(Object.assign({}, D, { weapon: w }, tn(2))).tune.teeth !== 0) fail(`${w}: the Tooth count dial is for a disc or a drum only`);
+  }
+  for (const w of ["hsp", "vsp", "drum", "beater", "drisk", "under"]) if (!SIM.tuneOn("teeth", w)) fail(`${w} should have the Tooth count dial`);
+  if (!SIM.tuneOn("volt", "wedge")) fail("the other dials are for every bot");
+  /* a disc profile from before the dial carried its teeth: they move onto the dial, and the bot hits as it did */
+  const old = SIM.normCfg(Object.assign({}, D, { tune: { volt: 1, wheel: 0, bias: 0 }, disc: { name: "Old", teeth: 1, rim: "heavy" } }));
+  if (old.tune.teeth !== -1 || old.tune.volt !== 1 || old.disc.teeth !== undefined || old.disc.rim !== "heavy") fail("an old disc profile's teeth should move onto the dial");
+  const ob = SIM.evalBuild(old), nb = B({ tune: { volt: 1, teeth: -1 }, disc: { name: "Old", rim: "heavy" } });
+  if (ob.weapon.bendJ !== nb.weapon.bendJ || ob.weapon.bite !== nb.weapon.bite || ob.weapon.storedJ !== nb.weapon.storedJ || ob.weapon.recoil !== nb.weapon.recoil) fail("an old one-tooth disc should hit the same from the dial");
+  if (SIM.normCfg(Object.assign({}, D, { tune: { teeth: 2 }, disc: { name: "Old", teeth: 1, rim: "mid" } })).tune.teeth !== 2) fail("a cfg with the dial keeps the dial, not the old profile's teeth");
+  if (!SIM.sameParts(D, Object.assign({}, D, tn(3))) || SIM.fitBill(D, Object.assign({}, D, tn(3))).lines.length) fail("the dial is free: no new parts, nothing on the bill");
+  /* in a fight: the dial changes how it goes, and the same dial gives the same fight (the numbers are printed, not enforced) */
+  const tgt = SIM.TEST_BUILDS.find((t) => t.id === "brick").cfg, run = (n) => {
+    let hits = 0, best = 0;
+    for (let s = 1; s <= 6; s++) { const F = SIM.runFight({ seed: 40 + s, arena: "box", bots: [{ cfg: Object.assign({}, D, tn(n)), driver: { style: "auto", skill: 0.8 } }, { cfg: Object.assign({}, tgt, { cls: "beetle" }), driver: { style: "auto", skill: 0.8 } }] });
+      hits += F.bots[0].stats.hits; best += F.bots[0].stats.dealt; }
+    return { hits, best };
+  };
+  const one = run(-1), five = run(3);
+  const again = run(-1);
+  if (again.hits !== one.hits || again.best !== one.best) fail("the same fights with the same dial should come out the same");
+  if (one.hits === five.hits && one.best === five.best) fail("the Tooth count dial changed nothing in a fight");
+  console.log(`0.1.48 checks: tooth count ${row.join("; ")}. Six fights against the brick: one tooth ${one.hits} hits (${one.best.toFixed(0)} J dealt), five teeth ${five.hits} hits (${five.best.toFixed(0)} J dealt)`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
