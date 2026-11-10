@@ -799,3 +799,8 @@ A fourth Tuning dial for any spinner with a disc or a drum (horizontal, vertical
 - **The forward arrow:** a pale chevron on the floor ahead of the bot you drive (`fwdMark`, `src/vis/arena.js`), on every tier, in live fights and drills. The 2D map's heading lines end in an arrowhead.
 - **Saves:** `SAVE_V` 18 (`settings.tips`). No new key.
 
+## The fight camera (0.1.50)
+
+- **One angle:** the camera never turns. It looks up the arena at a fixed pitch and frames the box round the bots still in it, in the band the HUD leaves clear.
+- **Calm:** it pulls out at once when the bots split and comes back in only when they are a good deal closer (`CAM.band`), slowly (`CAM.inn`). The distance allows for the near side of the box being narrower on the screen (`CAM.near`).
+- **Your bot is always in frame:** in a live fight or a drill, the bot you drive is kept wholly on the screen and clear of the bot cards and the controls (`CAM.edge`), even if that puts the opponent at the edge for a moment.
