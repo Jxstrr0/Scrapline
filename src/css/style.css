@@ -280,6 +280,11 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .ftopp button{min-height:40px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--card2);font-size:14px;color:var(--muted)}
 .ftopp button.on{color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay);background:var(--card)}
 .ftres{margin:0 0 8px;min-height:1.4em;font-weight:700;font-size:16px}
+/* the driving school's medals (0.1.47): a dot in the medal's colour beside its name in the ordinary text colour, so the
+   name reads on both themes; the dot has a rule round it for the light theme's white cards */
+.medal{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:600}
+.medal i{width:10px;height:10px;border-radius:50%;background:var(--mc);box-shadow:0 0 0 1px var(--rule)}
+.medal.none{color:var(--muted);font-weight:400}
 .ftres.ok{color:var(--good)} .ftres.broke{color:var(--crit-t)}
 #ftHud{margin-top:10px}
 .ftbot{padding:8px 0;border-top:1px solid var(--rule);font-size:14px}

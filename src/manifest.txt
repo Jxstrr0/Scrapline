@@ -12,6 +12,7 @@ sim/fight.js
 sim/damage.js
 sim/ai.js
 sim/arenas.js
+sim/school.js
 sim/opponents.js
 html/ld-sim.html
 sound/synth.js
@@ -41,6 +42,7 @@ app/fight.js
 app/pit.js
 app/report.js
 app/daily.js
+app/school.js
 app/reel.js
 app/shop.js
 app/career.js

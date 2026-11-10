@@ -208,11 +208,12 @@ function newMini(F,o){const cls=MINIBOT.cls[o.b.cls];if(!cls||o.cfg.extras.index
 /* the bots that count (minibots don't, for knockouts or the judges) */
 const mainBots=F=>F.bots.filter(o=>!o.mini);
 function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.bots||[]).filter(s=>s&&s.cfg);
-  if(specs.length<2)throw new Error("newFight needs two bots or more");
+  const drill=opts.drill&&drillOf(opts.drill)?opts.drill:null;   // a driving-school drill (sim/school.js): its own floor and starts, and a bot may be alone
+  if(specs.length<(drill?1:2))throw new Error("newFight needs two bots or more");
   const cls=normCfg(specs[0].cfg).cls,rules=Object.assign({roundS:FIGHT.roundS,koS:FIGHT.koS},opts.rules||{});
-  const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(opts.arena,cls,seed),rules,bots:[],
+  const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(drill?drillOf(drill).arena:opts.arena,cls,seed),rules,bots:[],
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
-    spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
+    spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},drill,
       bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,livery:s.livery?Object.assign({},s.livery):null,
         driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:carryFlags(s.flags)}))}};   // copies: the log is the fight as it started
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{},ph:0}));
@@ -232,6 +233,7 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     else F.rec[i]={v:[[],[],[]],last:[FIGHT.inputLevels+1,FIGHT.inputLevels+1,0]};});
   /* minibots go on the end, so every main bot keeps its index (and the player is still bot 0) */
   for(const o of F.bots.slice()){const m=newMini(F,o);if(m)F.bots.push(m);}
+  if(drill)drillSetup(F,drill);
   return F;}
 
 /* ---- the log ---- */
@@ -615,6 +617,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots){if(o.out)continue;const still=!mobile(o)&&!(o.righting>0&&o.fx.righter);
     o.immobileS=still?o.immobileS+dt:0;if(o.immobileS>=F.rules.koS)outBot(F,o,"ko");}
   F.t+=dt;F.n++;
+  if(F.drill){drillStep(F);return F;}   // a drill ends by its own rules (sim/school.js)
   const teams=[...new Set(mainBots(F).filter(o=>!o.out).map(o=>o.team))];
   if(teams.length<=1){F.over=true;F.endT=F.t;F.winner=teams.length?teams[0]:null;
     const last=mainBots(F).filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
@@ -670,6 +673,7 @@ function unpackInputs(p){const by=b64d(p.d),n=p.n;let i=0;const ch=[];
 /* ---- the result and the log ---- */
 function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules:F.spec.rules,steps:F.n,bots:F.spec.bots,
     entries:F.log,inputs:{}};
+  if(F.spec.drill)L.drill=F.spec.drill;
   for(const i in F.rec)L.inputs[i]=packInputs(F.rec[i]);
   /* stay under the cap. Dropped first: hits that broke nothing, then small landings, then the repeatable moments (under,
      flips, lifts, self-rights, overheating), then hits that damaged parts, smallest first. Failures, knockouts, the end
@@ -699,6 +703,6 @@ function runFight(opts){const F=newFight(opts),cap=Math.ceil(F.rules.roundS*STEP
   return fightResult(F);}
 /* the same fight from its log: seed, builds, arena, rules and the player's recorded inputs */
 function replayFight(log){if(!log||log.noReplay)return null;const play={};for(const i in log.inputs||{})play[i]=unpackInputs(log.inputs[i]);
-  const r=runFight({seed:log.seed,arena:log.arena,rules:log.rules,bots:log.bots.map(b=>Object.assign({},b,{team:b.team})),play});
+  const r=runFight({seed:log.seed,arena:log.arena,rules:log.rules,drill:log.drill,bots:log.bots.map(b=>Object.assign({},b,{team:b.team})),play});
   r.log.inputs=JSON.parse(JSON.stringify(log.inputs||{}));   // the replay's log replays too
   return r;}

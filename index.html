@@ -299,6 +299,11 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .ftopp button{min-height:40px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--card2);font-size:14px;color:var(--muted)}
 .ftopp button.on{color:var(--ink);box-shadow:inset 0 0 0 1px var(--clay);background:var(--card)}
 .ftres{margin:0 0 8px;min-height:1.4em;font-weight:700;font-size:16px}
+/* the driving school's medals (0.1.47): a dot in the medal's colour beside its name in the ordinary text colour, so the
+   name reads on both themes; the dot has a rule round it for the light theme's white cards */
+.medal{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:600}
+.medal i{width:10px;height:10px;border-radius:50%;background:var(--mc);box-shadow:0 0 0 1px var(--rule)}
+.medal.none{color:var(--muted);font-weight:400}
 .ftres.ok{color:var(--good)} .ftres.broke{color:var(--crit-t)}
 #ftHud{margin-top:10px}
 .ftbot{padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
@@ -1914,11 +1919,12 @@ function newMini(F,o){const cls=MINIBOT.cls[o.b.cls];if(!cls||o.cfg.extras.index
 /* the bots that count (minibots don't, for knockouts or the judges) */
 const mainBots=F=>F.bots.filter(o=>!o.mini);
 function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.bots||[]).filter(s=>s&&s.cfg);
-  if(specs.length<2)throw new Error("newFight needs two bots or more");
+  const drill=opts.drill&&drillOf(opts.drill)?opts.drill:null;   // a driving-school drill (sim/school.js): its own floor and starts, and a bot may be alone
+  if(specs.length<(drill?1:2))throw new Error("newFight needs two bots or more");
   const cls=normCfg(specs[0].cfg).cls,rules=Object.assign({roundS:FIGHT.roundS,koS:FIGHT.koS},opts.rules||{});
-  const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(opts.arena,cls,seed),rules,bots:[],
+  const F={seed,rng:rng(seed),t:0,n:0,dt:1/STEP_HZ,cls,M:classMult(cls),arena:arenaOf(drill?drillOf(drill).arena:opts.arena,cls,seed),rules,bots:[],
     log:[],over:false,winner:null,reason:null,endT:null,rec:{},play:opts.play||null,fxq:opts.fx?[]:null,
-    spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},
+    spec:{arena:opts.arena&&typeof opts.arena==="object"?opts.arena:(opts.arena||"box"),rules:opts.rules||{},drill,
       bots:specs.map(s=>({cfg:normCfg(s.cfg),team:s.team!=null?s.team:null,name:s.name||null,livery:s.livery?Object.assign({},s.livery):null,
         driver:s.driver?Object.assign({},s.driver):null,damage:s.damage?Object.assign({},s.damage):null,flags:carryFlags(s.flags)}))}};   // copies: the log is the fight as it started
   F.bots=specs.map((s,i)=>newBot(s,i,F));F.hz=F.arena.haz.map(()=>({ready:0,until:-1,hit:{},ph:0}));
@@ -1938,6 +1944,7 @@ function newFight(opts){opts=opts||{};const seed=(opts.seed>>>0)||1,specs=(opts.
     else F.rec[i]={v:[[],[],[]],last:[FIGHT.inputLevels+1,FIGHT.inputLevels+1,0]};});
   /* minibots go on the end, so every main bot keeps its index (and the player is still bot 0) */
   for(const o of F.bots.slice()){const m=newMini(F,o);if(m)F.bots.push(m);}
+  if(drill)drillSetup(F,drill);
   return F;}
 
 /* ---- the log ---- */
@@ -2321,6 +2328,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots){if(o.out)continue;const still=!mobile(o)&&!(o.righting>0&&o.fx.righter);
     o.immobileS=still?o.immobileS+dt:0;if(o.immobileS>=F.rules.koS)outBot(F,o,"ko");}
   F.t+=dt;F.n++;
+  if(F.drill){drillStep(F);return F;}   // a drill ends by its own rules (sim/school.js)
   const teams=[...new Set(mainBots(F).filter(o=>!o.out).map(o=>o.team))];
   if(teams.length<=1){F.over=true;F.endT=F.t;F.winner=teams.length?teams[0]:null;
     const last=mainBots(F).filter(o=>o.out).sort((a,b)=>b.outAt-a.outAt)[0];F.reason=teams.length?(last?last.out:"ko"):"draw";}
@@ -2376,6 +2384,7 @@ function unpackInputs(p){const by=b64d(p.d),n=p.n;let i=0;const ch=[];
 /* ---- the result and the log ---- */
 function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules:F.spec.rules,steps:F.n,bots:F.spec.bots,
     entries:F.log,inputs:{}};
+  if(F.spec.drill)L.drill=F.spec.drill;
   for(const i in F.rec)L.inputs[i]=packInputs(F.rec[i]);
   /* stay under the cap. Dropped first: hits that broke nothing, then small landings, then the repeatable moments (under,
      flips, lifts, self-rights, overheating), then hits that damaged parts, smallest first. Failures, knockouts, the end
@@ -2405,7 +2414,7 @@ function runFight(opts){const F=newFight(opts),cap=Math.ceil(F.rules.roundS*STEP
   return fightResult(F);}
 /* the same fight from its log: seed, builds, arena, rules and the player's recorded inputs */
 function replayFight(log){if(!log||log.noReplay)return null;const play={};for(const i in log.inputs||{})play[i]=unpackInputs(log.inputs[i]);
-  const r=runFight({seed:log.seed,arena:log.arena,rules:log.rules,bots:log.bots.map(b=>Object.assign({},b,{team:b.team})),play});
+  const r=runFight({seed:log.seed,arena:log.arena,rules:log.rules,drill:log.drill,bots:log.bots.map(b=>Object.assign({},b,{team:b.team})),play});
   r.log.inputs=JSON.parse(JSON.stringify(log.inputs||{}));   // the replay's log replays too
   return r;}
 /* ---- damage.js: hits on faces (absorb, armour hp, then the most exposed part behind it), landings, part failures and
@@ -2879,6 +2888,129 @@ const ARENAS={
 };
 const ARENA_IDS=Object.keys(ARENAS);
 const JUDGE_WEIGHTS={damage:.5,aggression:.25,control:.25};
+/* ---- school.js: the driving school (0.1.47, Kelbo). SCHOOL, DRILLS, drillSpec, drillStep, drillMedal, drillAuto.
+   A drill is a short round in the real fight sim, in the school's own beetleweights (the same bots for everyone, so a
+   medal is driving, not parts), on a floor laid out for it. newFight({drill: id}) sets it up: the drill's floor, the
+   bots where it wants them (no ring, no jitter), a fixed seed. stepFight hands the end of each step to drillStep, which
+   ticks the drill's steps off and ends the round; nobody is judged.
+     DRILLS[i]   id, name, line (what to do), tip (how), kind, limitS (the round's length), medals [gold, silver, bronze],
+                 bot (cfg), start [x, y, heading, upside down], others [{cfg, name, at: [x, y, heading], driver}],
+                 arena (as sim/arenas.js), steps, zone [x, y, r] (hold), penS (time added per second on a lit grate)
+     kind        "time"  do every step; the score is the seconds from your first touch of the controls to the last step
+                         (plus penS), less is better. Out of time, in the pit or counted out: no score.
+                 "hold"  the seconds your bot's centre is inside zone, of limitS. More is better.
+                 "hit"   the biggest single hit on bot 1, in joules, in limitS. More is better.
+     steps       {go: [x, y], r}        get your centre inside the ring (r: SCHOOL.gateR). With face (a heading, rad) and
+                                        tol: only while pointing that way. With slow (m/s): only at or under that speed.
+                                        With flip: the school turns you over as you reach it.
+                 {hit: J}               land one hit of J or more on bot 1
+                 {pit: 1}               bot 1 is in the pit
+   Lengths are metres at beetle scale; headings are radians, 0 along +x, pi/2 up the floor. F.drill is the state the
+   view draws from (k: the step you're on, steps, zone, hold, big, pen, t0, score, medal 0..3, pass, why).
+   drillAuto(F) is the instructor: a plain path follower that drives bot 0 through any drill. tools/sim-test.js runs it
+   to prove every drill can be done, and the app plays it back as the demonstration. ---- */
+const SCHOOL={cls:"beetle",seed:0x5C01,gateR:0.15,tol:0.5,roundS:40};
+const schoolBot=(id,over)=>Object.assign({},TEST_BUILDS.find(t=>t.id===id).cfg,over||{},{cls:SCHOOL.cls});
+const SCHOOL_FLOOR={id:"school",name:"Driving school",sizeM:2.4,wallE:0.35,pit:null,hazards:[]};
+const schoolFloor=o=>Object.assign({},SCHOOL_FLOOR,o||{});
+const DRILLS=[
+  {id:"cones",name:"Round the pit",kind:"time",limitS:40,medals:[7.5,10.5,16],
+    line:"Eight rings round an open pit, in order. Near, far, near, far.",tip:"Lift off before a near ring: the pit is one bot's length behind it.",
+    bot:schoolBot("wedge"),start:[0.9,-0.5,Math.PI/2],arena:schoolFloor({pit:{rect:[-0.2,-0.2,0.2,0.2],openS:0}}),
+    steps:[[0.5,0],[0.67,0.67],[0,0.5],[-0.67,0.67],[-0.5,0],[-0.67,-0.67],[0,-0.5],[0.67,-0.67]].map(p=>({go:p}))},
+  {id:"stop",name:"Stop on the mark",kind:"time",limitS:40,medals:[6.5,9,14],
+    line:"Four marks. Each one only counts once you've all but stopped on it. The last is at the pit's edge.",tip:"Brake early. A bot at full speed needs about its own length to stop.",
+    bot:schoolBot("wedge"),start:[-0.9,-0.9,0],arena:schoolFloor({pit:{rect:[-0.3,0.95,0.3,1.2],openS:0}}),
+    steps:[{go:[0.8,-0.9],slow:0.25},{go:[0.8,0],slow:0.25},{go:[-0.8,0],slow:0.25},{go:[0,0.72],slow:0.25}]},
+  {id:"line",name:"Hold the line",kind:"hold",limitS:20,medals:[17,13,8],zone:[0,0,0.42],
+    line:"The brick wants you out of the ring. Stay in it for as much of twenty seconds as you can.",tip:"Meet it nose to nose and keep driving. Side on, you slide.",
+    bot:schoolBot("wedge"),start:[0,-0.25,Math.PI/2],arena:schoolFloor(),
+    others:[{cfg:schoolBot("brick"),name:"The brick",at:[0,0.9,-Math.PI/2],driver:{style:"aggressive",skill:0.7}}],steps:[]},
+  {id:"target",name:"On target",kind:"hit",limitS:15,medals:[100,70,40],
+    line:"One parked box, fifteen seconds. Your biggest single hit is your score.",tip:"A disc hits hardest at full speed: wait for the bar to fill, then drive in square.",
+    bot:schoolBot("vsp"),start:[0,-0.9,Math.PI/2],arena:schoolFloor(),
+    others:[{cfg:Object.assign({},BENCH_DUMMIES[1].cfg,{cls:SCHOOL.cls}),name:"The box",at:[0,0.5,-Math.PI/2]}],steps:[]},
+  {id:"shove",name:"Into the pit",kind:"time",limitS:40,medals:[4.5,7,12],
+    line:"Put the parked box in the pit.",tip:"Line up behind it first. A push off-centre spins it away from you.",
+    bot:schoolBot("wedge"),start:[0.3,-0.95,Math.PI/2],arena:schoolFloor({pit:{rect:[-0.3,0.85,0.3,1.2],openS:0}}),
+    others:[{cfg:Object.assign({},BENCH_DUMMIES[0].cfg,{cls:SCHOOL.cls}),name:"The box",at:[-0.35,-0.1,0]}],steps:[{pit:1}]},
+  {id:"right",name:"Back on your wheels",kind:"time",limitS:40,medals:[9.5,13,19],
+    line:"You start on your back. Self-right, reach the ring, and the school turns you over again. Three rings.",tip:"Hold Self-right the moment you're over, and have the stick pushed before the bot lands.",
+    bot:schoolBot("hsp",{weapon:"none",extras:["selfright"]}),start:[-0.8,-0.8,0,true],arena:schoolFloor(),
+    steps:[{go:[0.8,-0.8],flip:true},{go:[0.8,0.8],flip:true},{go:[-0.8,0.8]}]},
+  {id:"slide",name:"Sideways",kind:"time",limitS:40,medals:[7.5,11,17],
+    line:"Mecanum wheels. A ring only counts while your nose points up the floor, so slide to it: hold Slide and steer.",tip:"Let go of Slide to square the nose up, then hold it again.",
+    bot:schoolBot("wedge",{wheelbase:"mecanum",drive:"dual",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},extras:[]}),start:[-0.8,-0.8,Math.PI/2],arena:schoolFloor(),
+    steps:[[0.7,-0.6],[-0.7,-0.2],[0.7,0.2],[-0.7,0.6],[0.7,0.9]].map(p=>({go:p,face:Math.PI/2,tol:0.45}))},
+  {id:"grate",name:"Mind the grate",kind:"time",limitS:45,medals:[13.5,17,24],penS:3,
+    line:"Six crossings of a furnace grate that lights every four seconds. Every second on it while it burns costs you three.",tip:"Watch the pilot light. Cross as the flame dies, not as it starts.",
+    bot:schoolBot("wedge"),start:[-0.8,-0.75,0],
+    arena:schoolFloor({hazards:[{type:"flame",rect:[-1.2,-0.22,1.2,0.22],warnS:1,activeS:1.6,periodS:4,startS:1.5,heatFrac:0.3,Jps:6,tickS:0.5}]}),
+    steps:[[-0.8,0.75],[-0.3,-0.75],[0.2,0.75],[0.6,-0.75],[0.9,0.75],[0,-0.75]].map(p=>({go:p}))}
+];
+const drillOf=id=>DRILLS.find(d=>d.id===id)||null;
+/* the fight a drill is (newFight's options); name and livery are the app's */
+function drillSpec(id,me){const d=drillOf(id);if(!d)return null;
+  return{seed:SCHOOL.seed,drill:d.id,arena:"box",rules:{roundS:d.limitS},
+    bots:[Object.assign({cfg:d.bot,name:"School bot"},me||{})].concat((d.others||[]).map(o=>({cfg:o.cfg,name:o.name,driver:o.driver?Object.assign({},o.driver):null})))};}
+/* newFight calls this once the bots exist: put them where the drill wants them and start its state */
+function drillSetup(F,id){const d=drillOf(id),L=F.M.len;if(!d)return;
+  const put=(o,p)=>{o.x=p[0]*L;o.y=p[1]*L;o.h=wrapA(p[2]||0);o.inverted=!!p[3];o.pw=worldPoly(o,o.poly);};
+  put(F.bots[0],d.start);(d.others||[]).forEach((q,i)=>{if(F.bots[i+1])put(F.bots[i+1],q.at);});
+  F.drill={id:d.id,kind:d.kind,k:0,n:d.steps.length,t0:d.kind==="time"?null:0,hold:0,big:0,pen:0,seen:0,score:null,medal:0,pass:false,why:null,
+    zone:d.zone?[d.zone[0]*L,d.zone[1]*L,d.zone[2]*L]:null,
+    steps:d.steps.map(s=>s.go?Object.assign({},s,{go:[s.go[0]*L,s.go[1]*L],r:(s.r||SCHOOL.gateR)*L,tol:s.tol||SCHOOL.tol,slow:s.slow?s.slow*Math.sqrt(L):0}):Object.assign({},s))};}
+/* a score's medal: 3 gold, 2 silver, 1 bronze, 0 none */
+function drillMedal(d,score){if(typeof d==="string")d=drillOf(d);if(!d||score==null)return 0;const m=d.medals,ok=v=>d.kind==="time"?score<=v+1e-9:score>=v-1e-9;
+  return ok(m[0])?3:ok(m[1])?2:ok(m[2])?1:0;}
+function drillEnd(F,pass,why){const D=F.drill,d=drillOf(D.id);
+  D.score=d.kind==="hold"?r2(D.hold):d.kind==="hit"?Math.round(D.big):pass?r2(F.t-D.t0+D.pen):null;
+  D.medal=d.kind==="time"&&!pass?0:drillMedal(d,D.score);D.pass=d.kind==="time"?pass:D.medal>0;D.why=why;
+  F.over=true;F.endT=F.t;F.reason="drill";F.winner=D.pass?F.bots[0].team:null;logIt(F,{k:"end",w:F.winner,why:"drill"});}
+/* the end of a drill's step, in place of the knockout and judges' rules */
+function drillStep(F){const D=F.drill,d=drillOf(D.id),me=F.bots[0],it=F.bots[1],u=me.input||{};
+  if(D.t0==null&&(u.throttle||u.steer||u.strafe||u.weapon||u.selfRight))D.t0=F.t-F.dt;
+  let hitJ=0;for(;D.seen<F.log.length;D.seen++){const e=F.log[D.seen];if(e.a===0&&e.v===1&&(e.k==="hit"||e.k==="grind"||e.k==="ram")&&e.E>hitJ)hitJ=e.E;}
+  if(hitJ>D.big)D.big=hitJ;
+  if(d.penS&&!me.air)for(const h of F.arena.haz)if(h.type==="flame"&&flamePhase(F,h)===2&&inHaz(h,me))D.pen+=F.dt*d.penS;
+  if(D.zone&&!me.out&&Math.hypot(me.x-D.zone[0],me.y-D.zone[1])<D.zone[2])D.hold+=F.dt;
+  if(me.out){drillEnd(F,false,me.out);return;}
+  const s=D.steps[D.k];
+  if(s){let ok=false;
+    if(s.go)ok=!me.air&&Math.hypot(me.x-s.go[0],me.y-s.go[1])<s.r&&(s.face==null||Math.abs(wrapA(me.h-s.face))<s.tol)&&(!s.slow||Math.hypot(me.vx,me.vy)<=s.slow);
+    else if(s.hit)ok=hitJ>=s.hit*F.M.mass;
+    else if(s.pit)ok=!!it&&it.out==="pit";
+    if(ok){D.k++;if(s.flip&&!me.inverted){me.inverted=true;me.righting=0;logIt(F,{k:"inv",v:0,inv:1});}}}
+  if(d.kind==="time"&&D.k>=D.n){if(D.t0==null)D.t0=0;drillEnd(F,true,"done");return;}
+  if(F.t>=F.rules.roundS-1e-9)drillEnd(F,d.kind!=="time","time");}
+/* the instructor: bot 0's input for this step */
+function drillAuto(F){const D=F.drill,u={throttle:0,steer:0,weapon:0,selfRight:0,slide:0};if(!D||F.over)return u;
+  const d=drillOf(D.id),me=F.bots[0],it=F.bots[1],sp=Math.hypot(me.vx,me.vy);
+  if(me.inverted&&!me.b.height.drivesInverted){u.selfRight=1;return u;}
+  const turn=a=>{const e=wrapA(a-me.h);u.steer=clamp1(-(2.6*e-0.1*me.w));return e;};
+  const to=(x,y,stopR)=>{const dx=x-me.x,dy=y-me.y,dist=Math.hypot(dx,dy),a=Math.abs(turn(Math.atan2(dy,dx)));
+    u.throttle=(a<0.35?1:a<1.2?Math.cos(a):0)*(stopR?Math.min(1,Math.max(0,(dist-stopR*0.3)/(sp*0.22+0.05))):1);return dist;};
+  const s=D.steps[D.k];
+  if(d.kind==="hold"){const dist=Math.hypot(me.x-D.zone[0],me.y-D.zone[1]);
+    if(it&&dist<D.zone[2]*0.45){const e=Math.abs(turn(Math.atan2(it.y-me.y,it.x-me.x)));u.throttle=e<0.4&&Math.hypot(it.x-me.x,it.y-me.y)<me.rad+it.rad+0.08?1:0;}
+    else to(D.zone[0],D.zone[1],D.zone[2]*0.3);
+    return u;}
+  if(d.kind==="hit"&&it){u.weapon=1;const w=me.b.weapon,up=!(w.omega>0)||me.wp.om>=w.omega*0.97,dist=Math.hypot(it.x-me.x,it.y-me.y);
+    if(up)to(it.x,it.y);else if(dist<0.9*F.M.len){turn(Math.atan2(it.y-me.y,it.x-me.x));u.throttle=-0.6;}else turn(Math.atan2(it.y-me.y,it.x-me.x));
+    return u;}
+  if(!s)return u;
+  if(s.pit&&it&&F.arena.pit){const r=F.arena.pit.rect,px=(r[0]+r[2])/2,py=(r[1]+r[3])/2,ax=it.x-px,ay=it.y-py,al=Math.hypot(ax,ay)||1,
+      bx=it.x+ax/al*0.4*F.M.len,by=it.y+ay/al*0.4*F.M.len,off=Math.abs(wrapA(Math.atan2(it.y-me.y,it.x-me.x)-Math.atan2(py-it.y,px-it.x)));
+    if(off<0.3)to(it.x,it.y);else to(bx,by,0.05);
+    if(Math.hypot(me.x-px,me.y-py)<0.45*F.M.len&&Math.hypot(it.x-me.x,it.y-me.y)>me.rad+it.rad+0.1)u.throttle=Math.min(u.throttle,0);   // never follow it in
+    return u;}
+  if(s.go){const dx=s.go[0]-me.x,dy=s.go[1]-me.y;
+    if(s.face!=null){const e=wrapA(s.face-me.h);if(Math.abs(e)>s.tol*0.4){turn(s.face);return u;}
+      const c=Math.cos(me.h),sn=Math.sin(me.h),fw=dx*c+dy*sn,rt=dx*sn-dy*c;u.slide=1;u.throttle=clamp1(fw*5);u.steer=clamp1(rt*5);return u;}
+    to(s.go[0],s.go[1],s.slow?s.r:0);
+    for(const h of F.arena.haz)if(h.type==="flame"&&!inHaz(h,me)&&(me.y<h.rect[1])!==(s.go[1]<h.rect[1])&&[0.1,0.25,0.4,0.55].some(a=>flamePhase({t:F.t+a},h)===2)&&Math.abs(me.y-(h.rect[1]+h.rect[3])/2)<(h.rect[3]-h.rect[1])/2+me.rad+sp*0.3)u.throttle=Math.min(u.throttle,0);   // wait at the grate's edge while it's lit
+    if(s.slow&&Math.hypot(dx,dy)<s.r&&sp>s.slow)u.throttle=0;}
+  return u;}
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
    stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
@@ -2984,7 +3116,7 @@ const OPPONENTS=[
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"melty",weaponMaterial:"s7",extras:[]}}
 ];
 const opponentCfg=op=>Object.assign({},op.cfg,{cls:op.cls});
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,ALL_ROUND,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,BENCH_DUMMIES,benchDummy,benchDummySpec,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen,flamePhase};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,ALL_ROUND,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,BENCH_DUMMIES,benchDummy,benchDummySpec,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen,flamePhase,SCHOOL,DRILLS,drillSpec,drillMedal,drillAuto};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
@@ -4545,7 +4677,7 @@ function arenaClear(){fxClear();for(const B of AR.bots){disposeClone(B.mesh);blo
   if(AR.lights){V.scene.remove(AR.lights);AR.lights.traverse(l=>{if(l.shadow&&l.shadow.map)l.shadow.dispose();});AR.lights=null;}   // the key light's shadow map is a GPU target
   for(const m of AR.kitMats||[])m.dispose();AR.kitMats=[];AR.kit=null;
   if(AR.floorMat){AR.floorMat.dispose();AR.floorMat=null;}for(const t of AR.floorTex)t.dispose();AR.floorTex=[];   // the floor's own material and its tile (the photo plate it starts with is M.arenaFloor's)
-  AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.pitCover=null;fxClear();}
+  AR.g=null;AR.F=null;AR.bots=[];AR.haz=[];AR.rings=null;AR.pitCover=null;fxClear();}
 /* the dressing scale: scene units per real metre for everything outside the walls (props, stands, the flat crowd), so they
    agree with each other. Real size (AR.U) where that is small enough, else capped, so a beetle arena (4 units a metre) isn't
    ringed by giants (0.1.21.1; the props used it alone from 0.1.21.0 and the people were drawn at about a third of it) */
@@ -4617,6 +4749,7 @@ function buildArena(F){
     const R=h.rM*U,m=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.03,lite?24:40),M.haz.clone());m.userData.own=true;m.position.set(X(h.at[0]),0.016,Z(h.at[1]));g.add(m);
     const bar=new THREE.Mesh(new THREE.BoxGeometry(R*1.8,0.04,R*0.25),M.steel);bar.position.y=0.03;m.add(bar);
     return{h,m,R,bar};});
+  AR.rings=drillRings(g,F,X,Z,U,lite);
   /* bots */
   AR.bots=F.bots.map(o=>{const team=o.team!=null?o.team:o.i,mesh=botMesh(o.b,team,o.i===0?V.paint:null,o.livery||null);g.add(mesh);mesh.scale.setScalar(U);
     const B={o,mesh,flipT:-9,shots:o.wp.shots,kickT:-9,kshots:o.kick?o.kick.shots:0,fall:0,inv:o.inverted?1:0,wheelA:0,armA:0,flash:0,flashT:-1e9};
@@ -4742,6 +4875,16 @@ function arenaPaint(g,lk,A,S,k,px,py,u,lite){const lw=Math.max(1,S/512),m=0.3*4*
 /* a flame grate (0.1.37): a dark plate in the floor (its bars are painted on the floor by arenaDecal; Full and Ultra put
    the kit's grate in it) and its flames, cones that stand up and flicker while it burns and sit low as a pilot light
    before. Lite: three plain cones, no blending. Full and Ultra: seven, two layers, additive. Nothing here casts a light. */
+/* a driving-school drill's rings (0.1.47, sim/school.js F.drill): flat rings on the floor on every tier. The one you're on
+   is clay, the ones to come are faint, the ones done are gone; a hold drill's ring is lilac and stays. */
+function drillRings(g,F,X,Z,U,lite){const D=F.drill;if(!D)return null;const out=[],C=x=>new THREE.Color(x).convertSRGBToLinear();
+  const mk=(x,y,r,col)=>{const m=new THREE.Mesh(new THREE.RingGeometry(r*U*0.8,r*U,lite?20:40),new THREE.MeshBasicMaterial({color:C(col),transparent:true,opacity:0.9,depthWrite:false,fog:false}));
+    m.userData.own=true;m.rotation.x=-Math.PI/2;m.position.set(X(x),0.022,Z(y));m.renderOrder=2;g.add(m);return m;};
+  D.steps.forEach((s,i)=>{if(s.go)out.push({i,m:mk(s.go[0],s.go[1],s.r,0xD97757),st:-1});});
+  if(D.zone)out.push({zone:true,m:mk(D.zone[0],D.zone[1],D.zone[2],0xB48CE8)});
+  return out;}
+function drillRingsTick(F){const D=F.drill;if(!D||!AR.rings)return;
+  for(const q of AR.rings){if(q.zone)continue;const st=q.i<D.k?0:q.i===D.k?2:1;if(q.st===st)continue;q.st=st;q.m.visible=st>0;q.m.material.opacity=st===2?0.95:0.28;}}
 function flameMesh(g,h,X,Z,lite){const r=h.rect,w=X(r[2])-X(r[0]),d=Z(r[1])-Z(r[3]),cx=X((r[0]+r[2])/2),cz=Z((r[1]+r[3])/2);
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.012,d),V.mats.haz.clone());m.userData.own=true;m.position.set(cx,0.008,cz);g.add(m);
   const long=w>=d,L=Math.max(w,d),T=Math.min(w,d),n=lite?3:4,fl=[],C=x=>new THREE.Color(x).convertSRGBToLinear();
@@ -4803,6 +4946,7 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(z.h.type==="pusher"){const k=on?Math.min(1,(z.h.activeS-(s.until-F.t))/0.08):0;z.m.position.set(z.base.x+z.n[0]*z.reach*k,z.base.y,z.base.z+z.n[1]*z.reach*k);}
     else if(on)z.m.rotation.y+=dt*18;});
   for(const l of AR.lamps||[])hazLit(l.material,any);
+  drillRingsTick(F);
   /* the pit cover slides off when it opens */
   if(AR.pitCover){const open=F.arena.pit&&F.t>=F.arena.pit.openS;if(open&&AR.pitOpenAt==null)AR.pitOpenAt=now;
     const k=AR.pitOpenAt==null?0:Math.min(1,(now-AR.pitOpenAt)/600);AR.pitCover.m.position.x=AR.pitCover.x0+AR.pitCover.w*1.05*k;AR.pitCover.m.visible=k<1;}
@@ -4810,6 +4954,10 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
   let live=AR.bots.filter(B=>!B.o.out&&!B.o.mini);if(!live.length)live=AR.bots.filter(B=>!B.o.out);
   const H=F.arena.half*U,pitch=0.98,sp=Math.sin(pitch),c=AR.cam;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,rM=0.3;
   for(const B of live){const x=B.o.x*U,z=-B.o.y*U,r=botR(B.o)*U*1.25;rM=Math.max(rM,r);x0=Math.min(x0,x-r);x1=Math.max(x1,x+r);z0=Math.min(z0,z-r);z1=Math.max(z1,z+r);}
+  /* a drill (0.1.47): the ring you're on, the one after it and the hold ring are in the frame too, so you can see where to go */
+  if(F.drill&&live.length){const D=F.drill,inc=(px,py,r)=>{const x=px*U,z=-py*U,q=r*U;x0=Math.min(x0,x-q);x1=Math.max(x1,x+q);z0=Math.min(z0,z-q);z1=Math.max(z1,z+q);};
+    for(let i=D.k;i<D.k+2&&i<D.steps.length;i++){const q=D.steps[i];if(q.go)inc(q.go[0],q.go[1],q.r);}if(D.zone)inc(D.zone[0],D.zone[1],D.zone[2]);
+    if(D.steps[D.k]&&D.steps[D.k].pit&&F.arena.pit){const r=F.arena.pit.rect;inc((r[0]+r[2])/2,(r[1]+r[3])/2,(r[2]-r[0])/2);}}
   if(!live.length){x0=z0=-H;x1=z1=H;}
   const pad=rM*1.1,minS=Math.max(2.2,rM*4.6),maxS=2*H+1.5,spX=Math.max(minS,Math.min(maxS,x1-x0+2*pad)),spZ=Math.max(minS*0.8,Math.min(maxS,z1-z0+2*pad));
   const lim=H*0.95;let cx=Math.max(-lim,Math.min(lim,(x0+x1)/2)),cz=Math.max(-lim,Math.min(lim,(z0+z1)/2));
@@ -5437,7 +5585,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.46.0";
+const VERSION="0.1.47.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -5686,7 +5834,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=15;
+const SAVE_V=16;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -5701,6 +5849,7 @@ function freshState(){return{v:SAVE_V,settings:freshSettings(),
   lastFight:null,                 // the latest fight log, for replay (PR 6)
   reel:{m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0},   // the highlight reel (0.1.27.0, app/reel.js): moments by id, this season's five, last season's reel (and its year), the career's best three, the Sandbox's five
   daily:{last:null,streak:0,top:0,best:null,tries:0},   // the daily challenge (0.1.20.0, app/daily.js): last day fought ("YYYY-MM-DD"), days in a row, longest run, today's best {score, txt, bring}, today's tries
+  school:{},                      // the driving school (0.1.47.0, app/school.js): {<SIM.DRILLS id>: {m, best, n}}: best medal (0 to 3), best score, tries
   hall:[],                        // the hall of fame (0.1.39, app/career.js crHallAdd): a line per career that ended: {team, y0, y1, seasons, events, wins, titles: [years], best, rep, act, end}
   lastBackup:0};}
 let S=freshState();
@@ -5725,7 +5874,8 @@ const MIGRATE={
   11:o=>{const d=o.career&&typeof o.career==="object"?o.career.day:null;if(d&&typeof d==="object"&&Array.isArray(d.pairs)&&Array.isArray(d.won)){d.hist=[];d.how=d.won.map(()=>null);d.sc=d.won.map(()=>"");}return o;},   // 0.1.26.0: the bracket screen keeps a tournament day's rounds (day.hist, how, sc); a day already under way has none of the earlier rounds
   12:o=>{o.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};return o;},   // 0.1.27.0: the highlight reel starts empty
   13:o=>{if(o.settings&&typeof o.settings==="object")o.settings.dev=o.settings.dev===true;return o;},   // 0.1.30.0: Dev mode (Settings) starts off
-  14:o=>{o.hall=[];return o;}   // 0.1.39.0: the hall of fame starts empty; the title and legend level are worked out from career.events (crTitle), so nothing else to add
+  14:o=>{o.hall=[];return o;},   // 0.1.39.0: the hall of fame starts empty; the title and legend level are worked out from career.events (crTitle), so nothing else to add
+  15:o=>{o.school={};return o;}   // 0.1.47.0: the driving school starts with no medals
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -5738,7 +5888,7 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   const n=freshState();Object.assign(n,o);
   n.settings=Object.assign(freshSettings(),o.settings);
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
-  for(const k of ["designs","rivals","parked"])if(!buObjS(n[k]))n[k]={};
+  for(const k of ["designs","rivals","parked","school"])if(!buObjS(n[k]))n[k]={};
   if(n.mode!=="career")n.mode="sandbox";
   if(!buObjS(n.daily))n.daily={last:null,streak:0,top:0,best:null,tries:0};
   if(!buObjS(n.reel)||!buObjS(n.reel.m))n.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};   // the lists are checked where they're used (rlState)
@@ -5918,7 +6068,7 @@ const buObj=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 const buNum=v=>typeof v==="number"&&isFinite(v);
 function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
-  for(const k of ["designs","unlocks","rivals","parked","daily"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  for(const k of ["designs","unlocks","rivals","parked","daily","school"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
   if("mode" in o&&o.mode!=null&&o.mode!=="career"&&o.mode!=="sandbox")return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
   /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */
@@ -6836,6 +6986,9 @@ const DEBUGVIEW={
     F.arena.haz.forEach((h,i)=>{const on=F.hz&&F.t<F.hz[i].until;g.strokeStyle=DV_COL.haz;g.fillStyle=on?DV_COL.hazOn:"rgba(226,169,59,.12)";g.lineWidth=1.5*dpr;
       if(h.type==="spinner"){g.beginPath();g.arc(X(h.at[0]),Y(h.at[1]),h.rM*s,0,Math.PI*2);g.fill();g.stroke();}
       else{const r=h.rect;g.fillRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);g.strokeRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);}});
+    /* a drill's rings (0.1.47): the one you're on in clay, the ones to come faint; a hold drill's ring in lilac */
+    if(F.drill){const D=F.drill;g.lineWidth=2.5*dpr;D.steps.forEach((q,i)=>{if(!q.go||i<D.k)return;g.globalAlpha=i===D.k?1:0.35;g.strokeStyle="#D97757";g.beginPath();g.arc(X(q.go[0]),Y(q.go[1]),q.r*s,0,Math.PI*2);g.stroke();});g.globalAlpha=1;
+      if(D.zone){g.strokeStyle="#B48CE8";g.beginPath();g.arc(X(D.zone[0]),Y(D.zone[1]),D.zone[2]*s,0,Math.PI*2);g.stroke();}}
     g.strokeStyle=DV_COL.wall;g.lineWidth=3*dpr;g.strokeRect(X(-H),Y(H),2*H*s,2*H*s);
     const font=px=>`${px*dpr}px "JetBrains Mono",ui-monospace,monospace`;
     const placed=[];
@@ -7025,8 +7178,8 @@ const CONTROLS={read:ctlRead,mount:ctlMount,unmount:ctlUnmount};
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
 const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
   you:false,on:false,view2d:false,partN:0,buzzT:0,
-  sub:"spar",open:null,   // the Fight tab's page (spar / daily / reel / codes) and its open picker row
-  ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js)
+  sub:"spar",open:null,   // the Fight tab's page (spar / daily / school / reel / codes) and its open row (a picker, or "sc:<drill>")
+  ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js), {kind:"bench"} or {kind:"school", id, demo, res} (app/school.js)
 const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
@@ -7053,7 +7206,7 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.whl={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
-function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);
+function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);if(FT.ext&&FT.ext.kind==="school")scRecord(F);
   if(!FT.ext&&!(FT.bout&&FT.bout.ev)&&S.mode!=="career"){rlConsider(F,{});save();}const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
@@ -7110,7 +7263,7 @@ const ftShown=()=>FT.rounds[FT.rv]?FT.rounds[FT.rv].F:null;
 /* ---- replay: the same fight again from its log ---- */
 const ftReplayOk=F=>{const R=FT.rounds.find(x=>x.F===F);if(!R)return false;if(!R.log)R.log=SIM.fightResult(F).log;return!R.log.noReplay;};
 function ftRpFight(log,n){const play={};for(const k in log.inputs||{})play[k]=SIM.unpackInputs(log.inputs[k]);
-  const F=SIM.newFight({seed:log.seed,arena:log.arena,rules:log.rules,bots:log.bots,play,fx:true});F.fxq=null;
+  const F=SIM.newFight({seed:log.seed,arena:log.arena,rules:log.rules,drill:log.drill,bots:log.bots,play,fx:true});F.fxq=null;
   while(F.n<n&&!F.over)SIM.stepFight(F,null);F.fxq=[];
   if(F.n>=log.steps&&!F.over){F.over=true;F.endT=F.t;F.reason="stopped";}   // a jump to the end of a stopped round ends there
   return F;}
@@ -7144,6 +7297,7 @@ function ftVoiceLoad(){if(curTab==="fight"&&ST().sound!==false)SCRAP_SOUND.prep(
 const ftVKind=F=>{const M=F.bots.filter(o=>!o.mini);if(M.length<=2)return"duel";return new Set(M.map(o=>o.team)).size===M.length?"rumble":"tag";};
 const ftVName=F=>F.bots.filter(o=>!o.mini&&o.team!==F.bots[0].team).length===1?F.bots.find(o=>!o.mini&&o.team!==F.bots[0].team):null;
 function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden=true;
+  if(F.drill){SCRAP_VOICE.stop();if(!FT.rp&&!again&&ST().sound!==false)SCRAP_SOUND.sfx("bell",0.7);return;}   // a drill has no announcer: the bell, and off you go
   const W=FT.rp&&FT.rp.watch?FT.watch:null,rp=!!FT.rp&&!W,B=FT.bout,vc=W?W.voice||null:!rp&&B&&B.ev?B.ev.voice||null:null,src=FT.rp&&FT.rounds[FT.rp.i]?FT.rounds[FT.rp.i].F:null;   // W: a watched sim, voiced like a live bout
   const rivals=FT.rp?(src&&src.vRiv)||{}:vc?vc.rivals||{}:{};F.vRiv=rivals;const kind=ftVKind(F);
   SCRAP_VOICE.begin(F,{speed:FT.rp?FT.rp.speed:FT.you?1:FT.speed,replay:rp,rivals,kind});
@@ -7165,14 +7319,14 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
   else{SCRAP_VOICE.seq(cues);bell();}}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
 /* the bell: the result calls, then (in a career) a first win or the Open title */
-function ftVoiceEnd(F){if(F.reason==="stopped")return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
+function ftVoiceEnd(F){if(F.reason==="stopped"||F.drill)return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
   const bout=FT.watch&&FT.rounds.length>1?Object.assign(ftWatchScore(),{over:FT.watch.k>=FT.rounds.length-1}):!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
   if(!rp&&B&&B.ev&&B.over&&!B.stopped&&crOn()){const c=S.career,vc=B.ev.voice||{},won=(B.wins[me]||0)>=(B.need||1);
     if(won&&!c.fw){c.fw=true;extra.push("career:first");}
     if(won&&vc.event==="Scrapline Open Final"&&vc.label==="final")extra.push("career:open");save();}
   SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra});}
 /* the post-mortem line for the round on the results card, once (after the bell's calls) */
-function ftVoicePm(F){if(F.pmSaid||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true});}
+function ftVoicePm(F){if(F.pmSaid||F.drill||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true});}
 /* a caption: the line at the bottom of the fight for a few seconds (only when sound or voices are off) */
 SCRAP_VOICE.onCap=(text,who)=>{const el=$("fCap");if(!el||!FT.on)return;el.textContent=(who==="a"?"Duncan: ":"Jess: ")+text;el.hidden=false;el.classList.toggle("fcom",who!=="a");
   clearTimeout(ftVoicePm.t);ftVoicePm.t=setTimeout(()=>{el.hidden=true;},Math.max(2200,text.length*70));};
@@ -7310,7 +7464,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
   else if(a==="evback")ftEvBack();
-  else if(a==="again"){const dl=FT.ext&&FT.ext.kind==="daily";ftExit();if(dl)dlStart();else ftStart();}
+  else if(a==="again"){const dl=FT.ext&&FT.ext.kind==="daily",sc=FT.ext&&FT.ext.kind==="school"?FT.ext.id:null;ftExit();if(sc)scStart(sc);else if(dl)dlStart();else ftStart();}
   else if(a==="pit")ftPit();
   else if(a==="endbout"){const B=FT.bout;if(B&&!B.over){B.over=true;B.stopped=true;ftEvDone(B,F);}if(B&&B.ev)ftEvBack();else ftExit();}
   else if(a==="rpagain")ftSeek(0);
@@ -7326,7 +7480,7 @@ const ftSpLbl=v=>(v===0.5?"½":v===0.25?"¼":v)+"×";
 /* the strip per bot, the clock and the notes, a few times a second */
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   if(FT.rp&&!FT.rp.drag){const p=$("fRpPos"),t=$("fRpT");if(p)p.value=F.n;if(t)t.textContent=ftT(Math.max(0,F.rules.roundS-F.t));const pb=document.querySelector('[data-fv="rpplay"]');if(pb){const l=F.over?"Again":FT.paused?"Play":"Pause";if(pb.textContent!==l)pb.textContent=l;}}const snd=ST().sound!==false&&!FT.paused&&!F.over;
-  const c=$("fClock");if(c)c.textContent=ftT(Math.max(0,F.rules.roundS-F.t));
+  const c=$("fClock");if(c)c.textContent=F.drill?scClock(F):ftT(Math.max(0,F.rules.roundS-F.t));
   const many=F.bots.filter(o=>!o.mini).length>2;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
@@ -7346,10 +7500,10 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
-    const s=FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
+    const s=F.drill?scNote(F):FT.hold&&!F.over?"Intro · fight starts at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;}   // the intro holds the clock: say so (a play-tester thought the fight had hung)
   if(!snd)SCRAP_SOUND.stop();}
 /* the bell at the end, and the crowd: a cheer for a knockout or the pit, applause for the judges (every tier) */
-function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);
+function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);if(F.drill){if(F.drill.medal)SCRAP_SOUND.sfx("cheer",0.5);return;}
   if(F.reason==="judges"||F.reason==="draw")SCRAP_SOUND.sfx("clap",0.6);else SCRAP_SOUND.sfx("cheer",0.6);}
 /* a bot's damage silhouette: the faces as its outline, the parts as dots where the layout put them, green / amber / cool red */
 const FT_SC={intact:"#4CC38A",damaged:"#E2A93B",destroyed:"#E5484D"};
@@ -7421,10 +7575,11 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
 function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
   const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
+  if(!FT.rp&&F.drill)btns='<button type="button" class="btn pri" data-fv="again">Again</button><button type="button" class="btn" data-fv="results">Back to the school</button>';
   if(FT.rp&&FT.watch){const W=FT.watch,sc=ftWatchScore();
     if(W.k>=FT.rounds.length-1){toastHold(false);const x=W.banner;r={t:x.t,s:x.s,cls:x.cls};btns='<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
     else{r={t:`Round ${W.k+1}: ${r.t}`,s:`${r.s} · ${sc.me}–${sc.them} in the bout.`,cls:r.cls};btns=`<button type="button" class="btn pri" data-fv="wnext">Round ${W.k+2}</button><button type="button" class="btn" data-fv="evback">Back to the event</button>`;}}
-  else if(FT.rp){r={t:"Replay: "+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
+  else if(FT.rp){r={t:(F.drill&&FT.ext&&FT.ext.demo?"":"Replay: ")+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
     btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
   else if(B&&F.reason!=="stopped"){const sc=`${B.wins[0]||0}–${B.wins[1]||0}`,w=ftBoutWinner(B);
@@ -7433,7 +7588,8 @@ function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reas
       btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
   $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
   const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
-function ftResult(F){if(F.reason==="stopped")return{t:"Fight stopped",s:"",cls:""};
+function ftResult(F){if(F.reason==="stopped")return{t:F.drill?"Drill stopped":"Fight stopped",s:"",cls:""};
+  if(F.drill)return scResult(F);
   const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
   if(!win)return{t:"Draw",s:`At ${ftT(F.endT)}, too close for the judges to split`,cls:""};
   return{t:win.i===0?"You win":`${win.name} wins`,s:`${F.reason==="ko"?"By knockout":F.reason==="pit"?"Into the pit":"On the judges' decision"} at ${ftT(F.endT)}`,cls:win.i===0?"ok":"broke"};}
@@ -7507,11 +7663,11 @@ function ftLog(F){const el=$("ftLog");if(!F||!el)return;const L=F.log;el.innerHT
   el.innerHTML=html;FT.logN=L.length;}
 
 /* ---- the tab ---- */
-/* The tab is four short pages behind a strip (0.1.43): Spar, Daily, Highlights, Codes (FT.sub). A shown result sits
+/* The tab is five short pages behind a strip (0.1.43; School from 0.1.47): Spar, Daily, School, Highlights, Codes (FT.sub). A shown result sits
    under the page it came from; ftExit picks that page when a fight ends. On Spar the pickers are rows that open one
    at a time (FT.open), like the Build tab's, and the Fight bar stays pinned at the bottom of the panel. */
-const FT_SUBS=[["spar","Spar"],["daily","Daily"],["reel","Highlights"],["codes","Codes"]];
-function ftResSub(){return FT.ext?FT.ext.kind==="daily"?"daily":FT.ext.kind==="code"?"codes":"spar":"spar";}
+const FT_SUBS=[["spar","Spar"],["daily","Daily"],["school","School"],["reel","Highlights"],["codes","Codes"]];
+function ftResSub(){return FT.ext?FT.ext.kind==="daily"?"daily":FT.ext.kind==="code"?"codes":FT.ext.kind==="school"?"school":"spar":"spar";}
 function ftRow(id,t,sum,body){const o=FT.open===id;return`<div class="acc${o?" open":""}" data-ftrow="${id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${t}</span><span class="sum" data-ftsum="${id}">${sum}</span><span class="chev"></span></button><div class="accb">${body}</div></div>`;}
 /* what each closed row says, and the Fight bar's two lines */
 function ftSum(id){const cls=bCls(),c=SIM.CLASSES[cls];
@@ -7529,9 +7685,10 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-ftcls="${id}" class="${id===cls?"on":""}" aria-pressed="${id===cls}">${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg&&!ext){FT.F=null;FT.rounds=[];FT.bout=null;}
   if(bot.cfg){const R0=ftShown()||FT.F;if(R0&&!FT.on&&!FT.ext&&(R0.cls!==cls||FT.sig!==bnSig(bot.cfg))){FT.F=null;FT.rounds=[];FT.bout=null;}}   // a refit ends the old fight
-  const R=ftShown(),res=R&&ftResSub()===sub?ftResHtml(R):"";
+  const R=ftShown(),res=R&&ftResSub()===sub&&sub!=="school"?ftResHtml(R):"";   // a drill's result is a line in its own row (app/school.js)
   let h="";
   if(sub==="daily")h=dlCard()+res;
+  else if(sub==="school")h=scCard();
   else if(sub==="reel")h=rlCard();
   else if(sub==="codes")h=rcCard()+res;
   else if(!bot.cfg)h=chips+`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON.tools}</svg><h3>Nothing fitted in the ${c.name} yet</h3><p>A fight uses the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
@@ -7986,6 +8143,62 @@ function rcCard(){return`<div class="card"><h3>Replay codes</h3><p>Got a code fr
 if(typeof document!=="undefined")document.addEventListener("click",e=>{const t=e.target;if(!t.closest)return;let x;
   if((x=t.closest("[data-dlbring]"))){DL.bring=x.dataset.dlbring;ftRender();return;}
   if((x=t.closest("[data-dl]"))){const a=x.dataset.dl;if(a==="go")dlStart();else if(a==="watch")rcWatchOpen();}});
+/* ===================== app/school.js: THE DRIVING SCHOOL (0.1.47.0) =====================
+   The Fight tab's School page (Kelbo: drills with medals). Eight short drills from SIM.DRILLS (sim/school.js), each a
+   round in the real fight sim in the school's own beetleweight, painted in your team's colours: the same bot for
+   everyone, so a medal is driving and not parts. Free in both modes; nothing costs and nothing carries over.
+   S.school (inside scr-save, SAVE_V 16) keeps {<drill id>: {m, best, n}}: the best medal (0 none, 1 bronze, 2 silver,
+   3 gold), the best score and the tries. A stopped drill doesn't count.
+     scCard()      the page             scStart(id)   drive a drill        scRecord(F)   a finished drill
+     scDemo(id)    the instructor (SIM.drillAuto) drives it, played back as a replay; it scores nothing
+     scNote(F)     the line under the clock           scClock(F)           the clock's own text
+     scResult(F)   the bell's banner */
+const SC_MEDAL=["No medal","Bronze","Silver","Gold"],SC_COL=["","#C0834F","#B8BEC6","#E2B43B"];
+const scState=()=>{if(!buObjS(S.school))S.school={};return S.school;};
+const scRec=id=>{const r=scState()[id];return buObjS(r)?{m:Math.max(0,Math.min(3,r.m|0)),best:typeof r.best==="number"&&isFinite(r.best)?r.best:null,n:r.n|0}:{m:0,best:null,n:0};};
+function scFmt(d,v){if(v==null)return"no score";return d.kind==="hit"?`${Math.round(v)} J`:`${(+v).toFixed(d.kind==="hold"?1:2)} s`;}
+const scChip=m=>m?`<span class="medal" style="--mc:${SC_COL[m]}"><i aria-hidden="true"></i>${SC_MEDAL[m]}</span>`:`<span class="medal none">No medal yet</span>`;
+function scTargets(d){return[3,2,1].map(m=>`${SC_MEDAL[m]} <span class="readout">${scFmt(d,d.medals[3-m])}</span>`).join(" · ")+(d.kind==="time"?" or less":" or more");}
+function scMe(){return{name:"School bot",livery:lvMine()};}
+function scBusy(){if(FT.on)return true;if(FT.bout&&!FT.bout.over){toast("Finish the bout first");return true;}return false;}
+function scStart(id){const sp=SIM.drillSpec(id,scMe());if(!sp||scBusy())return;lvField(sp.bots);sp.fx=true;
+  FT.you=true;FT.sig="school";FT.rounds=[];FT.rv=0;FT.rp=null;FT.bout=null;FT.ext={kind:"school",id};FT.open="sc:"+id;
+  ftGo(SIM.newFight(sp));}
+function scRecord(F){const D=F.drill;if(!D||F.reason==="stopped"||!FT.ext||FT.ext.demo)return;const d=SIM.DRILLS.find(q=>q.id===D.id),st=scState(),r=scRec(D.id);
+  const nb=D.score!=null&&D.medal>0&&(r.best==null||(d.kind==="time"?D.score<r.best:D.score>r.best));
+  st[D.id]={m:Math.max(r.m,D.medal),best:nb?D.score:r.best,n:r.n+1};FT.ext.res={score:D.score,medal:D.medal,newBest:nb,up:D.medal>r.m};save();}
+/* the instructor's run: the sim with drillAuto on the stick, then the same fight again from its log as a replay */
+function scDemo(id){const sp=SIM.drillSpec(id,{name:"The instructor",livery:lvMine()});if(!sp||scBusy())return;lvField(sp.bots);
+  const F=SIM.newFight(sp);let k=0;while(!F.over&&k++<60*120)SIM.stepFight(F,{0:SIM.drillAuto(F)});
+  const log=SIM.fightResult(F).log;if(log.noReplay){toast("The demonstration wouldn't play back");return;}
+  F.recorded=true;FT.rounds=[{F,log}];FT.rv=0;FT.bout=null;FT.rp=null;FT.ext={kind:"school",id,demo:true};FT.sig="school";FT.open="sc:"+id;
+  ftReplay(0);}
+function scWhy(F){const D=F.drill;return D.why==="pit"?"In the pit":D.why==="ko"?"Counted out":D.why==="time"&&D.kind==="time"?"Out of time":"";}
+function scResult(F){const D=F.drill,d=SIM.DRILLS.find(q=>q.id===D.id),x=FT.ext&&FT.ext.res,demo=FT.ext&&FT.ext.demo;
+  if(D.kind==="time"&&!D.pass)return{t:scWhy(F)||"Not finished",s:`${d.name}: ring ${Math.min(D.k+1,D.n)} of ${D.n}. Bronze is ${scFmt(d,d.medals[2])}.`,cls:"broke"};
+  const pen=D.pen>0.05?` (${D.pen.toFixed(1)} s of it on the lit grate)`:"";
+  return{t:demo?`The instructor: ${scFmt(d,D.score)}`:D.medal?`${SC_MEDAL[D.medal]} medal`:"No medal",
+    s:`${d.name}: ${scFmt(d,D.score)}${pen}${x&&x.newBest?" · your best":""}${D.medal<3?` · ${SC_MEDAL[D.medal+1]} is ${scFmt(d,d.medals[2-D.medal])}`:""}`,cls:D.medal?"ok":""};}
+function scClock(F){const D=F.drill;return D.kind==="time"?(D.t0==null?"0.0":(F.t-D.t0+D.pen).toFixed(1)):ftT(Math.max(0,F.rules.roundS-F.t));}
+function scNote(F){const D=F.drill,d=SIM.DRILLS.find(q=>q.id===D.id);
+  if(D.kind==="hold")return`In the ring ${D.hold.toFixed(1)} s`;
+  if(D.kind==="hit")return`Best hit ${Math.round(D.big)} J`;
+  const me=F.bots[0];if(me.inverted&&!me.b.height.drivesInverted)return"Upside down: self-right";
+  if(D.t0==null)return"The clock starts when you move";
+  const s=D.steps[D.k];return s&&s.pit?"Box in the pit":`Ring ${Math.min(D.k+1,D.n)} of ${D.n}${D.pen>0.05?` · +${D.pen.toFixed(1)} s grate`:""}`;}
+function scCard(){const L=SIM.DRILLS,recs=L.map(d=>scRec(d.id)),got=recs.filter(r=>r.m>0).length,gold=recs.filter(r=>r.m===3).length,ex=FT.ext&&FT.ext.kind==="school"&&!FT.ext.demo&&ftShown()?FT.ext:null;
+  let h=`<div class="card"><h3>Driving school</h3><p>Eight short drills in the school's own beetleweight, the same bot for everyone, so a medal is driving and not parts. Free, in either mode.</p>
+    <p class="hint"><span class="readout">${got}</span> of ${L.length} drills with a medal${gold?` · <span class="readout">${gold}</span> gold`:""}</p></div>`;
+  L.forEach((d,i)=>{const r=recs[i],o=FT.open==="sc:"+d.id,res=ex&&ex.id===d.id&&ex.res?ex.res:null,F=res?ftShown():null;
+    h+=`<div class="acc${o?" open":""}" data-ftrow="sc:${d.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${esc(d.name)}</span><span class="sum">${scChip(r.m)}</span><span class="chev"></span></button><div class="accb">
+      ${res&&F&&F.drill?`<p class="ftres ${res.medal?"ok":""}" role="status" id="ftResCard">${esc(scResult(F).t)} · <span class="readout">${esc(scFmt(d,res.score))}</span>${res.newBest?" · your best":""}</p>`:""}
+      <p>${esc(d.line)}</p><p class="hint">${esc(d.tip)}</p>
+      <p class="hint">${scTargets(d)}</p>
+      <p class="hint">${r.n?`Your best: <span class="readout">${esc(scFmt(d,r.best))}</span> · ${r.n} ${r.n===1?"try":"tries"}`:"Not driven yet."}</p>
+      <div class="row"><button type="button" class="btn pri" data-sc="go" data-id="${d.id}">Drive it</button><button type="button" class="btn" data-sc="demo" data-id="${d.id}">Watch the instructor</button>${res&&F?'<button type="button" class="btn" data-ft="replay">Replay</button>':""}</div></div></div>`;});
+  return h;}
+if(typeof document!=="undefined")document.addEventListener("click",e=>{const t=e.target;if(!t.closest)return;const x=t.closest("[data-sc]");if(!x)return;
+  if(x.dataset.sc==="go")scStart(x.dataset.id);else if(x.dataset.sc==="demo")scDemo(x.dataset.id);});
 /* ===================== app/reel.js: THE HIGHLIGHT REEL (0.1.27.0) =====================
    Your best moments, kept as you go (Kelbo: a season reel and a Highlights card). After each of your fights the game
    picks that round's best moment of yours (rlPick): an opponent into the pit or counted out, a part torn off, a flip,
