@@ -778,3 +778,13 @@ Two weapons beside the drum and the vertical disc, both in `PARTS.weapon` (`sim/
 - **Looks:** on Full and Ultra the Blender pieces `wp_beater`, `wp_drisk` and `wp_drisk_teeth` (`models/bot-weapons.glb`); on Lite a coded frame and a toothed cylinder.
 - **Opponents:** Schneebesen (beetle, the club) carries an eggbeater and Schwungrad (feather, Eisenau) a drisk. 30 named opponents.
 - **Balance:** against the test builds, on auto at two skills, the eggbeater with full armour wins 69 / 59 / 60% (beetle / feather / heavy) and the drisk 57 / 58 / 53%, beside the drum's 65 / 67 / 55% and the vertical disc's 73 / 66 / 58%.
+
+## The driving school (0.1.47)
+
+- **Where:** Fight tab, School page (`src/app/school.js`). Eight drills, free in both modes, nothing carried over.
+- **What a drill is:** a round in the fight sim on the school's floor (2.4 m, walls; a pit or a flame grate where the drill has one), in the school's beetleweight for that drill. Tables: `SCHOOL` and `DRILLS` in `src/sim/school.js`.
+- **Scoring:** `time` drills count from your first touch of the controls to the last step, plus any penalty; `hold` counts seconds inside the ring; `hit` is the biggest single hit in joules. `medals` is `[gold, silver, bronze]`. Falling in the pit, being counted out or running out of time scores nothing on a time drill.
+- **The drills and their medals** (gold / silver / bronze): Round the pit 7.5 / 10.5 / 16 s. Stop on the mark 6.5 / 9 / 14 s. Hold the line 17 / 13 / 8 s of 20. On target 100 / 70 / 40 J. Into the pit 4.5 / 7 / 12 s. Back on your wheels 9.5 / 13 / 19 s. Sideways 7.5 / 11 / 17 s. Mind the grate 13.5 / 17 / 24 s.
+- **The instructor:** `drillAuto` drives every drill; its run is the demonstration and the node test.
+- **Saved:** `S.school[id] = {m, best, n}`.
+
