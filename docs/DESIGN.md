@@ -721,7 +721,7 @@ Winning the Scrapline Open used to be the end of the story: the Legacy act just 
 
 - **The title.** Win the Open Final and you are the champion. The game reads this from the Finals in your career's results (`crTitle`), so nothing new is saved for it. Win it again next season and that is a defence; the run counts Finals won in a row.
 - **Legend levels.** Each Open in a row is a level, up to 5: Champion, Defender, Dynasty, Legend, Immortal. Each level makes the next defence harder:
-  - **The champion's ballast:** your own heavyweight limit drops 2% a level (110 kg, then 107.8, 105.6, down to 99 kg at level 5). Opponents keep the full class limit. An event refuses a bot that is over its limit and says by how many grams, so each title means a lighter rebuild. This is the lever that bites.
+  - **The champion's ballast:** your own heavyweight limit drops 1% a level (110 kg, then 108.9, 107.8, down to 104.5 kg at level 5; it was 2% a level until 0.1.52.4). Opponents keep the full class limit. An event refuses a bot that is over its limit and says by how many grams, so each title means a lighter rebuild. This is the lever that bites.
   - Drivers are a little sharper (+0.02 skill a level, up to 0.98) and each rival's bot is one step further on. On its own the sharper driving made no measurable difference in a node run, so the game does not oversell it.
 - **What a defence pays.** The Final's prize is 20% bigger a level, with +8 rep, and the trophy reads "Title defended".
 - **Losing it.** Lose the Final, forfeit it or skip it and the title goes to someone else. The run and the level go back to nothing, your weight limit goes back to normal, and you are the challenger.
