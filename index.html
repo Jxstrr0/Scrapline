@@ -5733,7 +5733,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.51.0";
+const VERSION="0.1.52.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -7762,11 +7762,11 @@ function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reas
     else{r={t:`Round ${W.k+1}: ${r.t}`,s:`${r.s} · ${sc.me}–${sc.them} in the bout.`,cls:r.cls};btns=`<button type="button" class="btn pri" data-fv="wnext">Round ${W.k+2}</button><button type="button" class="btn" data-fv="evback">Back to the event</button>`;}}
   else if(FT.rp){r={t:(F.drill&&FT.ext&&FT.ext.demo?"":"Replay: ")+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
-    btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
+    btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit crew</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
   else if(B&&F.reason!=="stopped"){const sc=`${B.wins[0]||0}–${B.wins[1]||0}`,w=ftBoutWinner(B);
     if(B.over)r={t:w==null?`Bout drawn ${sc}`:w===0?`You win the bout ${sc}`:`${F.bots[1].name} wins the bout ${sc}`,s:`Round ${B.n}: ${r.t}. ${r.s}`,cls:w==null?"":w===0?"ok":"broke"};
     else{r={t:`Round ${B.n}: ${r.t}`,s:`${r.s} · ${sc} in the bout. Sixty seconds in the pit, then round ${B.n+1}.`,cls:r.cls};
-      btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
+      btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit crew":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
   $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
   const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
 function ftResult(F){if(F.reason==="stopped")return{t:F.drill?"Drill stopped":"Fight stopped",s:"",cls:""};
@@ -7890,7 +7890,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
   el.innerHTML=nav+ftEvCard()+h;
   if(res)ftResPost(R);}
 /* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
-function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?"The bout":"Last fight";
+function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?(FT.bout.ev?"Your career fight":"The bout"):"Last fight";
   return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
     ${rpHtml(R)}
     <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;}
@@ -8150,7 +8150,11 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
   const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true,rid:l.id}:null;
   let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
-  if(me.out==="pit")kind="pit",h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
+  if(me.out==="pit"){kind="pit";
+    /* nothing touched the bot in the four seconds before it went in: it was driven in, and more push is the wrong advice */
+    const tOut=(L.find(e=>e.k==="pit")||{}).t,PUSH={hit:1,ram:1,grind:1,under:1,flip:1,kick:1,lift:1,grab:1,drop:1,tip:1,slip:1};
+    if(tOut!=null&&!L.some(e=>PUSH[e.k]&&e.t>=tOut-4&&e.t<=tOut))h={why:"You drove into the pit: nothing pushed you.",text:"Ease off the stick near the pit and check the 2D map for where it is. Fight, School has short drills for driving round it."};}
+  if(!h&&me.out==="pit")h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
   if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))kind="inv",h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
   if(!h&&shear)kind="weapon",h=ret(rule("shear"),"Your weapon shaft sheared.");
   /* wedged: only worth a hint when it cost you, or kept happening, and there's an edge to win */
@@ -8910,6 +8914,8 @@ function crClose(force){const c=S.career;if(!crOn())return;
   if(c.day&&!force){openSheet("Close the week?",`<p>You're entered in <b>${esc(crEv(c.day.ev).name)}</b> and it isn't over. Closing the week forfeits the rest of it; the damage so far comes home with the bot.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Forfeit and close the week</button></div>`);return;}
   {const e=!c.day&&!force&&crThisWeek();   // an event this week you could still enter: say so before the week (and the event) goes (a play-tester skipped their first club meet without noticing)
     if(e&&!c.events[crKey(e)]&&!crCantEnter(e)){openSheet("Skip this week's event?",`<p><b>${esc(e.name)}</b> is this week and you haven't entered. Closing the week skips it.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Skip it and close the week</button></div><p class="hint">To fight it instead, close this and enter it from its card on the Career tab.</p>`);return;}}
+  if(!c.day&&!force){const w=SIM.CLASS_IDS.map(cls=>crBill(cls)).filter(b=>b&&b.lines.length),can=w.some(b=>b.lines.some(l=>l.cost<=c.money&&l.hours<=c.hours));   // only ask when something could be fixed now
+    if(can){const cost=w.reduce((a,b)=>a+b.cost,0);openSheet("Close the week with repairs waiting?",`<p>There ${w.length>1?"are repairs":"is a repair list"} of <b>${fmt$(cost)}</b> still on the Workshop: repairs card. A bot goes to its next event with whatever isn't fixed.</p><div class="row"><button type="button" class="btn pri" data-cr="close-ok">Close the week anyway</button></div><p class="hint">To fix it first, close this and use Fix everything on the Career tab.</p>`);return;}}
   if(c.day){const d=c.day;d.out=true;const b=bBot(d.cls);if(bnSig(b.cfg)===bnSig(d.field[0].cfg)){b.damage=clone(d.field[0].dmg);b.flags=crFlags(d.field[0].flags);}
     c.events[d.key]={place:null,prize:0,rep:0,forfeit:true};c.day=null;c.entered=null;}
   closeSheet();crCloseWeek();if(c.over)return;save();hud();crRender();
@@ -9085,8 +9091,11 @@ function crDrawHtml(e){const k=EVENT_KINDS[e.kind];if(k.format!=="bracket")retur
 function crRepairCard(){const rows=SIM.CLASS_IDS.map(cls=>({cls,bill:crBill(cls)})).filter(x=>x.bill&&x.bill.lines.length);if(!rows.length)return"";
   return`<div class="card"><h3>Workshop: repairs</h3>${rows.map(({cls,bill})=>`<h4>${esc(SIM.CLASSES[cls].name)} <small class="readout">${fmt$(bill.cost)} · ${bill.hours} h</small></h4>
     <ul class="crrep">${bill.lines.map(l=>`<li><span>${esc(ftCap(l.name))} <small class="${l.state==="destroyed"?"broke":"worn"}">${l.state==="destroyed"?(l.key==="chassis"?"rebuild":"re-buy"):Math.round(l.lost*100)+"% gone"}</small></span><span class="readout">${fmt$(l.cost)} · ${l.hours} h</span><button type="button" class="btn sm" data-crfix="${cls}" data-crkey="${esc(l.key)}">Fix</button></li>`).join("")}</ul>
-    <div class="row"><button type="button" class="btn" data-crfix="${cls}">Fix all · ${fmt$(bill.cost)}</button></div>`).join("")}
+    <div class="row"><button type="button" class="btn pri" data-crfix="${cls}">Fix everything · ${fmt$(bill.cost)} · ${bill.hours} h</button></div>${crShort(bill)}`).join("")}
     <p class="hint">A bot goes to its next event with whatever isn't fixed.</p></div>`;}
+/* what stops Fix everything: the money or the hours it is short by (the single Fix buttons still work) */
+function crShort(bill){const c=S.career,m=bill.cost-c.money,h=crR1(bill.hours-c.hours);if(m<=0&&h<=0)return"";
+  return`<p class="hint">Fix everything is short by ${[m>0?fmt$(m):"",h>0?h+" h":""].filter(Boolean).join(" and ")}. Fix the parts that matter most one at a time.</p>`;}
 function crCalendarCard(){const c=S.career,list=crCalendar().filter(e=>e.week>=c.week).slice(0,8);
   return`<div class="card"><h3>Calendar</h3>${list.length?`<ul class="crcal">${list.map(e=>{const r=c.events[crKey(e)],lock=crClassLock(e.cls),fit=S.bots[e.cls]&&S.bots[e.cls].cfg;
     return`<li class="${e.week===c.week?"now":""}"><span class="wk readout">wk ${e.week}</span><span class="nm">${esc(e.name)}<small>${esc(SIM.CLASSES[e.cls].name)} · ${esc(WORLD.venues[e.venue].name)} · entry ${fmt$(crEntry(e))} · first ${fmt$(crPrize(e,0))}${r?` · <b>${r.forfeit?"forfeited":crPlaceTxt(e.kind,r.place)}</b>`:lock?` · <span class="worn">${esc(lock)}</span>`:!fit?` · <span class="worn">nothing fitted</span>`:""}</small></span></li>`;}).join("")}</ul>`:"<p>Nothing left this season. Close the weeks out to the new year.</p>"}</div>`;}
@@ -9626,7 +9635,7 @@ function tutPlace(){const st=TUT_STEPS[TUT.i],spot=$("coachSpot"),box=$("coachBo
 /* after the intro, once: the offer */
 function tutOffer(){if(ST().tutDone||TUT_ON)return;
   openSheet("Your first fight",`<p>A coached first fight, about five minutes: fit a starter wedge, test it on the bench, spar a club bot and read why it went the way it did.</p>
-    <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Settings has it again any time.</p>
+    <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Not now costs nothing: Settings has it again any time.</p>
     <div class="row"><button type="button" class="btn pri" data-tut="go">Show me</button><button type="button" class="btn" data-tut="skip">Not now</button></div>`);}
 </script>
 </body></html>
