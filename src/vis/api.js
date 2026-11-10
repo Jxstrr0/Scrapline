@@ -8,12 +8,14 @@ return{
   /* your sponsors' colours ({side, top}: "#rrggbb" or nothing), on your bot in the workshop and as bot 0 in a fight */
   /* the workshop stage ("corner", "unit", "shop", "hq"): which props dress the room on Full / Ultra */
   setStage(id){id=id||"corner";if(id===(V.stage||"corner")){V.stage=id;return;}V.stage=id;if(started&&V.shop)propShopSwap();},
-  setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null}:null;if(started&&V.mats)placeBot();},
+  setPaint(p){const k=JSON.stringify(p||{});if(k===V.paintK)return;V.paintK=k;V.paint=p&&(p.side||p.top)?{side:p.side||null,top:p.top||null,ids:p.ids||{}}:null;if(started&&V.mats)placeBot();},
   /* your team's livery ({name, main, accent, shape, emblem, text}: vis/badge.js; 0.1.24) on the workshop's bot. In a fight
      each bot wears its own (the fight object's o.livery) */
   setLivery(L){const k=badgeKey(L);if(k===V.liveryK)return;V.liveryK=k;V.livery=L||null;if(started&&V.mats)placeBot();},
   /* a team badge as a fresh px-square canvas, for the app's cards (no renderer needed) */
   badge(L,px){return badgeCanvas(L,px||64);},
+  /* a sponsor's logo (0.1.54, vis/marks.js) as an <svg> string px square, in black or white to suit its colour; "" if none */
+  logo(id,colour,px){return logoSvg("s_"+id,logoInk(colour),px||24);},
   /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */

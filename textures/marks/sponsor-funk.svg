@@ -1,0 +1,11 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
+  <title>Radio broadcast mast</title>
+  <g fill="#E2B93B">
+    <g id="broadcast-arcs">
+      <path d="M188 675 A410 410 0 1 1 816 675 L769 636 A349 349 0 1 0 235 636 Z" />
+      <path d="M275 605 A291 291 0 1 1 729 605 L685 570 A235 235 0 1 0 319 570 Z" />
+      <path d="M358 538 A179 179 0 1 1 648 538 L604 503 A123 123 0 1 0 402 503 Z" />
+    </g>
+    <path id="mast" fill-rule="evenodd" d="M465 499 A72 72 0 1 1 539 499 L758 1007 H649 L501 885 L349 1007 H238 Z       M501 523 L466 618 H537 Z       M457 646 L452 657 L501 703 L551 657 L547 646 Z       M440 690 L401 797 L478 726 Z       M562 690 L525 726 L600 797 Z       M501 749 L422 824 H580 Z       M384 859 L353 951 L471 859 Z       M529 859 L643 951 L613 859 Z" />
+  </g>
+</svg>
