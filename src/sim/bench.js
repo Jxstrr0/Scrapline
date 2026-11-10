@@ -94,7 +94,7 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
     const full=up.tr[up.tr.length-1][1]>=0.99;   // spinUpS and t90 are null if it never gets there in 60 s
     Object.assign(r,{kind:"spin",rpm:w.rpm,storedJ:w.storedJ,tipSpeed:w.tipSpeed,spinUpS:full?up.t:null,t90:up.t90,predicted:w.spinUpS,trace:up.tr,
       hitJ,rpmAfter:after*60/(2*Math.PI),recoverS:back.t,recoilMm:1000*hitJ*BENCH.kickShare*(w.recoil||0)/(Math.max(b.grip,0.1)*m*g),
-      shearJ:w.shearJ,bendJ:w.bendJ});
+      shearJ:w.shearJ,bendJ:w.bendJ,hitMaxJ:w.hitMaxJ});
     return r;}
   if(w.type==="flipper"||w.type==="lifter"||w.type==="grabber"){const rows=BENCH.testMass.map(f=>{const kg=f*b.limitKg,lifts=w.canLiftKg>=kg;
       const h=!lifts?0:w.type==="flipper"?Math.max(0,w.launchJ*K.flipEff/(kg*g)-(wp.strokeMm*classMult(b.cls).len/1000)):w.liftM;

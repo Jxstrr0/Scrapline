@@ -62,7 +62,7 @@ const BN_TEXT={
       `Stores ${rd(bn0(r.storedJ)+" J")}, tip speed ${bn0(r.tipSpeed)} m/s`,
       `Anvil hit: ${rd(bn0(r.hitJ)+" J")} lands, the disc drops to ${bn0(r.rpmAfter)} rpm and is back to 90% in ${bn1(r.recoverS)} s`,
       `Recoil throws you back ${rd(bn0(r.recoilMm)+" mm")}`,
-      r.storedJ>r.shearJ?`<span class="broke">At full speed the shaft shears (above ${bn0(r.shearJ)} J)</span>`:r.storedJ>r.bendJ?`<span class="worn">A full-speed hit bends the disc (above ${bn0(r.bendJ)} J)</span>`:`<span class="ok">Disc and shaft take a full-speed hit</span>`];
+      r.hitMaxJ>r.shearJ?`<span class="broke">A full-speed hit (up to ${bn0(r.hitMaxJ)} J) shears the shaft (above ${bn0(r.shearJ)} J)</span>`:r.hitMaxJ>r.bendJ?`<span class="worn">A full-speed hit (up to ${bn0(r.hitMaxJ)} J) bends it (above ${bn0(r.bendJ)} J)</span>`:`<span class="ok">Disc and shaft take a full-speed hit</span>`];
     if(r.kind==="flip"||r.kind==="lift")return r.rows.map(q=>`${bn1(q.kg)} kg: ${q.lifts?(r.kind==="flip"?`thrown ${rd(bn1(q.heightM)+" m")}`:`lifted ${rd(bn0(q.heightM*1000)+" mm")}`):'<span class="broke">stays down</span>'}`)
       .concat(r.kind==="flip"?[`${r.shots} shots, ${bn1(r.rechargeS)} s to recharge`]:[`Lifts up to ${rd(bn1(r.canLiftKg)+" kg")}`]);
     if(r.kind==="hammer")return[`Strike ${rd(bn0(r.energyJ)+" J")}, ${bn1(r.swingS)} s a swing`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}`];
