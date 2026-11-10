@@ -215,3 +215,14 @@ The play-tester's bot slid half off the left edge beside the pit while the view 
 - **A calmer zoom.** The distance the camera settles on follows the bots out at once, but only comes back in once they are 14% closer (`CAM.band`), and closes in more slowly (`CAM.inn`), so it no longer breathes in and out with every shove.
 - **The bot you drive stays on the screen** (live fights and drills, `V.run.mark`; not replays): if the smoothed frame would cut it off at a side, or put it under the bot cards or the controls, the aim moves over by just that much, that frame (`CAM.edge` is the margin).
 - Every tier, no cost. Replays and watched fights get the first two and frame both bots as before. No sim change, no save change.
+
+## 0.1.51.0: the intro and the pit window (play-test, part three of four)
+
+The play-tester sat through the intro thinking the fight had hung (the label was cut off at "Intro · fight starts...", and Skip might have skipped the fight), and found the pit window fiddly against its clock.
+
+- **The intro label has a line of its own.** While the clock is held (the intro, the first-fight tip) the fight overlay gets the class `hold`, and on a phone the note drops under the clock and buttons and wraps, with the bot cards moved down to make room. It reads "Intro: the controls unlock at the bell", and the button reads **Skip intro** (`src/app/fight.js`, `.fov.hold` in `src/css/style.css`).
+- **Damage lines wrap.** The worst-damage line under a bot's bars takes a second line instead of ending in dots (two-bot fights; `.fbinfo small[data-b=worst]`).
+- **The pit window keeps still.** The job line is always there ("Crew ready: pick a job" when idle), so starting a repair no longer pushes every button down under your finger. The title, the clock and the job line stay pinned while a long list scrolls (`.fpittop`).
+- **Bodge is explained**, in one line under the kit: "A swap makes the part new. A bodge is a quick patch to half strength." The kit line uses the same names as the buttons ("Wheel swap ×2 · Bodge ×2").
+- Every tier, both themes. No sim change, no save change.
+

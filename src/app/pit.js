@@ -76,9 +76,10 @@ const PIT={on:false,kit:null};
 PIT.open=function(o){PIT.close();Object.assign(PIT,{on:true,o,kit:o.kit,t:PIT_S,job:null,done:[],last:performance.now(),raf:0});
   SCRAP_VOICE.seq(["pitwin","c:pitwin"]);   // the announcer opens the window, the commentator watches the crew (sound/voice.js)
   const el=document.createElement("div");el.className="fpit";el.id="fPit";el.setAttribute("role","dialog");el.setAttribute("aria-labelledby","fPitT");
-  el.innerHTML=`<div class="fpithd"><b id="fPitT">${esc(o.title||"Pit window")}</b><span class="fpitclock readout" id="fPitClock" role="timer" aria-label="Pit clock">1:00</span></div>
+  el.innerHTML=`<div class="fpittop"><div class="fpithd"><b id="fPitT">${esc(o.title||"Pit window")}</b><span class="fpitclock readout" id="fPitClock" role="timer" aria-label="Pit clock">1:00</span></div>
+    <div class="fpitjob idle" id="fPitJob"><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div></div>
     <p class="fpitkit"><b>${esc(PIT_KITS[o.kit].name)}</b> · <span id="fPitLeft"></span></p>
-    <div class="fpitjob" id="fPitJob" hidden><span id="fPitJobT"></span><span class="ftbar"><i id="fPitJobBar"></i></span></div>
+    <p class="fpitkit fpithelp">A swap makes the part new. A bodge is a quick patch to half strength.</p>
     <div class="fpitbody"><canvas class="fpitsil" id="fPitSil" width="88" height="88" aria-hidden="true"></canvas><ul class="fpitlist" id="fPitList"></ul></div>
     ${o.fronts?`<div class="fpitfront"><b>Front</b> <span class="fpitopts" id="fPitFront"></span></div>`:""}
     ${o.tunes?`<div class="fpitfront fpittune"><b>Dials</b> <span id="fPitTune"></span></div>`:""}
@@ -102,10 +103,12 @@ function pitChange(o,j){if(j.kind==="front")o.onFront(j.key);else{const p=j.key.
   if(o.fronts)o.fronts=cfg?pitFronts(cfg):o.fronts.map(f=>Object.assign({},f,{cur:f.id===j.key}));
   if(o.tunes&&cfg)o.tunes=pitTunes(cfg);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
-  const j=PIT.job,box=$("fPitJob");if(box){box.hidden=!j;if(j){$("fPitJobT").textContent=`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`;$("fPitJobBar").style.width=Math.round((1-j.left/j.total)*100)+"%";}}}
+  const j=PIT.job,box=$("fPitJob");if(box){box.classList.toggle("idle",!j);   // always there, so starting a job never pushes the buttons down (0.1.51)
+    const s=j?`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`:"Crew ready: pick a job",T=$("fPitJobT");if(T.textContent!==s)T.textContent=s;
+    $("fPitJobBar").style.width=(j?Math.round((1-j.left/j.total)*100):0)+"%";}}
 function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
 function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
-  const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k].toLowerCase()} ${o.left[k]||0}`).join(" · ");
+  const allow=PIT_KITS[o.kit].allow;$("fPitLeft").textContent=Object.keys(allow).map(k=>`${PIT_NAMES[k]} ×${o.left[k]||0}`).join(" · ");
   L.innerHTML=items.length?items.map(it=>`<li><span class="nm">${esc(ftCap(it.name))} <small class="${it.state==="destroyed"?"broke":"worn"}">${it.bent?"bent":it.state==="destroyed"?"destroyed":Math.round(it.frac*100)+"%"}</small></span>
       <span class="fpitopts">${it.opts.length?it.opts.map(p=>`<button type="button" class="btn sm${p.ok?"":" off"}" data-pitkey="${esc(it.key)}" data-pitkind="${p.kind}"${p.ok&&!busy?"":" disabled"} title="${p.why||""}">${PIT_NAMES[p.kind]} <small>${tmPitS(p.kind)} s${p.why?" · "+p.why:""}</small></button>`).join(""):`<small class="hint">${it.key==="chassis"?"can't be fixed in the pit":"nothing in the kit for this"}</small>`}</span></li>`).join("")
     :`<li><span class="nm ok">Nothing to fix.</span></li>`;
