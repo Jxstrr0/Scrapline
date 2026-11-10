@@ -71,7 +71,11 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
   const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true,rid:l.id}:null;
   let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
-  if(me.out==="pit")kind="pit",h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
+  if(me.out==="pit"){kind="pit";
+    /* nothing touched the bot in the four seconds before it went in: it was driven in, and more push is the wrong advice */
+    const tOut=(L.find(e=>e.k==="pit")||{}).t,PUSH={hit:1,ram:1,grind:1,under:1,flip:1,kick:1,lift:1,grab:1,drop:1,tip:1,slip:1};
+    if(tOut!=null&&!L.some(e=>PUSH[e.k]&&e.t>=tOut-4&&e.t<=tOut))h={why:"You drove into the pit: nothing pushed you.",text:"Ease off the stick near the pit and check the 2D map for where it is. Fight, School has short drills for driving round it."};}
+  if(!h&&me.out==="pit")h=ret(rule("slow"),"You went into the pit.")||{why:"You went into the pit.",text:"More push keeps you off the edge: grippier wheels or more drive, and armour the back so you can afford to turn away."};
   if(!h&&me.inverted&&!b.height.drivesInverted&&(me.out||lost))kind="inv",h=ret(rule("invert","drop","righter"),"You ended upside down.")||{why:"You ended upside down.",text:"Make it drive inverted (wheels proud of both sides) or fit a self-righter that survives the landing."};
   if(!h&&shear)kind="weapon",h=ret(rule("shear"),"Your weapon shaft sheared.");
   /* wedged: only worth a hint when it cost you, or kept happening, and there's an edge to win */

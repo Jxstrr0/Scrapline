@@ -216,6 +216,19 @@ The play-tester's bot slid half off the left edge beside the pit while the view 
 - **The bot you drive stays on the screen** (live fights and drills, `V.run.mark`; not replays): if the smoothed frame would cut it off at a side, or put it under the bot cards or the controls, the aim moves over by just that much, that frame (`CAM.edge` is the margin).
 - Every tier, no cost. Replays and watched fights get the first two and frame both bots as before. No sim change, no save change.
 
+## 0.1.52.0: after the fight (play-test, part four of four)
+
+The play-tester steered into the pit untouched and was told to fit grippier wheels, mixed up "Into the pit" (the hole) with "To the pit" (the repairs), tapped about ten times to fix one event's damage, and closed a week with repairs still listed.
+
+- **A pit-out nobody caused gets its own advice.** If nothing touched the bot in the four seconds before it went in, the post-mortem says "You drove into the pit: nothing pushed you" and points at the 2D map and the School, instead of asking for more push (`rpHint` in `src/app/report.js`).
+- **To the pit crew.** The two buttons that open the repair window between rounds say so; "the pit" alone is the hole in the floor (`src/app/fight.js`).
+- **Fix everything.** The repairs card's whole-bill button is the bright one and shows cost and hours; when money or hours fall short a line says by how much (`crRepairCard`, `crShort` in `src/app/career.js`).
+- **Close week asks first** when a repair you could pay for and have the hours for is still waiting (`crClose`). Nothing to fix, or nothing affordable, and it closes as before. Skip to week N is unchanged.
+- **Your career fight.** A career bout's result card on the Fight tab is headed that, not "The bout". The first-fight offer says that Not now costs nothing.
+- Not changed: the workshop hours (16 a week, up to 32 saved up, which is what a career starts with; the Career card already says so), and the report that a first tap on Fit did nothing, which did not happen again in testing.
+
+No sim change, no save change (`SAVE_V` stays 18).
+
 ## 0.1.51.0: the intro and the pit window (play-test, part three of four)
 
 The play-tester sat through the intro thinking the fight had hung (the label was cut off at "Intro · fight starts...", and Skip might have skipped the fight), and found the pit window fiddly against its clock.
