@@ -441,11 +441,11 @@ function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reas
     else{r={t:`Round ${W.k+1}: ${r.t}`,s:`${r.s} · ${sc.me}–${sc.them} in the bout.`,cls:r.cls};btns=`<button type="button" class="btn pri" data-fv="wnext">Round ${W.k+2}</button><button type="button" class="btn" data-fv="evback">Back to the event</button>`;}}
   else if(FT.rp){r={t:(F.drill&&FT.ext&&FT.ext.demo?"":"Replay: ")+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
-    btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
+    btns=x.pit?'<button type="button" class="btn pri" data-fv="evpit">To the pit crew</button><button type="button" class="btn" data-fv="evback">Back to the event</button>':'<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
   else if(B&&F.reason!=="stopped"){const sc=`${B.wins[0]||0}–${B.wins[1]||0}`,w=ftBoutWinner(B);
     if(B.over)r={t:w==null?`Bout drawn ${sc}`:w===0?`You win the bout ${sc}`:`${F.bots[1].name} wins the bout ${sc}`,s:`Round ${B.n}: ${r.t}. ${r.s}`,cls:w==null?"":w===0?"ok":"broke"};
     else{r={t:`Round ${B.n}: ${r.t}`,s:`${r.s} · ${sc} in the bout. Sixty seconds in the pit, then round ${B.n+1}.`,cls:r.cls};
-      btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
+      btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit crew":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
   $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
   const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
 function ftResult(F){if(F.reason==="stopped")return{t:F.drill?"Drill stopped":"Fight stopped",s:"",cls:""};
@@ -569,7 +569,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
   el.innerHTML=nav+ftEvCard()+h;
   if(res)ftResPost(R);}
 /* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
-function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?"The bout":"Last fight";
+function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?(FT.bout.ev?"Your career fight":"The bout"):"Last fight";
   return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
     ${rpHtml(R)}
     <div class="card"><h3>Fight log</h3><ol class="ftlog" id="ftLog" aria-label="Fight log"></ol></div>`;}
