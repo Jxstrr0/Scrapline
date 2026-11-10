@@ -49,8 +49,8 @@ const FIGHT={
   deadDrag:3,                 // a bot with no drive rolls this x harder (motors and gearboxes back-driven)
   maxSpin:40,                 // rad/s: yaw rate cap after a big hit
   /* weapons */
-  hitGapS:0.25,               // a weapon can't hit the same bot twice within this
-  minSpin:0.25,               // a spinner below this share of top rpm doesn't bite
+  hitGapS:0.25,               // a weapon can't hit the same bot twice within this (a spinner: x its tooth count's gap, DISC_PROFILES.teeth)
+  minSpin:0.25,               // a spinner below this share of top rpm doesn't bite (x its tooth count's spin, DISC_PROFILES.teeth)
   spinDrag:0.03,              // with the weapon off, the disc slows with this share of its motor's torque
   biteJitter:0.2,             // each hit's bite varies by up to this share
   glance:0.3,                 // a deflected hit lands this share of its energy (and takes that share off the disc)
@@ -397,7 +397,7 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     const face=o.zone.top?"top":faceAt(t,c.px,c.py);
     if(w.type==="saw"&&wp.om>=0.5*w.omega&&w.sawJps>0){const gb=wp.grBay||(wp.grBay={}),q=gb[t.i];   /* the grind rolls for the bay once a half second, so its log lines merge */
       const bay=q&&F.t-q.t<0.5?q.b:(gb[t.i]={t:F.t,b:inBay(F,t)}).b;damageBot(F,t,"top",w.sawJps*F.dt,"grind",o.i,{bay});}
-    if(wp.om<FIGHT.minSpin*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS))continue;
+    if(wp.om<FIGHT.minSpin*(w.minSpin||1)*w.omega||(wp.last[t.i]!=null&&F.t-wp.last[t.i]<FIGHT.hitGapS*(w.hitGap||1)))continue;
     const stored=0.5*w.inertia*wp.om*wp.om,full=wp.om>=0.98*w.omega;
     let bite=Math.min(0.98,w.bite*(1+FIGHT.biteJitter*(2*F.rng()-1)))*(o.under?(WEDGE_RULES.underBiteBy[w.id]||WEDGE_RULES.underBite):1);
     const sl=face==="front"&&!t.inverted?slopeOf(t):0,slope=FIGHT.horizontal[w.id]?sl:0;

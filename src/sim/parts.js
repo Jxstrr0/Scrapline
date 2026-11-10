@@ -11,7 +11,7 @@
 
    A config (cfg) is plain JSON, the same shape for the player, designs and opponents:
      {cls, chassis, armour:{front,back,left,right,top}, drive, wheels, wheelbase, battery, electronics, weapon, weaponMaterial,
-      front, back, extras:[ids], layout:{<part key>:[x,y]}, tune:{volt, wheel, bias}}   (tune: whole steps, TUNE below)
+      front, back, extras:[ids], layout:{<part key>:[x,y]}, tune:{volt, wheel, bias, teeth}}   (tune: whole steps, TUNE below)
    Layout keys: drive0..drive3, battery, electronics, weapon, and extras that take cells (selfright, minibot). x runs
    left to right across the chassis, y from the front row (0) to the back. Missing or illegal places are filled by
    autoLayout(), so a cfg without a layout is still a whole bot. ---- */
@@ -222,14 +222,20 @@ const PARTS={
     {id:"minibot",  name:"Minibot",          fp:[1,2],massG:150,hp:20,cost:120,hours:4,unlock:"rnd:minibot",minibot:true}
   ]
 };
-/* your own disc profile (R&D "disc", PR 8): a spinner's cfg may carry disc {name, teeth 1-3, rim light|mid|heavy}. Fewer
-   teeth bite deeper (bite x); a heavier rim puts more of the disc's mass at the edge (disc mass x mass, I x shapeK), so it
-   stores more energy and spins up slower. Two teeth and a medium rim are the stock disc (every factor 1). Spinners only
-   (not the saw). */
-const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite:0.88,recoil:0.85}},
+/* your own disc profile (R&D "disc", PR 8): a spinner's cfg may carry disc {name, rim light|mid|heavy}. A heavier rim
+   puts more of the disc's mass at the edge (disc mass x mass, I x shapeK), so it stores more energy and spins up slower.
+   A medium rim is the stock disc (every factor 1). Spinners with a disc or a drum only (not the saw, a shell, a ring or
+   a meltybrain).
+   teeth: what each tooth count does (0.1.48: set by the Tooth count dial, TUNE.teeth below; before that it was part of
+   the disc profile, 1 to 3). Fewer teeth bite deeper (bite x) and kick the bot harder (recoil x); more teeth take a
+   smaller bite each, so the disc keeps its speed, kicks less, can hit the same bot again sooner (gap x
+   FIGHT.hitGapS), still bites at a lower speed (spin x FIGHT.minSpin) and spreads the hit over more teeth, so it takes
+   more to bend it or shear the shaft (bend x). Two teeth are stock (every factor 1). Tuned in 0.1.48 so that every
+   count wins some matchups: one tooth for the big single hit, four or five for a disc that is always biting. */
+const DISC_PROFILES={teeth:{1:{bite:1.12,recoil:1.15,gap:1.3,bend:0.92,spin:1.2},2:{bite:1,recoil:1,gap:1,bend:1,spin:1},3:{bite:0.94,recoil:0.85,gap:0.8,bend:1.1,spin:0.88},4:{bite:0.9,recoil:0.72,gap:0.64,bend:1.2,spin:0.78},5:{bite:0.86,recoil:0.6,gap:0.5,bend:1.3,spin:0.7}},
   rim:{light:{mass:0.85,shapeK:0.9,name:"light rim"},mid:{mass:1,shapeK:1,name:"medium rim"},heavy:{mass:1.2,shapeK:1.12,name:"heavy rim"}},nameMax:24};
-/* the tuning dials (0.1.33, Kelbo): three free settings on any bot, cfg.tune {volt, wheel, bias}, each a whole step from
-   min to max (0 is stock). Free to turn (no parts, no hours), like moving parts on the grid. Per step:
+/* the tuning dials (0.1.33, Kelbo; teeth 0.1.48): free settings on any bot, cfg.tune {volt, wheel, bias, teeth}, each a
+   whole step from min to max (0 is stock). Free to turn (no parts, no hours), like moving parts on the grid. Per step:
      volt   more cells in series: the battery's mass, capacity and discharge x (1 + cells), the motors' power x
             (1 + power), drive speed and force, spinner rpm and hammer energy x (1 + speed), heat x (1 + heat) (never
             below heatMin). Up is faster and harder hitting, heavier and hotter; down runs cool and light.
@@ -238,6 +244,9 @@ const DISC_PROFILES={teeth:{1:{bite:1.15,recoil:1.1},2:{bite:1,recoil:1},3:{bite
             fast but lift the front edge for wedges; small ones push and sit low.
      bias   ballast shifted along the bot: the centre of mass moves com x the length (+ forward), the front edge x
             (1 + edge) (a heavy nose sits down on the floor), push x (1 + push) (a heavy tail loads the wheels).
+     teeth  the disc's tooth count, base + the step (one to five; two is stock): DISC_PROFILES.teeth has what each count
+            does. only: the dial is for these bots alone (tuneOn; "disc": a spinner with a disc or a drum, as the disc
+            profile), and reads 0 on any other.
    labels: what the Build tab shows at each step, min first. */
 const TUNE={
   volt: {min:-2,max:2,name:"Voltage",   cells:0.14,power:0.18,speed:0.06,heat:0.4,heatMin:0.4,labels:["Low","Lower","Stock","Higher","High"],
@@ -245,9 +254,13 @@ const TUNE={
   wheel:{min:-2,max:2,name:"Wheel size",size:0.15,mass:0.2,speed:0.08,force:-0.08,exposure:0.12,labels:["Smallest","Small","Stock","Big","Biggest"],
     line:"Big wheels ride high: fast, and they drive upside down, but wedges get under you. Small ones sit low and push."},
   bias: {min:-2,max:2,name:"Weight bias",com:0.04,edge:-0.12,push:-0.03,labels:["Tail","Back","Centre","Front","Nose"],
-    line:"A heavy nose keeps the front edge on the floor; a heavy tail loads the wheels for pushing."}
+    line:"A heavy nose keeps the front edge on the floor; a heavy tail loads the wheels for pushing."},
+  teeth:{min:-1,max:3,name:"Tooth count",base:2,only:"disc",labels:["One","Two","Three","Four","Five"],
+    line:"Fewer teeth bite deeper, kick harder and bend sooner. More teeth take smaller bites: the disc keeps its speed, hits again sooner and still bites when it's slow."}
 };
-const TUNE_IDS=["volt","wheel","bias"];
+const TUNE_IDS=["volt","wheel","bias","teeth"];
+/* does this dial do anything on a bot with this weapon? (teeth: a spinner with a disc or a drum) */
+function tuneOn(k,weaponId){const T=TUNE[k];if(!T)return false;if(T.only!=="disc")return true;const w=part("weapon",weaponId);return!!w&&w.type==="spinner"&&!w.bodyR;}
 /* a cfg's dials, cleaned: whole steps inside each dial's range, 0 for anything else */
 function normTune(t){const o={};t=t&&typeof t==="object"?t:{};
   for(const k of TUNE_IDS){const v=Math.round(+t[k]);o[k]=isFinite(v)?Math.max(TUNE[k].min,Math.min(TUNE[k].max,v)):0;}
@@ -267,7 +280,7 @@ function part(slot,id){const l=PARTS[slot];if(!l)return null;for(const p of l)if
 const DEFAULT_CFG={cls:"beetle",chassis:"hdpe",body:"plain",
   armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},
   drive:"dual",wheels:"rubber",wheelbase:"std",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",front:"none",back:"none",extras:[],layout:{},
-  tune:{volt:0,wheel:0,bias:0}};
+  tune:{volt:0,wheel:0,bias:0,teeth:0}};
 
 /* fill a cfg's gaps from DEFAULT_CFG (and copy it, so callers can't change ours). An unknown id is swapped for the default
    part (unknown extras are dropped), so evalBuild, footprints and fitBill all see the same bot; unknownIds(cfg) lists them
@@ -281,15 +294,20 @@ function normCfg(cfg){cfg=cfg&&typeof cfg==="object"?cfg:{};const d=DEFAULT_CFG,
   o.layout={};const L=cfg.layout&&typeof cfg.layout==="object"?cfg.layout:{};
   for(const k in L)if(Array.isArray(L[k])&&L[k].length===2&&L[k].every(Number.isInteger))o.layout[k]=[L[k][0],L[k][1]];
   o.tune=normTune(cfg.tune);   // 0.1.33: the tuning dials (all 0 for a cfg from before them)
-  const dp=normDisc(cfg.disc);if(dp&&part("weapon",o.weapon).type==="spinner"&&!part("weapon",o.weapon).bodyR)o.disc=dp;   // spinners with a disc only (not a shell, ring or meltybrain)
+  /* 0.1.48: a disc profile from before the Tooth count dial carried its own teeth (1 to 3): they go onto the dial, unless
+     the cfg already has that dial (so old bots, designs and replay codes hit exactly as they did) */
+  const lt=cfg.disc&&typeof cfg.disc==="object"?+cfg.disc.teeth:NaN;
+  if(!(cfg.tune&&typeof cfg.tune==="object"&&cfg.tune.teeth!=null)&&(lt===1||lt===2||lt===3)&&DISC_PROFILES.rim[cfg.disc.rim])o.tune.teeth=lt-TUNE.teeth.base;
+  for(const k of TUNE_IDS)if(!tuneOn(k,o.weapon))o.tune[k]=0;
+  const dp=normDisc(cfg.disc);if(dp&&tuneOn("teeth",o.weapon))o.disc=dp;   // spinners with a disc only (not a shell, ring or meltybrain)
   return o;}
-/* a disc profile, cleaned: {name, teeth, rim}, or null for the stock disc (or anything that isn't one) */
-function normDisc(d){if(!d||typeof d!=="object")return null;const t=+d.teeth,r=d.rim;
-  if(!DISC_PROFILES.teeth[t]||!DISC_PROFILES.rim[r])return null;
+/* a disc profile, cleaned: {name, rim}, or null for the stock disc (or anything that isn't one) */
+function normDisc(d){if(!d||typeof d!=="object")return null;const r=d.rim;
+  if(!DISC_PROFILES.rim[r])return null;
   const name=String(d.name==null?"":d.name).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,DISC_PROFILES.nameMax)||"Own disc";
-  return{name,teeth:t,rim:r};}
-/* the same disc to cut: teeth and rim (the name is paint, not metal) */
-const sameDisc=(a,b)=>!a===!b&&(!a||(a.teeth===b.teeth&&a.rim===b.rim));
+  return{name,rim:r};}
+/* the same disc to cut: the rim (the name is paint, not metal; the teeth are a dial) */
+const sameDisc=(a,b)=>!a===!b&&(!a||a.rim===b.rim);
 
 /* the ids in a cfg that no part has: ["weapon \"zap\"", "front armour \"plate9\"", "extra \"jet\""] */
 function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;

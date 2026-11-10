@@ -788,3 +788,6 @@ Two weapons beside the drum and the vertical disc, both in `PARTS.weapon` (`sim/
 - **The instructor:** `drillAuto` drives every drill; its run is the demonstration and the node test.
 - **Saved:** `S.school[id] = {m, best, n}`.
 
+## The Tooth count dial (0.1.48)
+
+A fourth Tuning dial for any spinner with a disc or a drum (horizontal, vertical, drum, eggbeater, drisk, undercutter): one to five teeth, two stock. Fewer teeth bite deeper, kick the bot harder and bend sooner. More teeth take smaller bites, so the disc keeps its speed, hits the same bot again sooner, still bites when it is slow, and is harder to bend. It is free to turn, with no Fit, and one step can be turned in the pit between rounds. It took over the teeth from the R&D disc profile, which keeps the rim and the name. The numbers are `DISC_PROFILES.teeth` in `src/sim/parts.js`; `docs/HISTORY.md` has the balance table.

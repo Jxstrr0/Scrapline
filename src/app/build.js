@@ -10,7 +10,7 @@
    (SIM.fitBill: every part that differs from the fitted bot, at full price) and Fit charges it in the career (money and
    workshop hours, cut by tools: crFitHours); before the career it is free. In the career a part may need a tool and a
    class may not be open yet (crFitBlock, app/career.js). Going over the weight limit is refused, never fitted. Moving parts on the grid is free.
-   PR 8: a spinner's weapon row has your own disc profile (teeth, rim, a name; R&D "disc" and a fabricator in the career),
+   PR 8: a spinner's weapon row has your own disc profile (rim, a name; its teeth are the Tooth count dial from 0.1.48; R&D "disc" and a fabricator in the career),
    the class limit follows the season's rule changes (crLimitG, app/team.js), and with an engineer on the team the stress
    report works out the impact and drop lines for the draft (no bench needed).
    ?sim=1 adds the raw evalBuild() result at the bottom. */
@@ -73,7 +73,7 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
   const run=x=>isFinite(x.runtimeS)?x.runtimeS:999;
   const order={chassis:["armour","edge","speed"],armour:["armour","speed"],drive:["speed","run","push"],wheels:["speed","edge","push"],wheelbase:["slide","push","turn","run"],
     battery:["run","speed"],electronics:["run","speed","heat"],weapon:["wj","edge","run"],weaponMaterial:["wj","bend"],extras:["edge","armour","speed"],front:["edge","armour","speed"],back:["right","armour","run","speed"],
-    volt:["speed","wj","heat","run"],wheel:["inv","clr","speed","edge"],bias:["edge","push"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
+    volt:["speed","wj","heat","run"],teeth:["hitj","kick","bend"],wheel:["inv","clr","speed","edge"],bias:["edge","push"],body:["inv","tall","armour","edge"]}[slot]||["speed","wj"];
   for(const k of order){
     if(k==="inv"&&!!r.height.drivesInverted!==!!base.height.drivesInverted)cand.push(r.height.drivesInverted?'<i class="up">drives upside down</i>':'<i class="dn">can\'t drive upside down</i>');
     if(k==="right"&&!!r.height.selfRight!==!!base.height.selfRight)cand.push(r.height.selfRight?'<i class="up">self-rights</i>':'<i class="dn">no self-righter</i>');
@@ -88,6 +88,9 @@ function bDelta(r,base,slot){const out=[];const dg=r.totalG-base.totalG;
     if(k==="clr")num(x=>x.height.clearanceMm,r,base," mm ride",1,false,0.1);
     if(k==="edge")num(x=>x.height.frontEdgeMm,r,base," mm edge",1,false,0.1);
     if(k==="heat")num(x=>x.heat.fightDerateS==null?999:x.heat.fightDerateS,r,base," s heat",0,true,2);
+    if(k==="hitj")num(x=>(x.weapon.storedJ||0)*(x.weapon.bite||0),r,base," J a hit",0,true,1);   /* 0.1.48, the Tooth count dial: what a full-speed hit lands, the kick back, the wait before the next */
+    if(k==="kick")num(x=>(x.weapon.recoil||0)*100,r,base,"% kick",0,false,1);
+    if(k==="gap")num(x=>(x.weapon.hitGap||1)*SIM.FIGHT.hitGapS,r,base," s between hits",2,false,0.005);
     if(k==="bend")num(x=>x.weapon.bendJ||0,r,base," J to bend",0,true,1);}
   return out.concat(cand.slice(0,slot==="body"||SIM.TUNE[slot]?3:2)).join("");}
 
@@ -142,7 +145,7 @@ const B_SECS=[
       return`<div class="opts">`+SIM.PARTS.extras.map(p=>{const on=draft().extras.indexOf(p.id)>=0,c=bTry(x=>{x.extras=on?x.extras.filter(e=>e!==p.id):x.extras.concat([p.id]);}),r=bEv(c);
         return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-extra="${p.id}" aria-pressed="${on}"><span>${esc(p.name)}${f&&f.extras.indexOf(p.id)>=0?'<span class="tag">fitted</span>':""}${bLock("extras",p.id)}</span><span class="pr">${fmt$(p.cost*M.cost)}</span><small class="d">${on?"<i>fitted to the draft · tap to take off</i>":bDelta(r,base,"extras")}</small></button>`;}).join("")+`</div>`;}},
   /* 0.1.33: the tuning dials (sim/parts.js TUNE), free to turn like moving parts */
-  {id:"tune",t:"Tuning",sum:()=>{const t=draft().tune||{},on=SIM.TUNE_IDS.filter(k=>t[k]);return on.length?on.map(k=>SIM.TUNE[k].name+" "+bTuneLbl(k,t[k]).toLowerCase()).join(" · "):"all stock";},
+  {id:"tune",t:"Tuning",sum:()=>{const t=draft().tune||{},on=SIM.TUNE_IDS.filter(k=>t[k]&&SIM.tuneOn(k,draft().weapon));return on.length?on.map(k=>SIM.TUNE[k].name+" "+bTuneLbl(k,t[k]).toLowerCase()).join(" · "):"all stock";},
     body:()=>bTune()},
   {id:"layout",t:"Layout & side profile",sum:()=>{const r=bEval();return`COM ${Math.round(r.com.x*1000)}, ${Math.round(r.com.y*1000)} mm`;},
     body:()=>bLayout()+bProfile()},
@@ -150,22 +153,22 @@ const B_SECS=[
     body:()=>{const s=bStress();return`<ul class="stress">${s.length?s.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':x.paper?` <span class="bntag">${esc(x.paper)}</span>`:""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul>${tmHas("engineer")?`<p class="hint">${esc(tmFirst(tmHas("engineer").name))} has worked out the impact and drop lines on paper.</p>`:""}`;}},
   {id:"designs",t:"Designs",sum:()=>{const n=bDesigns().length;return n?`${n} saved`:"none saved";},body:()=>bDesignsBody()}
 ];
-/* your own disc profile (sim/parts.js DISC_PROFILES): any spinner but the saw; teeth, rim and a name */
+/* your own disc profile (sim/parts.js DISC_PROFILES): a spinner with a disc or a drum; rim and a name (0.1.48: the teeth are a Tuning dial) */
 function bDisc(){const d=draft(),w=SIM.part("weapon",d.weapon);if(!w||w.type!=="spinner"||w.bodyR)return"";const lock=crDiscLock(),dp=d.disc,base=bEval();
   const tryD=x=>{const c=bTry(q=>{q.disc=x;});return bEv(c);};
   const opt=(lbl,x,on,key)=>{const r=on?base:tryD(x);return`<button type="button" class="opt${on?" on":""}${!on&&r.totalG>r.limitG?" over":""}" data-disc="${key}" aria-pressed="${on}"><span>${lbl}</span><small class="d">${on?"<i>chosen</i>":bDelta(r,base,"weapon")}</small></button>`;};
-  const cur=dp||{name:"",teeth:2,rim:"mid"};
+  const cur=dp||{name:"",rim:"mid"};
   return`<h4>Disc profile${lock?` <span class="tag lock">${esc(lock)}</span>`:""}</h4>
-    <div class="opts">${opt("Stock disc",null,!dp,"stock")}${opt(dp?`Your disc: ${esc(dp.name)}`:"Your own disc",dp||{name:"Own disc",teeth:2,rim:"mid"},!!dp,"own")}</div>
-    ${dp?`<div class="opts">${[1,2,3].map(t=>opt(`${t} ${t>1?"teeth":"tooth"}`,Object.assign({},cur,{teeth:t}),cur.teeth===t,"t"+t)).join("")}</div>
-      <div class="opts">${Object.keys(SIM.DISC_PROFILES.rim).map(k=>opt(ftCap(SIM.DISC_PROFILES.rim[k].name),Object.assign({},cur,{rim:k}),cur.rim===k,"r"+k)).join("")}</div>
+    <div class="opts">${opt("Stock disc",null,!dp,"stock")}${opt(dp?`Your disc: ${esc(dp.name)}`:"Your own disc",dp||{name:"Own disc",rim:"mid"},!!dp,"own")}</div>
+    ${dp?`<div class="opts">${Object.keys(SIM.DISC_PROFILES.rim).map(k=>opt(ftCap(SIM.DISC_PROFILES.rim[k].name),Object.assign({},cur,{rim:k}),cur.rim===k,"r"+k)).join("")}</div>
       <div class="dname"><input id="discName" maxlength="${SIM.DISC_PROFILES.nameMax}" value="${esc(dp.name)}" aria-label="Disc name" autocomplete="off"><button type="button" class="btn sm" data-act="disc-name">Name it</button></div>`:""}
-    <p>Fewer teeth bite deeper; a heavier rim stores more energy and spins up slower.${lock?" You can design one here; fitting it needs the R&amp;D and a fabricator.":""} A new profile is a new disc: fitting it pays for the material again.</p>`;}
+    <p>A heavier rim stores more energy and spins up slower. The number of teeth is a dial, under Tuning.${lock?" You can design one here; fitting it needs the R&amp;D and a fabricator.":""} A new profile is a new disc: fitting it pays for the material again.</p>`;}
 /* the tuning dials: a row of steps each, with what the chosen step changes against stock. Free, no Fit needed when only
    the dials (or the layout) differ from the fitted bot */
 const bTuneLbl=(k,v)=>SIM.TUNE[k].labels[v-SIM.TUNE[k].min];
 function bTune(){const d=draft(),t=d.tune||{},base=bEval();
   return SIM.TUNE_IDS.map(k=>{const T=SIM.TUNE[k],cur=t[k]||0,steps=[];for(let v=T.min;v<=T.max;v++)steps.push(v);
+    if(!SIM.tuneOn(k,d.weapon))return`<h4>${esc(T.name)}</h4><p>${esc(T.line)}</p><p class="hint">For a disc or a drum: fit a horizontal or vertical spinner, a drum, an eggbeater, a drisk or an undercutter.</p>`;   /* 0.1.48: a dial that does nothing on this bot says what it needs */
     const stock=cur?bEv(bTry(c=>{c.tune[k]=0;})):base;
     return`<h4>${esc(T.name)}</h4><p>${esc(T.line)}</p><div class="seg tune" role="group" aria-label="${esc(T.name)}">${steps.map(v=>{const on=v===cur,r=on?base:bEv(bTry(c=>{c.tune[k]=v;}));
       return`<button type="button" data-tune="${k}" data-v="${v}" class="${on?"on":""}${!on&&r.totalG>r.limitG?" over":""}" aria-pressed="${on}">${esc(T.labels[v-T.min])}</button>`;}).join("")}</div>
@@ -298,8 +301,8 @@ function bClick(e){const t=e.target;let x;
   if((x=t.closest("[data-face]"))){B.face=x.dataset.face;bRender();return;}
   if((x=t.closest(".opt[data-slot]"))){const s=x.dataset.slot,id=x.dataset.id;
     bSet(c=>{if(s==="armour")c.armour[B.face]=id;else c[s]=id;});return;}
-  if((x=t.closest(".opt[data-disc]"))){const k=x.dataset.disc,d=draft().disc,cur=d||{name:"Own disc",teeth:2,rim:"mid"};
-    bSet(c=>{if(k==="stock")delete c.disc;else if(k==="own")c.disc=cur;else if(k[0]==="t")c.disc=Object.assign({},cur,{teeth:+k.slice(1)});else c.disc=Object.assign({},cur,{rim:k.slice(1)});});return;}
+  if((x=t.closest(".opt[data-disc]"))){const k=x.dataset.disc,d=draft().disc,cur=d||{name:"Own disc",rim:"mid"};
+    bSet(c=>{if(k==="stock")delete c.disc;else if(k==="own")c.disc=cur;else c.disc=Object.assign({},cur,{rim:k.slice(1)});});return;}
   if((x=t.closest("[data-tune]"))){const k=x.dataset.tune,v=+x.dataset.v;if((draft().tune||{})[k]===v)return;
     if(bSet(c=>{c.tune=Object.assign({},c.tune,{[k]:v});}))shopSfx("dial");buzz(8);return;}
   if((x=t.closest(".opt[data-extra]"))){const id=x.dataset.extra;bSet(c=>{c.extras=c.extras.indexOf(id)>=0?c.extras.filter(e=>e!==id):c.extras.concat([id]);});return;}

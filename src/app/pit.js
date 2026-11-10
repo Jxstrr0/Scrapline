@@ -25,7 +25,7 @@ const PIT_NAMES={wheel:"Wheel swap",belt:"New belt",pod:"Drive pod swap",battery
    the weight limit); the spare comes in the box, so no kit count. It lasts the rest of the bout (app/fight.js ftPit) */
 /* 0.1.33: a dial turned one step for the rest of the bout (sim/parts.js TUNE), if the bot stays under the limit */
 function pitTunes(cfg){const t=SIM.normTune(cfg.tune);
-  return SIM.TUNE_IDS.map(k=>{const T=SIM.TUNE[k],v=t[k];
+  return SIM.TUNE_IDS.filter(k=>SIM.tuneOn(k,cfg.weapon)).map(k=>{const T=SIM.TUNE[k],v=t[k];   // 0.1.48: only the dials this bot has (no Tooth count without a disc)
     return{k,name:T.name,v,label:T.labels[v-T.min],steps:[-1,1].map(d=>{const n=v+d;if(n<T.min||n>T.max)return{d,ok:false,why:"end of the dial"};
       const r=SIM.evalBuild(Object.assign({},cfg,{tune:Object.assign({},t,{[k]:n})}));return{d,ok:!r.errors.length,why:r.errors.length?"over the limit":""};})};});}
 function pitFronts(cfg){const w=SIM.part("weapon",cfg.weapon);if(!w||SIM.OWN_FRONT.indexOf(w.type)>=0||SIM.ALL_ROUND.indexOf(w.id)>=0)return null;
