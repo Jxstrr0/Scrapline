@@ -266,6 +266,8 @@ html.home #intro .box{margin:auto 0 0}
 
 #pwaBar,#bkBar{position:absolute;left:50%;bottom:calc(var(--tabh) + 18px + env(safe-area-inset-bottom,0px));z-index:60;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:12px;background:#1F1E1B;color:#F2EFE8;border:1px solid var(--clay);box-shadow:var(--lift);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transform:translate(-50%,16px);transition:opacity .25s,transform .25s}
 #pwaBar.on,#bkBar.on{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+/* the backup reminder sits under the header, not over the pinned bars and their totals (playtest, 0.1.54.1) */
+#bkBar{bottom:auto;top:calc(58px + env(safe-area-inset-top,0px));transform:translate(-50%,-16px)}
 html.infight #pwaBar,html.infight #bkBar{display:none}   /* never over a fight: they come back after it */
 #pwaBar .btn,#bkBar .btn{flex:0 0 auto}
 .pwalater{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;color:#ABA79E;font-weight:500}
@@ -5796,7 +5798,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.54";
+const VERSION="0.1.54.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6165,7 +6167,7 @@ function toast(msg){if(toast.hold){(toast.q=toast.q||[]).push(msg);return;}const
 
 /* ---- the bottom sheet (Settings, Back up, Restore …) ---- */
 let sheetBack=null;
-function openSheet(title,html){sheetBack=document.activeElement;$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;
+function openSheet(title,html){sheetBack=document.activeElement;if(typeof buRemindHide==="function")buRemindHide();/* the backup reminder never sits over a sheet */$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;
   $("sheet").classList.add("on");$("scrim").classList.add("on");$("sheetBody").scrollTop=0;$("sheetClose").focus({preventScroll:true});}
 function closeSheet(){$("sheet").classList.remove("on");$("scrim").classList.remove("on");if(sheetBack&&sheetBack.focus)sheetBack.focus({preventScroll:true});sheetBack=null;}
 const sheetOn=()=>$("sheet").classList.contains("on");

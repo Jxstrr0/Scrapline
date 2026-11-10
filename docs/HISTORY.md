@@ -173,6 +173,7 @@ The full version-by-version log, moved out of `CLAUDE.md` (which loads on every 
   21%, custom 35%), plywood loses 8%. The Build tab's box rows show the hull's own hit points ("J hull") first.
   Beetle balance, before to after: Wedge 47 to 53%, Hammer 44 to 49, Horizontal spinner 68 to 66, Vertical spinner
   69 to 66, Invertible box 68 to 63, Glass cannon 45 to 41. No save change.
+- 0.1.54.1 (2026-11-10): **The backup reminder keeps out of the way** (playtest: "No backup yet" covered the totals on the pinned bars). The bar now sits under the header and goes away when a sheet opens (`openSheet`, `#bkBar`).
 - 0.1.54 (2026-11-10): **Sponsor logos and twelve more team emblems** (Kelbo: try Higgsfield for in-game 2D art; logos
   on the Sponsors page and the bot, "then also do a run for pickable team logos"). The first generated art in the game:
   18 vector logos made with Higgsfield (GPT Image 2.6, SVG output), kept as files in `textures/marks/` and credited in
