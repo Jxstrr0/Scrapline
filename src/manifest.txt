@@ -20,6 +20,7 @@ sound/voicelines.js
 sound/voice.js
 vis/core.js
 vis/surface.js
+vis/marks.js
 vis/badge.js
 vis/bot.js
 vis/arena.js
