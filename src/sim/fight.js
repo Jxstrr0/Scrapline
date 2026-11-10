@@ -32,8 +32,8 @@ const WEDGE_RULES={
   underGrip:0.2,    // the lifted bot keeps this share of its grip
   underGripClass:{feather:0.4,heavy:0.45},   // ... more in these classes (the feather and heavy wedges sat over the balance target: PR 4b, 0.1.12.0)
   underBite:0.5,    // and its own weapon lands this share of its energy ...
-  underBiteBy:{vsp:0.9,drum:0.75},   // ... except a vertical disc, which still bites the wedge it's sitting on
-  discGuard:{vsp:0.5,drum:0.6},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
+  underBiteBy:{vsp:0.9,drum:0.75,beater:0.8,drisk:0.85},   // ... except a vertical disc, which still bites the wedge it's sitting on
+  discGuard:{vsp:0.5,drum:0.6,beater:0.6,drisk:0.55},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
                     // nothing gets under its front, and the disc bites the wedge's lip instead (plan 8e: vertical beats wedge)
   allGuard:{shell:0.35,ring:0.5,melty:0.35},   // 0.1.34: a shell, ring or meltybrain spinning above this share guards every face
   holdS:0.25,       // it stays lifted this long after the contact ends
@@ -57,14 +57,14 @@ const FIGHT={
   slope:{wedge:0.6,flipper:0.2,lifter:0.2,grabber:0.2},   // a sloped front adds this to the chance a horizontal disc's hit glances off it
                               // (a fitted front, 0.1.32, adds its own slope instead: b.front.slope)
   horizontal:{hsp:1,under:1}, // the spinners whose hits a sloped front turns (a vertical bites the edge instead) ...
-  lip:{vsp:1.8,drum:1.3},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
-  gyro:{vsp:0.3,drum:0.24,shell:0.5,ring:0.25},   // (0.1.34: a shell is the heaviest gyroscope of all)   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
+  lip:{vsp:1.8,drum:1.3,beater:1.3,drisk:1.6},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
+  gyro:{vsp:0.3,drum:0.24,beater:0.2,drisk:0.32,shell:0.5,ring:0.25},   // (0.1.34: a shell is the heaviest gyroscope of all)   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
   gyroClass:{heavy:1.35},gyroFloor:1.02,gyroFloorRound:1.05,   // ... x this in a class (a heavyweight's disc is a flywheel the size of a manhole cover); 0.1.35: whatever the gyro takes, full lock keeps gyroFloor x the scrub (it can always pivot, slowly; an all-round spinner, which has nothing to aim, gyroFloorRound)
-  selfFlip:{vsp:0.01,drum:0.005},   // a full-power hit can throw a vertical spinner onto its back: this chance x the hit's share of full energy
+  selfFlip:{vsp:0.01,drum:0.005,beater:0.006,drisk:0.01},   // a full-power hit can throw a vertical spinner onto its back: this chance x the hit's share of full energy
   damageShare:0.4,            // a spinner hit's energy that goes into damage ...
   throwShare:0.15,            // ... and into throwing the target
   recoilShare:0.5,            // the attacker takes this x the throw impulse x the weapon's recoil, the other way
-  up:{hsp:0,vsp:0.6,drum:0.5,under:0.3,saw:0,shell:0.1,ring:0.05,melty:0},   // share of a spinner's throw that goes upward
+  up:{hsp:0,vsp:0.6,drum:0.5,beater:0.5,drisk:0.55,under:0.3,saw:0,shell:0.1,ring:0.05,melty:0},   // share of a spinner's throw that goes upward
   flipDmg:0.15,               // a flipper's arm hit: this x launchJ x bite in damage
   flipFwd:1,                  // m/s forward a flipped bot carries (x sqrt len)
   flipThrow:{ant:1.6,beetle:1.8,hobby:1.8},   // 0.1.17.5: a flipper's own flip throws this much further again (m/s, x sqrt len), in the
@@ -105,7 +105,7 @@ const FIGHT={
   /* weapon working zones, in the bot's frame: circle (around the disc), or a box ahead of the front face, w x the weapon's
      footprint width (full: the chassis width), reach x the bot's length (or the weapon's own reachM); top: it hits the
      top of what it lands on */
-  zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
+  zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},beater:{w:0.9},drisk:{w:0.65},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
     hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1},
     shell:{circle:1},ring:{circle:1},melty:{circle:1}},   // 0.1.34: the all-round ones, a circle round the middle (mountM [0, 0])
   /* 0.1.32: a kicker (the back-up flipper, b.back.kick) works a box behind the back face, kickW x the width; it throws

@@ -44,6 +44,8 @@ const OPP_TEAMS={
   "op:ringelnatter":["Waldhütte Grauwald","forest","sand","round","none","WG"],
   "op:drehscheibe":["Lokschuppen 2","coal","clay","gear","bolt",""],
   "op:schneepflug":["Winterdienst Stahlbrück","bone","clay","shield","wrench",""],
+  "op:schneebesen":["Bäckerei Hug","bone","wine","round","star",""],
+  "op:schwungrad":["Hafenwinde Eisenau","sky","coal","gear","bolt",""],
   "op:weichensteller":["Signalbau Ost","teal","sand","diamond","bolt",""],
   "op:lindwurm":["Drachenloch","green","wine","shield","flame",""],
   "op:schrottkran":["Altmetall Velm","steel","sand","gear","claw",""],

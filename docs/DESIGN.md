@@ -767,3 +767,14 @@ The floor is most of the picture in a fight, and it was one stretched photo with
 - **Venue boards** (every tier). A strip of printed boards runs along the screens above the kerb: the venue's name between SCRAPLINE panels. Lite has it on the far wall only.
 
 `tools/blender-arena-floors.py` and `textures/floor-*.webp`; `floorDress`, `floorImg`, `FLOOR_TEX` and the new kit pieces in `kitBuild` (`src/vis/props.js`); `arenaWear`, `wallBoards`, `boardTex`, `BOARD`, `ARENA_LOOK[look].plate` and `.sign` (`src/vis/arena.js`); `fxMark`, `markInit`, `markTex`, `MARKS` (`src/vis/fx.js`); `models/arena-kit.glb` from `tools/blender-arena-kit.py`. Nothing in the sim or the save changed.
+
+## 0.1.46.0: two more vertical spinners (Kelbo, from the pitch)
+
+Two weapons beside the drum and the vertical disc, both in `PARTS.weapon` (`sim/parts.js`), both front spinners on a sideways axle.
+
+- **Eggbeater** (`beater`): an open frame cut from one billet, two bars between two cheeks on a wide axle. Light (150 g at beetle scale), 9,000 rpm, most of its mass at the bars (`shapeK` 0.8). It stores the least of the verticals (69 J at beetle) and is the quickest up to speed (0.70 s), bites deepest (0.9), and bends early (`bendMul` 0.65). Needs the mill. A pocket bay, like the drum's.
+- **Drisk** (`drisk`): a drum as narrow as a thick disc (0.9 of its radius wide). The heaviest vertical (300 g), 118 J at beetle in 1.12 s, the hardest to bend (`bendMul` 1.25), with a narrow hit zone (0.65 of the width) and the strongest gyro of the front spinners. Needs the lathe. It sits forward, a third of it past the front, in a slot that runs out through the front plate.
+- **In the fight** each has its own row in the id tables: a spun-up one meets a wedge first (`discGuard`), still bites a wedge it sits on (`underBiteBy`), catches a sloped front's lip (`lip`), fights turning (`gyro`), can throw itself over (`selfFlip`), and throws upward (`up`).
+- **Looks:** on Full and Ultra the Blender pieces `wp_beater`, `wp_drisk` and `wp_drisk_teeth` (`models/bot-weapons.glb`); on Lite a coded frame and a toothed cylinder.
+- **Opponents:** Schneebesen (beetle, the club) carries an eggbeater and Schwungrad (feather, Eisenau) a drisk. 30 named opponents.
+- **Balance:** against the test builds, on auto at two skills, the eggbeater with full armour wins 69 / 59 / 60% (beetle / feather / heavy) and the drisk 57 / 58 / 53%, beside the drum's 65 / 67 / 55% and the vertical disc's 73 / 66 / 58%.

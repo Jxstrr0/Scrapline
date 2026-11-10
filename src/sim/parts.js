@@ -148,7 +148,10 @@ const PARTS={
      shears at. Shell spinner: the whole shell over the bot spins. Ring spinner: a toothed hoop round a body that stays
      still. Meltybrain (melty): the whole bot spins on its drive and steers by pulsing its wheels once a turn; its
      stored energy is the whole bot's (bodyK x its mass x the radius squared), it drives both ways up (inverts), and a
-     hard hit can lose its heading (FIGHT.melty). None of them leaves room for a front or a back. */
+     hard hit can lose its heading (FIGHT.melty). None of them leaves room for a front or a back.
+     Two more verticals (0.1.46). Eggbeater (beater): an open frame cut from one billet, two bars on a wide axle. Light,
+     quick to spin up and it bites deepest of all, but the frame bends early (bendMul 0.65). Drisk: a drum as narrow as a
+     thick disc. The heaviest vertical and the hardest to bend (bendMul 1.25), with a narrow hit zone and a strong gyro. */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -159,6 +162,8 @@ const PARTS={
     {id:"hsp",    name:"Horizontal spinner",  type:"spinner",fp:[2,2],mount:"edge", massG:40, motorMassG:90, powerW:300,heatW:40,edgeMm:null,hp:70,cost:150,hours:5,unlock:"start",discMass:300,radius:75,rpmMax:5600, shapeK:0.5, bite:0.62,recoil:1.0},
     {id:"vsp",    name:"Vertical spinner",    type:"spinner",fp:[2,2],mount:"front",massG:60, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:70,cost:150,hours:5,unlock:"start",discMass:250,radius:50,rpmMax:9000, shapeK:0.5, bite:0.85,recoil:0.6},
     {id:"drum",   name:"Drum",                type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:45,edgeMm:3,   hp:80,cost:140,hours:5,unlock:"start",discMass:280,radius:30,rpmMax:11000,shapeK:0.55,bite:0.88,recoil:0.4},
+    {id:"beater", name:"Eggbeater",           type:"spinner",fp:[2,1],mount:"front",massG:35, motorMassG:80, powerW:280,heatW:45,edgeMm:3,   hp:65,cost:170,hours:6,unlock:"tool:mill",discMass:150,radius:36,rpmMax:9000, shapeK:0.8, bite:0.9, recoil:0.5,bendMul:0.65},
+    {id:"drisk",  name:"Drisk (thick disc)",  type:"spinner",fp:[2,2],mount:"front",massG:50, motorMassG:80, powerW:300,heatW:45,edgeMm:2.5, hp:90,cost:170,hours:6,unlock:"tool:lathe",discMass:300,radius:42,rpmMax:9000, shapeK:0.5, bite:0.88,recoil:0.55,bendMul:1.25},
     {id:"under",  name:"Undercutter",         type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:40,edgeMm:3,   hp:70,cost:140,hours:5,unlock:"start",discMass:250,radius:60,rpmMax:5500, shapeK:0.5, bite:0.62,recoil:0.9},
     {id:"crusher",name:"Crusher",             type:"crusher",fp:[2,3],mount:"front",massG:150,motorMassG:120,powerW:220,heatW:35,edgeMm:3,   hp:90,cost:260,hours:8,unlock:"rnd:crusher",forceN:900,crushJ:30},
     {id:"grabber",name:"Grabber",             type:"grabber",fp:[2,2],mount:"front",massG:170,motorMassG:120,powerW:150,heatW:25,edgeMm:2,   hp:70,cost:200,hours:7,unlock:"rnd:grabber",reachMm:50,liftN:95,liftMm:30},
