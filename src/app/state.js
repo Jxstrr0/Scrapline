@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.54";
+const VERSION="0.1.54.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -377,7 +377,7 @@ function toast(msg){if(toast.hold){(toast.q=toast.q||[]).push(msg);return;}const
 
 /* ---- the bottom sheet (Settings, Back up, Restore …) ---- */
 let sheetBack=null;
-function openSheet(title,html){sheetBack=document.activeElement;$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;
+function openSheet(title,html){sheetBack=document.activeElement;if(typeof buRemindHide==="function")buRemindHide();/* the backup reminder never sits over a sheet */$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;
   $("sheet").classList.add("on");$("scrim").classList.add("on");$("sheetBody").scrollTop=0;$("sheetClose").focus({preventScroll:true});}
 function closeSheet(){$("sheet").classList.remove("on");$("scrim").classList.remove("on");if(sheetBack&&sheetBack.focus)sheetBack.focus({preventScroll:true});sheetBack=null;}
 const sheetOn=()=>$("sheet").classList.contains("on");
