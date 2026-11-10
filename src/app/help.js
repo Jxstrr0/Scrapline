@@ -183,6 +183,6 @@ function tutPlace(){const st=TUT_STEPS[TUT.i],spot=$("coachSpot"),box=$("coachBo
 /* after the intro, once: the offer */
 function tutOffer(){if(ST().tutDone||TUT_ON)return;
   openSheet("Your first fight",`<p>A coached first fight, about five minutes: fit a starter wedge, test it on the bench, spar a club bot and read why it went the way it did.</p>
-    <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Settings has it again any time.</p>
+    <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Not now costs nothing: Settings has it again any time.</p>
     <div class="row"><button type="button" class="btn pri" data-tut="go">Show me</button><button type="button" class="btn" data-tut="skip">Not now</button></div>`);}
 </script>

@@ -809,3 +809,8 @@ A fourth Tuning dial for any spinner with a disc or a drum (horizontal, vertical
 
 - **Held clock:** while the intro or the first-fight tip holds the clock, the note ("Intro: the controls unlock at the bell") has a line of its own on a phone and the button reads Skip intro. A bot's worst-damage line wraps to two lines.
 - **Pit window:** the title, the clock and the job line are pinned at the top; the job line is always shown ("Crew ready: pick a job"), so nothing moves when a repair starts. One line explains a swap and a bodge, and the kit line names its spares the way the buttons do.
+
+## After the fight (0.1.52)
+
+The post-mortem tells a pit-out nobody caused apart from one the other bot forced: with no hit, shove, wedge or grab in the four seconds before, it says the bot was driven in and points at the 2D map and the School. The repair window between rounds is reached by To the pit crew. On the Career tab the repairs card has one bright Fix everything button with the bill's cost and hours, and a line saying what it is short by; Close week asks before closing when an affordable repair is still waiting.
+
