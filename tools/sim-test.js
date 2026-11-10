@@ -377,5 +377,42 @@ for (const cls of SIM.CLASS_IDS) {
   console.log(`0.1.38 checks: 3 legal dummies in every class; ${n} dummy tests repeat and play back; beetle spinner does ${h.map((q) => (q.share * 100).toFixed(0) + "%").join(" / ")} to ply / alu / brick`);
 }
 
+/* ---- 0.1.47: the driving school. Every drill's bots are legal beetles; the instructor (drillAuto) finishes each one with
+   a medal, twice the same; the run plays back from its log to the same score; hands off the stick scores no time drill;
+   the medal tables are in order; an ordinary fight has no drill in it ---- */
+{
+  const line = [];
+  if ((SIM.SCHOOL.seed >>> 4) & 3) fail("SCHOOL.seed turns the floor: bits 4 and 5 must be clear");
+  for (const d of SIM.DRILLS) {
+    const tag = `drill ${d.id}`;
+    for (const c of [d.bot].concat((d.others || []).map((o) => o.cfg))) { const b = SIM.evalBuild(c); if (!b.valid || b.cls !== SIM.SCHOOL.cls) fail(`${tag}: a bot isn't a legal ${SIM.SCHOOL.cls} (${Math.round(b.totalG)} g of ${b.limitG})`); }
+    const m = d.medals, asc = d.kind === "time";
+    if (m.length !== 3 || !(asc ? m[0] < m[1] && m[1] < m[2] : m[0] > m[1] && m[1] > m[2])) fail(`${tag}: medals out of order`);
+    if (SIM.drillMedal(d, m[0]) !== 3 || SIM.drillMedal(d, m[1]) !== 2 || SIM.drillMedal(d, m[2]) !== 1 || SIM.drillMedal(d, asc ? m[2] + 1 : m[2] - 1) !== 0 || SIM.drillMedal(d, null) !== 0) fail(`${tag}: drillMedal doesn't follow the table`);
+    const run = () => { const F = SIM.newFight(SIM.drillSpec(d.id)); let k = 0; while (!F.over && k++ < 60 * 120) SIM.stepFight(F, { 0: SIM.drillAuto(F) }); return F; };
+    const A = run(), B = run(), D = A.drill;
+    if (!A.over || A.reason !== "drill") fail(`${tag}: the instructor's run didn't end as a drill`);
+    if (!D.pass || D.medal < 2) fail(`${tag}: the instructor only got medal ${D.medal} (score ${D.score}, ${D.why})`);
+    if (D.score !== B.drill.score || A.n !== B.n) fail(`${tag}: two runs differ (${D.score} and ${B.drill.score})`);
+    if (asc && D.k !== D.n) fail(`${tag}: finished on step ${D.k} of ${D.n}`);
+    const log = SIM.fightResult(A).log;
+    if (log.drill !== d.id || log.noReplay) fail(`${tag}: the log doesn't carry the drill`);
+    const play = {}; for (const i in log.inputs) play[i] = SIM.unpackInputs(log.inputs[i]);
+    const R = SIM.newFight({ seed: log.seed, arena: log.arena, rules: log.rules, drill: log.drill, bots: log.bots, play });
+    while (R.n < log.steps && !R.over) SIM.stepFight(R, null);
+    if (!R.over || R.drill.score !== D.score || R.drill.medal !== D.medal) fail(`${tag}: the replay scores ${R.drill.score}, the run ${D.score}`);
+    const I = SIM.newFight(SIM.drillSpec(d.id)); while (!I.over) SIM.stepFight(I, null);
+    if (asc && (I.drill.pass || I.drill.score != null || I.winner != null)) fail(`${tag}: hands off the stick still passed`);
+    if (!asc && I.drill.medal > 1) fail(`${tag}: hands off the stick got medal ${I.drill.medal} (${I.drill.score})`);
+    line.push(`${d.id} ${D.score}${d.kind === "hit" ? " J" : " s"}`);
+  }
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls });
+  const N = SIM.newFight({ seed: 5, arena: "box", bots: [{ cfg: T("wedge", "beetle") }, { cfg: T("brick", "beetle") }] });
+  if (N.drill || N.spec.drill) fail("an ordinary fight has a drill in it");
+  let threw = false; try { SIM.newFight({ seed: 5, bots: [{ cfg: T("wedge", "beetle") }] }); } catch (e) { threw = true; }
+  if (!threw) fail("newFight took one bot without a drill");
+  console.log(`0.1.47 checks: ${SIM.DRILLS.length} drills, the instructor medals in each and replays to the same score: ${line.join(", ")}`);
+}
+
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
 console.log("\nsim-test: all checks pass");
