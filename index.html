@@ -5798,7 +5798,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.54.2";
+const VERSION="0.1.55.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6047,8 +6047,8 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=18;
-function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false,tips:{}};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30; tips ({drive, map}: the first-fight tips already read, app/fight.js ftTips): 0.1.49
+const SAVE_V=19;
+function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",stick:"point",map2d:false,leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false,tips:{}};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30; tips ({drive, map}: the first-fight tips already read, app/fight.js ftTips): 0.1.49
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
   mode:"sandbox",                  // "career" or "sandbox" (0.1.18.0): which garage S.bots is; picked on the home screen and in Settings (setMode, app/career.js)
@@ -6096,7 +6096,8 @@ const MIGRATE={
     const walk=(x,dep)=>{if(!x||typeof x!=="object"||dep>4)return;if(Array.isArray(x)){x.forEach(y=>walk(y,dep+1));return;}
       if(x.cfg)fix(x.cfg);if(x.draft)fix(x.draft);for(const k in x)if(k!=="cfg"&&k!=="draft")walk(x[k],dep+1);};
     walk(o.bots,0);walk(o.designs,0);walk(o.parked,0);if(Array.isArray(o.designs))o.designs.forEach(fix);return o;},
-  17:o=>{if(o.settings&&typeof o.settings==="object")o.settings.tips={};return o;}   // 0.1.49.0: the first-fight tips (the stick, the 2D map) are shown once to everyone
+  17:o=>{if(o.settings&&typeof o.settings==="object")o.settings.tips={};return o;},   // 0.1.49.0: the first-fight tips (the stick, the 2D map) are shown once to everyone
+  18:o=>{const s=o.settings;if(s&&typeof s==="object"){s.stick="seat";s.map2d=false;}return o;},   // 0.1.55.0: Point to go is the stick for new players; a save from before keeps the stick it learned (seat). The 2D map choice is remembered
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */
@@ -6552,6 +6553,8 @@ function openSettings(){
 <p class="hint">Reduced keeps the fight readable with less going on: a few sparks, light smoke, no parts flying off, small steady hit rings in the 2D view. Motion covers camera shake and movement in the menus.</p></div>
 <div class="field"><span class="lbl">Controls</span>${segHtml("ctlSeg","ctl",[["direct","Direct","stick and button"],["tactical","Tactical","tap where to go"]],ST().controls==="tactical"?"tactical":"direct")}
 <p class="hint">Direct: a stick under your left thumb, the weapon under your right. Tactical: tap the floor to drive there, tap the opponent to attack, tap your bot to back off. Keyboard (W A S D, space, R) and gamepads work with either.</p></div>
+<div class="field"><span class="lbl">Stick</span>${segHtml("stkSeg","stk",[["point","Point to go","push where to drive"],["seat","From the seat","up drives forward"]],ST().stick==="seat"?"seat":"point")}
+<p class="hint">Point to go: push the stick the way you want the bot to go on the screen, and it turns and drives there. From the seat: up drives toward the bot's front and left and right turn it, like a real radio. Direct controls only.</p></div>
 <div class="field"><span class="lbl">Hand</span>${segHtml("handSeg","hand",[["0","Right-handed","weapon on the right"],["1","Left-handed","weapon on the left"]],ST().leftHanded?"1":"0")}</div>
 <div class="field"><span class="lbl">Driving assists</span>${segHtml("asSeg","assist",[["1","On",crLevel()],["0","Off"]],ST().assists===false?"0":"1")}
 <p class="hint">Holds your heading when you aren't steering, softens the steering at speed, and spins a disc up only when they're near.</p></div>
@@ -6577,6 +6580,7 @@ ${ap||tip?`<div class="field"><span class="lbl">App</span>${ap?`<div class="row"
   pick("reduceSeg","reduce",v=>{ST().reduce=v==="auto"?null:v==="1";applyReduce();});
   pick("fxSeg","fxl",v=>{ST().effects=v==="reduced"?"reduced":"full";applyReduce();});
   pick("ctlSeg","ctl",v=>{ST().controls=v;});
+  pick("stkSeg","stk",v=>{ST().stick=v==="seat"?"seat":"point";});
   pick("handSeg","hand",v=>{ST().leftHanded=v==="1";});
   pick("asSeg","assist",v=>{ST().assists=v==="1";});
   pick("sndSeg","snd",v=>{ST().sound=v==="1";if(v!=="1")SCRAP_SOUND.stop();applyVoice();ftVoiceLoad();});
@@ -7210,7 +7214,12 @@ const DEBUGVIEW={
     for(let v=-H+step;v<H-1e-6;v+=step){g.moveTo(X(v),Y(-H));g.lineTo(X(v),Y(H));g.moveTo(X(-H),Y(v));g.lineTo(X(H),Y(v));}g.stroke();
     /* the pit (dashed while it's shut), wall pushers and floor spinners (lit while they fire) */
     if(F.arena.pit){const p=F.arena.pit.rect,open=F.t>=F.arena.pit.openS,x=X(p[0]),y=Y(p[3]),pw=(p[2]-p[0])*s,ph=(p[3]-p[1])*s;
-      if(open){g.fillStyle="#050505";g.fillRect(x,y,pw,ph);}g.strokeStyle=DV_COL.haz;g.lineWidth=1.5*dpr;g.setLineDash(open?[]:[5*dpr,4*dpr]);g.strokeRect(x,y,pw,ph);g.setLineDash([]);}
+      /* 0.1.55: an open pit stands out, a thick edge that pulses amber to red (steady with motion reduced) and its name in the middle */
+      if(open){g.fillStyle="#050505";g.fillRect(x,y,pw,ph);}
+      const pulse=open&&!red?0.5+0.5*Math.sin((now||0)/220):1;
+      g.strokeStyle=open?`rgb(${226},${Math.round(169-110*pulse)},${Math.round(59-10*pulse)})`:DV_COL.haz;g.lineWidth=(open?3:1.5)*dpr;g.setLineDash(open?[]:[5*dpr,4*dpr]);g.strokeRect(x,y,pw,ph);g.setLineDash([]);
+      const fs=Math.max(9,Math.min(14,Math.min(pw,ph)/dpr*0.35));g.font=`700 ${fs*dpr}px "Space Grotesk",system-ui,sans-serif`;g.textAlign="center";g.textBaseline="middle";
+      g.fillStyle=open?"#F2B46A":"rgba(226,169,59,.55)";g.fillText("PIT",x+pw/2,y+ph/2);g.textAlign="left";g.textBaseline="alphabetic";}
     F.arena.haz.forEach((h,i)=>{const on=F.hz&&F.t<F.hz[i].until;g.strokeStyle=DV_COL.haz;g.fillStyle=on?DV_COL.hazOn:"rgba(226,169,59,.12)";g.lineWidth=1.5*dpr;
       if(h.type==="spinner"){g.beginPath();g.arc(X(h.at[0]),Y(h.at[1]),h.rM*s,0,Math.PI*2);g.fill();g.stroke();}
       else{const r=h.rect;g.fillRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);g.strokeRect(X(r[0]),Y(r[3]),(r[2]-r[0])*s,(r[3]-r[1])*s);}});
@@ -7220,6 +7229,8 @@ const DEBUGVIEW={
     g.strokeStyle=DV_COL.wall;g.lineWidth=3*dpr;g.strokeRect(X(-H),Y(H),2*H*s,2*H*s);
     const font=px=>`${px*dpr}px "JetBrains Mono",ui-monospace,monospace`;
     const placed=[];
+    /* 0.1.55: a lilac ring round the bot you drive, so you find yourself at a glance */
+    {const me=F.bots[0];if(typeof FT!=="undefined"&&FT.you&&me&&!me.out){g.strokeStyle="#B48CE8";g.lineWidth=2.5*dpr;g.beginPath();g.arc(X(me.x),Y(me.y),Math.max(me.rad*1.35*s,9*dpr),0,Math.PI*2);g.stroke();}}
     for(const o of F.bots){if(o.out==="pit")continue;const col=dvCol(o),lift=o.z*s*0.6,grow=1+Math.min(o.z,1)*0.35;
       const at=(lx,ly)=>{const p=toW(o,lx*grow,ly*grow);return[X(p[0]),Y(p[1])-lift];};
       /* shadow in the air */
@@ -7356,6 +7367,8 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0
   if(v){thr=v.y;st=v.x;steering=Math.abs(v.x)>0;}
   if(K.up||K.down||K.left||K.right){thr=(K.up?1:0)-(K.down?1:0);st=(K.right?1:0)-(K.left?1:0);steering=st!==0;}
   if(gp){if(gp.x||gp.y){thr=gp.y;st=gp.x;steering=!!gp.x;}if(gp.wpn&&!CTL.gpW)CTL.wPress=true;CTL.gpW=gp.wpn;sr=sr||gp.sr||K.sr;}else sr=sr||K.sr;
+  /* Point to go (0.1.55): the push is a direction on the screen, not from the bot's seat; turn toward it and drive */
+  if(steering||Math.abs(thr)>0){if(CTL.scheme!=="tactical"&&ST().stick!=="seat"&&!(CTL.slide||K.sl||(gp&&gp.sl))){const p=ctlPoint(o,st,thr);thr=p.throttle;st=p.steer;steering=true;}}
   const held=CTL.wDown||K.wpn||(gp&&gp.wpn);
   if(CTL.scheme==="tactical"&&CTL.order){const t=ctlTactical(F,o,CTL.order);if(t){if(!(v||K.up||K.down||K.left||K.right||(gp&&(gp.x||gp.y)))){thr=t.throttle;st=t.steer;steering=true;}if(t.weapon)wpn=true;}}
   /* the weapon */
@@ -7386,6 +7399,16 @@ function ctlTactical(F,o,ord){let tx,ty,wpn=false;
   else{tx=ord.x;ty=ord.y;if(Math.hypot(tx-o.x,ty-o.y)<o.rad*0.8){CTL.order=null;return null;}}
   const err=SIM_wrap(Math.atan2(ty-o.y,tx-o.x)-o.h),a=Math.abs(err);
   return{steer:Math.max(-1,Math.min(1,-2.2*err)),throttle:a<0.4?1:a<1.3?Math.cos(a):0,weapon:wpn};}
+/* Point to go: which way on the floor is the stick's push? On the 2D map (and with no 3D) screen up is the far wall, +y.
+   In 3D, pick the floor under the middle of the screen and a little way along the push, and take the difference, so it
+   follows the camera wherever it looks. The bot turns toward that heading and drives once it roughly faces it. */
+function ctlPoint(o,sx,sy){const m=Math.min(1,Math.hypot(sx,sy));if(m<0.05)return{throttle:0,steer:0};
+  let dir=Math.atan2(sy,sx);
+  if(!FT.view2d&&window.SCRAP_VIS&&SCRAP_VIS.view==="arena"&&CTL.el){const r=CTL.el.getBoundingClientRect(),cx=r.width/2,cy=r.height/2,k=Math.min(r.width,r.height)*0.12,
+      a=SCRAP_VIS.pick(cx,cy),b=SCRAP_VIS.pick(cx+sx/m*k,cy-sy/m*k);
+    if(a&&b&&(b.x!==a.x||b.y!==a.y))dir=Math.atan2(b.y-a.y,b.x-a.x);}
+  const err=SIM_wrap(dir-o.h),a=Math.abs(err);
+  return{steer:Math.max(-1,Math.min(1,-2.2*err)),throttle:m*(a<0.4?1:a<1.3?Math.cos(a):0)};}
 const SIM_wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
 const CONTROLS={read:ctlRead,mount:ctlMount,unmount:ctlUnmount};
 /* ===================== app/fight.js: the Fight tab (sparring) =====================
@@ -7647,7 +7670,7 @@ function ftTipWant(){if(FT.rp||TUT_ON)return null;   // not in a replay; the tut
   const T=ftTips(),drive=FT.you&&ST().controls!=="tactical"&&!T.drive,map=ftGL()&&!T.map;return drive||map?{drive,map}:null;}
 function ftTipHtml(tip){if(!tip)return"";
   return`<div class="ftip${tip.drive?"":" dock"}" id="fTip" role="${tip.drive?"alertdialog":"note"}" aria-labelledby="fTipT"><b id="fTipT">${tip.drive?"Before you drive":"A map from above"}</b>
-    ${tip.drive?`<p>The stick steers from <b>the bot's seat</b>. <b>Up</b> drives toward its front, the weapon end, wherever that points on the screen. <b>Left</b> and <b>right</b> turn it.</p><p>The pale arrow on the floor shows which way is forward.</p>`:""}
+    ${tip.drive?(ST().stick==="seat"?`<p>The stick steers from <b>the bot's seat</b>. <b>Up</b> drives toward its front, the weapon end, wherever that points on the screen. <b>Left</b> and <b>right</b> turn it.</p><p>The pale arrow on the floor shows which way is forward.</p>`:`<p>Push the stick <b>the way you want to go</b> on the screen. The bot turns to face that way and drives there. Let go to stop.</p><p>The pale arrow on the floor shows which way its front, the weapon end, points. Settings › Stick has the radio-style stick.</p>`):""}
     ${tip.map?`<p><b>2D</b>, top right, swaps to a map from above. Tap it again for the arena.</p>`:""}
     <button type="button" class="btn pri" data-fv="tipok">${tip.drive?"Got it, start":"Got it"}</button></div>`;}
 function ftTipDone(all){const el=$("fTip"),T=ftTips(),was=!!FT.tipHold;
@@ -7655,7 +7678,7 @@ function ftTipDone(all){const el=$("fTip"),T=ftTips(),was=!!FT.tipHold;
   if(el&&(all||el.classList.contains("dock")))el.remove();
   const b=document.querySelector('.fbtn[data-fv="2d"]');if(b)b.classList.remove("nudge");
   if(all&&was){FT.tipHold=false;FT.last=performance.now();FT.acc=0;}save();if(FT.on)ftOverlay();}
-function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
+function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL()||!!ST().map2d;const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
@@ -7684,11 +7707,14 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL();const tip=ftTipWant
   if(tip){const ok=el.querySelector("[data-fv=tipok]");if(ok&&tip.drive)ok.focus({preventScroll:true});}
   ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
-function ftInsets(){if(!FT.on||!window.SCRAP_VIS)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
+function ftInsets(){if(!FT.on)return;const v=$("view"),b=$("fBots");if(!v)return;const r=v.getBoundingClientRect();
   const q=b&&b.getBoundingClientRect(),c=b&&b.querySelector(".fbot"),cw=c?c.getBoundingClientRect().width:0;
   /* cards in the corners of a wide screen leave the middle clear: count half of them */
   const t=!q?56:Math.max(0,(q.bottom-r.top)*(r.width-2*cw>r.width*0.3?0.55:1)),bt=FT.rp?72:FT.you&&ST().controls!=="tactical"?Math.min(130,r.height*0.2):16;
-  SCRAP_VIS.setRun({inset:{t,b:bt}});}
+  ftCvFit(r,t,bt);if(window.SCRAP_VIS)SCRAP_VIS.setRun({inset:{t,b:bt}});}
+/* the 2D map (0.1.55) fills the same clear band as big as it will go, a square between the bot cards and the controls */
+function ftCvFit(r,t,bt){const cv=$("fCv");if(!cv)return;const side=Math.round(Math.max(160,Math.min(r.width-16,r.height-t-bt-12)));
+  cv.style.width=cv.style.height=side+"px";cv.style.maxHeight="none";cv.style.top=Math.round(t+(r.height-t-bt)/2)+"px";}
 /* pinch (or the mouse wheel) nudges the camera in and out. It listens on the whole view, so it works over the arena,
    the tap layer and between the controls; a finger that lands on a button, the stick or a card isn't counted */
 function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=new Map();let d0=0,z0=1;
@@ -7724,7 +7750,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   else if(a==="rlagain")rlAgain();
   else if(a==="rpslow"){FT.rpAuto=FT.rpAuto===false;b.setAttribute("aria-pressed",FT.rpAuto!==false);}
   else if(a==="results")ftExit();
-  else if(a==="2d"){if(!ftTips().map)ftTipDone(false);FT.view2d=!FT.view2d;b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
+  else if(a==="2d"){if(!ftTips().map)ftTipDone(false);FT.view2d=!FT.view2d;ST().map2d=FT.view2d;save();b.setAttribute("aria-pressed",FT.view2d);$("fCv").hidden=!FT.view2d;ftInsets();if(FT.view2d)DEBUGVIEW.draw($("fCv"),F,[],performance.now());}}
 const ftSpLbl=v=>(v===0.5?"½":v===0.25?"¼":v)+"×";
 /* the strip per bot, the clock and the notes, a few times a second */
 function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
@@ -7977,7 +8003,7 @@ function ftBoutHtml(){const B=FT.bout,n=FT.rounds.length;let h="";
   if(n>1)h+=`<div class="seg ftrounds" role="group" aria-label="Round">${FT.rounds.map((r,i)=>`<button type="button" data-ftrv="${i}" class="${i===FT.rv?"on":""}" aria-pressed="${i===FT.rv}">Round ${i+1}</button>`).join("")}</div>`;
   return h;}
 function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watch.";
-  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. The stick steers from the bot's seat: up drives toward its front. Change it in Settings.";}
+  return ST().controls==="tactical"?"Tactical controls: tap the floor to drive there, tap them to attack, tap your bot to back off. Change it in Settings.":"Direct controls: a stick under your left thumb, the weapon button under your right. "+(ST().stick==="seat"?"The stick steers from the bot's seat: up drives toward its front.":"Push the stick the way you want to go and the bot turns and drives there.")+" Change it in Settings.";}
 /* chip rows (wrap on a phone): [[value, label html]] */
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
@@ -9664,7 +9690,7 @@ const TUT_STEPS=[
   {tab:"build",sel:'#fitBar [data-act="fit"]',t:"Fit it",x:()=>"A draft is only a plan until it's fitted. Tap Fit, then Fit again on the bill. In a career this is where you pay.",done:()=>tutIsWedge(bBot().cfg)},
   {tab:"bench",sel:'[data-test="impact"] [data-run]',t:"Run the impact test",x:()=>"The bench hits each side of the bot with a test spinner and measures what gets through. Run the impact test.",done:()=>bnDone(bBot("beetle")).indexOf("impact")>=0},
   {tab:"bench",sel:'[data-test="impact"]',t:"Read it",x:()=>"Each side shows how much it soaked up before something behind it broke. The weakest side is where a good opponent aims. A wedge's front is its strong side: keep it pointed at them.",n:"Next"},
-  {tab:"fight",pre:tutFightPrep,sel:'[data-ft="go"]',t:"Spar a club bot",x:()=>`${SIM.OPPONENTS.find(o=>o.id===TUT_OPP).name} is a careful club bot. Tap Fight and drive: ${ST().controls==="tactical"?"tap the floor to go there, tap them to attack":"the stick steers from the bot's seat, so up drives toward its front"}. The wedge has no weapon, so shove them into the wall and keep your front on them. Ninety seconds.`,done:()=>FT.rounds.length>0&&!FT.on},
+  {tab:"fight",pre:tutFightPrep,sel:'[data-ft="go"]',t:"Spar a club bot",x:()=>`${SIM.OPPONENTS.find(o=>o.id===TUT_OPP).name} is a careful club bot. Tap Fight and drive: ${ST().controls==="tactical"?"tap the floor to go there, tap them to attack":ST().stick==="seat"?"the stick steers from the bot's seat, so up drives toward its front":"push the stick the way you want to go on the screen"}. The wedge has no weapon, so shove them into the wall and keep your front on them. Ninety seconds.`,done:()=>FT.rounds.length>0&&!FT.on},
   {tab:"fight",sel:"#rpCard",t:"Read the post-mortem",x:()=>"Every fight ends with this: the hits on a timeline, the damage map, the chain of causes, and one change to try. In a career, the repair bill under it is real money.",n:"Next"},
   {t:"That's the loop",x:()=>"Build it, prove it on the bench, fight, read why, build better. The loaner goes back now and your workshop is as you left it. The Career tab starts the real thing; Settings has this tutorial again.",n:"Back to my workshop",last:true}];
 function tutFightPrep(){FT.sub="spar";FT.open=null;FT.opp=TUT_OPP;FT.mode="duel";FT.style="you";FT.arena="auto";FT.F=null;FT.rounds=[];FT.bout=null;}   // a spar from earlier steps doesn't count
