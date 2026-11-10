@@ -510,4 +510,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.46: two more vertical spinners, the eggbeater and the drisk (parts, bays, Blender pieces, an opponent each)
 - [x] 0.1.47: driving school (eight drills with medals on the Fight tab's School page)
 - [x] 0.1.48: the Tooth count dial (a fourth Tuning dial, one to five teeth; the disc profile keeps the rim and the name)
+- [x] 0.1.48.1: parts make room for each other (looks only: badge, patch, fronts round weapons, scrap frame, wheel guards, paint on a dome)
 - [ ] Later: more of the polish pass, from Kelbo's list
