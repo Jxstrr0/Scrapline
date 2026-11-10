@@ -174,6 +174,7 @@ The full version-by-version log, moved out of `CLAUDE.md` (which loads on every 
   Beetle balance, before to after: Wedge 47 to 53%, Hammer 44 to 49, Horizontal spinner 68 to 66, Vertical spinner
   69 to 66, Invertible box 68 to 63, Glass cannon 45 to 41. No save change.
 - 0.1.54.1 (2026-11-10): **The backup reminder keeps out of the way** (playtest: "No backup yet" covered the totals on the pinned bars). The bar now sits under the header and goes away when a sheet opens (`openSheet`, `#bkBar`).
+- 0.1.54.2: surprise costs (play-test, round 2). A repair bill's total is the sum of its rounded lines, so Fix everything charges what it quotes (`rpBill`; it was €266 quoted, €268 charged). The first event's Enter sheet gives the prize range, says a beaten bot's repairs can cost more than last place pays, and links to the Bench (`crFirstNote`; links inside a sheet now close it, `goTo`). While a pit job runs the job line says the rest wait, so the greyed buttons have a reason.
 - 0.1.54 (2026-11-10): **Sponsor logos and twelve more team emblems** (Kelbo: try Higgsfield for in-game 2D art; logos
   on the Sponsors page and the bot, "then also do a run for pickable team logos"). The first generated art in the game:
   18 vector logos made with Higgsfield (GPT Image 2.6, SVG output), kept as files in `textures/marks/` and credited in

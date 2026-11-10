@@ -104,7 +104,7 @@ function pitChange(o,j){if(j.kind==="front")o.onFront(j.key);else{const p=j.key.
   if(o.tunes&&cfg)o.tunes=pitTunes(cfg);}
 function pitTick(){const c=$("fPitClock");if(c){const s=Math.max(0,Math.ceil(PIT.t)),txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(c.textContent!==txt)c.textContent=txt;c.classList.toggle("lo",PIT.t<10);}
   const j=PIT.job,box=$("fPitJob");if(box){box.classList.toggle("idle",!j);   // always there, so starting a job never pushes the buttons down (0.1.51)
-    const s=j?`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s`:"Crew ready: pick a job",T=$("fPitJobT");if(T.textContent!==s)T.textContent=s;
+    const s=j?`${PIT_NAMES[j.kind]}: ${j.name} · ${Math.ceil(j.left)} s · one job at a time, the rest wait`:"Crew ready: pick a job",T=$("fPitJobT");if(T.textContent!==s)T.textContent=s;
     $("fPitJobBar").style.width=(j?Math.round((1-j.left/j.total)*100):0)+"%";}}
 function pitSay(s){const el=$("fPitSay");if(el)el.textContent=s;}
 function pitRender(){const o=PIT.o,L=$("fPitList");if(!L)return;const items=pitItems(o.b,o.dmg,o.flags,o.left,PIT.t),busy=!!PIT.job,lost=!L.contains(document.activeElement)&&document.activeElement===document.body||L.contains(document.activeElement);
