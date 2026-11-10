@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.52.3";
+const VERSION="0.1.52.4";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -94,7 +94,7 @@ const LEGACY={
   skillMax:0.98,      // ...up to this (past EVENT_SKILL_MAX)
   rivalStep:1,        // and every rival's bot is this many steps further on a level
   cls:"heavy",        // the title's class: the champion's own bot in it carries...
-  ballast:0.02,       // ...this much less of the weight limit a level (crLimitG, app/team.js): rebuild lighter to defend
+  ballast:0.01,       // ...this much less of the weight limit a level (crLimitG, app/team.js): rebuild lighter to defend
   prizeStep:0.2,      // a defended Final pays this much more a level
   repDefend:8,        // and this much extra rep
   names:["Challenger","Champion","Defender","Dynasty","Legend","Immortal"],   // by level
