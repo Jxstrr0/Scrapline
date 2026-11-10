@@ -12,6 +12,8 @@ const SEV_ORDER={bad:0,warn:1,info:2,good:3};
 const FACE_NAME={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const PART_NAME={drive:"drive pods",battery:"battery",electronics:"speed controllers",weapon:"weapon",extras:"extras",wheels:"wheels"};
 const n0=v=>String(Math.round(v)),n1=v=>(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,"");
+/* what a spinner's working part is called when it isn't a disc (0.1.48.2) */
+const SPIN_NOUN={drum:"drum",beater:"frame",shell:"shell",ring:"ring",melty:"body",saw:"blade"};
 const gOrKg=g=>g>=1000?n1(g/1000)+" kg":n0(g)+" g";
 /* parts whose cells touch a face's edge row or column */
 function partsOnFace(b,f){const c=CLASSES[b.cls],out=new Set();
@@ -25,10 +27,10 @@ const COMBOS=[
   {id:"error",sev:"bad",test:b=>b.errors.filter(e=>e.indexOf("Over the")!==0).join(". "),text:(b,v)=>v+"."},
   {id:"under",sev:"warn",test:b=>b.underBudgetPct>5&&b.limitG-b.totalG,
     text:(b,v)=>gOrKg(v)+" unused ("+n0(b.underBudgetPct)+"% under the limit): that's armour you didn't fit."},
-  {id:"shear",sev:"bad",test:b=>b.weapon.storedJ>b.weapon.shearJ&&b.weapon.shearJ,
-    text:(b,v)=>"Spinner shaft will shear above "+n0(v)+" J on "+b.weapon.material.toLowerCase()+", and this disc stores "+n0(b.weapon.storedJ)+" J. Use a tougher material or a smaller disc."},
-  {id:"bend",sev:"warn",test:b=>b.weapon.storedJ>b.weapon.bendJ&&b.weapon.storedJ<=b.weapon.shearJ&&b.weapon.bendJ,
-    text:(b,v)=>"A full-speed hit bends a "+b.weapon.material.toLowerCase()+" disc above "+n0(v)+" J (it stores "+n0(b.weapon.storedJ)+" J): expect it to go out of true."},
+  {id:"shear",sev:"bad",test:b=>b.weapon.hitMaxJ>b.weapon.shearJ&&b.weapon.shearJ,
+    text:(b,v)=>"Spinner shaft will shear above "+n0(v)+" J on "+b.weapon.material.toLowerCase()+", and a full-speed hit lands up to "+n0(b.weapon.hitMaxJ)+" J. Use a tougher material or a smaller disc."},
+  {id:"bend",sev:"warn",test:b=>b.weapon.hitMaxJ>b.weapon.bendJ&&b.weapon.hitMaxJ<=b.weapon.shearJ&&b.weapon.bendJ,
+    text:(b,v)=>"A full-speed hit lands up to "+n0(b.weapon.hitMaxJ)+" J and "+b.weapon.material.toLowerCase()+" bends above "+n0(v)+" J: expect the "+(SPIN_NOUN[b.weapon.id]||"disc")+" to go out of true."},
   {id:"bare",sev:(b,v)=>v.parts.length?"bad":"warn",
     test:b=>{for(const f of ["front","back","left","right"])if(b.armourMapJ[f].id==="none"&&!(f==="front"&&["wedge","lifter","flipper","grabber"].indexOf(b.weapon.type)>=0))return{f,parts:partsOnFace(b,f)};return null;},
     text:(b,v)=>FACE_NAME[v.f]+" armour none"+(v.parts.length?": "+v.parts.map(s=>PART_NAME[s]).join(" and ")+" exposed.":". Nothing sits right behind it yet, but the chassis takes every hit there.")},
