@@ -13,7 +13,7 @@ const LIVERY={
   cols:[["clay","#D97757","Clay"],["sand","#E8C547","Sand"],["rose","#E87FB4","Rose"],["wine","#8E3B5A","Wine"],["lilac","#B48CE8","Lilac"],["violet","#6A33AD","Violet"],["navy","#2F4A80","Navy"],
     ["sky","#7FB3E6","Sky"],["teal","#3FB8AF","Teal"],["green","#4CC38A","Green"],["forest","#2E6B45","Forest"],["steel","#9AA3AD","Steel"],["bone","#EDEBE6","Bone"],["coal","#2B2B2A","Coal"]],
   shapes:{shield:"Shield",round:"Round",hex:"Hex",diamond:"Diamond",gear:"Gear",square:"Square"},
-  emblems:{bolt:"Bolt",saw:"Saw",wrench:"Wrench",hammer:"Hammer",skull:"Skull",crown:"Crown",flame:"Flame",star:"Star",claw:"Claw",none:"None"},
+  emblems:{bolt:"Bolt",saw:"Saw",wrench:"Wrench",hammer:"Hammer",skull:"Skull",crown:"Crown",flame:"Flame",star:"Star",claw:"Claw",ibex:"Ibex",wolf:"Wolf",eagle:"Eagle",bull:"Bull",scorpion:"Scorpion",wasp:"Wasp",shark:"Shark",rhino:"Rhino",cobra:"Cobra",fist:"Fist",piston:"Piston",anvil:"Anvil",none:"None"},
   team:{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""},   // "corner workshop": where the career starts
   names:{ant:"Tack",beetle:"Splinter",hobby:"Crowbar",feather:"Anvil",heavy:"Foundry"},
   maxName:24,maxText:3,

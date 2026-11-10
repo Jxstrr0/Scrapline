@@ -176,8 +176,17 @@ function buildBot(b,team,sp,liv){
       let at=-0.46*L,best=null;for(const q of blk.concat([[0.46*L,0.46*L]])){if(q[0]-at>(best?best[1]-best[0]:0))best=[at,q[0]];at=Math.max(at,q[1]);}
       if(!best||best[1]-best[0]<0.16*L)continue;const ln=Math.min(0.5*L,best[1]-best[0]-0.02*L),c=Math.max(best[0]+0.01*L+ln/2,Math.min(best[1]-0.01*L-ln/2,0));a=c-ln/2;e=c+ln/2;}
     const ph=bh*(dome?0.36:0.5),m=new THREE.Mesh(new THREE.BoxGeometry(0.0015*len,ph,e-a),spMat(sp.side));
-    m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*(dome?0.4:0.5),cy-(a+e)/2);g.add(m);}
-  if(spOn)decal(Wd*spw,L*spd,0,-spz*L,spMat(sp.top),0.0009*len);
+    m.position.set(s*(hw+(S&&body==="slab"?Wd*0.05:0))-cx+s*0.0009*len,clr+bh*(dome?0.4:0.5),cy-(a+e)/2);g.add(m);
+    /* 0.1.54: the sponsor's logo in the middle of the panel, black or white to suit the colour; it faces out on both sides */
+    const lm=sp.ids&&sp.ids.side?logoMat("s_"+sp.ids.side,logoInk(sp.side),sp.side):null;
+    if(lm){const q=Math.min(ph,e-a)*0.84,lg=new THREE.Mesh(new THREE.PlaneGeometry(q,q),lm);lg.position.set(m.position.x+s*0.0012*len,m.position.y,m.position.z);lg.rotation.y=s*Math.PI/2;lg.userData.role="decal";g.add(lg);}}
+  if(spOn){decal(Wd*spw,L*spd,0,-spz*L,spMat(sp.top),0.0009*len);
+    /* 0.1.54: the sponsor's logo on the patch, laid like the badge so it reads from in front of the bot */
+    const lm=sp.ids&&sp.ids.top?logoMat("s_"+sp.ids.top,logoInk(sp.top),sp.top):null;
+    if(lm){const q=Math.min(Wd*spw,L*spd)*0.86,y=-spz*L,up=0.0009*len+0.0012*len;let lg;
+      if(drape)lg=drape(q,q,0,y,lm,up,true);
+      else{lg=new THREE.Mesh(new THREE.PlaneGeometry(q,q),lm);lg.position.set(-cx,(body==="wedge"?H-drop/2-y*Math.tan(wtl)+wt:H+lid)+up,cy-y);lg.rotation.set(-Math.PI/2-wtl,0,Math.PI);g.add(lg);}
+      lg.userData.role="decal";}}
   /* wheels (or tracks), from the layout */
   const Wh=!lite&&!wp.tracks&&wl.id!=="std"&&wl.id!=="six"&&wl.id!=="eight"?botWheels():null;   // the Blender wheel parts (models/bot-wheels.glb)
   const wx=p=>Math.sign(p.pos[0]||1)*(hw-ww/2-0.001*len);

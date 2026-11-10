@@ -4,7 +4,7 @@
    context; badgeCanvas gives a fresh canvas (the app's cards, the name tags); badgeMat the decal on a bot's top (a
    texture per livery, shared, cleared with the materials). No three.js needed for the drawing. ---- */
 const BADGE_SHAPES=["shield","round","hex","diamond","gear","square"];
-const BADGE_EMBLEMS=["bolt","saw","wrench","hammer","skull","crown","flame","star","claw","none"];
+const BADGE_EMBLEMS=["bolt","saw","wrench","hammer","skull","crown","flame","star","claw","ibex","wolf","eagle","bull","scorpion","wasp","shark","rhino","cobra","fist","piston","anvil","none"]   // from "ibex" on: logos from vis/marks.js (0.1.54);
 const badgeKey=L=>L?[L.main,L.accent,L.shape,L.emblem,L.text||""].join("|"):"";
 /* a badge into context x, centred at (cx, cy), r its half size; halo: a wide accent rim round it (the decal on a bot,
    which sits on a stripe of its own main colour) */
@@ -43,6 +43,7 @@ function badgeDraw(x,L,cx,cy,r,halo){x.save();x.translate(cx,cy);x.scale(r,r);x.
     else if(em==="star"){P(ring(5,0.6,0.25,-Math.PI/2));ink();}
     else if(em==="claw"){for(const dx of [-0.3,0,0.3]){x.beginPath();x.moveTo(dx+0.2,-0.56);x.quadraticCurveTo(dx+0.18,0.1,dx-0.2,0.56);
       x.strokeStyle="rgba(10,10,10,0.55)";x.lineWidth=0.24;x.stroke();x.strokeStyle=L.accent;x.lineWidth=0.14;x.stroke();}}
+    else if(LOGOS["t_"+em])logoDraw(x,"t_"+em,0,0,0.62,L.accent,"rgba(10,10,10,0.55)",0.06);   /* 0.1.54: a drawn logo, in the accent colour */
     x.restore();}
   if(txt){const big=!em,fs=big?(txt.length>2?0.62:txt.length>1?0.78:1.0):0.34;
     x.save();x.translate(0,big?0.04:0.5);x.scale(1/r,1/r);   /* text in real pixels: canvases round tiny font sizes */

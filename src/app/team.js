@@ -109,7 +109,9 @@ function tmSign(id){const sp=tmSp(id),c=tmC();if(!sp)return;const clash=S.sponso
 function tmDecline(id){const c=tmC();c.offers=c.offers.filter(o=>o.id!==id);tmGone(id);save();}
 function tmDrop(id){S.sponsors=S.sponsors.filter(s=>s.id!==id);if(crOn())tmGone(id);save();tmPaint();}
 /* the sponsors' colours for your bot (vis/bot.js): {side, top} */
-function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp)o[sp.slot]=sp.colour;}return o;}
+function tmPaintCols(){const o={};if(!crOn())return o;for(const s of S.sponsors){const sp=tmSp(s.id);if(sp){o[sp.slot]=sp.colour;(o.ids=o.ids||{})[sp.slot]=sp.id;}}return o;}   // ids: whose logo goes on each (0.1.54)
+/* a sponsor's tile: its logo on its colour (0.1.54), a plain swatch where the 3D code did not load */
+function tmSw(sp){let g="";try{g=window.SCRAP_VIS&&SCRAP_VIS.logo?SCRAP_VIS.logo(sp.id,sp.colour,26):"";}catch(e){}return`<span class="sw" style="background:${sp.colour}" aria-hidden="true">${g}</span>`;}
 function tmPaint(){if(window.SCRAP_VIS&&SCRAP_VIS.setPaint)SCRAP_VIS.setPaint(tmPaintCols());visStage();}
 
 /* ---- the kit line ---- */
@@ -166,9 +168,9 @@ function tmStaffWhat(p){if(p.role==="engineer")return`build and repair hours −
 function tmSponsorCard(){const c=tmC();const mine=S.sponsors.map(s=>({s,sp:tmSp(s.id)})).filter(x=>x.sp),offers=c.offers.map(o=>tmSp(o.id)).filter(Boolean);
   if(!mine.length&&!offers.length)return emptyHtml("tag","No sponsors yet","A podium (top two) once you have some rep brings offers: money for their colour on your bot and a target for the season.",[["See the calendar","career/season"]]);
   return`<div class="card"><h3>Sponsors</h3>${mine.length?`<ul class="tmsp">${mine.map(({s,sp})=>{const p=tmProgress(s);
-      return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
+      return`<li>${tmSw(sp)}<span class="nm"><b>${esc(sp.name)}</b> <small>${sp.slot==="side"?"side panels":"top plate"} · ${fmt$(sp.pay)} a season</small><br><small>Target: ${esc(tmTargetTxt(sp.target))} · <span class="${p.met?"ok":"worn"}">${esc(p.txt)}</span></small></span><button type="button" class="btn sm ghost" data-tm="drop" data-id="${sp.id}">${TM.ask==="drop:"+sp.id?"Sure?":"Drop"}</button></li>`;}).join("")}</ul>`:""}
     ${offers.length?`<h4>Offers</h4><ul class="tmsp">${offers.map(sp=>{const clash=S.sponsors.find(s=>(tmSp(s.id)||{}).slot===sp.slot);
-      return`<li><span class="sw" style="background:${sp.colour}" aria-hidden="true"></span><span class="nm"><b>${esc(sp.name)}</b><br><small>${esc(sp.line)}</small><br><small>${fmt$(tmSignPay(sp))} now, ${fmt$(sp.pay)} a season after · ${sp.slot==="side"?"side panels":"top plate"} · target: ${esc(tmTargetTxt(sp.target))}${clash?` · <span class="worn">replaces ${esc(tmSp(clash.id).name)}</span>`:""}</small></span>
+      return`<li>${tmSw(sp)}<span class="nm"><b>${esc(sp.name)}</b><br><small>${esc(sp.line)}</small><br><small>${fmt$(tmSignPay(sp))} now, ${fmt$(sp.pay)} a season after · ${sp.slot==="side"?"side panels":"top plate"} · target: ${esc(tmTargetTxt(sp.target))}${clash?` · <span class="worn">replaces ${esc(tmSp(clash.id).name)}</span>`:""}</small></span>
         <span class="tmbtns"><button type="button" class="btn sm" data-tm="sign" data-id="${sp.id}">Sign</button><button type="button" class="btn sm ghost" data-tm="decline" data-id="${sp.id}">No</button></span></li>`;}).join("")}</ul><p class="hint">Offers lapse at the end of the season.</p>`:""}
     <p class="hint">Hit the target and they renew at the end of the season; miss it and they go.</p></div>`;}
 /* Career tab: the season (meta and rules) */
