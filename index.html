@@ -6608,7 +6608,7 @@ function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
 const draft=()=>bBot().draft;
 /* evalBuild results for this draft, kept until it changes */
 let bEvalKey="",bEvalRes=null;
-function bEval(){const k=JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
+function bEval(){const k=crLimitG(bCls())+JSON.stringify(draft());if(k!==bEvalKey){bEvalKey=k;bEvalRes=bEv(draft());}return bEvalRes;}
 const bTry=mut=>{const c=clone(draft());mut(c);return c;};
 
 /* change the draft. Refused (with the grams) if it would put the bot over the limit, or further over than it is: that
@@ -6834,7 +6834,7 @@ function bFitBar(r){const b=bBot(),fb=$("fitBar");
   const what=[n?`${n} new part${n===1?"":"s"}`:"",off?`${off} taken off`:""].filter(Boolean).join(", ")||"Parts changed";
   fb.hidden=false;
   const blk=ok?crFitBlock(b.draft):null;
-  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${!ok?(r.totalG>r.limitG?"Over the limit":"Can't be fitted: "+esc(r.errors[0]||"")):blk?`<span class="worn">${esc(blk)}</span>`:`${fmt$(bill.cost)} · ${b.cfg||!crOn()?crFitHours(bill)+" h in the workshop":"first build, no hours"}`}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok&&!blk?"":" disabled"}>Fit</button>`;}
+  fb.innerHTML=`<span class="ft"><b>${b.cfg?what:"Nothing fitted yet"}</b>${!ok?(r.totalG>r.limitG?(crOn()&&bCls()===LEGACY.cls&&crLegend()?`Over the champion's limit: ${fmtG(r.limitG)} at legend level ${crLegend()}, not ${fmtG(SIM.CLASSES[bCls()].limitG)}`:"Over the limit"):"Can't be fitted: "+esc(r.errors[0]||"")):blk?`<span class="worn">${esc(blk)}</span>`:`${fmt$(bill.cost)} · ${b.cfg||!crOn()?crFitHours(bill)+" h in the workshop":"first build, no hours"}`}</span>${b.cfg?'<button type="button" class="btn sm ghost" data-act="undo">Undo</button>':""}<button type="button" class="btn sm pri" data-act="fit"${ok&&!blk?"":" disabled"}>Fit</button>`;}
 
 /* ---- fit: show the bill, then charge it (once the career exists) ---- */
 function bFitOpen(){const b=bBot(),r=bEval();if(!r.valid)return;const blk=crFitBlock(b.draft);if(blk){toast(blk);return;}
