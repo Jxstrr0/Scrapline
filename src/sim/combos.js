@@ -47,6 +47,11 @@ const COMBOS=[
   {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
     text:(b,v)=>"The "+(b.limits.batteryW<=b.limits.escW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
   {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
+  /* 0.1.55.1: a skid-steer drags its tyres round to turn, and the grippier they are (and the more of them) the harder
+     that is (b.scrubShare, sim/build.js). A drive that can't beat the scrub can't pivot; one that barely does turns slowly */
+  {id:"turn",sev:(b,v)=>v>=1?"bad":"warn",test:b=>b.drive.f0>0&&b.scrubShare>0.8&&b.scrubShare,
+    text:(b,v)=>v>=1?"The tyres grip harder than the motors can drag them round: it can't turn on the spot. Fit a stronger drive, or tyres or a wheel layout that scrub less."
+      :"Turning is slow ("+n0(b.turnRate*180/Math.PI)+"\u00b0/s): dragging the tyres round takes "+n0(v*100)+"% of the drive's push. A stronger drive or less grippy tyres turn quicker."},
   {id:"com",sev:"warn",test:b=>Math.abs(b.com.x)>b.widthM*0.02&&b.com.x,
     text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
   {id:"nose",sev:"info",test:b=>Math.abs(b.com.y)>b.lengthM*0.15&&b.com.y,
