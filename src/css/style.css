@@ -317,17 +317,9 @@ canvas.plot{display:block;width:100%;height:120px;margin:8px 0 6px}
 .tlkey i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
 .tlkey i.tlby{background:var(--lilac)} .tlkey i.tlon{background:var(--warn)}
 .tlkey .readout{color:var(--lilac);font-family:var(--mono)}
-.rpmap{display:flex;gap:12px;align-items:flex-start}
-.rpmap canvas{flex:none;width:112px;height:112px;border-radius:10px;background:#1A1917}
-.rpmap>div{flex:1;min-width:0}
-.rpmap h4,.rphint h4,.rprev h4{margin:0 0 4px;font-size:14px}
-.rpcause{margin:0;padding-left:18px;font-size:13px;line-height:1.45;color:var(--muted)}
-.rpcause li{margin-bottom:4px}
-.rpcause b{color:var(--ink)}
-.rpcause .readout,.rphint .readout,.rpdl .readout{color:var(--lilac);font-family:var(--mono)}
+.rprev h4{margin:0 0 4px;font-size:14px}
+.rpdl .readout{color:var(--lilac);font-family:var(--mono)}
 .rpkey{margin:4px 0 0;font-size:13px;color:var(--dim)}
-.rphint{margin-top:12px;padding-top:10px;border-top:1px solid var(--rule)}
-.rphint p{margin:0 0 8px;font-size:14px}
 .rpbill{width:100%;border-collapse:collapse;font-size:14px}
 .rpbill th,.rpbill td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:right}
 .rpbill th[scope=row]{text-align:left;font-weight:500}
@@ -666,3 +658,25 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
 .sheet .shdim{color:var(--dim);font-family:var(--font)}
 .sheet .shtick{margin-left:6px;color:var(--good);font-weight:700}
 .sheet .shtest{min-height:44px;white-space:nowrap;font-family:var(--font)}
+
+/* release C (0.1.60): the post-mortem, drawn. The headline, the bot from above at the card's width (the canvas is dark in
+   both themes, like the 3D view), the numbered notes, the under / pinned / held lane, bars in the judges' table */
+.rphead{margin:0 0 2px;font-size:17px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rphead .readout{font-family:var(--mono);color:var(--lilac);font-size:15px}
+.rpsub{margin:0 0 10px;font-size:14px;color:var(--muted)}
+.rpdraw canvas{display:block;width:100%;height:216px;border-radius:10px;background:#1A1917}
+.rpnotes{list-style:none;margin:10px 0 0;padding:0;font-size:14px;line-height:1.45;color:var(--muted)}
+.rpnotes li{display:grid;grid-template-columns:24px 1fr;gap:8px;margin-bottom:8px}
+.rpnotes b{color:var(--ink)}
+.rpnotes .readout,.rpclean .readout,.rplane .readout{color:var(--lilac);font-family:var(--mono)}
+.rpn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;border:1.5px solid var(--dim);color:var(--muted)}
+.rpn.on{background:var(--clay);border-color:var(--clay);color:var(--on-clay)}
+.rpmore summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:14px}
+.rpclean{margin:10px 0 0;font-size:14px;color:var(--muted)} .rpclean b{color:var(--ink)}
+#rpCard .tl{margin-top:12px}
+.rplane{margin:10px 0 4px;font-size:14px;color:var(--muted)} .rplane b{color:var(--ink)}
+#rpCard .tl.tllane{margin-top:0} .tl.tllane svg{height:12px;border-radius:4px}
+.rpbtns{margin-top:12px} .rpbtns .btn{white-space:nowrap}
+.rphead.ok b{color:var(--good)} .rphead.broke b{color:var(--crit-t)}
+.jbar{display:block;height:4px;margin-top:3px;border-radius:2px;background:var(--card2);overflow:hidden}
+.jbar i{display:block;height:100%;margin-left:auto;border-radius:2px}

@@ -11,6 +11,13 @@
      rpBill(o)       the repair bill: each damaged part's fee and each destroyed part's price (REPAIR_COST), plus the
                      workshop hours (REPAIR_HOURS). Shown only while sparring; charged from PR 7.
      rpReveal(F, i)  the opponent's build, revealed after the fight, with Copy to designs
+   The post-mortem, drawn (0.1.60, UI round two, release C): the card opens on the result, then the bot from above at
+   the card's width with up to three numbered markers, and the same points as a numbered list (rpNotes: number 1 is the
+   redesign hint, the rest are rpCauses in order; each carries `at`, a face or a part, which is where its marker sits).
+     rpLane(F)       the stretches your bot spent with a bot under it, pinned or held, as blocks under the hit timeline.
+                     The log only says when a spell began, so this plays the fight again from its replay log and reads
+                     the bot's state each step (cached on the round; left out when the fight can't replay)
+     RP_TEST         which bench test checks a hint: the Test it button, shown when that test hasn't run on the fitted bot
    Everything reads the fight's log and end state; nothing is stored. */
 const RP_FACE={front:"front",back:"rear",left:"left side",right:"right side",top:"top"};
 const rpT=t=>ftT(t);
@@ -47,16 +54,19 @@ function rpHow(F,e,f){const me=F.bots[0],mm=Math.max(F.M.mass,1e-6),J=`<span cla
       return`a hard landing${e.inv?" upside down, onto the top":""} (<span class="readout">${Math.round(tot)} J</span>)${fl&&fl.a!=null?`: ${rpWho(F,fl.a)} flipped you ${Math.round((fl.h||0)*100)} cm up`:""}`;}}
   return"";}
 const ftMm=v=>(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,"");
+/* where a note's marker sits on the drawing: a face, or a part by its key */
+const RP_FAILAT={esc:"electronics",shock:"electronics",smoke:"battery",cell:"battery",flat:"battery"};
+const rpAt=key=>key.indexOf("armour_")===0?{face:key.slice(7)}:key==="chassis"?{face:"top"}:{part:key};
 function rpCauses(F){const me=F.bots[0],out=[],seen={};
   for(const e of F.log){if(e.v!==0)continue;
-    if(e.pb&&!seen["armour_"+e.f]){seen["armour_"+e.f]=1;out.push({t:e.t,html:`<b>${ftCap(RP_FACE[e.f])} plate</b> gives at ${rpT(e.t)}: ${rpHow(F,e)}.`});}
+    if(e.pb&&!seen["armour_"+e.f]){seen["armour_"+e.f]=1;out.push({t:e.t,at:{face:e.f},html:`<b>${ftCap(RP_FACE[e.f])} plate</b> gives at ${rpT(e.t)}: ${rpHow(F,e)}.`});}
     for(const p of e.x||[]){if(!p[2]||seen[p[0]])continue;seen[p[0]]=1;
       const nm=SIM.benchPartName(me.b,p[0]),f=e.f||(e.k==="land"?(e.inv?"top":null):null);let s=`<b>${esc(ftCap(nm))}</b> lost at ${rpT(e.t)}: ${rpHow(F,e)}`;
       if(f&&f!=="top"&&e.k!=="land"){const gone=rpPlateGone(F,0,f,e.t),a=me.b.armourMapJ[f];
         if(!a||a.id==="none")s+=`; no armour on that side`;else if(gone&&gone!==e)s+=`; the ${RP_FACE[f]} plate had given at ${rpT(gone.t)}`;}
-      out.push({t:e.t,html:s+"."});}
+      out.push({t:e.t,at:rpAt(p[0]),html:s+"."});}
     if(e.k==="fail"&&["esc","shock","smoke","cell","dead","motor","righter","flex","flat"].indexOf(e.what)>=0||e.k==="self"&&e.what!=="flip"||e.k==="heat"){
-      const s=ftLine(F,e);if(s)out.push({t:e.t,html:`${s} <small>(${rpT(e.t)})</small>.`});}}
+      const s=ftLine(F,e);if(s)out.push({t:e.t,at:e.k==="fail"&&RP_FAILAT[e.what]?{part:RP_FAILAT[e.what]}:null,html:`${s} <small>(${rpT(e.t)})</small>.`});}}
   if(me.out)out.push({t:F.endT||F.t,html:me.out==="pit"?`<b>Into the pit</b> at ${rpT(F.endT||F.t)}.`:`<b>Counted out</b> at ${rpT(F.endT||F.t)}${me.inverted&&!me.b.height.drivesInverted?": stuck upside down":me.fx.dead?`: ${me.fx.dead==="battery"?"no battery":me.fx.dead==="electronics"?"no speed controllers":"chassis broken"}`:""}.`});
   return out.sort((a,b)=>a.t-b.t);}
 
@@ -65,12 +75,16 @@ function rpCauses(F){const me=F.bots[0],out=[],seen={};
 const RP_FIX={shear:"weapon",spinup:"weapon",flip:"weapon",lift:"weapon",recoil:"weapon",bend:"material",bare:"armour",impact:"armour",
   runtime:"power",heat:"power",power:"power",brushless:"power",com:"layout",nose:"layout",edgeHigh:"body",drop:"chassis",invert:"extras",righter:"extras",
   slow:"drive",pusher:"drive",":pit":"drive",":inv":"extras",":under":"body",":face":"armour",":weapon":"weapon"};
+/* which bench test checks a hint (0.1.60): by stress-report line id, else by the hint's kind */
+const RP_TEST={shear:"weapon",spinup:"weapon",bend:"weapon",recoil:"weapon",":weapon":"weapon",edgeHigh:"gauge",":under":"gauge",bare:"impact",impact:"impact",":face":"impact",
+  runtime:"endurance",heat:"endurance",drop:"drop",invert:"drop",righter:"drop",":inv":"drop"};
+const RP_HINTAT={shear:"weapon",spinup:"weapon",bend:"weapon",recoil:"weapon",runtime:"battery",power:"battery"};
 function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...ids)=>{for(const id of ids){const l=lines.find(x=>x.id===id&&x.sev!=="good");if(l)return l;}return null;};
   const L=F.log.filter(e=>e.v===0),faceJ={};let unders=0,shear=false,bent=false,flat=false,hot=false;
   for(const e of L){if((e.k==="hit"||e.k==="grind"||e.k==="haz"||e.k==="ram")&&e.f)faceJ[e.f]=(faceJ[e.f]||0)+(e.E||0);
     if(e.k==="under")unders++;if(e.k==="self"&&e.what==="shear")shear=true;if(e.k==="self"&&e.what==="bent")bent=true;if(e.k==="fail"&&e.what==="flat")flat=true;if(e.k==="heat")hot=true;}
   const lost=F.winner!=null&&F.winner!==me.team,ret=(l,why)=>l?{why,text:esc(l.text),rule:true,rid:l.id}:null;
-  let h=null,kind="gen";   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
+  let h=null,kind="gen",hf=null;   // kind: which post-mortem line the commentator reads (sound/voice.js pm:<kind>)
   if(me.out==="pit"){kind="pit";
     /* nothing touched the bot in the four seconds before it went in: it was driven in, and more push is the wrong advice */
     const tOut=(L.find(e=>e.k==="pit")||{}).t,PUSH={hit:1,ram:1,grind:1,under:1,flip:1,kick:1,lift:1,grab:1,drop:1,tip:1,slip:1};
@@ -87,9 +101,10 @@ function rpHint(F){const me=F.bots[0],b=me.b,lines=SIM.stressReport(b),rule=(...
   if(!h){const f=Object.keys(faceJ).sort((x,y)=>faceJ[y]-faceJ[x])[0];
     if(f&&faceJ[f]>0){const a=b.armourMapJ[f],why=`Your ${RP_FACE[f]} took ${Math.round(faceJ[f])} J.`,pl=a&&a.id!=="none"?SIM.part("armour",a.id):null;
       const st=SIM.partStates(b,me.st),gone=st["armour_"+f]==="destroyed"||!pl;
-      if(gone||lost)h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};if(h)kind="face";}}
+      if(gone||lost)hf=f,h=ret(rule("bare"),why)||{why,text:pl?`The ${RP_FACE[f]} plate (${esc(pl.name.toLowerCase())}) ${st["armour_"+f]==="destroyed"?"gave":"held, just"}: a thicker plate there, or turn that face away from their weapon.`:`Nothing armours the ${RP_FACE[f]}: a plate there is the cheapest fix.`};if(h)kind="face";}}
   if(!h){kind=!lost?"gen":F.log.some(e=>e.k==="release"&&e.v===0)?"pinned":"held";const l=lines.find(x=>x.sev==="bad")||lines.find(x=>x.sev==="warn");h=l?{why:lost?"You lost, but nothing broke the fight open.":"It held up.",text:esc(l.text),rule:true,rid:l.id}:{why:"It held up.",text:"Nothing in the stress report to fix. Try a tougher opponent, or a different arena."};}
-  h.kind=kind;h.sec=RP_FIX[h.rid]||RP_FIX[":"+kind]||null;return h;}
+  h.kind=kind;h.sec=RP_FIX[h.rid]||RP_FIX[":"+kind]||null;h.test=RP_TEST[h.rid]||RP_TEST[":"+kind]||null;
+  h.at=kind==="under"?{face:"front"}:kind==="face"&&hf?{face:hf}:kind==="weapon"?{part:"weapon"}:kind==="inv"?{face:"top"}:RP_HINTAT[h.rid]?{part:RP_HINTAT[h.rid]}:null;return h;}
 
 /* ---- the repair bill ---- */
 function rpPrice(b,key){const cfg=b.cfg,M=SIM.classMult(b.cls),c=(slot,id)=>{const p=SIM.part(slot,id);return p?p.cost*M.cost:0;};
@@ -135,15 +150,54 @@ function rpCopy(F,i){const o=F.bots[i],cls=F.cls;if(!Array.isArray(S.designs[cls
   let nm=`${o.name} (copy)`.slice(0,32),k=2;while(L.some(d=>d.name===nm))nm=`${o.name} (copy ${k++})`.slice(0,32);
   L.push({name:nm,cfg:clone(o.cfg)});save();toast(`Saved ${nm} to your designs: load it on the Build tab`);}
 
+/* ---- under, pinned or held: the second lane (0.1.60) ---- */
+/* the fight again from its replay log, reading bot 0 each step: held by a lifter or a grabber, a bot under it, or pinned
+   (the pin rule's own spell). Blocks closer than 0.3 s and by the same bot are one. */
+function rpLane(F){const R=FT.rounds.find(x=>x.F===F);if(!R||!ftReplayOk(F))return null;if(R.lane)return R.lane;
+  const log=R.log,play={};for(const k in log.inputs||{})play[k]=SIM.unpackInputs(log.inputs[k]);
+  const G=SIM.newFight({seed:log.seed,arena:log.arena,rules:log.rules,drill:log.drill,bots:log.bots,play}),blocks=[],sum={under:0,pin:0,held:0};let cur=null,tot=0;
+  while(G.n<log.steps&&!G.over){SIM.stepFight(G,null);const o=G.bots[0];if(o.out)break;
+    const k=o.held!=null?"held":o.under?"under":o.pin&&G.t-o.pin.last<0.02?"pin":null,by=k==="held"?o.held:k==="under"?o.under.by:k?o.pin.by:null;
+    if(!k||!G.bots[by]||G.bots[by].team===o.team)continue;sum[k]+=G.dt;tot+=G.dt;
+    if(cur&&cur.by===by&&G.t-cur.t1<0.3)cur.t1=G.t;else blocks.push(cur={t0:G.t-G.dt,t1:G.t,by});}
+  return R.lane={blocks,sum,tot};}
+function rpLaneHtml(F){const L=rpLane(F);if(!L||L.tot<3)return"";const dur=Math.max(F.endT!=null?F.endT:F.t,1),W=300,who=[...new Set(L.blocks.map(b=>b.by))],
+    one=who.length===1?esc(F.bots[who[0]].name):null,kinds=["under","pin","held"].filter(k=>L.sum[k]>=1),n=`<span class="readout">${Math.round(L.tot)} s</span> of ${Math.round(dur)}`;
+  const KW={under:"under you",pin:"pinning you",held:"holding you"},kw=kinds.map(k=>KW[k]),line=one&&kw.length?`<b>${one}</b> was ${kw.length>1?kw.slice(0,-1).join(", ")+" or "+kw[kw.length-1]:kw[0]} for ${n}.`:`Under, pinned or held for ${n}.`;
+  return`<p class="rplane">${line}</p><div class="tl tllane"><svg viewBox="0 0 ${W} 12" preserveAspectRatio="none" role="img" aria-label="When: ${L.blocks.map(b=>rpT(b.t0)+" to "+rpT(b.t1)).join(", ")}">
+    ${L.blocks.map(b=>`<rect x="${(b.t0/dur*W).toFixed(1)}" y="0" width="${Math.max(1.5,(b.t1-b.t0)/dur*W).toFixed(1)}" height="12" style="fill:${ftTeamCol(F.bots[b.by])}"/>`).join("")}</svg></div>`;}
+
 /* ---- the whole post-mortem for the shown round ---- */
-function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F);
-  return`<div class="card" id="rpCard"><h3>Post-mortem</h3>${rpTimeline(F)}
-    <div class="rpmap"><canvas id="rpSil" width="112" height="112" aria-hidden="true"></canvas><div><h4>What went wrong</h4>
-      ${c.length?`<ul class="rpcause">${c.map(x=>`<li>${x.html}</li>`).join("")}</ul>`:`<p class="ok">Nothing broke.</p>`}
-      <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p></div></div>
-    <div class="rphint"><h4>Redesign hint</h4><p><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>
-      <div class="row">${h.sec&&B_SECS.some(x=>x.id===h.sec)?`<button type="button" class="btn sm" data-ft="fix" data-sec="${h.sec}">Fix it: ${esc(B_SECS.find(x=>x.id===h.sec).t)}</button>`:'<button type="button" class="btn sm" data-ft="build">Open Build</button>'}<button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button>${ftReplayOk(F)?'<button type="button" class="btn sm" data-ft="rcode">Share</button>':""}</div>
-      ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div></div>
+/* the numbered notes: the hint first, then the causes in order. A clean win has none. */
+function rpNotes(F,c,h){const me=F.bots[0],lost=F.winner!=null&&F.winner!==me.team;if(!lost&&!c.length)return[];
+  return[{at:h.at,html:`<b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}`}].concat(c.map(x=>({at:x.at||null,html:x.html})));}
+let RP_MARKS=[];
+function rpHtml(F){const me=F.bots[0],c=rpCauses(F),h=rpHint(F),N=rpNotes(F,c,h),x=ftResult(F),sc=F.over&&F.judge?F.judge.scores:null,tk=sc?Object.keys(sc):[];
+  RP_MARKS=N.slice(0,3).map(n=>n.at);
+  const li=(n,i)=>`<li><span class="rpn${n.at&&i<3?" on":""}" aria-hidden="true">${i+1}</span><span>${n.html}</span></li>`;
+  const tot=sc&&tk.length===2&&sc[String(me.team)]?` <span class="readout">${sc[String(me.team)].total.toFixed(1)} to ${sc[tk.find(k=>k!==String(me.team))].total.toFixed(1)}</span>`:"";
+  const bot=!FT.ext&&S.bots[F.cls],canTest=h.test&&bot&&bot.cfg&&FT.sig===bnSig(bot.cfg)&&bnDone(bot).indexOf(h.test)<0,T=canTest&&SIM.BENCH_TESTS.find(t=>t.id===h.test),th=T?bnHours([T.id]):0;
+  return`<div class="card" id="rpCard"><h3>Post-mortem</h3>
+    <p class="rphead ${x.cls}"><b>${esc(x.t)}</b>${tot}</p>${x.s?`<p class="rpsub">${esc(x.s)}.${c.length?"":" Nothing of yours broke."}</p>`:""}
+    <div class="rpdraw"><canvas id="rpSil" aria-hidden="true"></canvas></div>
+    <p class="rpkey"><span style="color:${FT_SC.intact}">●</span> intact <span style="color:${FT_SC.damaged}">●</span> damaged <span style="color:${FT_SC.destroyed}">●</span> destroyed</p>
+    ${N.length?`<ol class="rpnotes">${N.slice(0,3).map(li).join("")}</ol>${N.length>3?`<details class="rpmore"><summary>Show all (${N.length-3} more)</summary><ol class="rpnotes" start="4">${N.slice(3).map((n,i)=>li(n,i+3)).join("")}</ol></details>`:""}`
+      :`<p class="rpclean"><b>${h.why}</b> ${h.text}${h.rule?' <small class="hint">(stress report)</small>':""}</p>`}
+    ${rpTimeline(F)}${rpLaneHtml(F)}
+    <div class="row rpbtns">${h.sec&&B_SECS.some(x=>x.id===h.sec)?`<button type="button" class="btn sm" data-ft="fix" data-sec="${h.sec}">Fix it: ${esc(B_SECS.find(x=>x.id===h.sec).t)}</button>`:'<button type="button" class="btn sm" data-ft="build">Open Build</button>'}${T?`<button type="button" class="btn sm" data-ft="test" data-test="${T.id}">Test it: ${esc(T.name)}${th?` · ${th} h`:""}</button>`:""}<button type="button" class="btn sm pri" data-ft="replay"${ftReplayOk(F)?"":" disabled"}>Replay</button>${ftReplayOk(F)?'<button type="button" class="btn sm" data-ft="rcode">Share</button>':""}</div>
+    ${ftReplayOk(F)?"":'<p class="hint">This fight is too long to replay.</p>'}</div>
   <div class="card"><h3>Repair bill</h3>${rpBillHtml(me,!!F.ev)}</div>
   <div class="card"><h3>${F.bots.filter(o=>!o.mini).length>2?"Their builds":"Their build"}</h3>${F.bots.filter(o=>o.i!==0&&!o.mini).map(o=>rpReveal(F,o.i)).join("")}</div>`;}
-function rpDraw(F){const cv=$("rpSil");if(cv&&F){const me=F.bots[0],s=SIM.partStates(me.b,me.st);if(me.flags.bent&&s.weapon==="intact")s.weapon="damaged";ftSil(cv,me,s,112);}}
+/* the drawing: the bot from above at the card's width (the canvas stays dark in both themes), FRONT and BACK named, and
+   a numbered clay marker for each of the first three notes that has a place */
+function rpDraw(F){const cv=$("rpSil");if(!cv||!F)return;const me=F.bots[0],s=SIM.partStates(me.b,me.st);if(me.flags.bent&&s.weapon==="intact")s.weapon="damaged";
+  const w=Math.max(160,cv.clientWidth||300),H=216,d=Math.min(2,window.devicePixelRatio||1),Wq=156,g=cv.getContext("2d");cv.width=Math.round(w*d);cv.height=H*d;g.setTransform(d,0,0,d,0,0);
+  const q=ftSil(cv,me,s,Wq,(w-Wq)/2,(H-Wq)/2);
+  g.font="600 11px 'Space Grotesk',system-ui,sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillStyle="#ABA79E";g.fillText("FRONT",w/2,10);g.fillText("BACK",w/2,H-9);
+  const put=[];RP_MARKS.forEach((a,i)=>{if(!a)return;let x=q.cx,y=q.cy;
+    if(a.face){const f=a.face,o=12;x+=f==="left"?-q.hw-o:f==="right"?q.hw+o:0;y+=f==="front"?-q.hl-o:f==="back"?q.hl+o:0;}   // just outside the face, so the plate's colour still shows
+    else{const p=me.b.parts.find(z=>z.key===a.part);if(p&&p.pos){x+=p.pos[0]*q.s;y-=p.pos[1]*q.s;}}
+    while(put.some(z=>Math.hypot(z[0]-x,z[1]-y)<22))x+=24;put.push([x,y]);
+    g.beginPath();g.arc(x,y,11,0,7);g.fillStyle="#D97757";g.fill();g.lineWidth=2;g.strokeStyle="#141413";g.stroke();
+    g.fillStyle="#141413";g.font="700 13px 'Space Grotesk',system-ui,sans-serif";g.fillText(String(i+1),x,y+0.5);});}
+window.addEventListener("resize",()=>{if($("rpSil")&&typeof ftShown==="function"&&ftShown())rpDraw(ftShown());});

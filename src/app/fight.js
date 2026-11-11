@@ -375,12 +375,13 @@ function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SO
   if(F.reason==="judges"||F.reason==="draw")SCRAP_SOUND.sfx("clap",0.6);else SCRAP_SOUND.sfx("cheer",0.6);}
 /* a bot's damage silhouette: the faces as its outline, the parts as dots where the layout put them, green / amber / cool red */
 const FT_SC={intact:"#4CC38A",damaged:"#E2A93B",destroyed:"#E5484D"};
-function ftSil(cv,o,states,W){if(!cv)return;W=W||44;const g=cv.getContext("2d"),k=W/44,b=o.b,s=36*k/Math.max(b.widthM,b.lengthM),hw=b.widthM/2*s,hl=b.lengthM/2*s,cx=W/2,cy=W/2;
-  g.clearRect(0,0,W,W);g.lineWidth=3*k;g.lineCap="round";
+function ftSil(cv,o,states,W,ox,oy){if(!cv)return;W=W||44;const g=cv.getContext("2d"),k=W/44,b=o.b,s=36*k/Math.max(b.widthM,b.lengthM),hw=b.widthM/2*s,hl=b.lengthM/2*s,cx=W/2+(ox||0),cy=W/2+(oy||0);   // ox, oy: where the W square sits on a wider canvas (the post-mortem's drawing, 0.1.60)
+  g.clearRect(0,0,Math.max(W,cv.width),Math.max(W,cv.height));g.lineWidth=3*k;g.lineCap="round";
   const face=(k,x0,y0,x1,y1)=>{g.strokeStyle=FT_SC[states["armour_"+k]||"intact"];g.globalAlpha=b.armourMapJ[k]&&b.armourMapJ[k].id!=="none"?1:0.35;g.beginPath();g.moveTo(cx+x0,cy+y0);g.lineTo(cx+x1,cy+y1);g.stroke();};
   face("front",-hw,-hl,hw,-hl);face("back",-hw,hl,hw,hl);face("left",-hw,-hl,-hw,hl);face("right",hw,-hl,hw,hl);g.globalAlpha=1;
   g.fillStyle=FT_SC[states.chassis||"intact"];g.globalAlpha=0.18;g.fillRect(cx-hw,cy-hl,2*hw,2*hl);g.globalAlpha=1;
-  for(const p of b.parts){if(!p.pos)continue;g.fillStyle=FT_SC[states[p.key]||"intact"];g.beginPath();g.arc(cx+p.pos[0]*s,cy-p.pos[1]*s,(p.key==="weapon"?3:2.2)*k,0,7);g.fill();}}
+  for(const p of b.parts){if(!p.pos)continue;g.fillStyle=FT_SC[states[p.key]||"intact"];g.beginPath();g.arc(cx+p.pos[0]*s,cy-p.pos[1]*s,(p.key==="weapon"?3:2.2)*k,0,7);g.fill();}
+  return{cx,cy,s,hw,hl};}
 /* ---- the bot cards (0.1.15.4): a bot map per bot, three labelled bars, the worst part named ---- */
 const FT_ST={intact:"ok",damaged:"worn",destroyed:"broke"};
 const FT_SHORT=window.matchMedia?matchMedia("(max-height:560px) and (orientation:landscape)"):{matches:false};   // the status line is hidden there (style.css)
@@ -484,7 +485,7 @@ function ftHud(F){const el=$("ftHud");if(!F||!el)return;
   const j=$("ftJudge");if(j)j.innerHTML=ftJudges(F);}
 /* the judges' three scores, out of 100 between the teams, when the bell decided it */
 function ftJudges(F){if(!F.over||!F.judge)return"";const sc=F.judge.scores,teams=Object.keys(sc),nm=k=>{const o=F.bots.find(b=>String(b.team)===k);return o.i===0?"You":esc(o.name);};
-  const W=SIM.JUDGE_WEIGHTS,row=(lbl,key,max)=>`<tr><th scope="row">${lbl}${max?` <small>/${max}</small>`:""}</th>${teams.map(k=>`<td class="readout">${sc[k][key].toFixed(1)}</td>`).join("")}</tr>`;
+  const W=SIM.JUDGE_WEIGHTS,row=(lbl,key,max)=>`<tr><th scope="row">${lbl}${max?` <small>/${max}</small>`:""}</th>${teams.map(k=>`<td class="readout">${sc[k][key].toFixed(1)}<span class="jbar" aria-hidden="true"><i style="width:${Math.round(Math.max(0,Math.min(1,sc[k][key]/(max||100)))*100)}%;background:${ftTeamCol(F.bots.find(b=>String(b.team)===k))}"></i></span></td>`).join("")}</tr>`;
   return`<table class="ftjudge"><caption>The judges</caption><thead><tr><th></th>${teams.map(k=>`<th scope="col">${nm(k)}</th>`).join("")}</tr></thead><tbody>
     ${row("Damage","damage",W.damage*100)}${row("Aggression","aggression",W.aggression*100)}${row("Control","control",W.control*100)}${row("Total","total",0)}</tbody></table>`;}
 const FT_HOLD=SIM.FIGHT.holdMaxS;
@@ -625,6 +626,7 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
     else if(a==="rcode")rcShareOpen();
+    else if(a==="test"){const id=x.dataset.test,R=ftShown();if(R&&R.cls)ST().buildCls=R.cls;BN.pick=[id];showTab("bench");const c=document.querySelector(`#bnBody [data-test="${id}"]`);if(c)c.scrollIntoView({block:"start",behavior:"auto"});}
     else if(a==="fix"){const id=x.dataset.sec;B.open={[id]:true};B.page="parts";B.pageCls=bCls();showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
     else if(a==="career"){CR.sub="week";showTab("career");}
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
