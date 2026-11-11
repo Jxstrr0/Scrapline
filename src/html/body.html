@@ -92,17 +92,19 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ==" crossorigin="anonymous"></script>
 <script>/* three.js addons: post-processing (bloom on sparks) for Ultra and GLTFLoader for the Full / Ultra props (vis/props.js). A phone on Lite never loads them: they are written in here only
    when the saved tier is Ultra, else SCRAP_VIS.setQuality("ultra") loads them on demand through window.__scrPost. build.js reads SCR_LIBS
    so the service worker precaches every URL (same pattern as PEW's PEW_LIBS). Order matters (Composer before the passes). */
 (function(){window.SCR_LIBS=["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"];
+/* integrity fingerprints for the scripts above: a CDN copy that has been changed in any way is refused instead of run */
+window.SCR_SRI={"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js":"sha384-nhO9toQuMo5osCuA0l+YFpSqscZWxDu251Bnho2gD3kSPv1neEwHg0LyEmrA+mPj","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js":"sha384-mY+ii969jnDCI2HjRHftH2NZVkIO5ZGUkcnGCg3oVJ3kVstWQXwerYWBg+nbUG4R","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js":"sha384-GkidzTYmQg24v13sa3xhBBbvOLbVLO1QxfyKLdOWweQqNqS/iWwUst2T1fER2Xrg","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js":"sha384-I3lsvPeDJYFrEAzn/TA0yhc/SCYKwpyfyq8lKzHYKohu43H9f7xc/Q9ZWgSVUDl3","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js":"sha384-2EpLreWSFuZsk4hcSplXLhlHd/wzvDNF907bTGIXSXM0SlhJNzy4YK0DhBFvkFEs","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js":"sha384-aVQ2QnWkoxhOefDB0YZB64OPVzujvccydpcC7UqMDJUK0ChwA382zOHmrWHGDRRa","https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js":"sha384-fljlqkjWlmSFjkESkQvm77heIZpoWmXEOzlCA7kOpGUH+95Zk0yGfQieWM2q136E"};
 var has=[["CopyShader"],["LuminosityHighPassShader"],["EffectComposer"],["ShaderPass"],["RenderPass"],["UnrealBloomPass"],["GLTFLoader"]],p=null;
 var got=function(n){return !!(window.THREE&&THREE[n]);},ready=function(){return has.every(function(h){return got(h[0]);});};
 /* each file loads only if what it defines is missing, and one that fails does not stop the rest: bloom checks for its passes and the
    props for GLTFLoader, each on its own (cb gets true only when everything is in). A later call tries the missing ones again. */
 window.__scrPost=function(cb){if(ready()){cb&&cb(true);return;}
- if(!p)p=new Promise(function(res){var i=0;(function next(){while(i<SCR_LIBS.length&&got(has[i][0]))i++;if(i>=SCR_LIBS.length){p=null;res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i++];s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=next;document.head.appendChild(s);})();});
+ if(!p)p=new Promise(function(res){var i=0;(function next(){while(i<SCR_LIBS.length&&got(has[i][0]))i++;if(i>=SCR_LIBS.length){p=null;res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i];if(SCR_SRI[SCR_LIBS[i]])s.integrity=SCR_SRI[SCR_LIBS[i]];i++;s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=next;document.head.appendChild(s);})();});
  p.then(function(ok){cb&&cb(ok);});};
 var sv=null;try{sv=JSON.parse(localStorage.getItem("scr-save")||"null");}catch(e){}
 if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SCR_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
