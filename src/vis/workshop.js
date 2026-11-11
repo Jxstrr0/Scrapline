@@ -109,6 +109,8 @@ function shotBot(w,h){if(!V.r||!V.bot)return null;const ss=2,W=w*ss,H=h*ss,mx=V.
 function frame(now){
   requestAnimationFrame(frame);
   if(document.hidden||!V.r)return;
+  if(V.run.paused){V.wasPaused=true;return;}   // the Build tab's plan view covers the canvas (0.1.62): draw nothing, on every tier
+  if(V.wasPaused){V.wasPaused=false;V.last=now;V.frames=0;V.fpsAt=now;}   // back from a pause: the frame rate starts counting afresh, so the gap is not read as a slow frame
   if(V.tier==="lite"&&now-V.last<30){return;}
   const dt=Math.min(.1,(now-(V.last||now))/1000);V.last=now;
   resize(false);
