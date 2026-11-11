@@ -160,12 +160,12 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
   else{SCRAP_VOICE.seq(cues.map(q=>q.alt||q).filter(q=>!q.opt).slice(-2));bell();}}   // nothing to hear yet (still loading) or muted: the fight starts at once, with captions for the last two calls only (the names and the countdown), so they are gone before the live ones start
 /* the bell: the result calls, then (in a career) a first win or the Open title */
-function ftVoiceEnd(F){if(F.reason==="stopped"||F.drill)return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
+function ftVoiceEnd(F,reveal){if(F.reason==="stopped"||F.drill){if(reveal)reveal();return;}const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
   const bout=FT.watch&&FT.rounds.length>1?Object.assign(ftWatchScore(),{over:FT.watch.k>=FT.rounds.length-1}):!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
   if(!rp&&B&&B.ev&&B.over&&!B.stopped&&crOn()){const c=S.career,vc=B.ev.voice||{},won=(B.wins[me]||0)>=(B.need||1);
     if(won&&!c.fw){c.fw=true;extra.push("career:first");}
     if(won&&vc.event==="Scrapline Open Final"&&vc.label==="final")extra.push("career:open");save();}
-  SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra});}
+  SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra,reveal});}
 /* the post-mortem line for the round on the results card, once (after the bell's calls) */
 function ftVoicePm(F){if(F.pmSaid||F.drill||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true,soon:true});}   // soon: left out when the bell's calls would keep it waiting too long
 /* a caption: the line at the bottom of the fight for a few seconds (only when sound or voices are off) */
@@ -182,7 +182,7 @@ function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
     let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,FT.you&&FT.on&&!FT.rp?{0:CONTROLS.read(F,F.bots[0])}:null);FT.acc-=1/60;k++;
       if(FT.rp&&F.n>=FT.rp.steps&&!F.over){F.over=true;F.endT=F.t;if(!F.reason)F.reason="stopped";}}   // a stopped fight's replay ends where it was stopped
     if(k===5)FT.acc=Math.min(FT.acc,1/60);   // clamped: a slow frame loses time instead of catching up
-    if(k&&!F.over)SCRAP_VOICE.tick(F,sp);
+    if(k&&!F.over)SCRAP_VOICE.tick(F,sp*slow);   // the pace on the screen, slow-motion included, so the calls keep real time
     ftFeedback(now);}
   FT.flashes=FT.flashes.filter(f=>now-f.t0<500);
   if(FT.on&&FT.view2d&&(gfxTier()!=="lite"||now-FT.lastDraw>=31||F.over)){DEBUGVIEW.draw($("fCv"),F,FT.flashes,now);FT.lastDraw=now;}
@@ -323,6 +323,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   if(a==="pause")ftPause(!FT.paused);
   else if(a==="tipok")ftTipDone(true);
   else if(a==="skip")SCRAP_VOICE.skip();
+  else if(a==="reveal"){const rv=FT.rev;if(rv&&rv.fn){const f=rv.fn;rv.fn=null;rv.done=true;f();}}   // the judges' result now; the voices carry on
   else if(a==="resume")ftPause(false);
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
@@ -436,12 +437,17 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     g.fillStyle=FT_MC[st];g.strokeStyle="#141413";g.lineWidth=Math.max(1,W/100);g.beginPath();if(g.roundRect)g.roundRect(x-tw*s/2,y-tl*s/2,tw*s,tl*s,tw*s*0.35);else g.rect(x-tw*s/2,y-tl*s/2,tw*s,tl*s);g.fill();g.stroke();
     if(st==="destroyed"){g.beginPath();g.moveTo(x-tw*s/2,y-tl*s/2);g.lineTo(x+tw*s/2,y+tl*s/2);g.stroke();}}
 }
-function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
-  const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
+function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);
+  /* a judges' decision with the voices on (0.1.56.2): the card says "To the judges" and keeps the winner, the buttons
+     and the day's toasts back until Duncan has named the winner (rv.fn), or Show the result is tapped. Not in a replay. */
+  const rv=FT.rev={done:false,fn:null},jh=F.reason==="judges"&&ftVoiceOn()&&(!FT.rp||!!FT.watch),tq=jh&&!toast.hold;if(tq)toastHold(true);
+  ftRecord(F);ftVoiceEnd(F,jh?()=>{rv.done=true;if(rv.fn){const f=rv.fn;rv.fn=null;f();}}:null);
+  const hold=jh&&!rv.done;if(tq&&!hold)toastHold(false);
+  const e=$("fEnd");if(!e||!FT.on){if(tq&&hold)toastHold(false);return;}const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
   if(!FT.rp&&F.drill)btns='<button type="button" class="btn pri" data-fv="again">Again</button><button type="button" class="btn" data-fv="results">Back to the school</button>';
   if(FT.rp&&FT.watch){const W=FT.watch,sc=ftWatchScore();
-    if(W.k>=FT.rounds.length-1){toastHold(false);const x=W.banner;r={t:x.t,s:x.s,cls:x.cls};btns='<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
+    if(W.k>=FT.rounds.length-1){if(!hold)toastHold(false);const x=W.banner;r={t:x.t,s:x.s,cls:x.cls};btns='<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
     else{r={t:`Round ${W.k+1}: ${r.t}`,s:`${r.s} · ${sc.me}–${sc.them} in the bout.`,cls:r.cls};btns=`<button type="button" class="btn pri" data-fv="wnext">Round ${W.k+2}</button><button type="button" class="btn" data-fv="evback">Back to the event</button>`;}}
   else if(FT.rp){r={t:(F.drill&&FT.ext&&FT.ext.demo?"":"Replay: ")+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
@@ -450,8 +456,12 @@ function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reas
     if(B.over)r={t:w==null?`Bout drawn ${sc}`:w===0?`You win the bout ${sc}`:`${F.bots[1].name} wins the bout ${sc}`,s:`Round ${B.n}: ${r.t}. ${r.s}`,cls:w==null?"":w===0?"ok":"broke"};
     else{r={t:`Round ${B.n}: ${r.t}`,s:`${r.s} · ${sc} in the bout. Sixty seconds in the pit, then round ${B.n+1}.`,cls:r.cls};
       btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit crew":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
-  $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
-  const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
+  const show=(r,btns)=>{$("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
+    const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});};
+  if(hold){show({t:"To the judges",s:"Time is up. Duncan has the decision.",cls:""},'<button type="button" class="btn pri" data-fv="reveal">Show the result</button>');
+    rv.fn=()=>{if(tq||(FT.watch&&FT.rev===rv&&FT.watch.k>=FT.rounds.length-1))toastHold(false);if(FT.rev===rv&&FT.F===F&&FT.on)show(r,btns);};}
+  else show(r,btns);
+  const p=$("fPause");if(p)p.hidden=true;}
 function ftResult(F){if(F.reason==="stopped")return{t:F.drill?"Drill stopped":"Fight stopped",s:"",cls:""};
   if(F.drill)return scResult(F);
   const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);

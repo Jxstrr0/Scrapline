@@ -12,13 +12,14 @@
                        nothing decoded yet. The app holds the fight until done (the clock reads full and nothing moves).
      begin(F, o)       a fight (or a replay) starts: o {speed, replay, rivals: {bot index: RIVALS id}, kind: "duel" | "rumble" | "tag"}
      tick(F, speed)    after the app's sim steps: new F.log entries and the bots' state become calls (below)
-     end(F, o)         the bell: the result calls (see endCues); o {kind, bout: {me, them, over} | null, extra: [cues]}
+     end(F, o)         the bell: the result calls (see endCues); o {kind, bout: {me, them, over} | null, extra: [cues],
+                       reveal: fn called when the judges' winner has been named}
      seq(cues, o)      calls back to back now (o.queue: after what's playing; o.soon: only if it can start soon) — the pit
                        window, the post-mortem
      say(cue)          one call now
      stop(), skip()    silence (a pause, leaving the tab); skip ends an intro early and calls its done()
      onCap             set by the app: (text, who) for a caption, shown when sound or voices are off (Settings → Captions)
-   The director (tick) runs on fight time: a clip of d seconds at replay speed s fills d x s seconds of the fight, the
+   The director (tick) keeps a clock of real seconds from the fight's time and the pace it is shown at, the
    commentator speaks at most once every 3 s (of real time), never over the announcer, and the announcer's mid-fight
    calls (the count, the pit opening) wait for the commentator to finish. Pools pick with SCRAP_SIM.rng streams seeded
    from the fight's seed, never Math.random, and skip the last few lines said: the same fight at the same speed says the
@@ -37,6 +38,7 @@ const COOL=3,GAP=0.25;   // seconds between commentator barks; a little air afte
    than this for the line before it is dropped, not stacked up. PM_WAIT: the post-mortem line is left out when the
    bell's calls would keep it waiting longer than this. */
 const INTRO_MAX=24,LATE=0.9,PM_WAIT=12;
+const FADE=0.18;   // a sequence that cuts in (the bell, the pit window, Replay) fades the line it cuts over this long (0.1.56.2)
 /* the announcer's core calls load first */
 const CORE=["countdown","end:ko","end:pit","end:judges","reveal","draw","win","lose","name:you","count","pitopen","pitwin","pit10","pitclose","bo3:lead","bo3:trail","bo3:decider","rumble:won","tag:won"];
 const O={sound:true,voice:true,comm:true,captions:"muted"};
@@ -86,11 +88,17 @@ function play(id,at,done){const x=L[id],no=()=>{if(done)done(0);};if(!x)return f
     const io=SCRAP_SOUND.voiceBus();if(!io)return no();const now=io.ctx.currentTime,free=Math.max(now,P.endAt);
     if(at==null&&(late>600||free-now>LATE))return no();   // a late decode, or the line before still has a while to run
     const s=io.ctx.createBufferSource(),g=io.ctx.createGain();s.buffer=buf;
-    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(free,at||0);s.start(when);P.endAt=when+buf.duration;
+    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(free,at||0);s.g=g;s.start(when);P.endAt=when+buf.duration;
     SCRAP_SOUND.talk(P.endAt);P.src.push(s);s.onended=()=>{const i=P.src.indexOf(s);if(i>=0)P.src.splice(i,1);};
     if(done)done(P.endAt-now);});
   return true;}
-function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];P.introTok=null;P.tok++;P.endAt=0;P.qBusy=false;P.qUntil=0;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
+/* silence, and an empty queue. fade: the clips playing fade out over FADE seconds and the channel is free when they have
+   (a new sequence cutting in); else they stop dead (pause, Skip, leaving the tab). A sequence waiting to tell the app
+   something (P.mark: the judges' reveal) tells it now. */
+function stopAll(fade){const io=fade&&P.src.length&&typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus?SCRAP_SOUND.voiceBus():null,now=io?io.ctx.currentTime:0;let end=0;
+  for(const s of P.src)try{if(io&&s.g){s.g.gain.setValueAtTime(s.g.gain.value,now);s.g.gain.linearRampToValueAtTime(0,now+FADE);s.stop(now+FADE);end=now+FADE;}else s.stop();}catch(e){}
+  P.src=[];P.queue=[];P.introTok=null;P.tok++;P.endAt=end;P.qBusy=false;P.qUntil=0;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}markFire();}
+function markFire(){const m=P.mark;P.mark=null;if(m)m.fn();}
 
 /* ---- picks: a seeded stream per fight, skipping the last few lines said ---- */
 function pickFrom(R,recent,cues){for(const q of cues){const ids=POOL[q];if(!ids||!ids.length)continue;
@@ -118,18 +126,20 @@ const secsOf=id=>L[id].c==="c"&&O.comm===false?0:audioOn()?(canHear(id)?L[id].d+
 const clock=()=>typeof performance!=="undefined"?performance.now():0;
 /* the next line starts when the one before has really ended: the clip reports its own end once it is decoded and
    scheduled (the timer set first is only a backstop, in case a decode never answers) */
-function runQueue(){P.qTimer=0;const id=P.queue.shift();if(!id){P.qBusy=false;P.qUntil=0;if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
+function runQueue(){P.qTimer=0;if(P.mark&&P.mark.armed)markFire();const id=P.queue.shift();if(P.mark&&id===P.mark.id)P.mark.armed=true;if(!id){P.qBusy=false;P.qUntil=0;if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
   const x=L[id];P.qBusy=true;
   if(canHear(id)){const tok=P.tok;P.qTimer=setTimeout(runQueue,(x.d+GAP+1.5)*1000);
     play(id,0,secs=>{if(tok!==P.tok)return;clearTimeout(P.qTimer);P.qTimer=setTimeout(runQueue,secs>0?(secs+GAP)*1000:0);});}
   else{if(!(x.c==="c"&&O.comm===false))cap(id);P.qTimer=setTimeout(runQueue,secsOf(id)*1000);}}
-/* o.queue: after what's playing (else it cuts in); o.soon: only if it can start within PM_WAIT seconds; o.max: see seqIds.
+/* o.queue: after what's playing (else it cuts in, fading what it cuts); o.after {cue, fn}: fn() once, when the line for
+   that cue has been said (at once when it can't be heard, and on any stop); o.soon: only if it can start within PM_WAIT seconds; o.max: see seqIds.
    During a fight the director is told how long the sequence runs, so the live calls wait for it. */
 function seq(cues,o){o=o||{};const ids=seqIds(cues,o.max);if(!ids.length)return 0;
-  if(!o.queue){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
+  if(!o.queue){const d=P.introDone;P.introDone=null;stopAll(true);if(d)d();}
   else if(o.soon&&P.qBusy&&P.qUntil-clock()>PM_WAIT*1000)return 0;
+  if(o.after){const id=ids.find(i=>L[i].q===o.after.cue);if(id&&canHear(id))P.mark={id,fn:o.after.fn,armed:false};else o.after.fn();}
   const secs=ids.reduce((a,id)=>a+secsOf(id),0);P.qUntil=Math.max(P.qUntil,clock())+secs*1000;
-  if(D&&D.F&&!D.F.over)D.annUntil=Math.max(D.annUntil,D.F.t+(P.qUntil-clock())/1000*D.speed);
+  if(D&&D.F&&!D.F.over)D.annUntil=Math.max(D.annUntil,D.rt+(P.qUntil-clock())/1000);
   P.queue.push(...ids);if(!P.qBusy)runQueue();return ids.reduce((a,id)=>a+L[id].d+GAP,0);}
 function say(cue){return seq([cue],{queue:true});}
 /* before a fight: hold only when at least one of the calls is decoded and can be heard. Trimmed to INTRO_MAX. */
@@ -146,11 +156,11 @@ function stop(){skip();}
 /* ---- the director: the live calls ---- */
 const N=v=>v==null?null:v;
 function begin(F,o){o=o||{};SQ={R:RNG((F.seed^0x5EC0)>>>0),recent:[]};
-  D={F,R:RNG((F.seed^0x701CE)>>>0),recent:[],n:0,annUntil:0,commUntil:0,lastBark:-99,speed:o.speed||1,kind:o.kind||"duel",rivals:o.rivals||{},
+  D={F,R:RNG((F.seed^0x701CE)>>>0),recent:[],n:0,rt:0,lt:F.t,annUntil:0,commUntil:0,lastBark:-99,speed:o.speed||1,kind:o.kind||"duel",rivals:o.rivals||{},
     still:{},stillBark:{},finalSaid:false,startSaid:false,half:false,late:false,help:false,dealt:{},run:{a:-1,n:0,t:0},lead:null,behind:false,pend:null,replay:!!o.replay};
   if(o.replay)D.lastBark=0;}
 /* a seek in a replay: carry on from here without calling what's already happened */
-function seek(F){if(!D)return;D.F=F;D.n=F.log.length;D.annUntil=D.commUntil=F.t;D.lastBark=F.t;D.pend=null;}
+function seek(F){if(!D)return;D.F=F;D.n=F.log.length;D.lt=F.t;D.annUntil=D.commUntil=D.lastBark=D.rt;D.pend=null;}
 const mainOf=F=>F.bots.filter(o=>!o.mini);
 function liveCands(F,e,mm){const out=[],En=(e.E||0)/mm,a=e.a!=null?F.bots[e.a]:null,v=e.v!=null&&e.v>=0?F.bots[e.v]:null;
   const C=(pri,...cues)=>out.push({who:"c",pri,cues});
@@ -179,7 +189,11 @@ function liveCands(F,e,mm){const out=[],En=(e.E||0)/mm,a=e.a!=null?F.bots[e.a]:n
   if((e.k==="hit"||e.k==="grind")&&a&&v&&a.team!==v.team&&!e.gl){D.dealt[a.team]=(D.dealt[a.team]||0)+(e.E||0);
     if(En>=25){if(D.run.a===a.team&&e.t-D.run.t<15)D.run.n++;else D.run={a:a.team,n:1,t:e.t};D.run.t=e.t;if(D.run.n===3)C(6,"c:swing:run");}}
   return out;}
+/* speed: the pace the fight is being shown at (a replay's speed button times its slow-motion). The director's own clock,
+   D.rt, is the real seconds that have gone by: fight time over the pace, tick by tick. Line lengths, the 3 s between
+   barks and the announcer's 2 s wait are counted on it, so slow-motion doesn't stretch the silences (0.1.56.2). */
 function tick(F,speed){if(!D||D.F!==F)return;const t=F.t,s=speed||D.speed||1,mm=Math.max(F.M.mass,1e-6),cands=[];D.speed=s;
+  D.rt+=Math.max(0,t-D.lt)/s;D.lt=t;const rt=D.rt;
   for(;D.n<F.log.length;D.n++)cands.push(...liveCands(F,F.log[D.n],mm));
   if(F.over){D.pend=null;return;}
   const M=mainOf(F),alive=M.filter(o=>!o.out);
@@ -198,11 +212,11 @@ function tick(F,speed){if(!D||D.F!==F)return;const t=F.t,s=speed||D.speed||1,mm=
     if(r>1.6)D.behind=true;D.lead=lead;}
   /* the announcer first (a call waits up to 2 s for the commentator to finish), then one bark */
   let ann=null,com=null;for(const c of cands){if(c.who==="a"){if(!ann||c.pri>ann.pri)ann=c;}else if(!com||c.pri>com.pri)com=c;}
-  if(ann&&(!D.pend||ann.pri>=D.pend.pri))D.pend=Object.assign({at:t},ann);
+  if(ann&&(!D.pend||ann.pri>=D.pend.pri))D.pend=Object.assign({at:rt},ann);
   const comOn=O.comm!==false;
-  if(D.pend){if(t-D.pend.at>2*s){if(D.pend.alt&&!com)com={who:"c",pri:D.pend.pri,cues:D.pend.alt};D.pend=null;}
-    else if(t>=D.annUntil&&(!comOn||t>=D.commUntil)){const id=pickFrom(D.R,D.recent,D.pend.cues);D.pend=null;if(id){play(id);D.annUntil=t+(L[id].d+GAP)*s;return;}}}
-  if(com&&t>=D.annUntil&&t>=D.commUntil&&t-D.lastBark>=COOL*s&&!D.pend){const id=pickFrom(D.R,D.recent,com.cues);if(id){play(id);D.lastBark=t;if(comOn)D.commUntil=t+(L[id].d+GAP)*s;}}}
+  if(D.pend){if(rt-D.pend.at>2){if(D.pend.alt&&!com)com={who:"c",pri:D.pend.pri,cues:D.pend.alt};D.pend=null;}
+    else if(rt>=D.annUntil&&(!comOn||rt>=D.commUntil)){const id=pickFrom(D.R,D.recent,D.pend.cues);D.pend=null;if(id){play(id);D.annUntil=rt+L[id].d+GAP;return;}}}
+  if(com&&rt>=D.annUntil&&rt>=D.commUntil&&rt-D.lastBark>=COOL&&!D.pend){const id=pickFrom(D.R,D.recent,com.cues);if(id){play(id);D.lastBark=rt;if(comOn)D.commUntil=rt+L[id].d+GAP;}}}
 
 /* ---- the bell ---- */
 function nameCue(F,i){const o=F.bots[i];if(!o)return null;if(o.i===0)return"name:you";const rv=D&&D.rivals[i];if(rv&&POOL["name:rv:"+rv])return"name:rv:"+rv;
@@ -223,12 +237,14 @@ function endCues(F,o){o=o||{};const kind=o.kind||(D&&D.kind)||"duel",me=F.bots[0
   if(B&&B.over){if(B.me!==B.them)out.push(B.me>B.them?"c:win":"c:lose");}   // a best of three: the bout's result, and nothing for a drawn bout
   else if(F.winner!=null&&!B)out.push(won?"c:win":"c:lose");
   return out;}
-function end(F,o){if(D)D.pend=null;const cues=endCues(F,o);return cues.length?seq(cues):0;}
+/* o.reveal: called once when the judges' winner has been announced (the "reveal" call has been said), or at once when
+   there is nothing to wait for: the app holds the winner on the result card until then (0.1.56.2) */
+function end(F,o){if(D)D.pend=null;const cues=endCues(F,o),rv=o&&o.reveal;if(!cues.length){if(rv)rv();return 0;}return seq(cues,rv?{after:{cue:"reveal",fn:rv}}:null);}
 
 return{load,set(o){Object.assign(O,o||{});if(!audioOn()){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.endAt=0;}},intro,skip,stop,begin,seek,tick,end,endCues,seq,say,
   get onCap(){return P.onCap;},set onCap(f){P.onCap=f;},
   get loaded(){return Object.keys(P.bytes).length;},get sources(){const n={cdn:0,local:0};for(const id in P.bytes)n[P.from[id]==='cdn'?'cdn':'local']++;return n;},get total(){return Object.keys(L).length;},pool:q=>(POOL[q]||[]).slice(),
-  introIds,INTRO_MAX,LATE,PM_WAIT,GAP,
+  introIds,INTRO_MAX,LATE,PM_WAIT,GAP,FADE,
   _d:()=>D,_pick:(cues)=>D?pickFrom(D.R,D.recent,cues):null};
 })();
 </script>
