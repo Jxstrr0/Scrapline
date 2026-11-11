@@ -119,7 +119,9 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
     - A vertical disc or drum spinning above half speed meets a wedge first, so nothing gets under its front (not even on a tie between two equal front edges).
     - A vertical that hits a sloped front (wedge, flipper, lifter) catches the lip: 1.8x the energy (drum 1.3x), no glance.
     - A sloped front adds to the chance a horizontal disc or undercutter glances off.
-  - **Gyro:** a vertical disc at full speed fights turning (heavyweights' discs more so).
+  - **Gyro:** a vertical disc at full speed fights turning (heavyweights' discs a little more so, `gyroClass`, a balance number; 0.1.56). A shell has none: it spins about the axis the bot turns on.
+  - **Lift:** a spinner's upward throw grows with the class (`throwLen`), about one body length for a full vertical hit above a beetle (0.1.56).
+  - **Sliding:** a bot that can't drive slides on metal, the same every way (`slideMu`, 0.1.56).
   - **Self-flip:** a big hit can throw a vertical spinner onto its back.
   - **Shock:** a hit with 60% or more of the disc's full energy has a small chance (per class, halved by failsafe electronics) to shake the electronics loose, whatever the armour. This is where the heavier classes' single-hit knockouts come from.
   - **Featherweights** keep a little more grip when caught on a wedge (30% against 20%; 40% from 0.1.12.0, when heavyweights got 45%).
@@ -653,6 +655,7 @@ Kelbo asked, once the build features were in, for the auto-driving to be audited
 
 - **What was counted.** Pit falls with no touch, no air time and no hit in the second before (self-inflicted); pit falls after a shove; seconds a fight stuck (full throttle, under 8% of top speed, touching nothing); share of time by a wall, close in, far off and near the pit.
 - **Spun-up gyros.** A spinning shell or a heavyweight's disc took so much of the turning torque that full lock could not beat the tyre scrub: a shell sat stuck 21 to 27 s a fight, a heavy vertical disc about 7 s. Now the gyro can cut the turn, but full lock always keeps 1.02 times the scrub (`FIGHT.gyroFloor`), 1.05 for an all-round spinner (`gyroFloorRound`, it has nothing to aim): it pivots, slowly. A higher floor for everything made the heavy vertical disc too strong.
+- **0.1.56:** the shell's gyro share is gone (it turns freely spun up) and `gyroFloorRound` with it; `AI_NAV.eitherEnd` names the shell in place of `arcGyro`, and it still arcs. Heavyweight `gyroClass` is 1.2.
 - **Driving a shell.** A spinner with a strong gyro and no front (`AI_NAV.arcGyro`: the shell) drives at its point with whichever end is nearer, backwards included, and spun up it arcs round (`arcSteer`, `arcThrottle`) instead of pivoting on the spot. Stuck time 0.13 s a fight in beetle, 0.58 s in heavy. The ring's gyro is light and it already turned, so it is left alone (with the reverse it won 88%).
 - **The pit.** The pit check looks ahead at least its stopping distance (a meltybrain's slow grip included), and once it starts an escape it holds it for 0.3 s (`AI_NAV.escHoldS`) instead of dithering at the edge. A grabber eases off as it nears the pit's edge, so it drops its catch in and stays out.
 - **Stalls.** If it hasn't closed in for 4 s with no contact, it takes a 2.5 s detour towards the middle (`AI_NAV.stallS`, `stallGain`, `detourS`). That broke the Grauwald deadlock, a flipper and a spinner by the long pit stuck 4.1 s a fight (now 0.3 s).
