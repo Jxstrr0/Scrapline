@@ -1151,7 +1151,8 @@ const TEST_BUILDS=[
    kg, m, s, J and W. Plan section 4d. It returns, for any cfg (parts.js says the shape):
      valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
      com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
-     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
+     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s and turnAccel rad/s^2 (a spin on the spot, as the fight turns it),
+     scrubShare (the share of the drive's push the tyres' scrub takes in a turn; 1 or more: it can't pivot), trackM, powerScale (0..1: battery or ESC holding power back), grip,
      wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm, backEdgeMm, frontBareMm (the edge with the front
@@ -1169,7 +1170,6 @@ const TEST_BUILDS=[
 const K={
   g:9.81,
   crr:0.08,             // rolling and scrub resistance, x weight
-  turnScrub:0.5,        // a skid-steer turns at this share of the wheel-speed turn rate
   usableBattery:0.8,    // share of a LiPo's capacity you can take in a fight
   driveDuty:0.55,       // average share of full drive power in a fight
   weaponDuty:0.35,      // average share of full weapon power (spin-ups and holding speed)
@@ -1320,8 +1320,13 @@ function evalBuild(cfgIn,opts){
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
   const trackM=leftX.length&&rightX.length?(rightX.reduce((a,b)=>a+b,0)/rightX.length-leftX.reduce((a,b)=>a+b,0)/leftX.length):W/1000;
-  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub/Math.sqrt(wb.scrubMul):0;
-  const turnAccel=moi>0?pushN*trackM/2/moi:0;
+  /* turning on the spot, worked out the way the fight turns it (0.1.55.1; sim/fight.js stepDrive): each side pushes
+     F0 / 2 x (1 - its wheel speed / v0), capped by grip, against the tyres' scrub, FIGHT.scrub x grip x weight (x the wheel
+     layout's scrubMul) at the wheels. It settles where push and scrub are level; a drive weaker than its scrub can't
+     pivot at all. scrubShare is the share of the drive's stall push the scrub takes. Grippier tyres turn slower. */
+  const scrubN=FIGHT.scrub*traction*wb.scrubMul,scrubShare=F0>0?scrubN/F0:1;
+  const turnRate=trackM>0&&F0>scrubN?2*v0/trackM*(1-scrubN/F0):0;
+  const turnAccel=moi>0?Math.max(0,pushN-scrubN)*trackM/2/moi:0;
   /* pull: with the COM off to one side, the light side's wheels slip first and the heavy side pushes it round */
   const pull=clamp(-com.x/(trackM/2||1),-1,1);
 
@@ -1414,9 +1419,9 @@ function evalBuild(cfgIn,opts){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip,
+    driveSpeed,accel,pushN,turnRate,turnAccel,scrubShare,trackM,powerScale,peakW,brushMismatch,grip,
     wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
-      wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe,legs:!!wb.legs},
+      wheels:wheelAt.length,strafeSpeed:v0*wb.strafe,legs:!!wb.legs},
     limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:batWs},
@@ -1543,6 +1548,11 @@ const COMBOS=[
   {id:"power",sev:"warn",test:b=>b.powerScale<0.95&&b.powerScale,
     text:(b,v)=>"The "+(b.limits.batteryW<=b.limits.escW?"battery":"speed controllers")+" can't feed everything at once: drive and weapon run at "+n0(v*100)+"% when both are flat out."},
   {id:"brushless",sev:"bad",test:b=>b.brushMismatch,text:()=>"Brushless drive on brushed speed controllers: it stutters along at 60%. Fit a brushless ESC."},
+  /* 0.1.55.1: a skid-steer drags its tyres round to turn, and the grippier they are (and the more of them) the harder
+     that is (b.scrubShare, sim/build.js). A drive that can't beat the scrub can't pivot; one that barely does turns slowly */
+  {id:"turn",sev:(b,v)=>v>=1?"bad":"warn",test:b=>b.drive.f0>0&&b.scrubShare>0.8&&b.scrubShare,
+    text:(b,v)=>v>=1?"The tyres grip harder than the motors can drag them round: it can't turn on the spot. Fit a stronger drive, or tyres or a wheel layout that scrub less."
+      :"Turning is slow ("+n0(b.turnRate*180/Math.PI)+"\u00b0/s): dragging the tyres round takes "+n0(v*100)+"% of the drive's push. A stronger drive or less grippy tyres turn quicker."},
   {id:"com",sev:"warn",test:b=>Math.abs(b.com.x)>b.widthM*0.02&&b.com.x,
     text:(b,v)=>"COM "+n0(Math.abs(v)*1000)+" mm off centre: pulls "+(v<0?"right":"left")+"."},
   {id:"nose",sev:"info",test:b=>Math.abs(b.com.y)>b.lengthM*0.15&&b.com.y,
@@ -1651,7 +1661,11 @@ function benchDrive(x){const b=asBuild(x),M=classMult(b.cls),dt=1/STEP_HZ,d=b.dr
   while(moves&&s<track&&t<30){const F=Math.min(d.f0*Math.max(0,1-v/d.v0),d.tractionN);v=Math.max(0,v+(F-d.resistN)/m*dt);
     th+=b.pull*BENCH.pullYaw*v/w*dt;s+=v*Math.cos(th)*dt;lat+=v*Math.sin(th)*dt;t+=dt;if(v>top)top=v;if(++n%3===0)trace.push([t,v,lat]);}
   if(moves)trace.push([t,v,lat]);
-  let om=0,ang=0,ts=0;if(b.turnRate>0&&b.turnAccel>0)while(ang<2*Math.PI&&ts<20){om=Math.min(b.turnRate,om+b.turnAccel*dt);ang+=om*dt;ts+=dt;}
+  /* the spin on the spot, stepped as the fight steps it (0.1.55.1; sim/fight.js stepDrive at full lock): both sides push
+     against the tyres' scrub until they are level */
+  const half=w/2,I=Math.max(b.moi,1e-6),scrub=FIGHT.scrub*d.tractionN*b.wheelbase.scrubMul*half/I*dt;
+  let om=0,ang=0,ts=0;if(b.turnRate>0)while(ang<2*Math.PI&&ts<20){const Fs=Math.min(d.f0/2*Math.max(0,1-om*half/d.v0),d.tractionN/2);
+    om+=2*Fs*half/I*dt;om=om<=scrub?0:om-scrub;ang+=om*dt;ts+=dt;}
   return{id:"drive",moves,trackM:track,timeS:moves&&s>=track?t:null,topSpeed:top,predicted:b.driveSpeed,driftMm:lat*1000,
     spinS:ang>=2*Math.PI?ts:null,turnDegS:b.turnRate*180/Math.PI,pushN:b.pushN,trace};}
 
@@ -5798,7 +5812,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.55.0";
+const VERSION="0.1.55.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 

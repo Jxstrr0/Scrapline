@@ -2,7 +2,8 @@
    kg, m, s, J and W. Plan section 4d. It returns, for any cfg (parts.js says the shape):
      valid, errors, totalG / limitG / massKg / limitKg / underBudgetPct   the budget (grams kept for the weight bar)
      com {x,y} m, comOffsetMm, pull (-1..1, + pulls right), moi kg m^2, polygon [[x,y]..] m, widthM, lengthM
-     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s, trackM, powerScale (0..1: battery or ESC holding power back), grip,
+     driveSpeed m/s, accel m/s^2, pushN, turnRate rad/s and turnAccel rad/s^2 (a spin on the spot, as the fight turns it),
+     scrubShare (the share of the drive's push the tyres' scrub takes in a turn; 1 or more: it can't pivot), trackM, powerScale (0..1: battery or ESC holding power back), grip,
      wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm, backEdgeMm, frontBareMm (the edge with the front
@@ -20,7 +21,6 @@
 const K={
   g:9.81,
   crr:0.08,             // rolling and scrub resistance, x weight
-  turnScrub:0.5,        // a skid-steer turns at this share of the wheel-speed turn rate
   usableBattery:0.8,    // share of a LiPo's capacity you can take in a fight
   driveDuty:0.55,       // average share of full drive power in a fight
   weaponDuty:0.35,      // average share of full weapon power (spin-ups and holding speed)
@@ -171,8 +171,13 @@ function evalBuild(cfgIn,opts){
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
   const trackM=leftX.length&&rightX.length?(rightX.reduce((a,b)=>a+b,0)/rightX.length-leftX.reduce((a,b)=>a+b,0)/leftX.length):W/1000;
-  const turnRate=trackM>0?2*driveSpeed/trackM*K.turnScrub/Math.sqrt(wb.scrubMul):0;
-  const turnAccel=moi>0?pushN*trackM/2/moi:0;
+  /* turning on the spot, worked out the way the fight turns it (0.1.55.1; sim/fight.js stepDrive): each side pushes
+     F0 / 2 x (1 - its wheel speed / v0), capped by grip, against the tyres' scrub, FIGHT.scrub x grip x weight (x the wheel
+     layout's scrubMul) at the wheels. It settles where push and scrub are level; a drive weaker than its scrub can't
+     pivot at all. scrubShare is the share of the drive's stall push the scrub takes. Grippier tyres turn slower. */
+  const scrubN=FIGHT.scrub*traction*wb.scrubMul,scrubShare=F0>0?scrubN/F0:1;
+  const turnRate=trackM>0&&F0>scrubN?2*v0/trackM*(1-scrubN/F0):0;
+  const turnAccel=moi>0?Math.max(0,pushN-scrubN)*trackM/2/moi:0;
   /* pull: with the COM off to one side, the light side's wheels slip first and the heavy side pushes it round */
   const pull=clamp(-com.x/(trackM/2||1),-1,1);
 
@@ -265,9 +270,9 @@ function evalBuild(cfgIn,opts){
   const b={cfg,cls:c.id,className:c.name,valid:!errors.length,errors,
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
-    driveSpeed,accel,pushN,turnRate,turnAccel,trackM,powerScale,peakW,brushMismatch,grip,
+    driveSpeed,accel,pushN,turnRate,turnAccel,scrubShare,trackM,powerScale,peakW,brushMismatch,grip,
     wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
-      wheels:wheelAt.length,strafeSpeed:driveSpeed*wb.strafe,legs:!!wb.legs},
+      wheels:wheelAt.length,strafeSpeed:v0*wb.strafe,legs:!!wb.legs},
     limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:batWs},
