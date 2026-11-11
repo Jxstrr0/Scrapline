@@ -39,7 +39,8 @@ Everything in `CLAUDE.md` applies. The ones that bite here:
 |---|---|
 | Direction | **Kelbo picked the Combined row** (11 Nov 2026): the bot as a data sheet with calculated and bench numbers side by side, a bench you run as a session, a post-mortem drawn on the bot, a matchup card before a fight |
 | Order | **Sheet, bench, post-mortem, matchup, plan view.** Each release stands on its own; stopping after any of them leaves the game whole |
-| Build default page (default) | **Parts** until a bot is fitted in the class, **Sheet** after. Alternatives: always Sheet; always Parts |
+| Build default page | **Parts** until a bot is fitted in the class, **Sheet** after (Kelbo confirmed, 11 Nov 2026) |
+| Spin-up gap on the sheet | **Words only, never amber** (Kelbo, 11 Nov 2026): the bench is always a little slower than the calculation, so the gap is said in dim text |
 | 3D on Build (default) | **3D stays the default view.** Plan is a switch (release E), remembered in settings. Alternatives: plan first; no plan view |
 | Their numbers on the matchup (default) | **Shown once you have fought them.** Today an opponent's build is revealed after a fight (`rpReveal`), so the tape shows their weapon, driver style and weight before a first meeting and their numbers after it. Alternatives: always show everything; never show their numbers |
 | Untested warning (default) | **One advice line on the matchup, never a block.** For example an ungauged front edge against a wedge. It only points at a bench test. Alternatives: no warnings; warn on Build too |
@@ -305,7 +306,7 @@ On Lite, in both themes, portrait and landscape:
 ## Checklist
 
 - [x] A, 0.1.58.0 (0.1.57 was taken by the pin fix, so B to E are 0.1.59 to 0.1.62): the sheet (Sheet / Parts on Build, calculated and bench numbers, mass bands, Next bout banner). Found on the two pairs: spin-up is the same quantity by two routes (energy over power on the sheet; a run motor with torque and air losses on the bench), so the gap is shown in words and never marked; hit energy is two things (stored, and delivered = stored x bite), labelled so and never marked. Both `better: null`.
-- [ ] B, 0.1.58: the bench session (tested strip, one open card with its calc line, pick and run)
+- [x] B, 0.1.59.0: the bench session (tested strip, one open card with its calc line, pick and run). The Run session bar shows only while a test is ticked, so it never covers the list.
 - [ ] C, 0.1.59: the post-mortem, drawn (numbered markers, the pinned lane, judges as bars, Test it)
 - [ ] D, 0.1.60: the matchup (tale of the tape, last meeting, one advice line, `S.met`, `SAVE_V` 20)
 - [ ] E, 0.1.61: the plan view (Plan / 3D on Build, remembered in settings)
