@@ -109,7 +109,7 @@ function crStarter(cls){const c=clone(SIM.DEFAULT_CFG);c.cls=cls;
   c.extras=c.extras.filter(e=>!crPartLock("extras",e));c.layout={};return SIM.normCfg(c);}
 /* UI state that belongs to one game: cleared on a new career, a loaded slot or a restored code */
 function crReset(){CR.end=null;CR.seen=false;CR.kit=null;CR.restartAsk=false;FT.F=null;FT.rounds=[];FT.bout=null;}
-function crStart(){if(S.mode!=="career"&&!setMode("career",true))return;crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};rlCareerReset();tmPaint();
+function crStart(){if(S.mode!=="career"&&!setMode("career",true))return;crReset();S.career=crFresh();S.unlocks.tools={hand:true};S.unlocks.rnd={};S.staff=[];S.sponsors=[];S.rivals={};S.lastFight=null;S.bots={};rlCareerReset();metCareerReset();tmPaint();
   ST().buildCls="beetle";const b=bBot("beetle");b.draft=crStarter("beetle");bNormed.add(b.draft);
   crLedger(TIME.startMoney,"Savings");save();hud();closeSheet();crRender();toast(`Career started · ${fmt$(TIME.startMoney)}`);}
 
@@ -240,6 +240,7 @@ function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F
   if(idx.indexOf(0)>=0){const me=res.teams[idx.indexOf(0)],won=res.wt===me;
     day.fights.push({label:nx.label,vs:crAnd(idx.filter((i,k)=>res.teams[k]!==me).map(i=>day.field[i].name)),won,draw:k.format==="league"&&day.res[day.res.length-1].w==null,
       score:nx.bo>1?`${res.wins[me]||0}–${Object.keys(res.wins).filter(t=>+t!==me).reduce((a,t)=>a+res.wins[t],0)}`:"",how:stopped?"forfeit":F.reason,t:F.endT});
+    if(idx.length===2){const o=day.field[idx.find(i=>i!==0)],dr=day.fights[day.fights.length-1].draw;if(o&&o.id)metMeet(F.cls,o.id,F,dr?null:won,stopped?"forfeit":null);}   // the matchup card's record (0.1.61)
     for(const [kk,i] of idx.entries())if(res.teams[kk]!==me&&day.field[i].rival)crRivalMeet(day.field[i].rival,won);}}
 const crAnd=a=>a.length>1?a.slice(0,-1).join(", ")+" and "+a[a.length-1]:a.join("");
 /* a rumble or tag team's finishing order by team: the winner, then who's still going, then the least damaged */

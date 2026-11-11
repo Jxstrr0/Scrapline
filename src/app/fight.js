@@ -41,16 +41,39 @@ function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
   if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,livery:o.livery,driver:o.driver});
   lvField(bots);
-  FT.you=you;FT.sig=bnSig(bot.cfg);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
+  FT.you=you;FT.sig=bnSig(bot.cfg);FT.oppKey=metOppId(opp);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
   const kit=()=>Object.assign({},PIT_KITS[FT.kit].allow);
   FT.bout=FT.mode==="bo3"?{seed,bots,kit:FT.kit,wins:{0:0,1:0},n:0,dmg:[{},{}],flags:[{},{}],left:[kit(),kit()],pits:[],over:false}:null;
   ftGo(SIM.newFight({seed,fx:true,arena:ftArena(cls),bots}));}
 /* a fight (a round, or a replay) into fight mode */
 function ftGo(F){FT.F=F;FT.flashes=[];FT.logN=0;FT.acc=0;FT.paused=false;FT.last=performance.now();FT.partN=0;FT.flung={};FT.spin={};FT.whl={};FT.crowdT=0;ftFrame.done=null;
   ftEnter();ftVoiceBegin(F);ftLoop();}
+/* ---- who you have met (UI round two, release D, 0.1.61): S.met, inside scr-save (SAVE_V 20) ----
+   {<key>: {w, l, n, last: {won, why, you, them}}}. The key is the mode ("c" career, "s" sandbox), the class and the bot
+   ("op:" a named opponent, "tb:" a club regular, "rv:" a rival), so the two garages keep apart the way S.reel's lists do.
+   won is true, false or null (a draw); why is the fight's reason ("forfeit" for a stopped career bout); you and them are
+   the judges' totals when it went to them; n counts up, so the oldest entry goes once there are more than MET_MAX.
+   Written by ftRecord for a one-on-one spar (not a rumble, a replay, a daily, a drill or a bench run) and by crRecord for
+   a career bout. The matchup card (ftMatchHtml) shows an opponent's numbers only once there is an entry. */
+const MET_MAX=60;
+function metAll(){if(!buObjS(S.met))S.met={};return S.met;}
+const metKey=(cls,id)=>(S.mode==="career"?"c":"s")+":"+cls+":"+id;
+const metOppId=o=>(o.op?"op:":"tb:")+o.id;
+function metGet(cls,id){const m=metAll()[metKey(cls,id)];return buObjS(m)&&buObjS(m.last)?m:null;}
+function metMeet(cls,id,F,won,why){const M=metAll(),k=metKey(cls,id),m=buObjS(M[k])?M[k]:(M[k]={w:0,l:0});
+  let top=0;for(const x in M)top=Math.max(top,buObjS(M[x])?+M[x].n||0:0);
+  m.w=(m.w|0)+(won===true?1:0);m.l=(m.l|0)+(won===false?1:0);m.n=top+1;
+  const last={won,why:why||F.reason};
+  if(F.judge&&F.judge.scores&&!why){const sc=F.judge.scores,me=String(F.bots[0].team),ot=Object.keys(sc).find(t=>t!==me);
+    if(sc[me]&&ot!=null){last.you=Math.round(sc[me].total*10)/10;last.them=Math.round(sc[ot].total*10)/10;}}
+  m.last=last;
+  const ks=Object.keys(M);if(ks.length>MET_MAX)ks.sort((a,b)=>((buObjS(M[a])?+M[a].n:0)||0)-((buObjS(M[b])?+M[b].n:0)||0)).slice(0,ks.length-MET_MAX).forEach(x=>{delete M[x];});}
+function metCareerReset(){const M=metAll();for(const k in M)if(k.slice(0,2)==="c:")delete M[k];}
 /* a finished round goes into the list the results show; in a best of three it scores and carries its damage */
 function ftRecord(F){if(F.recorded||FT.rp)return;F.recorded=true;FT.rounds.push({F,log:null});FT.rv=FT.rounds.length-1;if(FT.ext&&FT.ext.kind==="daily")dlRecord(F);if(FT.ext&&FT.ext.kind==="school")scRecord(F);
-  if(!FT.ext&&!(FT.bout&&FT.bout.ev)&&S.mode!=="career"){rlConsider(F,{});save();}const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
+  if(!FT.ext&&!(FT.bout&&FT.bout.ev)&&S.mode!=="career"){rlConsider(F,{});save();}
+  if(!FT.ext&&!FT.watch&&!(FT.bout&&FT.bout.ev)&&FT.oppKey&&F.over&&F.reason!=="stopped"&&F.bots.filter(o=>!o.mini).length===2){metMeet(F.cls,FT.oppKey,F,F.winner==null?null:F.winner===F.bots[0].team);save();}   // a one-on-one spar goes on the record (0.1.61)
+  const B=FT.bout;if(!B)return;if(B.ev)F.ev=true;
   F.bots.forEach((o,i)=>{if(o.mini)return;B.dmg[i]=SIM.damageTaken(o.b,o.st);B.flags[i]={bent:!!o.flags.bent,smoke:!!o.flags.smoke,cell:!!o.flags.cell,esc:o.flags.esc||null};});   // a stopped round's damage counts too (an event takes it home)
   if(F.reason==="stopped"){B.over=true;B.stopped=true;ftEvDone(B,F);return;}
   B.n++;if(F.winner!=null)B.wins[F.winner]=(B.wins[F.winner]||0)+1;
@@ -554,8 +577,9 @@ function ftSum(id){const cls=bCls(),c=SIM.CLASSES[cls];
   if(id==="arena")return esc(SIM.ARENAS[FT.arena==="auto"?c.arenaId:FT.arena].name);
   if(id==="driver")return FT.style==="you"?"You drive":(FT.style==="auto"?"AI: auto":"AI: "+esc(SIM.AI_STYLES[FT.style].name.toLowerCase()))+" · "+FT.speed+"×";
   return"";}
+function ftBarName(){const cls=bCls();return`${esc(lvBotName(cls))} vs ${ftSum("opp")}`;}
 function ftBarText(){const cls=bCls();return`<b>${esc(lvBotName(cls))} vs ${ftSum("opp")}</b>${ftSum("format")} · ${ftSum("arena")}${FT.style==="you"?"":" · AI drives"}`;}
-function ftSums(){document.querySelectorAll("#ftBody [data-ftsum]").forEach(x=>{x.innerHTML=ftSum(x.dataset.ftsum);});const b=$("ftBarT");if(b)b.innerHTML=ftBarText();}
+function ftSums(){document.querySelectorAll("#ftBody [data-ftsum]").forEach(x=>{x.innerHTML=ftSum(x.dataset.ftsum);});const b=$("ftBarT");if(b)b.innerHTML=ftBarText();const m=$("ftMatch");if(m)m.outerHTML=ftMatchHtml(bCls());}
 function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls];
   if(!FT_SUBS.some(x=>x[0]===FT.sub))FT.sub="spar";
   const sub=FT.sub,ext=!!(FT.ext&&ftShown());
@@ -573,6 +597,7 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
     <div class="row"><button type="button" class="btn pri" data-ft="fit">Fit the draft</button><button type="button" class="btn" data-ft="build">Open Build</button></div></div>`+res;
   else{const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),you=FT.style==="you";
     h=chips+`${drafted?'<p class="hint ftnote">Your draft on the Build tab has changes that aren\'t fitted. The fight uses what\'s fitted. <button type="button" class="lnk" data-ft="build">Open Build</button></p>':""}
+    ${ftMatchHtml(cls)}
     ${ftRow("opp","Opponent",ftSum("opp"),ftPicker(cls))}
     ${ftRow("format","Format",ftSum("format"),`<div class="field">${segHtml("ftMode","ftmode",[["duel","One on one"],["bo3","Best of three","pit between"],["rumble","Rumble","four bots"]],FT.mode)}</div>
       <div class="field" id="ftKitF"${FT.mode==="bo3"?"":" hidden"}><span class="lbl">Pit kit</span>${ftChips("ftkit","Pit kit",Object.keys(PIT_KITS).map(k=>[k,esc(PIT_KITS[k].name)]),FT.kit)}
@@ -581,11 +606,60 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
     ${ftRow("driver","Driver",ftSum("driver"),`<div class="field">${ftChips("ftstyle","Driver",[["you","You drive"],["auto",`AI: auto <small>(${esc(SIM.AI_STYLES[ftAuto(bot.cfg,cls)].name.toLowerCase())})</small>`]].concat(SIM.AI_STYLE_IDS.map(id=>[id,"AI: "+esc(SIM.AI_STYLES[id].name.toLowerCase())])),FT.style)}
       <p class="hint" id="ftDrvHint">${ftDrvHint()}</p></div>
       <div class="field" id="ftSpeedF"${you?" hidden":""}><span class="lbl">Speed</span>${segHtml("ftSpeed","ftspeed",[["1","1×"],["2","2×"],["4","4×"]],String(FT.speed))}</div>`)}
-    <div class="fitbar gobar"><span class="ft" id="ftBarT">${ftBarText()}</span><button type="button" class="btn pri" data-ft="go">Fight</button></div>
+    <div class="fitbar gobar"><span class="ft" id="ftBarT">${ftBarText()}</span><button type="button" class="btn sm" data-ft="chopp" aria-label="Change opponent">Change</button><button type="button" class="btn pri" data-ft="go">Fight</button></div>
     <p class="hint ftnote">Sparring is free practice: fresh every time, and the repair bill is shown, never charged.</p>
     ${res}`;}
   el.innerHTML=nav+ftEvCard()+h;
   if(res)ftResPost(R);}
+/* ---- the matchup card (UI round two, release D, 0.1.61; docs/SCRAPLINE-UI-PLAN.md section 7) ----
+   Above the Spar rows: the two corners (badge, bot, team, weapon, weight), the tale of the tape, the last meeting and at
+   most one line of advice. Your side of the tape is sheetNum (a bench reading where the test has run, tagged Bench);
+   their side is dashes until S.met has a meeting with them, then evalBuild of their build. Hit energy is the energy the
+   weapon stores on both sides, so the two numbers are the same measurement. A bar each side meets in the middle, scaled
+   to the larger number; a row in words has none. In a rumble the card is the picked opponent, with "and two more".
+   - MATCH_ROWS: [sheet row id, label, their number from evalBuild (null: none), format]
+   - MATCH_ADVICE: first match wins: {test (the bench test the button opens), when(me, them, done), text(me, them)};
+     me and them are {b, wt (weapon type), wn (weapon name)}; done is the list of bench tests run on the fitted bot. */
+const MATCH_ROWS=[
+  ["speed","Top speed",b=>b.driveSpeed,v=>sh2(v)+" m/s"],
+  ["hit","Hit energy",b=>b.weapon.energyJ>=1?b.weapon.energyJ:null,v=>sh0(v)+" J"],
+  ["runtime","Runtime",b=>b.runtimeS==null||!isFinite(b.runtimeS)?null:b.runtimeS,v=>sh0(v)+" s"],
+  ["weak","Weakest face",b=>FACE_LBL[b.weakestFace],null]];
+const MATCH_NONE={hit:b=>b.weapon.type==="none"?"no weapon":"no spinner",runtime:()=>"no limit"};
+const MATCH_ADVICE=[
+  {test:"gauge",when:(me,th,done)=>["wedge","lifter","flipper"].indexOf(th.wt)>=0&&done.indexOf("gauge")<0,
+    text:(me,th)=>`<b>Front edge not gauged.</b> ${Math.round(me.b.height.frontEdgeMm*10)/10} mm on the sheet, and they run a ${esc(th.wn)}.`},
+  {test:"impact",when:(me,th,done)=>th.wt==="spinner"&&done.indexOf("impact")<0,
+    text:(me,th)=>`<b>Armour not tested.</b> They run a ${esc(th.wn)}, and the sheet says your weakest face is the ${esc(FACE_LBL[me.b.weakestFace].toLowerCase())}.`},
+  {test:"endurance",when:me=>me.b.runtimeS!=null&&isFinite(me.b.runtimeS)&&me.b.runtimeS<SIM.FIGHT.roundS,
+    text:me=>`<b>The battery won't last the round.</b> ${sh0(me.b.runtimeS)} s on the sheet, and a round is ${SIM.FIGHT.roundS} s.`}];
+const MATCH_WHY={ko:"by knockout",pit:"into the pit",judges:"on the judges",forfeit:"by forfeit",draw:"a draw"};
+function ftMatchHtml(cls){const bot=S.bots[cls];if(!bot||!bot.cfg)return"";
+  const o=ftOpp(cls),mine=lvMine(),mb=bnBuild(bot.cfg).b,tb=SIM.evalBuild(o.cfg),met=metGet(cls,metOppId(o)),done=bnDone(bot);
+  const wp=cfg=>SIM.part("weapon",cfg.weapon),g=b=>Math.round(b.totalG).toLocaleString("en-GB")+" g";
+  const corner=(L,name,team,cfg,b,extra,r)=>`<div class="mc${r?" r":""}">${L?lvBadge(L,36,"in"):""}<b>${esc(name)}</b>${team?`<small>${esc(team)}</small>`:""}<small>${esc(wp(cfg).name)}${extra?" · "+extra:""}</small><span class="readout">${g(b)}</span></div>`;
+  const colA=mine.main||"var(--clay)",colB=o.livery&&o.livery.main?o.livery.main:"var(--dim)";
+  const rows=MATCH_ROWS.map(([id,label,get,fmt])=>{
+    let a,at,tag=false;
+    if(id==="hit"){a=get(mb);at=a==null?MATCH_NONE.hit(mb):fmt(a);}
+    else{const n=sheetNum(cls,id);a=n?n.v:null;tag=!!(n&&n.bench);at=n?(typeof n.v==="string"?n.v.split(",")[0]:n.v==null?"–":n.text):"–";if(typeof a!=="number")a=null;}
+    let t=null,tt="–";if(met){const v=get(tb);if(typeof v==="number"){t=v;tt=fmt(v);}else tt=v==null?(MATCH_NONE[id]?MATCH_NONE[id](tb):"–"):v;}
+    const mx=Math.max(a||0,t||0),bar=fmt&&met&&mx>0?`<span class="mbar" aria-hidden="true"><i style="width:${Math.round((a||0)/mx*50)}%;background:${colA}"></i><i style="width:${Math.round((t||0)/mx*50)}%;background:${colB}"></i></span>`:"";
+    return`<tr><td class="mono">${esc(at)}${tag?'<small>Bench</small>':""}</td><th scope="row">${label}${bar}</th><td class="mono">${esc(tt)}</td></tr>`;}).join("");
+  let last="";
+  if(met){const l=met.last,sc=l.you!=null&&l.them!=null?`<span class="readout">${l.you.toFixed(1)} to ${l.them.toFixed(1)}</span>, `:"",R=ftShown(),
+      shown=R&&!FT.ext&&!(FT.bout&&FT.bout.ev)&&FT.oppKey===metOppId(o)&&R.bots.length===2&&R.cls===cls;
+    last=`<div class="mlast"><p><b>Last meeting</b> <span class="${l.won===true?"ok":l.won===false?"broke":""}">${l.won===true?"Won":l.won===false?"Lost":"Drew"}</span> ${sc}${MATCH_WHY[l.why]||"on the judges"} · ${met.w|0} won, ${met.l|0} lost</p>${shown?'<button type="button" class="btn sm" data-ft="pm">Post-mortem</button>':""}</div>`;}
+  const me={b:mb,wt:wp(bot.cfg).type,wn:wp(bot.cfg).name.toLowerCase()},th={b:tb,wt:wp(o.cfg).type,wn:wp(o.cfg).name.toLowerCase()};
+  const ad=MATCH_ADVICE.find(x=>x.when(me,th,done));let adv="";
+  if(ad){const t=SIM.BENCH_TESTS.find(x=>x.id===ad.test),h=bnHours([ad.test]);
+    adv=`<div class="madv"><p>${ad.text(me,th)}</p>${done.indexOf(ad.test)<0?`<button type="button" class="btn sm" data-ft="test" data-test="${ad.test}" aria-label="Open the Bench at the ${esc(t.name.toLowerCase())}">${esc(t.name)} · ${h?h+" h":"free"}</button>`:""}</div>`;}
+  return`<div class="card match" id="ftMatch"><h3 class="vh">The matchup</h3>
+    <div class="mtop">${corner(mine,lvBotName(cls),mine.name,bot.cfg,mb,"",false)}<span class="mvs" aria-hidden="true">VS</span>${corner(o.livery,o.name,o.livery?o.livery.name:"",o.cfg,tb,o.op?"drives "+esc(SIM.AI_STYLES[o.driver.style].name.toLowerCase()):"",true)}</div>
+    ${FT.mode==="rumble"?'<p class="mmore">and two more, drawn at the bell</p>':""}
+    <table class="mtape"><caption>Tale of the tape <small>your side: bench readings where a test has run</small></caption>
+      <thead class="vh"><tr><th scope="col">You</th><td></td><th scope="col">${esc(o.name)}</th></tr></thead><tbody>${rows}</tbody></table>
+    ${met?"":'<p class="mmore">Fight them once to see their numbers.</p>'}${last}${adv}</div>`;}
 /* the shown fight's result, post-mortem and log (a spar, a daily round or a pasted replay code) */
 function ftResHtml(R){const h=FT.ext?FT.ext.kind==="daily"?"Daily challenge":FT.ext.kind==="bench"?"Bench: the test dummy":"From a replay code":FT.bout?(FT.bout.ev?"Your career fight":"The bout"):"Last fight";
   return`<div class="card" id="ftResCard"><h3>${h}</h3>${ftBoutHtml()}<p class="ftres" id="ftRes" role="status"></p><div id="ftJudge"></div><div id="ftHud"></div></div>
@@ -623,6 +697,9 @@ function ftClick(e){const t=e.target;let x;
     return;}
   if((x=t.closest("[data-ft]"))){const a=x.dataset.ft;
     if(a==="go")ftStart();
+    else if(a==="chopp"){FT.open="opp";document.querySelectorAll("#ftBody [data-ftrow]").forEach(r=>{const o=r.dataset.ftrow===FT.open;r.classList.toggle("open",o);r.querySelector(".acch").setAttribute("aria-expanded",o);});
+      const r=document.querySelector('#ftBody [data-ftrow="opp"]');if(r){r.scrollIntoView({block:"start",behavior:"auto"});r.querySelector(".acch").focus({preventScroll:true});}}
+    else if(a==="pm"){const c=$("rpCard");if(c)c.scrollIntoView({block:"start",behavior:"auto"});}
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
     else if(a==="rcode")rcShareOpen();

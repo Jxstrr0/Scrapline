@@ -845,3 +845,13 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Buttons:** Fix it (opens that Build section), Test it (ticks the matching bench test, when it has not run on the fitted bot), Replay, Share.
 - **The judges' table** on the result card has a bar under each score in each team's colour.
 - The repair bill, their build and the fight log follow as before.
+
+## The matchup (0.1.61, UI round two, release D)
+
+- **Where:** a card at the top of Fight › Spar, above the Opponent, Format, Arena and Driver rows.
+- **The corners:** each bot's badge, name, team, weapon and weight; the opponent's driving style.
+- **Tale of the tape:** top speed, hit energy (the energy the weapon stores, both sides), runtime, weakest face. Your numbers are bench readings where a test has run (tagged Bench), else the sheet's. Theirs are dashes until you have fought them once, then their build's numbers. Two bars meet in the middle, each in its team's colour.
+- **Last meeting:** won, lost or drew, how, the judges' totals, and the tally; a Post-mortem button while that fight is still on the page.
+- **Advice:** one line at most, with a button to the bench test it names: the front edge not gauged against a wedge, lifter or flipper; armour not tested against a spinner; a battery shorter than the round.
+- **The record** (`S.met`): per mode, class and bot; one-on-one spars and career bouts; the 60 most recent. Career and Sandbox keep their own.
+- **Fight bar:** Change opens the Opponent row.
