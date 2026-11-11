@@ -835,3 +835,13 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Not tested yet:** a row per remaining test with a checkbox, what the sheet has for it, and the hours. Pick all ticks the lot. A free test has a Run button of its own.
 - **Run session bar:** shows while a test is ticked, pinned at the bottom: how many, the hours, Run session. Disabled with the reason when the workshop is short of hours. Hours are charged as they were test by test.
 - What the bench says stays above everything once a test has run; the nothing fitted, draft and changed-since messages are as before.
+
+## The post-mortem, drawn (0.1.60, UI round two, release C)
+
+- **Headline:** who won and how, with the judges' two totals when the bell decided it, and one line of how it ended.
+- **The drawing:** your bot from above at the card's width, FRONT at the top, faces and parts in green, amber or cool red. Up to three numbered clay markers: a face marker beside that face, a part marker on the part. The canvas is dark in both themes.
+- **The notes:** the same numbers as a list. Number 1 is the redesign hint, the rest are what broke, in order; three show and Show all opens the rest. A note with no place on the bot has a hollow number. A win with nothing destroyed has no markers and one line.
+- **Timeline:** the hit bars as before, and under them a lane of blocks for the time a bot was under you, pinning you or holding you, in that bot's team colour, with one line that adds it up. Left out under 3 seconds.
+- **Buttons:** Fix it (opens that Build section), Test it (ticks the matching bench test, when it has not run on the fitted bot), Replay, Share.
+- **The judges' table** on the result card has a bar under each score in each team's colour.
+- The repair bill, their build and the fight log follow as before.
