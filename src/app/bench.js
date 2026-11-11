@@ -3,8 +3,12 @@
    Build tab, not the draft (Kelbo, PR 3): before anything is fitted it offers to fit the draft, and it says when the draft
    has changes that aren't fitted yet. The rig is safe: nothing a test breaks stays broken.
    - Seven tests (SIM.BENCH_TESTS, sim/bench.js): drive and weapon are free and instant; impact, wedge gauge, endurance,
-     drop and the test dummy cost workshop hours (charged once the career exists, PR 7; free until then). "Run all seven"
-     runs the lot. The test dummy (0.1.38) is three real fights against boxes that don't fight back; Watch plays one back
+     drop and the test dummy cost workshop hours (charged once the career exists, PR 7; free until then).
+   - The bench is run as a session (UI round two, release B, 0.1.59): a strip of chips for the tests that have run, each
+     with its headline reading (bnHead: the first sheet row for that test, app/sheet.js); one open card (BN.open, a test
+     id) that leads with the reading and how it compares with the calculation; then "Not tested yet", a row per test
+     with a checkbox (BN.pick, in memory; the Build sheet's Test buttons set it); and a Run session bar pinned at the
+     bottom with the count and the hours. A free test also has a Run button of its own. The test dummy (0.1.38) is three real fights against boxes that don't fight back; Watch plays one back
      in the fight view as a replay (bnWatch; FT.ext.kind "bench").
    - Each test card draws a small canvas readout (a trace or bars) and the measured numbers in words.
    - Which tests have run is kept per class in S.bots[cls].bench = {sig, done:[ids]}; sig is the fitted cfg, so refitting
@@ -12,7 +16,9 @@
      deterministic), never stored.
    - benchMeasured(cls, cfg) hands the results to the Build tab, whose stress report then uses measured numbers (tagged
      "Bench") wherever the draft is the tested bot. */
-const BN={anim:{},open:{}};
+const BN={anim:{},open:null,pick:[]};
+/* why a test is worth running, for the tests the sheet has no row for */
+const BN_WHY={drop:"a big flipper throw, landing both ways up",dummy:"three boxes that don't fight back, with a replay"};
 const BN_DESC={
   drive:"A short straight and a spin on the spot: top speed, time over the track, pull to one side.",
   weapon:"Spin-up, stored energy and a hit on a fixed anvil; flippers and lifters against test masses; hammers, crushers and rams by their energy.",
@@ -43,9 +49,10 @@ function bnHours(ids){const M=SIM.classMult(bCls());return Math.round(ids.reduce
 function bnRun(ids){const bot=bBot();if(!bot.cfg)return;const h=bnHours(ids),c=crOn()?S.career:null;
   if(c&&h>0){if((c.hours||0)<h){toast(`That takes ${h} h in the workshop; you have ${c.hours||0} h this week`);return;}c.hours-=h;}
   const was=bnDone(bot),done=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>was.indexOf(id)>=0||ids.indexOf(id)>=0);
-  bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids){BN.anim[id]=now;BN.open[id]=true;}
+  bot.bench={sig:bnSig(bot.cfg),done};const now=performance.now();for(const id of ids)BN.anim[id]=now;
+  BN.open=ids[0];BN.pick=(BN.pick||[]).filter(id=>ids.indexOf(id)<0);
   save();hud();bnRender();buzz(12);shopSfx("clamp");
-  toast(ids.length>1?`All seven tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
+  toast(ids.length>1?`${ids.length} tests run${h&&c?` · ${h} h`:""}`:`${SIM.BENCH_TESTS.find(t=>t.id===ids[0]).name} test run${h&&c?` · ${h} h`:""}`);}
 
 /* ---- the words under each canvas ---- */
 const bn1=v=>(Math.round(v*10)/10).toLocaleString("en-GB"),bn0=v=>Math.round(v).toLocaleString("en-GB");
@@ -114,6 +121,8 @@ function bnLine(g,F,pts,p,col,wd){const n=Math.max(2,Math.ceil(pts.length*p));g.
   pts.slice(0,n).forEach((q,i)=>i?g.lineTo(F.X(q[0]),F.Y(q[1])):g.moveTo(F.X(q[0]),F.Y(q[1])));g.stroke();}
 function bnHline(g,F,y,col,label,w,left){g.save();g.setLineDash([4,4]);g.strokeStyle=col;g.lineWidth=1;g.beginPath();g.moveTo(F.L,F.Y(y));g.lineTo(w-F.R,F.Y(y));g.stroke();g.restore();
   if(label){g.fillStyle=col;g.textAlign=left?"left":"right";g.textBaseline="bottom";g.fillText(label,left?F.L+4:w-F.R,F.Y(y)-2);}}
+function bnVline(g,F,x,col,label,h){g.save();g.setLineDash([4,4]);g.strokeStyle=col;g.lineWidth=1;g.beginPath();g.moveTo(F.X(x),F.T);g.lineTo(F.X(x),h-F.B);g.stroke();g.restore();
+  if(label){g.fillStyle=col;g.textAlign="right";g.textBaseline="bottom";g.fillText(label,F.X(x)-4,h-F.B-3);}}
 function bnBars(g,w,h,p,rows,max){   // rows: [{label, parts:[{v, col}], mark, markCol, bold}] horizontal, log or linear done by the caller (0..1)
   const L=46,R=10,rh=(h-8)/rows.length;g.font="11px "+bnCol("--font");g.textBaseline="middle";
   rows.forEach((r,i)=>{const y=4+i*rh,bh=Math.min(14,rh*0.6),yc=y+rh/2;g.fillStyle=r.bold?bnCol("--crit-t"):bnCol("--muted");g.textAlign="left";g.fillText(r.label,0,yc);
@@ -127,7 +136,8 @@ const BN_PLOT={
     bnHline(g,F,r.predicted,bnCol("--dim"),"predicted",w);bnLine(g,F,tr.map(q=>[q[0],q[1]]),p,bnCol("--lilac"));},
   weapon:(g,w,h,p,r)=>{
     if(r.kind==="spin"){const tr=r.trace,xm=tr[tr.length-1][0]||1,F=bnFrame(g,w,h,{xmax:xm,ymax:1.1,ytop:bn0(r.rpm*1.1/1000)+"k rpm",xr:bn1(xm)+" s"});
-      bnHline(g,F,0.9,bnCol("--dim"),"90%",w);bnLine(g,F,tr,p,bnCol("--lilac"));return;}
+      bnHline(g,F,0.9,bnCol("--dim"),"90%",w);if(isFinite(r.predicted)&&r.predicted>0&&r.predicted<xm)bnVline(g,F,r.predicted,bnCol("--muted"),"calc",h);
+      bnLine(g,F,tr,p,bnCol("--lilac"));return;}
     if(r.kind==="flip"&&r.trace.length){const tr=r.trace,xm=tr[tr.length-1][0]||1,ym=Math.max(...tr.map(q=>q[1]),0.05)*1.15,F=bnFrame(g,w,h,{xmax:xm,ymax:ym,ytop:bn1(ym)+" m",xr:bn1(xm)+" s",xl:`a ${bn1(r.rows[2].kg)} kg bot`});
       bnLine(g,F,tr,p,bnCol("--lilac"));return;}
     if(r.kind==="flip"||r.kind==="lift"){const mx=Math.max(...r.rows.map(q=>q.heightM),0.01);
@@ -157,30 +167,56 @@ function bnPlots(){const bot=bBot();if(!bot.cfg)return;
     if(t0&&!reduced()){const go=now=>{const p=Math.min(1,Math.max(0,(now-t0)/700));draw(p);if(p<1&&cv.isConnected)requestAnimationFrame(go);};requestAnimationFrame(go);}else draw(1);}}
 
 /* ---- the tab ---- */
+/* a test's headline: the first sheet row for it (its reading, and how that sits against the calculation), or a short
+   reading of its own where the sheet has no row (a flipper's weapon test, the test dummy) */
+function bnHead(id,r,rows){const row=rows.find(x=>x.test===id&&(x.state==="ok"||x.state==="off")&&x.bench!=null);
+  if(row){const d=row.delta,calc=row.calc!=null;
+    return{text:row.benchText,off:row.state==="off",tick:row.state==="ok"&&!row.plain,
+      cmp:d?`${d} ${/slower$/.test(d)?"than":"of"} calc (${row.calcText})`:!calc?"":row.plain?`sheet: ${row.calcText}`:"matches the calculation"};}
+  if(id==="dummy")return{text:bn0(Math.max(...r.rows.map(q=>q.share))*100)+"% damage",cmp:"the most it did to one dummy"};
+  if(id==="weapon"){if(r.kind==="flip"){const q=r.rows.filter(x=>x.lifts).pop();return{text:q?bn1(q.heightM)+" m throw":"stays down",cmp:q?`a ${bn1(q.kg)} kg bot`:""};}
+    if(r.kind==="lift")return{text:bn1(r.canLiftKg)+" kg",cmp:"the most it lifts"};
+    if(r.kind==="crush")return{text:bn0(r.forceN)+" N",cmp:"crush force"};
+    return{text:bn0(r.hitJ||0)+" J",cmp:r.kind==="ram"?"a ram at top speed":"on the anvil"};}
+  return{text:"tested",cmp:""};}
+/* why run it: what the sheet has for that test, waiting to be proved */
+function bnWhy(id,rows,b){const row=rows.find(x=>x.test===id);
+  if(id==="impact")return`${FACE_LBL[b.weakestFace].toLowerCase()} armour weakest on the sheet`;
+  if(row&&row.calc!=null)return`${row.label.toLowerCase()}, ${row.calcText} on the sheet`;
+  return BN_WHY[id]||"";}
+function bnBar(bot,todo,career){const pick=BN.pick.filter(id=>todo.indexOf(id)>=0),h=bnHours(pick),n=pick.length,short=career&&h>(career.hours||0);
+  return`<div class="fitbar gobar bngo"${n?"":" hidden"}><span class="ft"><b>${n?`${n} test${n===1?"":"s"} picked`:"No tests picked"}</b>${n?(short?`${h} h needed · you have ${career.hours||0} h this week`:h?`${h} h on the bench${career?"":" · free until the career"}`:"free"):"Tick the tests to run"}</span><button type="button" class="btn pri" data-bn="session"${n&&!short?"":" disabled"}>Run session</button></div>`;}
 function bnRender(){const el=$("bnBody");if(!el)return;const bot=bBot(),cls=bCls(),c=SIM.CLASSES[cls],career=crOn()?S.career:null;
   const chips=`<div class="seg bncls" role="group" aria-label="Weight class">${SIM.CLASS_IDS.map(id=>`<button type="button" data-bncls="${id}" class="${id===cls?"on":""}"${id===cls?' aria-pressed="true"':' aria-pressed="false"'}>${SIM.CLASSES[id].name.replace("weight","")}</button>`).join("")}</div>`;
   if(!bot.cfg){el.innerHTML=chips+`<div class="card empty"><svg viewBox="0 0 24 24" aria-hidden="true">${EMPTY_ICON.tools}</svg><h3>Nothing fitted in the ${c.name} yet</h3><p>The bench tests the bot you've fitted, not the draft on the Build tab. Fit the draft first.</p>
     <div class="row"><button type="button" class="btn pri" data-bn="fit">Fit the draft</button><button type="button" class="btn" data-bn="build">Open Build</button></div></div>`;return;}
   const b=bnBuild(bot.cfg).b,done=bnDone(bot),stale=bot.bench&&bot.bench.sig&&bot.bench.sig!==bnSig(bot.cfg),wp=SIM.part("weapon",bot.cfg.weapon);
-  const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg));
-  const paid=SIM.BENCH_TESTS.filter(t=>t.hours>0).map(t=>t.id),hAll=bnHours(SIM.BENCH_TESTS.map(t=>t.id));
-  let html=chips+`<div class="card bnbot"><h3>${esc(c.name)} · ${esc(wp?wp.name:"")}</h3><p>${fmtG(b.totalG)} of ${fmtG(b.limitG)} · ${SIM.part("chassis",bot.cfg.chassis).name} · ${done.length} of ${SIM.BENCH_TESTS.length} tests run</p>
+  const drafted=!(bot.draft&&bnSig(bot.draft)===bnSig(bot.cfg)),N=SIM.BENCH_TESTS.length;
+  const todo=SIM.BENCH_TESTS.map(t=>t.id).filter(id=>done.indexOf(id)<0),rows=sheetRows(cls,bot.cfg),tut=typeof TUT_ON!=="undefined"&&TUT_ON;
+  BN.pick=(BN.pick||[]).filter(id=>todo.indexOf(id)>=0);if(done.indexOf(BN.open)<0)BN.open=done.length?done[done.length-1]:null;
+  let html=chips+`<div class="card bnbot"><h3>${esc(lvBotName(cls))} · ${esc(c.name)}</h3><p>${fmtG(b.totalG)} of ${fmtG(b.limitG)} · ${esc(wp?wp.name:"")} · <b>${done.length} of ${N} tested</b></p>
     ${drafted?'<p class="hint">Your draft on the Build tab has changes that aren\'t fitted. The bench tests what\'s fitted. <button type="button" class="lnk" data-bn="build">Open Build</button></p>':""}
     ${stale&&!done.length?'<p class="hint worn">The bot has changed since its last tests. Run them again.</p>':""}
-    <div class="row"><button type="button" class="btn pri" data-run="all">Run all seven · ${hAll} h</button></div>
     <p class="hint">Drive and weapon tests are free. ${career?`You have ${career.hours||0} h in the workshop this week.`:"The others take workshop hours, charged once the career starts."}</p></div>`;
   /* what the tests add up to goes above them once one has been run (0.1.44): the answer first, the working under it */
   const m=benchMeasured(cls,bot.cfg),st=SIM.stressReport(b,m||{});
   const says=`<div class="card"><h3>What the bench says</h3>${m?"":'<p class="hint">Run a test and its measured numbers replace the predictions, here and in the Build tab\'s stress report.</p>'}
     <ul class="stress">${st.length?st.map(x=>{const v=SEV_LBL[x.sev]||SEV_LBL.info;return`<li><span class="sev ${v[0]}">${v[1]}</span><span>${esc(x.text)}${x.measured?' <span class="bntag">Bench</span>':""}</span></li>`;}).join(""):"<li>Nothing to report.</li>"}</ul></div>`;
   if(m)html+=says;
-  for(const t of SIM.BENCH_TESTS){const has=done.indexOf(t.id)>=0,h=bnHours([t.id]);
-    html+=`<div class="card bn" data-test="${t.id}"><div class="bnh"><h3>${t.name}</h3><span class="cost">${h?h+" h":"free"}</span><button type="button" class="btn sm${has?" ghost":""}" data-run="${t.id}">${has?"Again":"Run"}</button></div>`;
-    if(has){const r=bnResult(bot.cfg,t.id);
-      html+=`<canvas class="plot" data-plot="${t.id}" role="img" aria-label="${esc(BN_ARIA[t.id](r))}"></canvas>${BN_KEY[t.id]?`<p class="bnkey">${BN_KEY[t.id](r).map(k=>`<span><i style="background:var(${k[0]})"></i>${k[1]}</span>`).join("")}</p>`:""}<ul class="bnk">${BN_TEXT[t.id](r,b).map(s=>`<li>${s}</li>`).join("")}</ul>`;}
-    else html+=`<p class="bnd">${BN_DESC[t.id]}</p>`;
-    html+=`</div>`;}
+  /* the tested strip: a chip a test, with its headline reading */
+  if(done.length){html+=`<div class="bnstrip" role="group" aria-label="Tests run">${done.map(id=>{const t=SIM.BENCH_TESTS.find(x=>x.id===id),hd=bnHead(id,bnResult(bot.cfg,id),rows),on=id===BN.open;
+      return`<button type="button" class="bnchip${on?" on":""}" data-bnopen="${id}" aria-pressed="${on}"><b>${t.name}</b><span class="${hd.off?"worn":"readout"}">${esc(hd.text)}</span>${hd.tick?'<span class="shtick" role="img" aria-label="matches the sheet">✓</span>':""}</button>`;}).join("")}</div>`;
+    /* the one open card: the reading first, then the plot and the detail */
+    const t=SIM.BENCH_TESTS.find(x=>x.id===BN.open),r=bnResult(bot.cfg,t.id),hd=bnHead(t.id,r,rows),h=bnHours([t.id]);
+    html+=`<div class="card bn" data-test="${t.id}"><div class="bnh"><h3>${t.name}</h3><span class="cost">${h?h+" h":"free"}</span><button type="button" class="btn sm ghost" data-run="${t.id}">Again</button></div>
+      <p class="bnlead${hd.text.length>10?" words":""}"><b class="${hd.off?"worn":"readout"}">${esc(hd.text)}</b>${hd.cmp?`<span>${esc(hd.cmp)}</span>`:""}</p>
+      <canvas class="plot" data-plot="${t.id}" role="img" aria-label="${esc(BN_ARIA[t.id](r))}"></canvas>${BN_KEY[t.id]?`<p class="bnkey">${BN_KEY[t.id](r).map(k=>`<span><i style="background:var(${k[0]})"></i>${k[1]}</span>`).join("")}</p>`:""}<ul class="bnk">${BN_TEXT[t.id](r,b).map(s=>`<li>${s}</li>`).join("")}</ul></div>`;}
+  /* not tested yet: tick what to run; a free test can also be run on its own */
+  if(todo.length){const all=todo.every(id=>BN.pick.indexOf(id)>=0);
+    html+=`<div class="card bntodo"><div class="bnh"><h3>${done.length?"Not tested yet":"Pick what to test"}</h3><button type="button" class="lnk" data-bn="${all?"none":"all"}">${all?"Clear":"Pick all"}</button></div><ul class="bnrows">${todo.map(id=>{const t=SIM.BENCH_TESTS.find(x=>x.id===id),h=bnHours([id]),why=bnWhy(id,rows,b),free=!h;
+      return`<li class="bnrow" data-test="${id}"><label><input type="checkbox" data-bnpick="${id}"${BN.pick.indexOf(id)>=0?" checked":""}><span class="nm">${t.name}${why?`<small>${esc(why)}</small>`:""}</span></label><span class="cost">${h?h+" h":"free"}</span>${free||tut?`<button type="button" class="btn sm" data-run="${id}" aria-label="Run the ${esc(t.name.toLowerCase())} now">Run</button>`:""}</li>`;}).join("")}</ul></div>`;}
   if(!m)html+=says;
+  if(todo.length)html+=bnBar(bot,todo,career);
   el.innerHTML=html;bnPlots();}
 /* play a test dummy run back in the fight view: the same fight again from its spec (the sim is deterministic), as a replay */
 function bnWatch(id){const bot=bBot();if(!bot.cfg||FT.on)return;if(FT.bout&&!FT.bout.over){toast("Finish the bout on the Fight tab first");return;}const c=bnBuild(bot.cfg),row=bnResult(bot.cfg,"dummy").rows.find(q=>q.id===id),d=SIM.BENCH_DUMMIES.find(q=>q.id===id);if(!row||!d)return;
@@ -191,9 +227,20 @@ function bnWatch(id){const bot=bBot();if(!bot.cfg||FT.on)return;if(FT.bout&&!FT.
   showTab("fight");ftReplay(0);}
 function bnClick(e){const t=e.target;let x;
   if((x=t.closest("[data-dummy]"))){bnWatch(x.dataset.dummy);return;}
-  if((x=t.closest("[data-run]"))){const id=x.dataset.run;bnRun(id==="all"?SIM.BENCH_TESTS.map(q=>q.id):[id]);return;}
-  if((x=t.closest("[data-bncls]"))){ST().buildCls=x.dataset.bncls;B.sel=null;B.delKey=null;save();bnRender();return;}
-  if((x=t.closest("[data-bn]"))){const a=x.dataset.bn;if(a==="build")showTab("build");else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}}}
+  if((x=t.closest("[data-run]"))){bnRun([x.dataset.run]);bnToCard();return;}
+  if((x=t.closest("[data-bnopen]"))){BN.open=x.dataset.bnopen;bnRender();return;}
+  if((x=t.closest("[data-bnpick]"))){const id=x.dataset.bnpick,i=BN.pick.indexOf(id);if(x.checked&&i<0)BN.pick.push(id);else if(!x.checked&&i>=0)BN.pick.splice(i,1);
+    const bar=document.querySelector("#bnBody .bngo"),bot=bBot();   /* only the bar changes: the list keeps its place and the box its focus */
+    if(bar&&bot.cfg){const d=bnDone(bot),todo=SIM.BENCH_TESTS.map(q=>q.id).filter(q=>d.indexOf(q)<0);bar.outerHTML=bnBar(bot,todo,crOn()?S.career:null);
+      const l=document.querySelector('#bnBody [data-bn="all"],#bnBody [data-bn="none"]');if(l){const all=todo.every(q=>BN.pick.indexOf(q)>=0);l.dataset.bn=all?"none":"all";l.textContent=all?"Clear":"Pick all";}}
+    return;}
+  if((x=t.closest("[data-bncls]"))){ST().buildCls=x.dataset.bncls;B.sel=null;B.delKey=null;BN.pick=[];BN.open=null;save();bnRender();return;}
+  if((x=t.closest("[data-bn]"))){const a=x.dataset.bn,bot=bBot();
+    if(a==="all"||a==="none"){const d=bnDone(bot);BN.pick=a==="all"?SIM.BENCH_TESTS.map(q=>q.id).filter(q=>d.indexOf(q)<0):[];bnRender();return;}
+    if(a==="session"){const d=bnDone(bot),ids=SIM.BENCH_TESTS.map(q=>q.id).filter(q=>BN.pick.indexOf(q)>=0&&d.indexOf(q)<0);if(ids.length){bnRun(ids);bnToCard();}return;}
+    if(a==="build")showTab("build");else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}}}
+/* after a run, bring the open card into view (it sits above the list the button was in) */
+function bnToCard(){const c=document.querySelector("#bnBody .bnstrip");if(c)c.scrollIntoView({block:"start",behavior:"auto"});}
 TAB_RENDER.bench=function(){
   if(!bnRender.bound){bnRender.bound=true;$("tab-bench").addEventListener("click",bnClick);
     let rt=0;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(curTab==="bench")bnPlots();},200);});}

@@ -630,6 +630,29 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
 .bnext[hidden]{display:none}
 .bnext b{color:var(--clay-t);font-weight:600;margin-right:6px}
 .bnext .chev{flex:none;width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg)}
+.bnstrip{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.bnchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;max-width:100%;padding:6px 12px;border-radius:12px;background:var(--card);border:1px solid var(--rule);font-size:13px;color:var(--muted);text-align:left}
+.bnchip b{font-weight:600;color:var(--ink);white-space:nowrap}
+.bnchip span{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.bnchip .readout{color:var(--lilac)}.bnchip .worn{color:var(--warn)}
+.bnchip .shtick{color:var(--good);font-weight:700}
+.bnchip.on{border-color:var(--clay)}
+.bnlead{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;margin:2px 0 10px!important}
+.bnlead b{font:600 28px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.bnlead b.readout{color:var(--lilac)}.bnlead b.worn{color:var(--warn)}
+.bnlead.words b{font-size:19px;line-height:1.25}
+.bngo[hidden]{display:none}
+.bnlead span{font-size:14px;color:var(--muted)}
+.bnrows{list-style:none;margin:0;padding:0}
+.bnrow{display:flex;align-items:center;gap:10px;min-height:48px;border-top:1px solid var(--rule)}
+.bnrow label{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:48px;cursor:pointer}
+.bnrow input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--clay)}
+.bnrow .nm{flex:1;min-width:0;font-size:15px;color:var(--ink)}
+.bnrow .nm small{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
+.bnrow .cost{flex:none;font:12px var(--mono);color:var(--muted);white-space:nowrap}
+.bnrow .btn{flex:none;min-height:44px}
+.bntodo .lnk{min-height:44px}
+.bngo .ft{white-space:normal}
 .sheet{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 14px}
 .sheet caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .sheet thead th{padding:0 6px 6px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}

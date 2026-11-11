@@ -827,3 +827,11 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Never marked:** spin-up (the bench runs a real motor, so it is always a little slower than energy over power; the gap is said in words) and hit energy (stored on the sheet, delivered on the bench).
 - **Mass bands:** the weight bar is cut into a band per group, grams under each; tapping a band or its label opens that section on Parts.
 - **Next bout** (career only): one line above the bar, today's fight with the opponent's name, or the next event you can enter with its week. It opens Career › This week.
+
+## The bench session (0.1.59, UI round two, release B)
+
+- **Tested strip:** a chip per finished test with its headline reading and a tick where it matches the sheet. Tapping a chip opens that test's card; one card is open at a time.
+- **The open card** leads with the reading in large type and a line against the calculation, then the plot, the key and the lines in words. The weapon plot has a dashed line at the calculated spin-up, labelled calc.
+- **Not tested yet:** a row per remaining test with a checkbox, what the sheet has for it, and the hours. Pick all ticks the lot. A free test has a Run button of its own.
+- **Run session bar:** shows while a test is ticked, pinned at the bottom: how many, the hours, Run session. Disabled with the reason when the workshop is short of hours. Hours are charged as they were test by test.
+- What the bench says stays above everything once a test has run; the nothing fitted, draft and changed-since messages are as before.
