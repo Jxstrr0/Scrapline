@@ -142,22 +142,23 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   const rivals=FT.rp?(src&&src.vRiv)||{}:vc?vc.rivals||{}:{};F.vRiv=rivals;const kind=ftVKind(F);
   SCRAP_VOICE.begin(F,{speed:FT.rp?FT.rp.speed:FT.you?1:FT.speed,replay:rp,rivals,kind});
   if(W&&again){if(F.n)SCRAP_VOICE.seek(F);return;}
-  if(rp){if(FT.rp.reel){SCRAP_VOICE.seek(F);if(FT.reel&&FT.reel.k===0)SCRAP_VOICE.say("pm:replay");}else if(!again)SCRAP_VOICE.say("pm:replay");return;}
+  if(rp){if(FT.rp.reel){SCRAP_VOICE.seek(F);if(FT.reel&&FT.reel.k===0)SCRAP_VOICE.seq(["pm:replay"]);}else if(!again)SCRAP_VOICE.seq(["pm:replay"]);return;}   // seq, not say: it cuts off the result calls still playing from the card (0.1.56.1)
   /* the intro: the day's welcome (first bout of an event day), the round, the two corners, the countdown */
   const cues=[],round=W?W.k:B?B.n:0,opp=ftVName(F),rv=opp?rivals[opp.i]:null;
-  if(vc&&vc.first&&!round){const c=S.career;cues.push("intro");if(vc.season)cues.push("career:season");
+  const opt=q=>({opt:q});   // a call the announcer leaves out when the intro would run long (INTRO_MAX in sound/voice.js)
+  if(vc&&vc.first&&!round){const c=S.career;cues.push(opt("intro"));if(vc.season)cues.push(opt("career:season"));
     if(c&&c.act>(c.actSaid|0)){if(c.act===1)cues.push("career:act1");else if(c.act===2)cues.push("career:act2");c.actSaid=c.act;}
-    if(c&&c.act===3&&crTitle(c).held)cues.push("career:defend");   // only while the title is yours (0.1.39)
-    cues.push("venue:"+vc.venue,"event:"+vc.event,vc.venue==="eisenhalle"?"c:tv":"c:intro","class:"+vc.cls,"kind:"+vc.kind);}
+    if(c&&c.act===3&&crTitle(c).held)cues.push(opt("career:defend"));   // only while the title is yours (0.1.39)
+    cues.push("venue:"+vc.venue,"event:"+vc.event,opt(vc.venue==="eisenhalle"?"c:tv":"c:intro"),opt("class:"+vc.cls),opt("kind:"+vc.kind));}
   else if(!vc&&!round&&kind!=="duel")cues.push("kind:"+kind);
-  if(!round){if(vc&&vc.fmt==="bracket")cues.push("round:"+vc.label);
-    if(kind==="duel"){cues.push("name:you");if(rv)cues.push("rival:"+rv);else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
+  if(!round){if(vc&&vc.fmt==="bracket")cues.push(opt("round:"+vc.label));
+    if(kind==="duel"){cues.push("name:you");if(rv)cues.push({opt:"rival:"+rv,alt:"name:rv:"+rv});else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
   else if(W){if(round===2)cues.push("bo3:decider");}
   else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
   cues.push("countdown");
   const bell=()=>{if(ST().sound!==false&&FT.F===F&&FT.on&&!FT.paused&&!F.over&&!document.hidden&&curTab==="fight")SCRAP_SOUND.sfx("bell",0.7);};   // the bell opens the round (sounds/sfx/, every tier); not when a pause, a scrub or leaving cut the intro short
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
-  else{SCRAP_VOICE.seq(cues);bell();}}   // nothing to hear yet (still loading) or muted: captions, and the fight starts at once
+  else{SCRAP_VOICE.seq(cues.map(q=>q.alt||q).filter(q=>!q.opt).slice(-2));bell();}}   // nothing to hear yet (still loading) or muted: the fight starts at once, with captions for the last two calls only (the names and the countdown), so they are gone before the live ones start
 /* the bell: the result calls, then (in a career) a first win or the Open title */
 function ftVoiceEnd(F){if(F.reason==="stopped"||F.drill)return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
   const bout=FT.watch&&FT.rounds.length>1?Object.assign(ftWatchScore(),{over:FT.watch.k>=FT.rounds.length-1}):!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
@@ -166,7 +167,7 @@ function ftVoiceEnd(F){if(F.reason==="stopped"||F.drill)return;const B=FT.bout,r
     if(won&&vc.event==="Scrapline Open Final"&&vc.label==="final")extra.push("career:open");save();}
   SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra});}
 /* the post-mortem line for the round on the results card, once (after the bell's calls) */
-function ftVoicePm(F){if(F.pmSaid||F.drill||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true});}
+function ftVoicePm(F){if(F.pmSaid||F.drill||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true,soon:true});}   // soon: left out when the bell's calls would keep it waiting too long
 /* a caption: the line at the bottom of the fight for a few seconds (only when sound or voices are off) */
 SCRAP_VOICE.onCap=(text,who)=>{const el=$("fCap");if(!el||!FT.on)return;el.textContent=(who==="a"?"Duncan: ":"Jess: ")+text;el.hidden=false;el.classList.toggle("fcom",who!=="a");
   clearTimeout(ftVoicePm.t);ftVoicePm.t=setTimeout(()=>{el.hidden=true;},Math.max(2200,text.length*70));};

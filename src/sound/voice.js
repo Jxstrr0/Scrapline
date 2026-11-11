@@ -13,7 +13,8 @@
      begin(F, o)       a fight (or a replay) starts: o {speed, replay, rivals: {bot index: RIVALS id}, kind: "duel" | "rumble" | "tag"}
      tick(F, speed)    after the app's sim steps: new F.log entries and the bots' state become calls (below)
      end(F, o)         the bell: the result calls (see endCues); o {kind, bout: {me, them, over} | null, extra: [cues]}
-     seq(cues, o)      calls back to back now (o.queue: after what's playing) — the pit window, the post-mortem
+     seq(cues, o)      calls back to back now (o.queue: after what's playing; o.soon: only if it can start soon) — the pit
+                       window, the post-mortem
      say(cue)          one call now
      stop(), skip()    silence (a pause, leaving the tab); skip ends an intro early and calls its done()
      onCap             set by the app: (text, who) for a caption, shown when sound or voices are off (Settings → Captions)
@@ -21,16 +22,25 @@
    commentator speaks at most once every 3 s (of real time), never over the announcer, and the announcer's mid-fight
    calls (the count, the pit opening) wait for the commentator to finish. Pools pick with SCRAP_SIM.rng streams seeded
    from the fight's seed, never Math.random, and skip the last few lines said: the same fight at the same speed says the
-   same lines, so two replays match. Captions run off the same calls, so a muted phone gets the same commentary. */
+   same lines, so two replays match. Captions run off the same calls, so a muted phone gets the same commentary.
+   One voice at a time (0.1.56.1): every clip goes through one channel (play), which starts it only when the clip before
+   has ended on the audio clock; sequences time each line off the real end of the last; and a sequence started during a
+   fight (the replay's opening line) makes the live calls wait for it. tools/voice-test.js plays it all on a fake clock. */
 const SCRAP_VOICE=(function(){
 "use strict";
 const L=typeof VOICE_LINES!=="undefined"?VOICE_LINES:{},POOL={};
 for(const id of Object.keys(L).sort()){const q=L[id].q;(POOL[q]||(POOL[q]=[])).push(id);}
 const COOL=3,GAP=0.25;   // seconds between commentator barks; a little air after any line (both in real time)
+/* keeping time (0.1.56.1), all in real seconds. INTRO_MAX: the longest the announcer's intro may hold a fight; the calls
+   marked optional ({opt: cue}) are left out, a different pick each event day, until it fits (the venue, the event, the
+   names and the countdown always play, and so does the once-a-career call for moving up an act, which can run it over). LATE: a live call that would have to wait longer
+   than this for the line before it is dropped, not stacked up. PM_WAIT: the post-mortem line is left out when the
+   bell's calls would keep it waiting longer than this. */
+const INTRO_MAX=24,LATE=0.9,PM_WAIT=12;
 /* the announcer's core calls load first */
 const CORE=["countdown","end:ko","end:pit","end:judges","reveal","draw","win","lose","name:you","count","pitopen","pitwin","pit10","pitclose","bo3:lead","bo3:trail","bo3:decider","rumble:won","tag:won"];
 const O={sound:true,voice:true,comm:true,captions:"muted"};
-const P={started:false,bytes:{},buf:new Map(),src:[],queue:[],qT:0,introDone:null,introT:0};
+const P={started:false,bytes:{},buf:new Map(),src:[],queue:[],qT:0,introDone:null,introT:0,tok:0,endAt:0,qBusy:false,qUntil:0};
 let D=null;   // the director's fight
 
 /* ---- the player ---- */
@@ -63,16 +73,24 @@ function decoded(id,cb){const b=P.buf.get(id);if(b){P.buf.delete(id);P.buf.set(i
   const bad=()=>{if(P.from[id]==="cdn"){P.cdnDead=true;delete P.bytes[id];P.from[id]="retry";fetchLocal(id);}cb(null);};
   try{const pr=io.ctx.decodeAudioData(raw.slice(0),buf=>{P.buf.set(id,buf);while(P.buf.size>20)P.buf.delete(P.buf.keys().next().value);cb(buf);},bad);if(pr&&pr.catch)pr.catch(()=>{});}catch(e){bad();}}   // the promise newer browsers also return is caught: the callbacks did the work
 function cap(id){const x=L[id];if(!x||O.captions==="off"||audioOn()||!P.onCap)return;P.onCap(x.t,x.c);}
-/* play one line now; false when it can't (muted, not loaded yet). The caption shows instead when muted. */
-function play(id,at){const x=L[id];if(!x)return false;if(x.c==="c"&&O.comm===false)return false;
+/* play one line; false when it can't (muted, not loaded yet). The caption shows instead when muted.
+   There is one voice channel: a clip never starts before the one ahead of it has ended (P.endAt, on the audio clock), so
+   two lines can't be heard at once however late a decode lands or however the replay speed changes mid-line. A queued
+   line (at 0) waits its turn; a live call (at null) waits up to LATE seconds and is dropped past that, the moment gone.
+   done(seconds until this clip ends, 0 when it didn't play) is for the queue, which times the next line off it. */
+function play(id,at,done){const x=L[id],no=()=>{if(done)done(0);};if(!x)return false;if(x.c==="c"&&O.comm===false)return false;
   if(!audioOn()){cap(id);return false;}
-  const t0=typeof performance!=="undefined"?performance.now():0;
-  decoded(id,buf=>{if(!buf)return;const now=typeof performance!=="undefined"?performance.now():0;if(at==null&&now-t0>600)return;   // a late decode: the moment has passed
-    const io=SCRAP_SOUND.voiceBus();if(!io)return;const s=io.ctx.createBufferSource(),g=io.ctx.createGain();s.buffer=buf;
-    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(io.ctx.currentTime,at||0);s.start(when);
-    SCRAP_SOUND.talk(when+buf.duration);P.src.push(s);s.onended=()=>{const i=P.src.indexOf(s);if(i>=0)P.src.splice(i,1);};});
+  const t0=typeof performance!=="undefined"?performance.now():0,tok=P.tok;
+  decoded(id,buf=>{if(!buf||tok!==P.tok)return no();   // tok: a stop (pause, skip, a newer sequence) since this was asked for
+    const late=(typeof performance!=="undefined"?performance.now():0)-t0;
+    const io=SCRAP_SOUND.voiceBus();if(!io)return no();const now=io.ctx.currentTime,free=Math.max(now,P.endAt);
+    if(at==null&&(late>600||free-now>LATE))return no();   // a late decode, or the line before still has a while to run
+    const s=io.ctx.createBufferSource(),g=io.ctx.createGain();s.buffer=buf;
+    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(free,at||0);s.start(when);P.endAt=when+buf.duration;
+    SCRAP_SOUND.talk(P.endAt);P.src.push(s);s.onended=()=>{const i=P.src.indexOf(s);if(i>=0)P.src.splice(i,1);};
+    if(done)done(P.endAt-now);});
   return true;}
-function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];P.introTok=null;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
+function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];P.introTok=null;P.tok++;P.endAt=0;P.qBusy=false;P.qUntil=0;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
 
 /* ---- picks: a seeded stream per fight, skipping the last few lines said ---- */
 function pickFrom(R,recent,cues){for(const q of cues){const ids=POOL[q];if(!ids||!ids.length)continue;
@@ -83,19 +101,43 @@ const RNG=s=>typeof SCRAP_SIM!=="undefined"?SCRAP_SIM.rng(s>>>0):(()=>{let a=s>>
 let SQ={R:RNG(0x5EC0),recent:[]};   // sequences (intros, results, the pit): reseeded per fight
 
 /* ---- sequences: lines back to back, in real time ---- */
-function seqIds(cues){const out=[];for(const c of cues){const id=Array.isArray(c)?pickFrom(SQ.R,SQ.recent,c):pickFrom(SQ.R,SQ.recent,[c]);if(id)out.push(id);}return out;}
-function runQueue(){P.qTimer=0;const id=P.queue.shift();if(!id){if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
-  const x=L[id],ok=x.c==="c"&&O.comm===false?false:audioOn()&&(P.bytes[id]||P.buf.has(id));
-  if(ok){play(id,0);P.qTimer=setTimeout(runQueue,(x.d+GAP)*1000);}
-  else{if(!(x.c==="c"&&O.comm===false))cap(id);P.qTimer=setTimeout(runQueue,audioOn()?0:Math.min(1500,x.d*500));}}
-function seq(cues,o){const ids=seqIds(cues);if(!ids.length)return 0;if(!(o&&o.queue)){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
-  P.queue.push(...ids);if(!P.qTimer)runQueue();return ids.reduce((a,id)=>a+L[id].d+GAP,0);}
+/* cues -> line ids. A cue is a name, a list of names (the first with a line wins), or {opt: either} for a call that may
+   be left out ({opt, alt}: with a short call that stands in for it, a rival's name for the rival's introduction). With
+   max (seconds), optional calls are kept only while the whole sequence fits: they are tried in a seeded-shuffled order,
+   so which ones are heard changes from one event day to the next and every line gets its turn. */
+function seqIds(cues,max){const got=[],one=q=>pickFrom(SQ.R,SQ.recent,Array.isArray(q)?q:[q]);let tot=0;
+  for(const c of cues){const opt=!!(c&&c.opt),id=one(opt?c.opt:c);if(!id)continue;const g={id,opt,alt:opt&&c.alt&&max!=null?one(c.alt):null};got.push(g);
+    tot+=opt?(g.alt?L[g.alt].d+GAP:0):L[id].d+GAP;}
+  const opts=got.filter(g=>g.opt);
+  if(max!=null){for(let i=opts.length-1;i>0;i--){const j=Math.floor(SQ.R()*(i+1))%(i+1),t=opts[i];opts[i]=opts[j];opts[j]=t;}
+    for(const g of opts){const d=L[g.id].d-(g.alt?L[g.alt].d:-GAP);if(tot+d<=max){tot+=d;g.opt=false;}else if(g.alt){g.id=g.alt;g.opt=false;}}}
+  return got.filter(g=>max==null||!g.opt).map(g=>g.id);}
+/* how long a queued line takes: its clip and a little air; muted, the time its caption gets; nothing when it can't play */
+const canHear=id=>!(L[id].c==="c"&&O.comm===false)&&audioOn()&&!!(P.bytes[id]||P.buf.has(id));
+const secsOf=id=>L[id].c==="c"&&O.comm===false?0:audioOn()?(canHear(id)?L[id].d+GAP:0):Math.min(1.5,L[id].d*0.5);
+const clock=()=>typeof performance!=="undefined"?performance.now():0;
+/* the next line starts when the one before has really ended: the clip reports its own end once it is decoded and
+   scheduled (the timer set first is only a backstop, in case a decode never answers) */
+function runQueue(){P.qTimer=0;const id=P.queue.shift();if(!id){P.qBusy=false;P.qUntil=0;if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
+  const x=L[id];P.qBusy=true;
+  if(canHear(id)){const tok=P.tok;P.qTimer=setTimeout(runQueue,(x.d+GAP+1.5)*1000);
+    play(id,0,secs=>{if(tok!==P.tok)return;clearTimeout(P.qTimer);P.qTimer=setTimeout(runQueue,secs>0?(secs+GAP)*1000:0);});}
+  else{if(!(x.c==="c"&&O.comm===false))cap(id);P.qTimer=setTimeout(runQueue,secsOf(id)*1000);}}
+/* o.queue: after what's playing (else it cuts in); o.soon: only if it can start within PM_WAIT seconds; o.max: see seqIds.
+   During a fight the director is told how long the sequence runs, so the live calls wait for it. */
+function seq(cues,o){o=o||{};const ids=seqIds(cues,o.max);if(!ids.length)return 0;
+  if(!o.queue){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
+  else if(o.soon&&P.qBusy&&P.qUntil-clock()>PM_WAIT*1000)return 0;
+  const secs=ids.reduce((a,id)=>a+secsOf(id),0);P.qUntil=Math.max(P.qUntil,clock())+secs*1000;
+  if(D&&D.F&&!D.F.over)D.annUntil=Math.max(D.annUntil,D.F.t+(P.qUntil-clock())/1000*D.speed);
+  P.queue.push(...ids);if(!P.qBusy)runQueue();return ids.reduce((a,id)=>a+L[id].d+GAP,0);}
 function say(cue){return seq([cue],{queue:true});}
-/* before a fight: hold only when at least one of the calls is decoded and can be heard */
-function intro(cues,done){stopAll();P.introDone=null;const ids=seqIds(cues).filter(id=>audioOn()&&P.bytes[id]&&!(L[id].c==="c"&&O.comm===false));
+/* before a fight: hold only when at least one of the calls is decoded and can be heard. Trimmed to INTRO_MAX. */
+function introIds(cues){return seqIds(cues,INTRO_MAX);}
+function intro(cues,done){stopAll();P.introDone=null;const ids=introIds(cues).filter(id=>audioOn()&&P.bytes[id]&&!(L[id].c==="c"&&O.comm===false));
   if(!ids.length||!(typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus&&SCRAP_SOUND.voiceBus()))return false;
   P.introDone=done;const tok={};P.introTok=tok;   // set now, so Skip, Pause or a newer intro cancels a start still waiting on decodes
-  let n=ids.length,go=false;const start=()=>{if(go||P.introTok!==tok||P.introDone!==done)return;go=true;P.queue=ids.slice();runQueue();};
+  let n=ids.length,go=false;const start=()=>{if(go||P.introTok!==tok||P.introDone!==done)return;go=true;P.queue=ids.slice();P.qUntil=clock()+ids.reduce((a,id)=>a+L[id].d+GAP,0)*1000;runQueue();};
   for(const id of ids)decoded(id,()=>{if(--n<=0)start();});setTimeout(start,1200);   // decode first (a smooth countdown), but never wait long
   return true;}
 function skip(){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
@@ -183,9 +225,10 @@ function endCues(F,o){o=o||{};const kind=o.kind||(D&&D.kind)||"duel",me=F.bots[0
   return out;}
 function end(F,o){if(D)D.pend=null;const cues=endCues(F,o);return cues.length?seq(cues):0;}
 
-return{load,set(o){Object.assign(O,o||{});if(!audioOn()){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];}},intro,skip,stop,begin,seek,tick,end,endCues,seq,say,
+return{load,set(o){Object.assign(O,o||{});if(!audioOn()){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.endAt=0;}},intro,skip,stop,begin,seek,tick,end,endCues,seq,say,
   get onCap(){return P.onCap;},set onCap(f){P.onCap=f;},
   get loaded(){return Object.keys(P.bytes).length;},get sources(){const n={cdn:0,local:0};for(const id in P.bytes)n[P.from[id]==='cdn'?'cdn':'local']++;return n;},get total(){return Object.keys(L).length;},pool:q=>(POOL[q]||[]).slice(),
+  introIds,INTRO_MAX,LATE,PM_WAIT,GAP,
   _d:()=>D,_pick:(cues)=>D?pickFrom(D.R,D.recent,cues):null};
 })();
 </script>
