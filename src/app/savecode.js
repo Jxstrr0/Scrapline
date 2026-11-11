@@ -189,7 +189,7 @@ function buFighting(){return typeof document!=="undefined"&&document.documentEle
 /* something worth keeping: a career past its first weeks, a bot fitted, or a couple of saved designs */
 function buProgress(){if(!S)return false;
   const c=S.career,nd=Object.values(S.designs||{}).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
-  return !!(c&&(+c.week||1)>=4)||Object.keys(S.bots||{}).length>0||nd>=2;}
+  return !!(c&&(+c.week||1)>=4)||nd>=2||!c&&Object.keys(S.bots||{}).length>0;}   // 0.1.57: in a career a fitted bot alone is not yet progress worth a reminder (it showed seconds in); week 4 is
 function buSaved(){if(!buPersistAsked&&buProgress())buPersist();}   // save() calls this after each good write
 function buPersist(){if(buPersistAsked)return;buPersistAsked=true;
   try{const st=typeof navigator!=="undefined"&&navigator.storage;if(!st||!st.persist||!st.persisted)return;

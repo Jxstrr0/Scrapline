@@ -116,6 +116,8 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0
   ctlButtons(o,canSlide);CTL.last=out;return out;}
 /* the self-right button shows only when it's needed; Slide only with a wheel layout that can slide */
 function ctlButtons(o,canSlide){if(!CTL.el)return;const srb=CTL.el.querySelector("[data-c=sr]"),slb=CTL.el.querySelector("[data-c=sl]");
+  /* 0.1.57: nothing to fire (a pusher or a plain wedge with no kicker on the back) means no Weapon button */
+  const wb=CTL.el.querySelector("[data-c=wpn]"),t=o.b.weapon.type,dud=(t==="none"||t==="wedge")&&!(o.b.back&&o.b.back.kick);if(wb&&wb.hidden!==dud)wb.hidden=dud;
   if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
   if(slb&&slb.hidden===!!canSlide)slb.hidden=!canSlide;}
 function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}

@@ -16,7 +16,7 @@
    (clangs and motor whine, if Settings → Sound is on) and buzz() (scaled by the hit, only for hits on or by you).
    The frame loop steps the sim at its fixed 60 Hz with an accumulator clamped to 5 steps a frame, so a stall never
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
-const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
+const FT={F:null,opp:"",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
   you:false,on:false,view2d:false,partN:0,buzzT:0,
   sub:"spar",open:null,   // the Fight tab's page (spar / daily / school / reel / codes) and its open row (a picker, or "sc:<drill>")
   ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js), {kind:"bench"} or {kind:"school", id, demo, res} (app/school.js)
@@ -24,7 +24,10 @@ const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
 /* the opponent picked: a named one in this class, else a test build */
-function ftOpp(cls,id){id=id||FT.opp;const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
+/* 0.1.57: until one is picked, a spar is against the class's first named spinner (a club bot at club skill that trades
+   hits), not the wedge at 0.7, which pinned a starter bot for most of the round */
+function ftOppDef(cls){const o=SIM.OPPONENTS.find(o=>o.cls===cls&&SIM.part("weapon",SIM.opponentCfg(o).weapon).type==="spinner");return o?o.id:"hsp";}
+function ftOpp(cls,id){id=id||FT.opp||ftOppDef(cls);const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
   if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op,livery:lvOpp("op:"+id)};
   const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
   return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.7},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24)
@@ -291,7 +294,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL()||!!ST().map2d;const
     pos.addEventListener("change",()=>{FT.rp.drag=false;ftSeek(+pos.value);});}
   SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow(),mark:FT.you&&!FT.rp?0:null});   // mark: the forward arrow on the bot you drive (vis/arena.js fwdMark)
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
-  if(FT.you)CONTROLS.mount(el);
+  if(FT.you){CONTROLS.mount(el);if(FT.F&&FT.F.bots[0])ctlButtons(FT.F.bots[0],false);}   // 0.1.57: the buttons fit the bot from the first frame (no Weapon on a pusher)
   if(tip){const ok=el.querySelector("[data-fv=tipok]");if(ok&&tip.drive)ok.focus({preventScroll:true});}
   ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
@@ -355,7 +358,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};
     const dr=ftDrive(o,states),bs=o.flags.smoke||states.battery==="destroyed"?"broke":states.battery==="damaged"||bat<0.2?"worn":"ok";
     set("w",ftArmed(o)?ws:0,!o.fx.weaponOk?"broke":FT_ST[states.weapon]||"ok");set("dr",dr.v,dr.cls);set("bat",bat,bs);
-    const st=o.out?(o.out==="ko"?"Counted out":"In the pit"):o.fx.dead?"Dead":o.flat?"Battery flat":o.immobileS>0?`Immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"Upside down":o.held!=null?"Lifted":o.under?"Under a wedge":heat>0.85?"Overheating":"";
+    const st=o.out?(o.out==="ko"?"Counted out":"In the pit"):o.fx.dead?"Dead":o.flat?"Battery flat":o.immobileS>0?`Immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"Upside down":o.held!=null?"Lifted":o.under?"Wedged: no grip":heat>0.85?"Overheating":"";
     const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;
     /* where the status line is hidden (a rumble, a phone on its side), the status takes the worst part's place */
     const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
@@ -605,8 +608,8 @@ function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watc
 /* chip rows (wrap on a phone): [[value, label html]] */
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
-  return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),FT.opp):""}
-    ${ftChips("ftopp","Club regulars",SIM.TEST_BUILDS.map(t=>[t.id,`${esc(lvOppName("tb:"+t.id,t.name))} <small>${esc(t.name.toLowerCase())}</small>`]),FT.opp)}
+  return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),cur.id):""}
+    ${ftChips("ftopp","Club regulars",SIM.TEST_BUILDS.map(t=>[t.id,`${esc(lvOppName("tb:"+t.id,t.name))} <small>${esc(t.name.toLowerCase())}</small>`]),cur.id)}
     <p class="hint" id="ftOppLine">${ftOppLine(cur)}</p></div>`;}
 function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.name)}</b> · ${esc(o.livery.name)}`:`<b>${esc(o.name)}</b>`;
   if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
