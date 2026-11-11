@@ -292,7 +292,7 @@ function ftTipDone(all){const el=$("fTip"),T=ftTips(),was=!!FT.tipHold;
   if(el&&(all||el.classList.contains("dock")))el.remove();
   const b=document.querySelector('.fbtn[data-fv="2d"]');if(b)b.classList.remove("nudge");
   if(all&&was){FT.tipHold=false;FT.last=performance.now();FT.acc=0;}save();if(FT.on)ftOverlay();}
-function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL()||!!ST().map2d;const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
+function ftEnter(){const F=FT.F;FT.on=true;if(window.SCRAP_VIS)SCRAP_VIS.setRun({paused:false});FT.view2d=!ftGL()||!!ST().map2d;const tip=ftTipWant();FT.tipHold=!!(tip&&tip.drive);$("app").classList.add("fighting");
   document.documentElement.classList.add("infight");   // no backup reminder or update bar over a fight (savecode.js, css)
   const old=$("fov");if(old)old.remove();
   const el=document.createElement("div");el.id="fov";el.className="fov";
@@ -341,7 +341,7 @@ function ftPinchOn(){const v=$("view");if(!v||FT.pinch)return;const P=FT.ptrs=ne
   const wheel=e=>{if(!FT.on||skip(e))return;e.preventDefault();set((FT.zoom||1)*(1+Math.sign(e.deltaY)*0.08));};
   v.addEventListener("pointerdown",down);v.addEventListener("pointermove",move);v.addEventListener("pointerup",up);v.addEventListener("pointercancel",up);v.addEventListener("wheel",wheel,{passive:false});
   FT.pinch=()=>{v.removeEventListener("pointerdown",down);v.removeEventListener("pointermove",move);v.removeEventListener("pointerup",up);v.removeEventListener("pointercancel",up);v.removeEventListener("wheel",wheel);P.clear();};}
-function ftExit(){const rl=!!FT.reel;FT.reel=null;FT.tipHold=false;if(FT.watch)toastHold(false);FT.watch=null;clearTimeout(RL.t);if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");const el=$("fov");if(el)el.remove();
+function ftExit(){const rl=!!FT.reel;FT.reel=null;FT.tipHold=false;if(FT.watch)toastHold(false);FT.watch=null;clearTimeout(RL.t);if(FT.rp||(FT.F&&FT.F.reason==="stopped"))SCRAP_VOICE.stop();FT.on=false;if(FT.pinch){FT.pinch();FT.pinch=null;}PIT.close();CONTROLS.unmount();if(FT.rp){FT.rp=null;FT.F=ftShown();}SCRAP_SOUND.stop();$("app").classList.remove("fighting");document.documentElement.classList.remove("infight");bViewSync();const el=$("fov");if(el)el.remove();
   if(window.SCRAP_VIS){SCRAP_VIS.setView("workshop");SCRAP_VIS.setFight(null);}
   FT.sub=rl?"reel":ftResSub();
   ftRender();const r=$(rl?"rlCard":"ftResCard");if(r)r.scrollIntoView({block:"start"});}

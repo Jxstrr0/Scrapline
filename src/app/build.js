@@ -190,6 +190,57 @@ function bArmourMap(){const r=bEval(),A=r.armourMapJ,sel=B.face;
     ${ln("front",22,18,98,18)}${ln("back",22,132,98,132)}${ln("left",18,22,18,128)}${ln("right",102,22,102,128)}
     <text x="60" y="10" text-anchor="middle" font-size="9" fill="var(--dim)">FRONT</text></svg>`;}
 
+/* ---- the plan view (UI round two, release E, 0.1.62; docs/SCRAPLINE-UI-PLAN.md section 8) ----
+   A Plan / 3D switch in the corner of the view, on the Build tab only (not on the home screen or in a fight). Plan is an
+   SVG laid over the 3D canvas, dark in both themes like the rest of #view: the chassis cell by cell, each part as a
+   labelled block (SIM.footprints and the build's layout.place, the same maths as bLayout below), each side's armour as an
+   edge stroke coloured and weighted as in bArmourMap, the centre of mass, and FRONT at the top. Tapping a part or a
+   side opens its section on the Parts page; a tap that misses by under 22 px still counts, so a small part is a 44 px
+   target. Moving parts stays in the Layout section. While Plan shows, the 3D render is paused on every tier
+   (SCRAP_VIS.setRun({paused})) and the auto-adjust watch starts over, so the switch never lowers the graphics.
+   The choice is settings.buildView ("3d" unless "plan"). PLAN_SEC: a footprint's slot to its Build section. */
+const PLAN_SEC={weapon:"weapon",drive:"drive",battery:"power",electronics:"power",back:"attach",extras:"extras"},PLAN_W=80;   // the drawing is PLAN_W units wide in every class, so labels are the same size
+const bPlanOn=()=>ST().buildView==="plan";
+function bViewSync(){const v=$("bView"),p=$("bPlan");if(!v||!p)return;
+  const can=curTab==="build"&&!document.documentElement.classList.contains("home")&&!$("app").classList.contains("fighting"),on=can&&bPlanOn();
+  v.hidden=!can;p.hidden=!on;document.documentElement.classList.toggle("bplan",on);
+  v.querySelectorAll("button").forEach(b=>{const o=(b.dataset.bview==="plan")===bPlanOn();b.classList.toggle("on",o);b.setAttribute("aria-pressed",o);});
+  if(window.SCRAP_VIS)SCRAP_VIS.setRun({paused:on});
+  if(on!==bViewSync.was){bViewSync.was=on;if(typeof perfReset==="function")perfReset(true);}
+  if(on)p.innerHTML=bPlanSvg();}
+/* the parts and sides of the plan, in its own units (PLAN_U a cell): what bPlanSvg draws and bPlanHit measures */
+function bPlanItems(){const r=bEval(),c=SIM.CLASSES[bCls()],fps=SIM.footprints(draft()),PLAN_U=PLAN_W/c.gridW,W=c.gridW*PLAN_U,H=c.gridH*PLAN_U,pl=r.layout.place,out=[];
+  for(const f of fps){const p=pl[f.key];if(!p)continue;const kind=f.slot==="extras"?f.id:f.slot;
+    out.push({kind:"part",key:f.key,slot:f.slot,label:L_LBL[kind]||kind,sec:PLAN_SEC[f.slot]||"layout",x:p[0]*PLAN_U,y:p[1]*PLAN_U,w:f.w*PLAN_U,h:f.h*PLAN_U});}
+  const E=9;for(const [f,x1,y1,x2,y2] of [["front",0,-E,W,-E],["back",0,H+E,W,H+E],["left",-E,0,-E,H],["right",W+E,0,W+E,H]])out.push({kind:"face",face:f,sec:"armour",x1,y1,x2,y2});
+  return{r,W,H,U:PLAN_U,items:out};}
+function bPlanSvg(){const {r,W,H,U,items}=bPlanItems(),c=SIM.CLASSES[bCls()],A=r.armourMapJ;
+  const sw=f=>A[f].id==="none"?1.5:2+Math.min(7,A[f].prot*9),col=f=>A[f].id==="none"?"var(--crit)":A[f].prot>0.6?"var(--good)":A[f].prot>0.35?"var(--warn)":"var(--crit)";
+  let cells="";for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(r.cells[y][x]!=null)cells+=`<rect x="${x*U}" y="${y*U}" width="${U}" height="${U}"/>`;
+  const faces=items.filter(i=>i.kind==="face").map(i=>`<g class="pf" tabindex="0" role="button" data-pface="${i.face}" aria-label="${FACE_LBL[i.face]} armour: ${esc(A[i.face].name)}. Open Armour"><line x1="${i.x1}" y1="${i.y1}" x2="${i.x2}" y2="${i.y2}" stroke="${col(i.face)}" stroke-width="${sw(i.face).toFixed(1)}" stroke-linecap="round"${A[i.face].id==="none"?' stroke-dasharray="4 4"':""}/></g>`).join("");
+  const parts=items.filter(i=>i.kind==="part").map(i=>{const fs=Math.min(8,Math.max(5,(i.w-3)/(i.label.length*0.56)));
+    return`<g class="pp ${i.slot}" tabindex="0" role="button" data-ppart="${i.key}" aria-label="${esc(i.label)}. Open its section"><rect x="${i.x+1.5}" y="${i.y+1.5}" width="${i.w-3}" height="${i.h-3}" rx="3"/><text x="${i.x+i.w/2}" y="${i.y+i.h/2}" font-size="${fs.toFixed(1)}">${esc(i.label)}</text></g>`;}).join("");
+  const cx=W*(0.5+r.com.x/r.widthM),cy=H*(0.5-r.com.y/r.lengthM);
+  return`<svg viewBox="-16 -26 ${W+32} ${H+42}" role="group" aria-label="Plan of the bot from above: tap a part or a side to open its section">
+    <text class="pfront" x="${W/2}" y="-19">FRONT</text><g class="pcell">${cells}</g>${faces}${parts}
+    <g class="pcom" aria-hidden="true"><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5"/><circle class="d" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2"/></g></svg>
+    <p class="pkey"><i aria-hidden="true"></i>centre of mass</p>`;}
+/* what a tap at (clientX, clientY) is on: a part it is inside, else the nearest part or side within 22 px */
+function bPlanHit(px,py){const svg=document.querySelector("#bPlan svg");if(!svg||!svg.getScreenCTM)return null;const m=svg.getScreenCTM();if(!m)return null;
+  const pt=svg.createSVGPoint();pt.x=px;pt.y=py;const q=pt.matrixTransform(m.inverse()),lim=22/Math.max(0.01,m.a);let best=null,bd=lim;
+  for(const i of bPlanItems().items){let d;
+    if(i.kind==="part"){const dx=Math.max(i.x-q.x,0,q.x-i.x-i.w),dy=Math.max(i.y-q.y,0,q.y-i.y-i.h);d=Math.hypot(dx,dy);if(d===0)return i;}
+    else{const tx=Math.max(Math.min(q.x,Math.max(i.x1,i.x2)),Math.min(i.x1,i.x2)),ty=Math.max(Math.min(q.y,Math.max(i.y1,i.y2)),Math.min(i.y1,i.y2));d=Math.hypot(q.x-tx,q.y-ty);}
+    if(d<bd){bd=d;best=i;}}
+  return best;}
+function bPlanGo(i){if(!i)return;if(i.kind==="face")B.face=i.face;bOpenSec(i.sec);}
+function bPlanBind(){const v=$("bView"),p=$("bPlan");if(!v||!p)return;
+  v.addEventListener("click",e=>{const b=e.target.closest("[data-bview]");if(!b)return;const w=b.dataset.bview==="plan"?"plan":"3d";if(ST().buildView===w)return;ST().buildView=w;save();bViewSync();});
+  p.addEventListener("click",e=>{bPlanGo(bPlanHit(e.clientX,e.clientY));});
+  p.addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ")return;const g=e.target.closest("[data-ppart],[data-pface]");if(!g)return;e.preventDefault();
+    const it=bPlanItems().items.find(i=>g.dataset.ppart?i.key===g.dataset.ppart:i.face===g.dataset.pface);bPlanGo(it);});}
+bPlanBind();
+
 /* ---- layout editor ---- */
 const L_LBL={drive:"Drive",battery:"Battery",electronics:"ESC",weapon:"Weapon",selfright:"Righter",minibot:"Minibot"};
 function bLayout(){const r=bEval(),c=SIM.CLASSES[bCls()],cfg=draft(),fps=SIM.footprints(cfg),W=c.gridW,H=c.gridH,pl=r.layout.place;
@@ -249,7 +300,7 @@ function bDesignsBody(){const L=bDesigns(),cls=bCls();
     <p>Load puts a design in the draft; nothing is bought until you fit it.</p>`;}
 
 /* ---- the pinned bar, the Fit bar, the rows ---- */
-function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
+function bRender(){visBot();bViewSync();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B.sel))B.sel=null;
   const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;

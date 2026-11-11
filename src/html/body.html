@@ -3,6 +3,9 @@
 <div id="app">
   <div id="view">
     <canvas id="gl" aria-label="Your robot on the workbench" role="img"></canvas>
+    <!-- the plan view (0.1.62, app/build.js): a top-down drawing laid over the 3D view on the Build tab, and its switch -->
+    <div id="bPlan" hidden></div>
+    <div class="seg" id="bView" role="group" aria-label="Build view" hidden><button type="button" data-bview="3d">3D</button><button type="button" data-bview="plan">Plan</button></div>
     <div id="hud">
       <div class="brand">Scrapline<small id="weekLbl">The Haldis · Velmark</small></div>
       <div class="money"><b id="cashLbl"></b><span id="repLbl"></span><i id="cashDelta" class="delta" aria-hidden="true"></i></div>
