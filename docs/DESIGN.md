@@ -819,3 +819,11 @@ A fourth Tuning dial for any spinner with a disc or a drum (horizontal, vertical
 
 The post-mortem tells a pit-out nobody caused apart from one the other bot forced: with no hit, shove, wedge or grab in the four seconds before, it says the bot was driven in and points at the 2D map and the School. The repair window between rounds is reached by To the pit crew. On the Career tab the repairs card has one bright Fix everything button with the bill's cost and hours, and a line saying what it is short by; Close week asks before closing when an affordable repair is still waiting.
 
+
+## The sheet (0.1.58, UI round two, release A)
+
+- **Two pages on Build:** Sheet and Parts, a switch under the weight bar (`B.page`). Parts is the section list as before, with the four stats (`#bCap`) above it. Build opens on Parts for a class with nothing fitted and on Sheet once a bot is fitted; the choice is made again when the class changes. The verdict chip sits beside the switch.
+- **The Sheet** is a table, one row a number, what the maths predicts beside what the bench measured (`SHEET_ROWS` in `src/app/sheet.js`): top speed, push, spin on the spot, spin-up, hit energy, runtime, weakest face, front edge, drop. Weapon rows are left out for a bot with no weapon. The bench cell is one of: the reading and a tick; the reading in amber with the gap in words; **Test · 0.5 h** (opens the Bench at that test); **Run again** (the bot was refitted since); **Fit first** (the draft is not the fitted bot).
+- **Never marked:** spin-up (the bench runs a real motor, so it is always a little slower than energy over power; the gap is said in words) and hit energy (stored on the sheet, delivered on the bench).
+- **Mass bands:** the weight bar is cut into a band per group, grams under each; tapping a band or its label opens that section on Parts.
+- **Next bout** (career only): one line above the bar, today's fight with the opponent's name, or the next event you can enter with its week. It opens Career › This week.
