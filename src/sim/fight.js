@@ -82,7 +82,8 @@ const FIGHT={
   invertM:[0.08,0.25],        // a flip or throw this high (m, x len) may land the bot upside down, rising to ...
   invertMax:0.85,             // ... this chance at the top of the range
   holdMaxS:10,                // the league's rule: a lift or a pin lets go after this long ...
-  releaseS:1.2, releaseThr:0.7,   // ... and a pin (under a wedge or against a wall) is broken by the pinner backing off this long, at this throttle
+  releaseS:2, releaseThr:0.7,   // ... and a pin (under a wedge or against a wall) is broken by the pinner backing off this long, at this throttle
+  pinClearS:4,                // 0.1.57: after the rule breaks a pin, that pinner can't get under that bot again for this long (it can still shove it)
   liftGrip:0.1,               // a bot held up on a lifter or in a crusher keeps this share of grip
   tipS:0.8, tipM:0.05, tipP:0.75,   // a lifter that holds a bot this long and lifts this high (m, x len) tips it over this often
   crushS:1, crushOpenS:0.6, crushAbsorb:0.5,   // a crusher's bite, opening again, and the share of absorb its point leaves
@@ -526,6 +527,7 @@ function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_
     const sc=o=>(o.cfg.extras.indexOf("skid")>=0?2:0)+(["wedge","lifter","flipper"].indexOf(o.b.weapon.type)>=0?part("weaponMaterial",o.cfg.weaponMaterial).hp/1000:part("chassis",o.cfg.chassis).hp/1000);
     const a=sc(A),b=sc(B);if(Math.abs(a-b)>1e-9)win=a>b?[A,B]:[B,A];if(win&&!can(win[0],win[1],"front"))win=null;}
   if(!win||win[0].team===win[1].team)return;const[X,Y]=win;
+  if(Y.pinClear&&Y.pinClear.by===X.i&&F.t<Y.pinClear.until)return;   // the pin rule just broke this pair up: no getting straight back under
   const seen=Y.underLog||(Y.underLog={});if(!(seen[X.i]>F.t-1.5))logIt(F,{k:"under",a:X.i,v:Y.i});seen[X.i]=F.t;   // one line per spell under
   Y.under={by:X.i,until:F.t+hold,grip:by==="front"&&X.st.parts.front>0?X.b.front.underGrip:0};if(X.under&&X.under.by===Y.i)X.under=null;}
 function walls(F,o){const H=F.arena.half,gr=grabberOf(F,o);
@@ -591,7 +593,7 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     if(by&&by.team!==o.team&&!by.out&&!by.mini)by.jd.ctrl+=dt;
     /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
-      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
+      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;o.pinClear={by:pinBy.i,until:F.t+FIGHT.releaseS+FIGHT.pinClearS};logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
 function outBot(F,o,why,quiet){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;o.wp.grab=null;}

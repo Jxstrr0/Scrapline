@@ -114,7 +114,7 @@ This file describes the game as it actually is on `main`. It grows as plan PRs l
   
   The Fight tab shows the three scores in a table.
 - **New rules:**
-  - **Pin limit:** a pin (under a wedge, or against a wall) is broken after 10 s, like a lift: the pinner backs straight away from the pinned bot for 1.2 s (forwards if it was pinning with its rear).
+  - **Pin limit:** a pin (under a wedge, or against a wall) is broken after 10 s, like a lift: the pinner backs straight away from the pinned bot for 2 s (1.2 s before 0.1.57), and can't get under that bot again for 4 s after that (`FIGHT.pinClearS`; it can still shove it) (forwards if it was pinning with its rear).
   - **Discs against wedges:**
     - A vertical disc or drum spinning above half speed meets a wedge first, so nothing gets under its front (not even on a tie between two equal front edges).
     - A vertical that hits a sloped front (wedge, flipper, lifter) catches the lip: 1.8x the energy (drum 1.3x), no glance.
@@ -430,7 +430,7 @@ Kelbo's ElevenLabs pack: 214 lines, Duncan Steiner on the PA (the announcer) and
 - Balance (0.1.12.0 numbers): the Horizontal spinner sits just over 65% in ant, hobby and heavy (67%, 67%, 66%), the Lifter at 66% in ant and the Vertical spinner at 67% in feather. All are within the sampling noise. The spinner's disc is shared with the Glass cannon, which is already near the bottom, so nerfing the part would push the Glass cannon under.
   - The pit still decides most small-class fights (68% of ant, 56% of beetle).
   - Named bots are stronger than the test builds by design (better drivers): Zange 82%, Glockenschlag 75%, Holzwurm 71%. The career sets who meets whom.
-- The pin limit takes over the player's drive for 1.2 s; the fight screen's note says so.
+- The pin limit takes over the player's drive for 2 s; the fight screen's note says so.
 - The HUD shows the weapon's speed as a bar, not rpm.
 - The 3D view doesn't interpolate between sim steps; Lite draws at 30 fps, so this hasn't mattered.
 - The results card's damage % still includes carried-in damage (the judges don't).
