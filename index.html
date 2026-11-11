@@ -151,16 +151,16 @@ details.raw{margin-top:12px}
 .bwtop{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
 .bwtop h2{margin:0;font-size:18px}
 .bwtop h2 span{font-size:14px;font-weight:500;color:var(--muted)}
-.bwtrack{height:8px;margin:7px 0;border-radius:4px;background:var(--card2);overflow:hidden}
-.bwtrack i{display:block;width:0;height:100%;border-radius:4px;background:var(--clay);transition:width .25s}
+.bwtrack{display:flex;gap:1px;height:8px;margin:7px 0;border-radius:4px;background:var(--card2);overflow:hidden;cursor:pointer}
+.bwtrack i{display:block;flex:none;width:0;height:100%;background:var(--clay);transition:width .25s}
+.bwtrack i:nth-child(even){opacity:.62}
 .bwbar.near .bwtrack i{background:var(--warn)} .bwbar.over .bwtrack i{background:var(--crit)}
-.bcap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:end;gap:4px 10px;color:var(--muted)}
+.bcap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:4px 10px;color:var(--muted)}
 .bst{display:flex;flex-direction:column;min-width:0}
 .bst small{font-size:12px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bst b{font-size:15px;line-height:1.25;color:var(--ink);font-weight:600;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .bst b i{font-style:normal;font-weight:400;font-size:12px;color:var(--muted)}
 .bcap .chip{align-self:center}
-@media (max-width:380px){.bcap{grid-template-columns:repeat(2,minmax(0,1fr)) auto}.bcap .chip{grid-column:3;grid-row:1}}
 .chip{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid currentColor;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
 .acc{margin:0 0 8px;border:1px solid var(--rule);border-radius:12px;background:var(--card);overflow:hidden}
 .acch{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-height:50px;padding:10px 14px;text-align:left}
@@ -635,6 +635,33 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
 .tpcup{width:30px;height:30px;fill:none;stroke:#AEB3BA;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .tpcup.gold{stroke:#D9B24C}
 :root[data-theme=light] .tpcup{stroke:#6E737A} :root[data-theme=light] .tpcup.gold{stroke:#9C7420} :root[data-theme=light] .tp.gold{border-color:#B08A2E}
+
+/* ---- the sheet, the matchup, the drawn post-mortem (UI round two) ---- */
+/* release A (0.1.58): mass bands under the weight bar, the Sheet / Parts switch, the sheet table, the Next bout banner */
+.bbands{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;margin:-6px 0 10px}
+.bbands button{min-height:44px;padding:2px 0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;border-radius:8px;text-align:left}
+.bbands small{font-size:11px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bbands b{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.bbands button:active{background:var(--card2)}
+.bpage{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.bpage .seg{flex:1}
+.bnext{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;margin:-4px 0 18px;padding:6px 12px;border-radius:12px;background:var(--card);border:1px solid var(--rule);font-size:14px;color:var(--muted);text-align:left}
+.bnext[hidden]{display:none}
+.bnext b{color:var(--clay-t);font-weight:600;margin-right:6px}
+.bnext .chev{flex:none;width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg)}
+.sheet{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 14px}
+.sheet caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sheet thead th{padding:0 6px 6px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.sheet tbody th{padding:8px 6px 8px 0;text-align:left;font-weight:500;color:var(--muted);width:31%;line-height:1.2}
+.sheet tbody td{padding:6px;color:var(--ink);font-variant-numeric:tabular-nums;vertical-align:middle}
+.sheet tbody tr{border-top:1px solid var(--rule)}
+.sheet tbody tr>*{height:48px}
+.sheet .shb{color:var(--lilac)}
+.sheet .shb.off,.sheet .shb .worn{color:var(--warn)}
+.sheet .shb small{display:block;font-size:12px}
+.sheet .shdim{color:var(--dim);font-family:var(--font)}
+.sheet .shtick{margin-left:6px;color:var(--good);font-weight:700}
+.sheet .shtest{min-height:44px;white-space:nowrap;font-family:var(--font)}
 </style>
 
 <div id="app">
@@ -653,11 +680,15 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
   <div id="panel">
     <!-- BUILD: design the robot under the weight limit -->
     <section class="tabpage on" id="tab-build" aria-labelledby="h-build">
+      <button type="button" class="bnext" id="bNext" hidden></button>
       <div class="bwbar" id="bwBar">
         <div class="bwtop"><h2 id="h-build">Build <span id="bwCls"></span></h2><span class="mono" id="bwNum"></span></div>
-        <div class="bwtrack" role="meter" id="bwMeter" aria-labelledby="h-build" aria-valuemin="0"><i id="bwFill"></i></div>
+        <div class="bwtrack" role="meter" id="bwMeter" aria-labelledby="h-build" aria-valuemin="0"></div>
         <div class="bcap" id="bCap"></div>
       </div>
+      <div class="bbands" id="bBands" role="group" aria-label="Mass budget by group"></div>
+      <div class="bpage"><div class="seg" id="bPage" role="group" aria-label="Build page"><button type="button" data-bpage="sheet">Sheet</button><button type="button" data-bpage="parts">Parts</button></div><span id="bVerdict"></span></div>
+      <div id="bSheet" hidden></div>
       <div id="bRows"></div>
       <div class="fitbar" id="fitBar" hidden></div>
       <details class="raw" id="bxRaw" hidden><summary>Raw evalBuild() result</summary><pre class="mono" id="simOut"></pre></details>
@@ -5885,7 +5916,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.57.0";
+const VERSION="0.1.58.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6973,14 +7004,38 @@ function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B
   const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
-  $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
+  bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
+  /* the mass budget in bands (0.1.58): one band a group, widths in grams of the limit (squeezed to fit when over) */
+  const G=shGroups(r),sc=100/Math.max(r.limitG,r.totalG);
+  $("bwMeter").innerHTML=G.map(g=>`<i data-band="${g.sec}" style="width:${(g.g*sc).toFixed(2)}%"></i>`).join("");
+  $("bBands").innerHTML=G.map(g=>`<button type="button" data-band="${g.sec}"><small>${g.label}</small><b class="mono">${Math.round(g.g).toLocaleString("en-GB")}</b></button>`).join("");
+  /* Sheet or Parts (0.1.58): Parts until a bot is fitted in the class, Sheet after; picked again when the class changes */
+  if(B.pageCls!==bCls()){B.pageCls=bCls();B.page=bBot().cfg?"sheet":"parts";}
+  if(typeof TUT_ON!=="undefined"&&TUT_ON)B.page="parts";   // the tutorial points at the parts
+  const sheet=B.page==="sheet";
+  document.querySelectorAll("#bPage button").forEach(x=>{const on=x.dataset.bpage===B.page;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});
+  $("bVerdict").innerHTML=`<span class="chip ${v[0]}">${v[1]}</span>`;
+  $("bCap").hidden=sheet;$("bRows").hidden=sheet;$("bSheet").hidden=!sheet;
+  $("bSheet").innerHTML=sheet?sheetHtml(bCls(),draft()):"";
+  bNextBout();
   const m=$("bwMeter");m.setAttribute("aria-valuemax",r.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
   const run=r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":`${Math.floor(r.runtimeS/60)}:${String(Math.round(r.runtimeS%60)).padStart(2,"0")}`,cell=(l,v)=>`<span class="bst"><small>${l}</small><b>${v}</b></span>`;
   $("bCap").innerHTML=cell("Top speed",`${r.driveSpeed.toFixed(1)}<i> m/s</i>`)+(w.energyJ>=1?cell("Hit energy",`<span class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</span><i> J</i>`):cell("Weapon",w.type==="none"?"none":esc(w.type)))
-    +cell("Weak side",FACE_LBL[bWeak(r)])+cell("Battery",run)+`<span class="chip ${v[0]}">${v[1]}</span>`;
-  $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
+    +cell("Weak side",FACE_LBL[bWeak(r)])+cell("Battery",run);
+  $("bRows").innerHTML=sheet?"":B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
+/* the Next bout banner (0.1.58), career only: today's next fight when an event day is on, else the next event you can
+   enter. It names an opponent only when the draw is known (a fight today). Tapping it goes to Career › This week. */
+function bNextBout(){const el=$("bNext");if(!el)return;let t="";
+  if(crOn()&&!S.career.over){const c=S.career;
+    if(c.day){const nx=crNext(c.day);if(nx){const vs=nx.idx.filter(i=>i!==0).map(i=>c.day.field[i]).filter(Boolean).map(e=>lvOppName(e.id,e.name));
+      t=`<b>Next bout</b> ${esc(nx.label)}${vs.length?" vs "+esc(crAnd(vs)):""}`;}}
+    else{const e=crCalendar().find(e=>e.week>=c.week&&e.week<=TIME.weeks&&!c.events[crKey(e)]&&!crClassLock(e.cls)&&S.bots[e.cls]&&S.bots[e.cls].cfg);
+      if(e)t=`<b>Next bout</b> ${esc(e.name)} · ${e.week===c.week?"this week":"week "+e.week}`;}}
+  el.hidden=!t;el.innerHTML=t?`<span>${t}</span><span class="chev" aria-hidden="true"></span>`:"";}
+/* open one section on the Parts page (a mass band, and the post-mortem's Fix it) */
+function bOpenSec(id){B.page="parts";B.pageCls=bCls();B.open={[id]:true};bRender();bToHead(id);}
 function bFitBar(r){const b=bBot(),fb=$("fitBar");
   if(b.cfg&&SIM.sameParts(b.cfg,b.draft)){fb.hidden=true;return;}
   const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid,n=bill.lines.length,off=bill.removed.length;
@@ -7018,6 +7073,10 @@ function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))
 function bToHead(id){const r=document.querySelector(`#bRows [data-sec="${id}"]`),P=$("panel"),bar=$("bwBar");if(!r||!P)return;const d=r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8;if(d)P.scrollTo({top:P.scrollTop+d,behavior:"auto"});}
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
+  if((x=t.closest("[data-bpage]"))){if(B.page!==x.dataset.bpage){B.page=x.dataset.bpage;bRender();pageIn($(B.page==="sheet"?"bSheet":"bRows"));}return;}
+  if((x=t.closest("[data-band]"))){bOpenSec(x.dataset.band);return;}
+  if(t.closest("#bNext")){goTo("career/week");return;}
+  if((x=t.closest("[data-shtest]"))){const id=x.dataset.shtest;BN.pick=[id];showTab("bench");const c=document.querySelector(`#bnBody [data-test="${id}"]`);if(c)c.scrollIntoView({block:"start",behavior:"auto"});return;}
   if(t.closest('[data-act="team"]')){lvOpen();return;}
   if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was){bToHead(id);const nb=document.querySelector(`#bRows [data-sec="${id}"] .accb`);if(nb&&!reduced())nb.classList.add("pgin");}return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
@@ -7278,6 +7337,77 @@ TAB_RENDER.bench=function(){
   if(!bnRender.bound){bnRender.bound=true;$("tab-bench").addEventListener("click",bnClick);
     let rt=0;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(curTab==="bench")bnPlots();},200);});}
   bnRender();};
+/* ===================== app/sheet.js: the bot as a data sheet (UI round two, release A, 0.1.58) =====================
+   Build › Sheet shows, row by row, what the build maths predicts (evalBuild) beside what the bench measured (runBench),
+   and a button to run the test where there is no reading yet. docs/SCRAPLINE-UI-PLAN.md section 3. Nothing is stored:
+   the numbers are worked out from the cfg each time, as the Bench does (app/bench.js).
+   - SHEET_ROWS: one entry per row: {id, label, test (a BENCH_TESTS id), when(b) (leave the row out), calc(b), bench(r,b),
+     fmt(v), tol, better}. calc and bench return a number, or a string for a row in words. tol is the share the two may
+     differ by before the bench cell is marked; better is "hi", "lo" or null (null: the two are shown, never marked,
+     because they are two different measurements).
+       spin-up     both are the time to full speed, but not by the same route: the sheet has it from stored energy over
+                   motor power; the bench runs the motor, whose torque runs out at low rpm and which loses power to the
+                   air, so the bench is always slower (1.50 s against 1.32 s on the default bot). The gap is the model,
+                   not a fault in the bot, so the row says the gap in words (gap: "lo") and is never marked.
+       hit energy  two different things: the energy the disc stores, and what one hit on the anvil delivers (stored x
+                   bite). Labelled "stored" and "delivered", never marked.
+   - sheetRows(cls, cfg): [{id, label, test, calc, calcText, bench, benchText, state, delta, hours}], state one of
+       ok     tested, and within tol (or a row that is never marked)
+       off    tested, and worse than the sheet by more than tol
+       none   not tested
+       stale  tested before the last fit
+       draft  cfg is not the fitted bot (the bench only tests what's fitted)
+   - sheetNum(cls, id): the best number for one row of the FITTED bot: {v, text, bench} (bench: true when measured), or
+     null. The matchup and the post-mortem (releases C and D) read it.
+   - shGroups(b): the mass budget in bands, [{id, label, g, sec}], from evalBuild's items; sec is the Build section a tap
+     on the band opens. */
+const sh2=v=>(Math.round(v*100)/100).toFixed(2),sh1=v=>(Math.round(v*10)/10).toLocaleString("en-GB"),sh0=v=>Math.round(v).toLocaleString("en-GB");
+const shSpin=b=>b.weapon.type==="spinner"&&isFinite(b.weapon.spinUpS)&&b.weapon.spinUpS>0;
+const SHEET_ROWS=[
+  {id:"speed",label:"Top speed",test:"drive",calc:b=>b.driveSpeed,bench:r=>r.topSpeed,fmt:v=>sh2(v)+" m/s",tol:0.05,better:"hi"},
+  {id:"push",label:"Push",test:"drive",calc:b=>b.pushN,bench:r=>r.pushN,fmt:v=>sh1(v)+" N",tol:0.05,better:"hi"},
+  {id:"turn",label:"Spin on the spot",test:"drive",calc:b=>b.turnRate*180/Math.PI,bench:r=>r.turnDegS,fmt:v=>sh0(v)+" °/s",tol:0.05,better:"hi"},
+  {id:"spinup",label:"Spin-up",test:"weapon",when:shSpin,calc:b=>b.weapon.spinUpS,bench:r=>r.kind==="spin"?(r.spinUpS==null?"never reaches full speed":r.spinUpS):null,fmt:v=>sh2(v)+" s",tol:0,better:null,gap:"lo"},
+  {id:"hit",label:"Hit energy",test:"weapon",when:b=>b.weapon.energyJ>=1,calc:b=>b.weapon.energyJ,bench:r=>r.hitJ,fmt:v=>sh0(v)+" J",calcNote:"stored",benchNote:"delivered",tol:0,better:null},
+  {id:"runtime",label:"Runtime",test:"endurance",calc:b=>b.runtimeS==null||!isFinite(b.runtimeS)?"no limit":b.runtimeS,bench:r=>r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":r.runtimeS,fmt:v=>sh0(v)+" s",tol:0.05,better:"hi"},
+  {id:"weak",label:"Weakest face",test:"impact",calc:b=>FACE_LBL[b.weakestFace],bench:r=>r.weakest?`${FACE_LBL[r.weakest]}, fails at ${sh0(r.faces[r.weakest].failJ)} J`:"nothing failed",tol:0,better:null},
+  {id:"edge",label:"Front edge",test:"gauge",calc:b=>b.height.frontEdgeMm,bench:r=>{const u=r.rows.filter(q=>q.under).map(q=>q.mm);return u.length?`gauges to ${Math.max(...u)} mm get under`:"no gauge gets under";},fmt:v=>(Math.round(v*10)/10)+" mm",tol:0,better:null},
+  {id:"drop",label:"Drop",test:"drop",calc:()=>null,bench:r=>{const u=r.upright,i=r.inverted,dead=(u.parts||[]).concat(i.parts||[]).filter(p=>p.destroyed);
+    return dead.length?`breaks the ${dead[0].name}`:!u.canDrive||!i.canDrive?"can't drive after":i.outcome==="stuck"?"survives, stuck upside down":"survived";},tol:0,better:null}
+];
+const shText=(row,v,note)=>v==null?"–":typeof v==="string"?v:row.fmt(v)+(note?" "+note:"");
+/* the gap in words: "0.18 s slower", "0.3 m/s short" */
+function shGap(row,c,m){const d=Math.abs(m-c);return (row.better||row.gap)==="lo"?row.fmt(d)+" slower":row.fmt(d)+" short";}
+function sheetRows(cls,cfg){const bot=S.bots[cls],fitted=!!(bot&&bot.cfg),same=fitted&&bnSig(bot.cfg)===bnSig(cfg),b=same?bnBuild(bot.cfg).b:bEv(cfg);
+  const done=same?bnDone(bot):[],old=same&&bot.bench&&bot.bench.sig!==bnSig(bot.cfg)&&Array.isArray(bot.bench.done)?bot.bench.done:[];
+  return SHEET_ROWS.filter(r=>!r.when||r.when(b)).map(row=>{const c=row.calc(b),t=SIM.BENCH_TESTS.find(x=>x.id===row.test),
+      o={id:row.id,label:row.label,test:row.test,testName:t?t.name:row.test,calc:c,calcText:shText(row,c,row.calcNote),bench:null,benchText:"",state:"none",delta:"",hours:bnHours([row.test])};
+    if(!same)o.state="draft";
+    else if(done.indexOf(row.test)>=0){const m=row.bench(bnResult(bot.cfg,row.test),b);o.bench=m;o.benchText=shText(row,m,row.benchNote);o.state="ok";o.plain=!row.better||typeof m!=="number"||typeof c!=="number";
+      if(m==null){o.state="none";}
+      else if(row.gap&&typeof m==="number"&&typeof c==="number"&&m-c>0.005){o.delta=shGap(row,c,m);}
+      else if(row.better&&typeof m==="string"&&typeof c==="number"){o.state="off";}
+      else if(!o.plain){const worse=row.better==="lo"?m-c:c-m;if(worse>Math.abs(c)*row.tol+1e-9){o.state="off";o.delta=shGap(row,c,m);}}}
+    else if(old.indexOf(row.test)>=0)o.state="stale";
+    return o;});}
+function sheetNum(cls,id){const bot=S.bots[cls];if(!bot||!bot.cfg)return null;const r=sheetRows(cls,bot.cfg).find(x=>x.id===id);if(!r)return null;
+  const m=r.state==="ok"||r.state==="off";return m?{v:r.bench,text:r.benchText,bench:true}:{v:r.calc,text:r.calcText,bench:false};}
+/* the mass budget in bands */
+const SH_GROUPS=[["chassis","Chassis","chassis",["chassis","body"]],["armour","Armour","armour",["armour"]],["weapon","Weapon","weapon",["weapon","weaponMaterial","front","back"]],
+  ["drive","Drive","drive",["drive","wheels","wheelbase"]],["battery","Battery","power",["battery"]],["electronics","ESC","power",["electronics"]],["extras","Extras","extras",null]];
+function shGroups(b){const known={};for(const g of SH_GROUPS)if(g[3])for(const s of g[3])known[s]=g[0];
+  const sum={};for(const it of b.items){const k=known[it.slot]||"extras";sum[k]=(sum[k]||0)+it.g;}
+  return SH_GROUPS.filter(g=>sum[g[0]]>0.5).map(g=>({id:g[0],label:g[1],sec:g[2],g:sum[g[0]]}));}
+/* the sheet as a table (the Bench cell says the same thing in a tick, a word or a button, never by colour alone) */
+function sheetHtml(cls,cfg){const rows=sheetRows(cls,cfg);
+  const cell=r=>{const h=r.hours?r.hours+" h":"free";
+    if(r.state==="draft")return'<span class="shdim">Fit first</span>';
+    if(r.state==="none")return`<button type="button" class="btn sm shtest" data-shtest="${r.test}" aria-label="Run the ${esc(r.testName.toLowerCase())}: ${h}">Test · ${h}</button>`;
+    if(r.state==="stale")return`<button type="button" class="btn sm shtest" data-shtest="${r.test}" aria-label="Run the ${esc(r.testName.toLowerCase())} again: ${h}">Run again · ${h}</button>`;
+    if(r.state==="off")return`<span class="worn">${esc(r.benchText)}</span>${r.delta?`<small class="worn">${esc(r.delta)}</small>`:""}`;
+    return`<span>${esc(r.benchText)}</span>${r.plain&&r.delta?`<small class="shdim">${esc(r.delta)}</small>`:""}${r.plain?"":'<span class="shtick" role="img" aria-label="matches the sheet">✓</span>'}`;};
+  return`<table class="sheet"><caption>Calculated and bench numbers</caption><thead><tr><td></td><th scope="col">Calc</th><th scope="col">Bench</th></tr></thead><tbody>${
+    rows.map(r=>`<tr><th scope="row">${r.label}</th><td class="mono">${esc(r.calcText)}</td><td class="mono shb ${r.state}">${cell(r)}</td></tr>`).join("")}</tbody></table>`;}
 /* ===================== app/debugview.js: the 2D fight view =====================
    A plain top-down canvas of a SCRAP_SIM fight (plan 7e): the arena outline, each bot's outline with a heading line, its
    weapon's working zone (a spinner's glows with its speed), hit flashes sized by energy, a shadow and a lift when a bot
@@ -8127,7 +8257,7 @@ function ftClick(e){const t=e.target;let x;
     else if(a==="replay")ftReplay(FT.rv);
     else if(a==="build")showTab("build");
     else if(a==="rcode")rcShareOpen();
-    else if(a==="fix"){const id=x.dataset.sec;B.open={[id]:true};showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
+    else if(a==="fix"){const id=x.dataset.sec;B.open={[id]:true};B.page="parts";B.pageCls=bCls();showTab("build");requestAnimationFrame(()=>{const r=document.querySelector(`#bRows [data-sec="${id}"]`);if(r){const P=$("panel"),bar=$("bwBar");P.scrollTo({top:P.scrollTop+r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8,behavior:document.documentElement.classList.contains("reduce")?"auto":"smooth"});const h=r.querySelector(".acch");if(h)h.focus({preventScroll:true});}});}
     else if(a==="career"){CR.sub="week";showTab("career");}
     else if(a==="fit"){const r=bEval();if(!r.valid){toast(r.totalG>r.limitG?"The draft is over the limit: fix it on the Build tab":"The draft can't be fitted: see the Build tab");return;}bFitOpen();}
     return;}
