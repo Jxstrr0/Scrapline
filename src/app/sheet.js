@@ -45,7 +45,7 @@ function sheetRows(cls,cfg){const bot=S.bots[cls],fitted=!!(bot&&bot.cfg),same=f
       o={id:row.id,label:row.label,test:row.test,testName:t?t.name:row.test,calc:c,calcText:shText(row,c,row.calcNote),bench:null,benchText:"",state:"none",delta:"",hours:bnHours([row.test])};
     if(!same)o.state="draft";
     else if(done.indexOf(row.test)>=0){const m=row.bench(bnResult(bot.cfg,row.test),b);o.bench=m;o.benchText=shText(row,m,row.benchNote);o.state="ok";o.plain=!row.better||typeof m!=="number"||typeof c!=="number";
-      if(m==null){o.state="none";}
+      if(m==null){o.benchText="tested";}   /* a test that has run but has no number for this row (a flipper has no anvil hit) */
       else if(row.gap&&typeof m==="number"&&typeof c==="number"&&m-c>0.005){o.delta=shGap(row,c,m);}
       else if(row.better&&typeof m==="string"&&typeof c==="number"){o.state="off";}
       else if(!o.plain){const worse=row.better==="lo"?m-c:c-m;if(worse>Math.abs(c)*row.tol+1e-9){o.state="off";o.delta=shGap(row,c,m);}}}
