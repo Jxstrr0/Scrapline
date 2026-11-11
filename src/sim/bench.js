@@ -78,7 +78,11 @@ function benchDrive(x){const b=asBuild(x),M=classMult(b.cls),dt=1/STEP_HZ,d=b.dr
   while(moves&&s<track&&t<30){const F=Math.min(d.f0*Math.max(0,1-v/d.v0),d.tractionN);v=Math.max(0,v+(F-d.resistN)/m*dt);
     th+=b.pull*BENCH.pullYaw*v/w*dt;s+=v*Math.cos(th)*dt;lat+=v*Math.sin(th)*dt;t+=dt;if(v>top)top=v;if(++n%3===0)trace.push([t,v,lat]);}
   if(moves)trace.push([t,v,lat]);
-  let om=0,ang=0,ts=0;if(b.turnRate>0&&b.turnAccel>0)while(ang<2*Math.PI&&ts<20){om=Math.min(b.turnRate,om+b.turnAccel*dt);ang+=om*dt;ts+=dt;}
+  /* the spin on the spot, stepped as the fight steps it (0.1.55.1; sim/fight.js stepDrive at full lock): both sides push
+     against the tyres' scrub until they are level */
+  const half=w/2,I=Math.max(b.moi,1e-6),scrub=FIGHT.scrub*d.tractionN*b.wheelbase.scrubMul*half/I*dt;
+  let om=0,ang=0,ts=0;if(b.turnRate>0)while(ang<2*Math.PI&&ts<20){const Fs=Math.min(d.f0/2*Math.max(0,1-om*half/d.v0),d.tractionN/2);
+    om+=2*Fs*half/I*dt;om=om<=scrub?0:om-scrub;ang+=om*dt;ts+=dt;}
   return{id:"drive",moves,trackM:track,timeS:moves&&s>=track?t:null,topSpeed:top,predicted:b.driveSpeed,driftMm:lat*1000,
     spinS:ang>=2*Math.PI?ts:null,turnDegS:b.turnRate*180/Math.PI,pushN:b.pushN,trace};}
 
