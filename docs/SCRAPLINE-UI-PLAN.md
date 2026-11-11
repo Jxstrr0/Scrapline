@@ -218,7 +218,7 @@ Control     7.9  █|████    17.1
 
 ---
 
-## 7. Release D (0.1.60): the matchup
+## 7. Release D (0.1.61): the matchup
 
 **Files:** `src/app/fight.js`, `src/app/state.js`, `src/app/career.js` (one call in the bout record), `src/css/style.css`. Check `check-savecode.js` still passes with the new field.
 
@@ -262,7 +262,7 @@ Format ›  Arena ›  Driver ›
 
 ---
 
-## 8. Release E (0.1.61): the plan view
+## 8. Release E (0.1.62): the plan view
 
 Last, and the one to drop if the first four feel like enough.
 
@@ -308,5 +308,5 @@ On Lite, in both themes, portrait and landscape:
 - [x] A, 0.1.58.0 (0.1.57 was taken by the pin fix, so B to E are 0.1.59 to 0.1.62): the sheet (Sheet / Parts on Build, calculated and bench numbers, mass bands, Next bout banner). Found on the two pairs: spin-up is the same quantity by two routes (energy over power on the sheet; a run motor with torque and air losses on the bench), so the gap is shown in words and never marked; hit energy is two things (stored, and delivered = stored x bite), labelled so and never marked. Both `better: null`.
 - [x] B, 0.1.59.0: the bench session (tested strip, one open card with its calc line, pick and run). The Run session bar shows only while a test is ticked, so it never covers the list.
 - [x] C, 0.1.60.0: the post-mortem, drawn (numbered markers, the pinned lane, judges as bars, Test it). The log has no end for a spell under a wedge, so the lane replays the fight from its log and reads the bot's state each step; no sim change. The judges' table stays on the result card just above, with bars; the post-mortem's headline carries the two totals.
-- [ ] D, 0.1.60: the matchup (tale of the tape, last meeting, one advice line, `S.met`, `SAVE_V` 20)
-- [ ] E, 0.1.61: the plan view (Plan / 3D on Build, remembered in settings)
+- [x] D, 0.1.61.0: the matchup (tale of the tape, last meeting, one advice line, `S.met`, `SAVE_V` 20). Hit energy on the tape is the stored energy on both sides, never the bench's anvil hit, so the two numbers compare. A rumble is not recorded (there is no one opponent to record it against); each round of a best of three is. The Fight bar's button reads Change, to fit beside Fight at 360 px.
+- [ ] E, 0.1.62: the plan view (Plan / 3D on Build, remembered in settings)
