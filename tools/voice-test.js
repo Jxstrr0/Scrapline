@@ -7,6 +7,8 @@
      - a cue the app asks for (the intro, the bell, the pit, the post-mortem) has no line
      - the commentator speaks twice within 3 s of real time, or over the announcer
      - a stopped fight gets result calls
+     - slow-motion doesn't make room for more calls (the director must count real time, not fight time)
+     - a line cut by the bell isn't faded, or the judges' reveal reaches the app before its call, late, or never
      - with sound on (a fake audio clock, the timing() part): two clips are ever heard at once, in an intro, a live
        fight with slow decodes, the bell's calls, a replay whose speed changes, or the pit window; an intro holds the
        fight past INTRO_MAX; the bell isn't right after the countdown; a clip plays after a stop
@@ -40,7 +42,7 @@ function direct(log, speed, kind) {
 }
 
 const cls = ["beetle", "feather", "heavy"], tb = SIM.TEST_BUILDS.filter(t => t.id !== "sloppy");
-let fights = 0, lines = 0;
+let fights = 0, lines = 0, slowMore = 0;
 for (let n = 0; n < 9; n++) {
   const c = cls[n % cls.length], a = tb[n % tb.length], b = tb[(n * 5 + 3) % tb.length];
   const F = SIM.runFight({ seed: 1000 + n * 7919, arena: SIM.CLASSES[c].arenaId,
@@ -52,6 +54,9 @@ for (let n = 0; n < 9; n++) {
   const f1 = direct(log, 2, "duel"), f2 = direct(log, 2, "duel");
   if (f1.out.join("\n") !== f2.out.join("\n")) fail(`fight ${n}: two 2x replays picked different lines`);
   lines += r1.out.length;
+  /* slow-motion counts real time: at a quarter pace there is room for at least as many calls as at 1x */
+  const q = direct(log, 0.25, "duel").out.length; slowMore += q - r1.out.length;
+  if (q < r1.out.length) fail(`fight ${n}: ${q} calls at quarter pace, ${r1.out.length} at 1x`);
   /* spacing: the commentator's barks at least 3 s of real time apart (fight time / speed) */
   const rr = direct(log, 1, "duel"), cs = said.filter(x => x.who === "c");
   for (let i = 1; i < cs.length; i++) if (cs[i].t - cs[i - 1].t < 3 - 1e-6) fail(`fight ${n}: commentator twice in ${(cs[i].t - cs[i - 1].t).toFixed(2)} s`);
@@ -60,6 +65,7 @@ for (let n = 0; n < 9; n++) {
   if (rr.F.reason !== "stopped" && rr.F.winner != null && !cues.length) fail(`fight ${n}: no result calls (${rr.F.reason})`);
   if (rr.F.reason === "judges" && cues.indexOf("reveal") < 0) fail(`fight ${n}: judges without the reveal`);
 }
+if (slowMore <= 0) fail("slow-motion made room for no more calls: the director is not counting real time");
 /* a stopped fight says nothing at the bell */
 { const F = SIM.newFight({ seed: 5, arena: "box", bots: [{ cfg: tb[0].cfg, name: "You" }, { cfg: tb[1].cfg, name: "X" }] });
   F.over = true; F.reason = "stopped"; if (V.endCues(F, {}).length) fail("a stopped fight got result calls"); }
@@ -92,9 +98,9 @@ async function timing() {
   const later = (f, ms) => { clk.timers.push({ f, at: clk.ms + (ms || 0), id: ++clk.id }); return clk.id; };
   const actx = { get currentTime() { return clk.ms / 1000; },
     decodeAudioData(raw, ok) { const id = byFile[Buffer.from(raw).slice(3).toString()]; later(() => ok({ id, duration: L[id].d - 0.03 }), clk.lat); },
-    createGain: () => ({ gain: {}, connect() {} }),
+    createGain: () => ({ gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {} }),
     createBufferSource() { const s = { connect() {}, start(when) { s.h = { id: s.buffer.id, who: L[s.buffer.id].c, t0: when, t1: when + s.buffer.duration }; heard.push(s.h); live.add(s); },
-      stop() { if (s.h && live.has(s)) { live.delete(s); s.h.t1 = Math.min(s.h.t1, Math.max(s.h.t0, clk.ms / 1000)); } } }; return s; } };
+      stop(when) { if (s.h && live.has(s)) { live.delete(s); s.h.cut = when ? "fade" : "dead"; s.h.t1 = Math.min(s.h.t1, Math.max(s.h.t0, when || clk.ms / 1000)); } } }; return s; } };
   const c2 = { console, module: { exports: {} }, setTimeout: later, clearTimeout: id => { clk.timers = clk.timers.filter(t => t.id !== id); },
     performance: { now: () => clk.ms }, fetch: url => Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(Uint8Array.from(Buffer.from("ID3" + url.split("/").pop())).buffer) }),
     SCRAP_SOUND: { voiceBus: () => ({ ctx: actx, out: {} }), talk() {} } };
@@ -145,25 +151,42 @@ async function timing() {
     if (clean("round 3 intro", W.GAP).length !== 3) fail("round 3 intro lost a call"); }
 
   /* 2. live fights with a slow phone's decodes (350 ms): the calls, then the bell's calls and the post-mortem line */
-  let barks = 0, pmKept = 0, pmCut = 0, endMax = 0;
+  let barks = 0, pmKept = 0, pmCut = 0, endMax = 0, faded = 0, judged = 0;
   for (let n = 0; n < 6; n++) { fresh(350); const F = S2.newFight(mk(n, cls[n % 3])); W.begin(F, { speed: 1, kind: "duel" });
     while (!F.over) { S2.stepFight(F, null); run(clk.ms + 1000 / 60); if (!F.over) W.tick(F, 1); }
-    barks += clean(`live fight ${n}`).length; heard.length = 0;
-    const t0 = clk.ms / 1000; W.end(F, { kind: "duel", bout: null }); const nEnd = W.endCues(F, { kind: "duel", bout: null }).length;
+    const live1 = clean(`live fight ${n}`); barks += live1.length; const last = live1[live1.length - 1], t0 = clk.ms / 1000, mid = last && last.t1 > t0 + 0.3; heard.length = 0;
+    let rev = -1; W.end(F, { kind: "duel", bout: null, reveal: () => { rev = clk.ms / 1000; } });
+    /* a line cut by the bell fades (it isn't chopped), and the result call waits for the fade */
+    if (mid) { faded++; if (last.cut !== "fade" || Math.abs(last.t1 - t0 - W.FADE) > 0.01) fail(`fight ${n}: the line the bell cut wasn't faded (${last.cut}, ${(last.t1 - t0).toFixed(2)} s)`); }
+    const nEnd = W.endCues(F, { kind: "duel", bout: null }).length;
     W.seq([["pm:gen"]], { queue: true, soon: true }); wind(60);
     const h = clean(`bell of fight ${n}`, W.GAP), pm = h.filter(x => /^pm:/.test(L[x.id].q));
     if (pm.length) { pmKept++; if (pm[0].t0 - t0 > W.PM_WAIT + 1) fail(`fight ${n}: the post-mortem line starts ${(pm[0].t0 - t0).toFixed(1)} s after the bell`); } else if (nEnd) pmCut++;
-    if (h.length) endMax = Math.max(endMax, h[h.length - 1].t1 - t0); }
+    if (h.length) endMax = Math.max(endMax, h[h.length - 1].t1 - t0);
+    if (mid && h.length && h[0].t0 < last.t1 - 1e-6) fail(`fight ${n}: the result call starts before the cut line has faded`);
+    /* the judges' reveal: the app is told when the "reveal" call has been said, not before; any other ending, at once */
+    const rc = h.find(x => L[x.id].q === "reveal");
+    if (F.reason === "judges") { judged++; if (!rc) fail(`fight ${n}: judges without a reveal call`); else if (rev < rc.t1 - 1e-6 || rev > rc.t1 + W.GAP + 0.1) fail(`fight ${n}: the winner shows ${(rev - rc.t1).toFixed(2)} s after the reveal call ends`); }
+    else if (Math.abs(rev - t0) > 1e-6) fail(`fight ${n}: a ${F.reason} ending waited ${(rev - t0).toFixed(1)} s to show its result`); }
+  /* the reveal is never lost: muted it comes at once, and a stop mid-call gives it */
+  { const F = S2.newFight(mk(0, "beetle")); F.over = true; F.reason = "judges"; F.winner = F.bots[0].team; F.judge = { scores: {} };
+    fresh(40); let r = 0; W.end(F, { kind: "duel", reveal: () => r++ }); wind(2); if (r) fail("the judges' reveal came before its call"); W.stop(); if (r !== 1) fail("a stop lost the judges' reveal");
+    W.set({ sound: false }); r = 0; W.end(F, { kind: "duel", reveal: () => r++ }); if (r !== 1) fail("muted, the judges' reveal waited"); W.set({ sound: true }); }
 
-  /* 3. replays: the opening line, then the director; the speed changes mid-fight (1x, 2x, 4x and back) */
+  /* 3. replays: the opening line, then the director; the pace changes mid-fight (1x, 2x, 4x, and slow-motion) */
   for (let n = 0; n < 6; n++) { fresh(n % 2 ? 350 : 40); const log = S2.runFight(mk(n, cls[n % 3])).log, play = {};
     for (const k in log.inputs || {}) play[k] = S2.unpackInputs(log.inputs[k]);
     const F = S2.newFight({ seed: log.seed, arena: log.arena, rules: log.rules, bots: log.bots, play });
     W.end(F, {}); W.seq(["end:ko", "win", "c:win"]); wind(1.2);   // the results card is still talking when Replay is pressed
     W.begin(F, { speed: 1, replay: true, kind: "duel" }); W.seq(["pm:replay"]);
-    while (!F.over && F.n < log.steps) { const sp = [1, 2, 4, 1][Math.floor(F.t / 7) % 4];
-      for (let k = 0; k < sp && !F.over; k++) S2.stepFight(F, null); run(clk.ms + 1000 / 60); if (!F.over) W.tick(F, sp); }
-    const h = clean(`replay ${n}`); if (!h.some(x => L[x.id].q === "pm:replay")) fail(`replay ${n}: no opening line`); }
+    let acc = 0;
+    while (!F.over && F.n < log.steps) { const sp = [1, 0.25, 2, 4, 0.2, 1][Math.floor(F.t / 6) % 6]; acc += sp;
+      while (acc >= 1 && !F.over) { S2.stepFight(F, null); acc--; } run(clk.ms + 1000 / 60); if (!F.over) W.tick(F, sp); }
+    const h = clean(`replay ${n}`); if (!h.some(x => L[x.id].q === "pm:replay")) fail(`replay ${n}: no opening line`);
+    /* the commentator keeps to one bark every 3 s of real time at any pace (the channel may move a start by up to LATE) */
+    const cs = h.filter(x => x.who === "c" && !/^pm:/.test(L[x.id].q) && L[x.id].q !== "c:win");
+    for (let i = 1; i < cs.length; i++) if (cs[i].t0 - cs[i - 1].t0 < 3 - W.LATE - 0.65) fail(`replay ${n}: commentator twice in ${(cs[i].t0 - cs[i - 1].t0).toFixed(2)} s`);
+  }
 
   /* 4. a stop (pause, skip, leaving the tab) silences a clip still being decoded */
   { fresh(500); W.seq(["pitwin", "c:pitwin"]); wind(0.1); W.stop(); heard.length = 0; wind(10); if (heard.length) fail("a clip played after a stop: " + heard[0].id); }
@@ -172,6 +195,7 @@ async function timing() {
 
   console.log(`timing: the longest intro holds ${longest.toFixed(1)} s (${longWhat}; ${was.toFixed(1)} s with every call), cap ${W.INTRO_MAX} s`);
   console.log(`timing: ${barks} live calls with 350 ms decodes, none overlapping; the bell's calls end within ${endMax.toFixed(1)} s; post-mortem line kept ${pmKept}, left out ${pmCut}`);
+  console.log(`timing: ${faded} lines faded at the bell; ${judged} judges' decisions held to the reveal`);
 }
 
 timing().then(() => {

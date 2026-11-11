@@ -3557,13 +3557,14 @@ const VOICE_LINES={
                        nothing decoded yet. The app holds the fight until done (the clock reads full and nothing moves).
      begin(F, o)       a fight (or a replay) starts: o {speed, replay, rivals: {bot index: RIVALS id}, kind: "duel" | "rumble" | "tag"}
      tick(F, speed)    after the app's sim steps: new F.log entries and the bots' state become calls (below)
-     end(F, o)         the bell: the result calls (see endCues); o {kind, bout: {me, them, over} | null, extra: [cues]}
+     end(F, o)         the bell: the result calls (see endCues); o {kind, bout: {me, them, over} | null, extra: [cues],
+                       reveal: fn called when the judges' winner has been named}
      seq(cues, o)      calls back to back now (o.queue: after what's playing; o.soon: only if it can start soon) — the pit
                        window, the post-mortem
      say(cue)          one call now
      stop(), skip()    silence (a pause, leaving the tab); skip ends an intro early and calls its done()
      onCap             set by the app: (text, who) for a caption, shown when sound or voices are off (Settings → Captions)
-   The director (tick) runs on fight time: a clip of d seconds at replay speed s fills d x s seconds of the fight, the
+   The director (tick) keeps a clock of real seconds from the fight's time and the pace it is shown at, the
    commentator speaks at most once every 3 s (of real time), never over the announcer, and the announcer's mid-fight
    calls (the count, the pit opening) wait for the commentator to finish. Pools pick with SCRAP_SIM.rng streams seeded
    from the fight's seed, never Math.random, and skip the last few lines said: the same fight at the same speed says the
@@ -3582,6 +3583,7 @@ const COOL=3,GAP=0.25;   // seconds between commentator barks; a little air afte
    than this for the line before it is dropped, not stacked up. PM_WAIT: the post-mortem line is left out when the
    bell's calls would keep it waiting longer than this. */
 const INTRO_MAX=24,LATE=0.9,PM_WAIT=12;
+const FADE=0.18;   // a sequence that cuts in (the bell, the pit window, Replay) fades the line it cuts over this long (0.1.56.2)
 /* the announcer's core calls load first */
 const CORE=["countdown","end:ko","end:pit","end:judges","reveal","draw","win","lose","name:you","count","pitopen","pitwin","pit10","pitclose","bo3:lead","bo3:trail","bo3:decider","rumble:won","tag:won"];
 const O={sound:true,voice:true,comm:true,captions:"muted"};
@@ -3631,11 +3633,17 @@ function play(id,at,done){const x=L[id],no=()=>{if(done)done(0);};if(!x)return f
     const io=SCRAP_SOUND.voiceBus();if(!io)return no();const now=io.ctx.currentTime,free=Math.max(now,P.endAt);
     if(at==null&&(late>600||free-now>LATE))return no();   // a late decode, or the line before still has a while to run
     const s=io.ctx.createBufferSource(),g=io.ctx.createGain();s.buffer=buf;
-    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(free,at||0);s.start(when);P.endAt=when+buf.duration;
+    g.gain.value=x.c==="a"?1:0.92;s.connect(g);g.connect(io.out);const when=Math.max(free,at||0);s.g=g;s.start(when);P.endAt=when+buf.duration;
     SCRAP_SOUND.talk(P.endAt);P.src.push(s);s.onended=()=>{const i=P.src.indexOf(s);if(i>=0)P.src.splice(i,1);};
     if(done)done(P.endAt-now);});
   return true;}
-function stopAll(){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.queue=[];P.introTok=null;P.tok++;P.endAt=0;P.qBusy=false;P.qUntil=0;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}}
+/* silence, and an empty queue. fade: the clips playing fade out over FADE seconds and the channel is free when they have
+   (a new sequence cutting in); else they stop dead (pause, Skip, leaving the tab). A sequence waiting to tell the app
+   something (P.mark: the judges' reveal) tells it now. */
+function stopAll(fade){const io=fade&&P.src.length&&typeof SCRAP_SOUND!=="undefined"&&SCRAP_SOUND.voiceBus?SCRAP_SOUND.voiceBus():null,now=io?io.ctx.currentTime:0;let end=0;
+  for(const s of P.src)try{if(io&&s.g){s.g.gain.setValueAtTime(s.g.gain.value,now);s.g.gain.linearRampToValueAtTime(0,now+FADE);s.stop(now+FADE);end=now+FADE;}else s.stop();}catch(e){}
+  P.src=[];P.queue=[];P.introTok=null;P.tok++;P.endAt=end;P.qBusy=false;P.qUntil=0;if(P.qTimer){clearTimeout(P.qTimer);P.qTimer=0;}markFire();}
+function markFire(){const m=P.mark;P.mark=null;if(m)m.fn();}
 
 /* ---- picks: a seeded stream per fight, skipping the last few lines said ---- */
 function pickFrom(R,recent,cues){for(const q of cues){const ids=POOL[q];if(!ids||!ids.length)continue;
@@ -3663,18 +3671,20 @@ const secsOf=id=>L[id].c==="c"&&O.comm===false?0:audioOn()?(canHear(id)?L[id].d+
 const clock=()=>typeof performance!=="undefined"?performance.now():0;
 /* the next line starts when the one before has really ended: the clip reports its own end once it is decoded and
    scheduled (the timer set first is only a backstop, in case a decode never answers) */
-function runQueue(){P.qTimer=0;const id=P.queue.shift();if(!id){P.qBusy=false;P.qUntil=0;if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
+function runQueue(){P.qTimer=0;if(P.mark&&P.mark.armed)markFire();const id=P.queue.shift();if(P.mark&&id===P.mark.id)P.mark.armed=true;if(!id){P.qBusy=false;P.qUntil=0;if(P.introDone){const d=P.introDone;P.introDone=null;d();}return;}
   const x=L[id];P.qBusy=true;
   if(canHear(id)){const tok=P.tok;P.qTimer=setTimeout(runQueue,(x.d+GAP+1.5)*1000);
     play(id,0,secs=>{if(tok!==P.tok)return;clearTimeout(P.qTimer);P.qTimer=setTimeout(runQueue,secs>0?(secs+GAP)*1000:0);});}
   else{if(!(x.c==="c"&&O.comm===false))cap(id);P.qTimer=setTimeout(runQueue,secsOf(id)*1000);}}
-/* o.queue: after what's playing (else it cuts in); o.soon: only if it can start within PM_WAIT seconds; o.max: see seqIds.
+/* o.queue: after what's playing (else it cuts in, fading what it cuts); o.after {cue, fn}: fn() once, when the line for
+   that cue has been said (at once when it can't be heard, and on any stop); o.soon: only if it can start within PM_WAIT seconds; o.max: see seqIds.
    During a fight the director is told how long the sequence runs, so the live calls wait for it. */
 function seq(cues,o){o=o||{};const ids=seqIds(cues,o.max);if(!ids.length)return 0;
-  if(!o.queue){const d=P.introDone;P.introDone=null;stopAll();if(d)d();}
+  if(!o.queue){const d=P.introDone;P.introDone=null;stopAll(true);if(d)d();}
   else if(o.soon&&P.qBusy&&P.qUntil-clock()>PM_WAIT*1000)return 0;
+  if(o.after){const id=ids.find(i=>L[i].q===o.after.cue);if(id&&canHear(id))P.mark={id,fn:o.after.fn,armed:false};else o.after.fn();}
   const secs=ids.reduce((a,id)=>a+secsOf(id),0);P.qUntil=Math.max(P.qUntil,clock())+secs*1000;
-  if(D&&D.F&&!D.F.over)D.annUntil=Math.max(D.annUntil,D.F.t+(P.qUntil-clock())/1000*D.speed);
+  if(D&&D.F&&!D.F.over)D.annUntil=Math.max(D.annUntil,D.rt+(P.qUntil-clock())/1000);
   P.queue.push(...ids);if(!P.qBusy)runQueue();return ids.reduce((a,id)=>a+L[id].d+GAP,0);}
 function say(cue){return seq([cue],{queue:true});}
 /* before a fight: hold only when at least one of the calls is decoded and can be heard. Trimmed to INTRO_MAX. */
@@ -3691,11 +3701,11 @@ function stop(){skip();}
 /* ---- the director: the live calls ---- */
 const N=v=>v==null?null:v;
 function begin(F,o){o=o||{};SQ={R:RNG((F.seed^0x5EC0)>>>0),recent:[]};
-  D={F,R:RNG((F.seed^0x701CE)>>>0),recent:[],n:0,annUntil:0,commUntil:0,lastBark:-99,speed:o.speed||1,kind:o.kind||"duel",rivals:o.rivals||{},
+  D={F,R:RNG((F.seed^0x701CE)>>>0),recent:[],n:0,rt:0,lt:F.t,annUntil:0,commUntil:0,lastBark:-99,speed:o.speed||1,kind:o.kind||"duel",rivals:o.rivals||{},
     still:{},stillBark:{},finalSaid:false,startSaid:false,half:false,late:false,help:false,dealt:{},run:{a:-1,n:0,t:0},lead:null,behind:false,pend:null,replay:!!o.replay};
   if(o.replay)D.lastBark=0;}
 /* a seek in a replay: carry on from here without calling what's already happened */
-function seek(F){if(!D)return;D.F=F;D.n=F.log.length;D.annUntil=D.commUntil=F.t;D.lastBark=F.t;D.pend=null;}
+function seek(F){if(!D)return;D.F=F;D.n=F.log.length;D.lt=F.t;D.annUntil=D.commUntil=D.lastBark=D.rt;D.pend=null;}
 const mainOf=F=>F.bots.filter(o=>!o.mini);
 function liveCands(F,e,mm){const out=[],En=(e.E||0)/mm,a=e.a!=null?F.bots[e.a]:null,v=e.v!=null&&e.v>=0?F.bots[e.v]:null;
   const C=(pri,...cues)=>out.push({who:"c",pri,cues});
@@ -3724,7 +3734,11 @@ function liveCands(F,e,mm){const out=[],En=(e.E||0)/mm,a=e.a!=null?F.bots[e.a]:n
   if((e.k==="hit"||e.k==="grind")&&a&&v&&a.team!==v.team&&!e.gl){D.dealt[a.team]=(D.dealt[a.team]||0)+(e.E||0);
     if(En>=25){if(D.run.a===a.team&&e.t-D.run.t<15)D.run.n++;else D.run={a:a.team,n:1,t:e.t};D.run.t=e.t;if(D.run.n===3)C(6,"c:swing:run");}}
   return out;}
+/* speed: the pace the fight is being shown at (a replay's speed button times its slow-motion). The director's own clock,
+   D.rt, is the real seconds that have gone by: fight time over the pace, tick by tick. Line lengths, the 3 s between
+   barks and the announcer's 2 s wait are counted on it, so slow-motion doesn't stretch the silences (0.1.56.2). */
 function tick(F,speed){if(!D||D.F!==F)return;const t=F.t,s=speed||D.speed||1,mm=Math.max(F.M.mass,1e-6),cands=[];D.speed=s;
+  D.rt+=Math.max(0,t-D.lt)/s;D.lt=t;const rt=D.rt;
   for(;D.n<F.log.length;D.n++)cands.push(...liveCands(F,F.log[D.n],mm));
   if(F.over){D.pend=null;return;}
   const M=mainOf(F),alive=M.filter(o=>!o.out);
@@ -3743,11 +3757,11 @@ function tick(F,speed){if(!D||D.F!==F)return;const t=F.t,s=speed||D.speed||1,mm=
     if(r>1.6)D.behind=true;D.lead=lead;}
   /* the announcer first (a call waits up to 2 s for the commentator to finish), then one bark */
   let ann=null,com=null;for(const c of cands){if(c.who==="a"){if(!ann||c.pri>ann.pri)ann=c;}else if(!com||c.pri>com.pri)com=c;}
-  if(ann&&(!D.pend||ann.pri>=D.pend.pri))D.pend=Object.assign({at:t},ann);
+  if(ann&&(!D.pend||ann.pri>=D.pend.pri))D.pend=Object.assign({at:rt},ann);
   const comOn=O.comm!==false;
-  if(D.pend){if(t-D.pend.at>2*s){if(D.pend.alt&&!com)com={who:"c",pri:D.pend.pri,cues:D.pend.alt};D.pend=null;}
-    else if(t>=D.annUntil&&(!comOn||t>=D.commUntil)){const id=pickFrom(D.R,D.recent,D.pend.cues);D.pend=null;if(id){play(id);D.annUntil=t+(L[id].d+GAP)*s;return;}}}
-  if(com&&t>=D.annUntil&&t>=D.commUntil&&t-D.lastBark>=COOL*s&&!D.pend){const id=pickFrom(D.R,D.recent,com.cues);if(id){play(id);D.lastBark=t;if(comOn)D.commUntil=t+(L[id].d+GAP)*s;}}}
+  if(D.pend){if(rt-D.pend.at>2){if(D.pend.alt&&!com)com={who:"c",pri:D.pend.pri,cues:D.pend.alt};D.pend=null;}
+    else if(rt>=D.annUntil&&(!comOn||rt>=D.commUntil)){const id=pickFrom(D.R,D.recent,D.pend.cues);D.pend=null;if(id){play(id);D.annUntil=rt+L[id].d+GAP;return;}}}
+  if(com&&rt>=D.annUntil&&rt>=D.commUntil&&rt-D.lastBark>=COOL&&!D.pend){const id=pickFrom(D.R,D.recent,com.cues);if(id){play(id);D.lastBark=rt;if(comOn)D.commUntil=rt+L[id].d+GAP;}}}
 
 /* ---- the bell ---- */
 function nameCue(F,i){const o=F.bots[i];if(!o)return null;if(o.i===0)return"name:you";const rv=D&&D.rivals[i];if(rv&&POOL["name:rv:"+rv])return"name:rv:"+rv;
@@ -3768,12 +3782,14 @@ function endCues(F,o){o=o||{};const kind=o.kind||(D&&D.kind)||"duel",me=F.bots[0
   if(B&&B.over){if(B.me!==B.them)out.push(B.me>B.them?"c:win":"c:lose");}   // a best of three: the bout's result, and nothing for a drawn bout
   else if(F.winner!=null&&!B)out.push(won?"c:win":"c:lose");
   return out;}
-function end(F,o){if(D)D.pend=null;const cues=endCues(F,o);return cues.length?seq(cues):0;}
+/* o.reveal: called once when the judges' winner has been announced (the "reveal" call has been said), or at once when
+   there is nothing to wait for: the app holds the winner on the result card until then (0.1.56.2) */
+function end(F,o){if(D)D.pend=null;const cues=endCues(F,o),rv=o&&o.reveal;if(!cues.length){if(rv)rv();return 0;}return seq(cues,rv?{after:{cue:"reveal",fn:rv}}:null);}
 
 return{load,set(o){Object.assign(O,o||{});if(!audioOn()){for(const s of P.src)try{s.stop();}catch(e){}P.src=[];P.endAt=0;}},intro,skip,stop,begin,seek,tick,end,endCues,seq,say,
   get onCap(){return P.onCap;},set onCap(f){P.onCap=f;},
   get loaded(){return Object.keys(P.bytes).length;},get sources(){const n={cdn:0,local:0};for(const id in P.bytes)n[P.from[id]==='cdn'?'cdn':'local']++;return n;},get total(){return Object.keys(L).length;},pool:q=>(POOL[q]||[]).slice(),
-  introIds,INTRO_MAX,LATE,PM_WAIT,GAP,
+  introIds,INTRO_MAX,LATE,PM_WAIT,GAP,FADE,
   _d:()=>D,_pick:(cues)=>D?pickFrom(D.R,D.recent,cues):null};
 })();
 </script>
@@ -5867,7 +5883,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.56.1";
+const VERSION="0.1.56.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -7642,12 +7658,12 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
   if(SCRAP_VOICE.intro(cues,()=>{FT.hold=false;FT.last=performance.now();FT.acc=0;const k=$("fSkip");if(k)k.hidden=true;bell();})){FT.hold=true;const k=$("fSkip");if(k)k.hidden=false;}
   else{SCRAP_VOICE.seq(cues.map(q=>q.alt||q).filter(q=>!q.opt).slice(-2));bell();}}   // nothing to hear yet (still loading) or muted: the fight starts at once, with captions for the last two calls only (the names and the countdown), so they are gone before the live ones start
 /* the bell: the result calls, then (in a career) a first win or the Open title */
-function ftVoiceEnd(F){if(F.reason==="stopped"||F.drill)return;const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
+function ftVoiceEnd(F,reveal){if(F.reason==="stopped"||F.drill){if(reveal)reveal();return;}const B=FT.bout,rp=!!FT.rp,extra=[],me=F.bots[0].team;
   const bout=FT.watch&&FT.rounds.length>1?Object.assign(ftWatchScore(),{over:FT.watch.k>=FT.rounds.length-1}):!rp&&B&&B.wins?{me:B.wins[me]||0,them:Object.keys(B.wins).filter(t=>String(t)!==String(me)).reduce((a,t)=>a+(B.wins[t]||0),0),over:!!B.over}:null;
   if(!rp&&B&&B.ev&&B.over&&!B.stopped&&crOn()){const c=S.career,vc=B.ev.voice||{},won=(B.wins[me]||0)>=(B.need||1);
     if(won&&!c.fw){c.fw=true;extra.push("career:first");}
     if(won&&vc.event==="Scrapline Open Final"&&vc.label==="final")extra.push("career:open");save();}
-  SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra});}
+  SCRAP_VOICE.end(F,{kind:ftVKind(F),bout,extra,reveal});}
 /* the post-mortem line for the round on the results card, once (after the bell's calls) */
 function ftVoicePm(F){if(F.pmSaid||F.drill||!F.over||F.reason==="stopped"||FT.on)return;F.pmSaid=true;const k=rpHint(F).kind||"gen";SCRAP_VOICE.seq([["pm:"+k,"pm:gen"]],{queue:true,soon:true});}   // soon: left out when the bell's calls would keep it waiting too long
 /* a caption: the line at the bottom of the fight for a few seconds (only when sound or voices are off) */
@@ -7664,7 +7680,7 @@ function ftFrame(now){FT.raf=0;const F=FT.F;if(!F)return;
     let k=0;while(FT.acc>=1/60&&k<5&&!F.over){SIM.stepFight(F,FT.you&&FT.on&&!FT.rp?{0:CONTROLS.read(F,F.bots[0])}:null);FT.acc-=1/60;k++;
       if(FT.rp&&F.n>=FT.rp.steps&&!F.over){F.over=true;F.endT=F.t;if(!F.reason)F.reason="stopped";}}   // a stopped fight's replay ends where it was stopped
     if(k===5)FT.acc=Math.min(FT.acc,1/60);   // clamped: a slow frame loses time instead of catching up
-    if(k&&!F.over)SCRAP_VOICE.tick(F,sp);
+    if(k&&!F.over)SCRAP_VOICE.tick(F,sp*slow);   // the pace on the screen, slow-motion included, so the calls keep real time
     ftFeedback(now);}
   FT.flashes=FT.flashes.filter(f=>now-f.t0<500);
   if(FT.on&&FT.view2d&&(gfxTier()!=="lite"||now-FT.lastDraw>=31||F.over)){DEBUGVIEW.draw($("fCv"),F,FT.flashes,now);FT.lastDraw=now;}
@@ -7805,6 +7821,7 @@ function ftOvClick(e){const b=e.target.closest("[data-fv]");if(!b)return;const a
   if(a==="pause")ftPause(!FT.paused);
   else if(a==="tipok")ftTipDone(true);
   else if(a==="skip")SCRAP_VOICE.skip();
+  else if(a==="reveal"){const rv=FT.rev;if(rv&&rv.fn){const f=rv.fn;rv.fn=null;rv.done=true;f();}}   // the judges' result now; the voices carry on
   else if(a==="resume")ftPause(false);
   else if(a==="quit"){const ev=FT.bout&&FT.bout.ev;if(F&&!F.over){FT.paused=false;F.over=true;F.endT=F.t;F.reason="stopped";ftRecord(F);}if(ev)ftEvBack();else ftExit();}
   else if(a==="evpit")ftEvPit();
@@ -7918,12 +7935,17 @@ function ftMap(cv,o,states){if(!cv)return;const W=cv.width,g=cv.getContext("2d")
     g.fillStyle=FT_MC[st];g.strokeStyle="#141413";g.lineWidth=Math.max(1,W/100);g.beginPath();if(g.roundRect)g.roundRect(x-tw*s/2,y-tl*s/2,tw*s,tl*s,tw*s*0.35);else g.rect(x-tw*s/2,y-tl*s/2,tw*s,tl*s);g.fill();g.stroke();
     if(st==="destroyed"){g.beginPath();g.moveTo(x-tw*s/2,y-tl*s/2);g.lineTo(x+tw*s/2,y+tl*s/2);g.stroke();}}
 }
-function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);ftRecord(F);ftVoiceEnd(F);
-  const e=$("fEnd");if(!e||!FT.on)return;const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
+function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reason!=="stopped")ftEndSfx(F);rlClipEnd();return;}ftEndSfx(F);CONTROLS.unmount();if(!FT.rp)buzz([20,40,20]);
+  /* a judges' decision with the voices on (0.1.56.2): the card says "To the judges" and keeps the winner, the buttons
+     and the day's toasts back until Duncan has named the winner (rv.fn), or Show the result is tapped. Not in a replay. */
+  const rv=FT.rev={done:false,fn:null},jh=F.reason==="judges"&&ftVoiceOn()&&(!FT.rp||!!FT.watch),tq=jh&&!toast.hold;if(tq)toastHold(true);
+  ftRecord(F);ftVoiceEnd(F,jh?()=>{rv.done=true;if(rv.fn){const f=rv.fn;rv.fn=null;f();}}:null);
+  const hold=jh&&!rv.done;if(tq&&!hold)toastHold(false);
+  const e=$("fEnd");if(!e||!FT.on){if(tq&&hold)toastHold(false);return;}const B=FT.bout;let r=ftResult(F),btns='<button type="button" class="btn pri" data-fv="again">Rematch</button><button type="button" class="btn" data-fv="results">Results</button>';
   if(!FT.rp&&FT.ext&&FT.ext.kind==="daily"){const x=FT.ext.res;if(x)r={t:r.t,s:`${r.s} · ${x.score.toLocaleString("en-GB")} points${x.newBest?", today's best":""}`,cls:r.cls};btns=btns.replace(">Rematch<",">Try again<");}
   if(!FT.rp&&F.drill)btns='<button type="button" class="btn pri" data-fv="again">Again</button><button type="button" class="btn" data-fv="results">Back to the school</button>';
   if(FT.rp&&FT.watch){const W=FT.watch,sc=ftWatchScore();
-    if(W.k>=FT.rounds.length-1){toastHold(false);const x=W.banner;r={t:x.t,s:x.s,cls:x.cls};btns='<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
+    if(W.k>=FT.rounds.length-1){if(!hold)toastHold(false);const x=W.banner;r={t:x.t,s:x.s,cls:x.cls};btns='<button type="button" class="btn pri" data-fv="evback">Back to the event</button><button type="button" class="btn" data-fv="results">Results</button>';}
     else{r={t:`Round ${W.k+1}: ${r.t}`,s:`${r.s} · ${sc.me}–${sc.them} in the bout.`,cls:r.cls};btns=`<button type="button" class="btn pri" data-fv="wnext">Round ${W.k+2}</button><button type="button" class="btn" data-fv="evback">Back to the event</button>`;}}
   else if(FT.rp){r={t:(F.drill&&FT.ext&&FT.ext.demo?"":"Replay: ")+r.t,s:r.s,cls:r.cls};btns='<button type="button" class="btn pri" data-fv="rpagain">Watch again</button><button type="button" class="btn" data-fv="results">Close</button>';}
   else if(B&&B.ev&&B.over&&B.banner){const x=B.banner;r={t:x.t,s:x.s,cls:x.cls};
@@ -7932,8 +7954,12 @@ function ftEnd(){const F=FT.F;SCRAP_SOUND.stop();if(FT.rp&&FT.rp.reel){if(F.reas
     if(B.over)r={t:w==null?`Bout drawn ${sc}`:w===0?`You win the bout ${sc}`:`${F.bots[1].name} wins the bout ${sc}`,s:`Round ${B.n}: ${r.t}. ${r.s}`,cls:w==null?"":w===0?"ok":"broke"};
     else{r={t:`Round ${B.n}: ${r.t}`,s:`${r.s} · ${sc} in the bout. Sixty seconds in the pit, then round ${B.n+1}.`,cls:r.cls};
       btns=`<button type="button" class="btn pri" data-fv="pit">${PIT_KITS[B.kit]?"To the pit crew":"Next round"}</button><button type="button" class="btn" data-fv="endbout">${B.ev?"Forfeit the bout":"Stop the bout"}</button>`;}}
-  $("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
-  const p=$("fPause");if(p)p.hidden=true;const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});}
+  const show=(r,btns)=>{$("fEndT").textContent=r.t;$("fEndT").className=r.cls;$("fEndS").textContent=r.s;$("fEndBtns").innerHTML=btns;e.hidden=false;
+    const btn=e.querySelector(".btn.pri");if(btn)btn.focus({preventScroll:true});};
+  if(hold){show({t:"To the judges",s:"Time is up. Duncan has the decision.",cls:""},'<button type="button" class="btn pri" data-fv="reveal">Show the result</button>');
+    rv.fn=()=>{if(tq||(FT.watch&&FT.rev===rv&&FT.watch.k>=FT.rounds.length-1))toastHold(false);if(FT.rev===rv&&FT.F===F&&FT.on)show(r,btns);};}
+  else show(r,btns);
+  const p=$("fPause");if(p)p.hidden=true;}
 function ftResult(F){if(F.reason==="stopped")return{t:F.drill?"Drill stopped":"Fight stopped",s:"",cls:""};
   if(F.drill)return scResult(F);
   const win=F.winner==null?null:F.bots.find(o=>o.team===F.winner);
