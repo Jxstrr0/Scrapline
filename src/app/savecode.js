@@ -83,7 +83,7 @@ const buObj=o=>!!o&&typeof o==="object"&&!Array.isArray(o);
 const buNum=v=>typeof v==="number"&&isFinite(v);
 function buSaveOk(o){
   if(!buObj(o)||!buNum(o.v)||!buObj(o.settings)||!buObj(o.bots))return false;
-  for(const k of ["designs","unlocks","rivals","parked","daily","school"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
+  for(const k of ["designs","unlocks","rivals","parked","daily","school","met"])if(k in o&&o[k]!=null&&!buObj(o[k]))return false;
   if("mode" in o&&o.mode!=null&&o.mode!=="career"&&o.mode!=="sandbox")return false;
   for(const k of ["staff","sponsors"])if(k in o&&o[k]!=null&&!Array.isArray(o[k]))return false;
   /* the career's shape is crFresh()'s (app/career.js). Saves before v5 (0.1.8.0) had none: MIGRATE[4] empties it */

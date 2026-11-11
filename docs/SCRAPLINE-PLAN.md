@@ -530,4 +530,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.58: UI round two, release A: the sheet (`docs/SCRAPLINE-UI-PLAN.md`; `src/app/sheet.js`)
 - [x] 0.1.59: UI round two, release B: the bench session (`src/app/bench.js`: `bnHead`, `bnWhy`, `bnBar`, `BN.open`, `BN.pick`)
 - [x] 0.1.60: UI round two, release C: the post-mortem, drawn (`src/app/report.js`: `rpNotes`, `rpLane`, `RP_TEST`, `RP_MARKS`; `ftSil` offsets and bars in `ftJudges`)
+- [x] 0.1.61: UI round two, release D: the matchup (`ftMatchHtml`, `MATCH_ROWS`, `MATCH_ADVICE` in `src/app/fight.js`; the record `S.met`, `metMeet`, `SAVE_V` 20)
 - [ ] Later: more of the polish pass, from Kelbo's list
