@@ -16,7 +16,7 @@ function showTab(t){
   document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+t));
   if(t!=="fight"&&typeof SCRAP_VOICE!=="undefined")SCRAP_VOICE.stop();   // the voices belong to the Fight tab
   if(TAB_RENDER[t])TAB_RENDER[t]();
-  visBot();
+  visBot();bViewSync();
   $("panel").scrollTop=tabScroll[t]||0;
   save();}
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(b)showTab(b.dataset.tab);});
@@ -126,7 +126,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOn()){closeShe
 /* the home screen (0.1.18.0, PEW's way): the first visit picks Career or Sandbox; after that it's Settings → Mode */
 $("intro").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;
   ST().seen=true;document.documentElement.classList.remove("home");$("intro").hidden=true;
-  setMode(b.dataset.mode,true);if(b.dataset.mode==="career"&&!S.career)showTab("career");save();
+  setMode(b.dataset.mode,true);if(b.dataset.mode==="career"&&!S.career)showTab("career");bViewSync();save();
   $("tabs").querySelector("button.on").focus({preventScroll:true});setTimeout(tutOffer,250);});   // tutOffer: app/help.js
 
 /* ---- start-up ---- */

@@ -855,3 +855,10 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Advice:** one line at most, with a button to the bench test it names: the front edge not gauged against a wedge, lifter or flipper; armour not tested against a spinner; a battery shorter than the round.
 - **The record** (`S.met`): per mode, class and bot; one-on-one spars and career bouts; the 60 most recent. Career and Sandbox keep their own.
 - **Fight bar:** Change opens the Opponent row.
+
+## The plan view (0.1.62, UI round two, release E)
+
+- **Switch:** 3D / Plan in the bottom right corner of the view, on Build only. The choice is remembered on the phone.
+- **Plan:** the bot from above, FRONT at the top: the chassis grid, each part as a labelled block where the Layout section has it, each side's armour as a coloured edge (thicker is stronger, dashed is none), and the centre of mass.
+- **Taps:** a part opens its Build section; a side opens Armour with that side picked. Parts are moved in the Layout section, not here.
+- **Cost:** the 3D view draws nothing while Plan shows, on every tier.
