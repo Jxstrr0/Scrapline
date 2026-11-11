@@ -16,7 +16,8 @@ return{
   badge(L,px){return badgeCanvas(L,px||64);},
   /* a sponsor's logo (0.1.54, vis/marks.js) as an <svg> string px square, in black or white to suit its colour; "" if none */
   logo(id,colour,px){return logoSvg("s_"+id,logoInk(colour),px||24);},
-  /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke)} */
+  /* {spin, reduce (no camera shake), fxLow (Settings → Effects: Reduced: a few sparks, no flying parts, light smoke),
+     paused (draw nothing: the app has covered the canvas, 0.1.62)} */
   setRun(o){Object.assign(V.run,o||{});},
   /* "workshop" or "arena" */
   setView(name){V.view=name==="arena"?"arena":"workshop";if(started)showView();},

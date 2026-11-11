@@ -714,3 +714,28 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
 .madv{border-left:3px solid var(--warn);padding-left:10px;border-top:0;margin-top:12px;padding-top:0}
 .gobar .btn:not(.pri){min-width:0}
 .gobar .ft b{white-space:normal;overflow-wrap:anywhere;line-height:1.2}
+
+/* release E (0.1.62): the plan view on Build. A drawing from above laid over the 3D canvas (dark in both themes, like
+   the rest of #view) and the 3D / Plan switch in the view's bottom corner */
+#bView{position:absolute;right:10px;bottom:8px;z-index:1;width:64px;grid-auto-flow:row;background:#1F1E1Bd9}
+#bPlan{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:50px 12px 10px;background:var(--view-bg);animation:planIn .18s ease-out}
+#bPlan[hidden],#bView[hidden]{display:none}
+@keyframes planIn{from{opacity:0}to{opacity:1}}
+#bPlan svg{display:block;width:100%;height:100%;overflow:visible;font-family:var(--font)}
+#bPlan text{text-anchor:middle;dominant-baseline:central;fill:var(--ink);font-weight:600;pointer-events:none}
+#bPlan .pfront{font-size:8px;letter-spacing:.12em;fill:var(--muted)}
+#bPlan .pcell rect{fill:#2B2A26;stroke:#3D3B36;stroke-width:.6}
+#bPlan .pp rect{fill:#1A1917;stroke:var(--muted);stroke-width:1.2}
+#bPlan .pp.weapon rect{stroke-dasharray:4 3}
+#bPlan .pp,#bPlan .pf{cursor:pointer;outline:none}
+#bPlan .pp:focus-visible rect{stroke:var(--clay);stroke-width:2}
+#bPlan .pf:focus-visible line{stroke-width:9}
+#bPlan .pcom circle{fill:#0E0E0D;stroke:var(--lilac);stroke-width:1.6}
+#bPlan .pcom .d{fill:var(--lilac);stroke:none}
+#bPlan .pkey{position:absolute;left:12px;bottom:10px;margin:0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;pointer-events:none}
+#bPlan .pkey i{width:9px;height:9px;border-radius:50%;border:2px solid var(--lilac);background:#0E0E0D}
+#app.fighting #bView,#app.fighting #bPlan,html.home #bView,html.home #bPlan{display:none}
+html.bplan #tag{display:none}
+@media (orientation:portrait){html.bplan:not(.home) #app:not(.fighting) #view{flex-basis:46%}}
+html[data-tab=build] #tag{right:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (orientation:landscape){#bPlan{padding-left:78px;padding-right:78px}}
