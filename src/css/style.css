@@ -132,16 +132,16 @@ details.raw{margin-top:12px}
 .bwtop{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
 .bwtop h2{margin:0;font-size:18px}
 .bwtop h2 span{font-size:14px;font-weight:500;color:var(--muted)}
-.bwtrack{height:8px;margin:7px 0;border-radius:4px;background:var(--card2);overflow:hidden}
-.bwtrack i{display:block;width:0;height:100%;border-radius:4px;background:var(--clay);transition:width .25s}
+.bwtrack{display:flex;gap:1px;height:8px;margin:7px 0;border-radius:4px;background:var(--card2);overflow:hidden;cursor:pointer}
+.bwtrack i{display:block;flex:none;width:0;height:100%;background:var(--clay);transition:width .25s}
+.bwtrack i:nth-child(even){opacity:.62}
 .bwbar.near .bwtrack i{background:var(--warn)} .bwbar.over .bwtrack i{background:var(--crit)}
-.bcap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:end;gap:4px 10px;color:var(--muted)}
+.bcap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:4px 10px;color:var(--muted)}
 .bst{display:flex;flex-direction:column;min-width:0}
 .bst small{font-size:12px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bst b{font-size:15px;line-height:1.25;color:var(--ink);font-weight:600;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .bst b i{font-style:normal;font-weight:400;font-size:12px;color:var(--muted)}
 .bcap .chip{align-self:center}
-@media (max-width:380px){.bcap{grid-template-columns:repeat(2,minmax(0,1fr)) auto}.bcap .chip{grid-column:3;grid-row:1}}
 .chip{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid currentColor;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
 .acc{margin:0 0 8px;border:1px solid var(--rule);border-radius:12px;background:var(--card);overflow:hidden}
 .acch{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-height:50px;padding:10px 14px;text-align:left}
@@ -616,3 +616,30 @@ html.reduce #coachSpot,html.reduce #coachBox{transition:none}
 .tpcup{width:30px;height:30px;fill:none;stroke:#AEB3BA;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .tpcup.gold{stroke:#D9B24C}
 :root[data-theme=light] .tpcup{stroke:#6E737A} :root[data-theme=light] .tpcup.gold{stroke:#9C7420} :root[data-theme=light] .tp.gold{border-color:#B08A2E}
+
+/* ---- the sheet, the matchup, the drawn post-mortem (UI round two) ---- */
+/* release A (0.1.58): mass bands under the weight bar, the Sheet / Parts switch, the sheet table, the Next bout banner */
+.bbands{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;margin:-6px 0 10px}
+.bbands button{min-height:44px;padding:2px 0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;border-radius:8px;text-align:left}
+.bbands small{font-size:11px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bbands b{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.bbands button:active{background:var(--card2)}
+.bpage{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.bpage .seg{flex:1}
+.bnext{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;margin:-4px 0 18px;padding:6px 12px;border-radius:12px;background:var(--card);border:1px solid var(--rule);font-size:14px;color:var(--muted);text-align:left}
+.bnext[hidden]{display:none}
+.bnext b{color:var(--clay-t);font-weight:600;margin-right:6px}
+.bnext .chev{flex:none;width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg)}
+.sheet{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 14px}
+.sheet caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sheet thead th{padding:0 6px 6px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.sheet tbody th{padding:8px 6px 8px 0;text-align:left;font-weight:500;color:var(--muted);width:31%;line-height:1.2}
+.sheet tbody td{padding:6px;color:var(--ink);font-variant-numeric:tabular-nums;vertical-align:middle}
+.sheet tbody tr{border-top:1px solid var(--rule)}
+.sheet tbody tr>*{height:48px}
+.sheet .shb{color:var(--lilac)}
+.sheet .shb.off,.sheet .shb .worn{color:var(--warn)}
+.sheet .shb small{display:block;font-size:12px}
+.sheet .shdim{color:var(--dim);font-family:var(--font)}
+.sheet .shtick{margin-left:6px;color:var(--good);font-weight:700}
+.sheet .shtest{min-height:44px;white-space:nowrap;font-family:var(--font)}
