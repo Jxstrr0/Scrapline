@@ -47,6 +47,7 @@ const FIGHT={
   scrub:0.6,                  // a skid-steer's tyres scrub against turning: x grip x weight x half the track
   latGrip:1,                  // tyres resist sliding sideways: x grip x g
   deadDrag:3,                 // a bot with no drive rolls this x harder (motors and gearboxes back-driven)
+  slideMu:0.35,               // a bot that can't drive at all (knocked out, or on its lid) slides on metal: x weight, the same every way (0.1.56)
   maxSpin:40,                 // rad/s: yaw rate cap after a big hit
   /* weapons */
   hitGapS:0.25,               // a weapon can't hit the same bot twice within this (a spinner: x its tooth count's gap, DISC_PROFILES.teeth)
@@ -58,11 +59,18 @@ const FIGHT={
                               // (a fitted front, 0.1.32, adds its own slope instead: b.front.slope)
   horizontal:{hsp:1,under:1}, // the spinners whose hits a sloped front turns (a vertical bites the edge instead) ...
   lip:{vsp:1.8,drum:1.3,beater:1.3,drisk:1.6},     // ... and a vertical that hits a sloped front catches its lip: this x the energy, no glance
-  gyro:{vsp:0.3,drum:0.24,beater:0.2,drisk:0.32,shell:0.5,ring:0.25},   // (0.1.34: a shell is the heaviest gyroscope of all)   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
-  gyroClass:{heavy:1.35},gyroFloor:1.02,gyroFloorRound:1.05,   // ... x this in a class (a heavyweight's disc is a flywheel the size of a manhole cover); 0.1.35: whatever the gyro takes, full lock keeps gyroFloor x the scrub (it can always pivot, slowly; an all-round spinner, which has nothing to aim, gyroFloorRound)
+  gyro:{vsp:0.3,drum:0.24,beater:0.2,drisk:0.32,ring:0.25},   // a vertical disc at full speed fights turning: this share of the steering is lost, x rpm share ...
+                              // (0.1.56: a shell had 0.5, the most of all; a disc that spins flat, about the axis the bot turns on, doesn't
+                              // fight the turn, so it has none. A ring keeps its share: without it Ringelnatter won 76% of its fights)
+  gyroClass:{heavy:1.2},gyroFloor:1.02,   // ... x this in a class (0.1.56: 1.35 until then, a spun-up heavyweight took 4.7 s to turn round, now 2.6;
+                              // at 1 its verticals won 76% of their fights, so this is a balance number, not physics); 0.1.35: whatever the gyro
+                              // takes, full lock keeps gyroFloor x the scrub (it can always pivot, slowly)
   selfFlip:{vsp:0.01,drum:0.005,beater:0.006,drisk:0.01},   // a full-power hit can throw a vertical spinner onto its back: this chance x the hit's share of full energy
   damageShare:0.4,            // a spinner hit's energy that goes into damage ...
-  throwShare:0.15,            // ... and into throwing the target
+  throwShare:0.15,            // ... and into throwing the target ...
+  throwLen:0.8,               // ... the lift of it x len^this above a beetle (0.1.56): the same tip speed in every class lifted every target the
+                              // same 0.37 m, a third of a heavyweight's length; now about one body length in every class above a beetle (x 3 in
+                              // a heavyweight). The sideways throw is as it was: scaled too, an undercutter won 78% of its featherweight fights
   recoilShare:0.5,            // the attacker takes this x the throw impulse x the weapon's recoil, the other way
   up:{hsp:0,vsp:0.6,drum:0.5,beater:0.5,drisk:0.55,under:0.3,saw:0,shell:0.1,ring:0.05,melty:0},   // share of a spinner's throw that goes upward
   flipDmg:0.15,               // a flipper's arm hit: this x launchJ x bite in damage
@@ -412,7 +420,7 @@ function spinnerHits(F,o){const w=o.b.weapon,wp=o.wp;if(!(w.type==="spinner"||w.
     else{dx=Math.cos(o.h);dy=Math.sin(o.h);}
     const l=Math.hypot(dx,dy)||1,up=FIGHT.up[w.id]!=null?FIGHT.up[w.id]:0,jh=J*Math.sqrt(1-up*up);dx/=l;dy/=l;
     impulseAt(t,dx*jh,dy*jh,c.px,c.py);
-    if(up>0){const vz=J*up/t.m,hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*t.M.len)launch(F,t,vz,F.rng()<invertChance(F,hM),null,o.i);}   // a smaller hop is a jolt, not a flight
+    if(up>0){const vz=J*up/t.m*Math.sqrt(Math.pow(Math.max(1,F.M.len),FIGHT.throwLen)),hM=vz*vz/(2*K.g);if(hM>=FIGHT.airM*t.M.len)launch(F,t,vz,F.rng()<invertChance(F,hM),null,o.i);}   // a smaller hop is a jolt, not a flight
     const kick=jh*FIGHT.recoilShare*(w.recoil||0);impulseAt(o,-dx*kick,-dy*kick,c.px,c.py);
     /* a vertical spinner can throw itself over on a big hit */
     const sf=FIGHT.selfFlip[w.id];if(sf&&!o.air&&F.rng()<sf*Math.min(1,E/(0.5*w.inertia*w.omega*w.omega))){const h=FIGHT.invertM[0]*o.M.len;
@@ -431,6 +439,10 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
   const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,((WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)+(o.under.grip||0))*wb.underMul):1;
   const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
+  /* a bot that can't drive (knocked out, flat, both sides gone, or on its lid) isn't on its tyres as far as the floor cares:
+     it slides on metal, the same lengthways, sideways and round (0.1.56; it slid like a bot on wheels, easy one way only) */
+  if(!mobile(o)){o.cmd=[0,0];const sp=Math.hypot(o.vx,o.vy),dv=FIGHT.slideMu*g*gripMul*dt,k=sp>dv?1-dv/sp:0;o.vx*=k;o.vy*=k;
+    const sc=FIGHT.slideMu*N*half*gripMul/o.I*dt;o.w=Math.abs(o.w)<=sc?0:o.w-Math.sign(o.w)*sc;return 0;}
   /* a meltybrain spun up (0.1.34): the whole bot is the weapon, so it can't skid-steer; it drives by pulsing its wheels once
      a turn. Its heading is the light the driver steers by: steer turns it at FIGHT.melty.turn, the throttle drives along
      it. Out of sync (a hard hit) the heading wanders */
@@ -462,7 +474,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const gy=FIGHT.gyro[b.weapon.id]&&b.weapon.omega>0?1-Math.min(0.9,FIGHT.gyro[b.weapon.id]*(FIGHT.gyroClass[F.cls]||1))*Math.min(1,o.wp.om/b.weapon.omega):1;
   const scrubT=FIGHT.scrub*b.grip*N*half*gripMul*wb.scrubMul*f.drag;
   /* never so much that full lock can't beat the scrub (0.1.35: a spun-up shell, or a heavyweight's disc, could not turn at all) */
-  const gyF=gy<1?Math.max(gy,Math.min(1,(b.weapon.allRound?FIGHT.gyroFloorRound:FIGHT.gyroFloor)*scrubT/Math.max(1e-9,2*half*Math.min(d.f0/2*p,b.grip*N/2*gripMul)))):1;
+  const gyF=gy<1?Math.max(gy,Math.min(1,FIGHT.gyroFloor*scrubT/Math.max(1e-9,2*half*Math.min(d.f0/2*p,b.grip*N/2*gripMul)))):1;
   o.w+=(FR-FL)*half/o.I*dt*gyF*cw;const scrub=scrubT/o.I*dt*cw;o.w=Math.abs(o.w)<=scrub?0:o.w-Math.sign(o.w)*scrub;
   return draw;}
 

@@ -42,11 +42,11 @@ const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12]
    must be facing it to bother (rad). reSpin: a spinner below this share of its top speed after a hit backs off; resetS how
    long it reverses. pitShove: the pit this close behind (radii) while being shoved turns it across the shove. */
 const AI_NAV={flameSoonS:0.6,pitPad:1.3,hazPad:1.1,botPad:1.2,pitSoonS:2,flankR:1.3,flankA:0.7,reSpin:0.55,resetS:[0.3,0.55],pitShove:2.5,
-  escHoldS:0.3,stallS:4,stallGain:0.1,detourS:2.5,arcGyro:0.4,arcSteer:0.6,arcThrottle:0.6};
+  escHoldS:0.3,stallS:4,stallGain:0.1,detourS:2.5,eitherEnd:{shell:1},arcSteer:0.6,arcThrottle:0.6};
 /* escHoldS (0.1.35): once it turns away from the pit's edge it keeps going that way this long (it used to flick between the edge
    and its path every few frames). stallS: no touch and no stallGain share closer to the enemy in this long (a deadlock:
    two bots at either end of a narrow gap by the pit, or a pusher lining up somewhere it can't reach) and it heads for
-   the open middle for detourS, then tries again. arcGyro, arcSteer, arcThrottle: see aiSteer */
+   the open middle for detourS, then tries again. eitherEnd, arcSteer, arcThrottle: see aiSteer */
 const aiLerp=(a,s)=>a[0]+(a[1]-a[0])*s;
 /* a style for a build: spinners circle up to speed, pushers and lifters work the hazards (or the walls in a bare box),
    hammers wait for the enemy to come to them, flippers and crushers go in */
@@ -77,11 +77,11 @@ function aiStrafe(F,o,t,m,mode,px,py,facing,sk){const fw=[Math.cos(o.h),Math.sin
   const dx=px-o.x,dy=py-o.y,l=Math.hypot(dx,dy)||1,a=Math.abs(e),k=a<0.6?1:a<1.4?0.5:0.2;
   return{steer,throttle:clamp1((dx*fw[0]+dy*fw[1])/l*1.2)*k,strafe:clamp1((dx*rt[0]+dy*rt[1])/l*1.5)*k};}
 /* where o should point, and how hard to go: steer toward a world point */
-/* an all-round spinner with a strong gyro (0.1.35, a shell: FIGHT.gyro at least arcGyro) has no front to point but turns slowly spun up (it sat turning on
-   the spot): it drives at its point with whichever end is nearer, backwards included, and spun up it arcs round,
-   keeping some throttle and easing the lock */
+/* a shell (AI_NAV.eitherEnd) has no front to point: it drives at its point with whichever end is nearer, backwards
+   included, and spun up it arcs round, keeping some throttle and easing the lock, instead of stopping to pivot (0.1.35,
+   for the gyro that held its turn then; 0.1.56 took that gyro away and kept the driving, which is how a shell fights) */
 function aiSteer(o,m,px,py,sk){const want=Math.atan2(py-o.y,px-o.x);let err=wrapA(want-o.h+m.aim),dir=1;
-  const round=o.b.weapon.allRound&&(FIGHT.gyro[o.b.weapon.id]||0)>=AI_NAV.arcGyro;if(round&&Math.abs(err)>Math.PI/2){err=wrapA(err+Math.PI);dir=-1;}
+  const round=!!AI_NAV.eitherEnd[o.b.weapon.id];if(round&&Math.abs(err)>Math.PI/2){err=wrapA(err+Math.PI);dir=-1;}
   const u=aiLerp(AI_SKILL.kp,sk)*err-aiLerp(AI_SKILL.kd,sk)*o.w,a=Math.abs(err);
   if(round&&o.wp.om>o.b.weapon.omega*0.5)
     return{steer:clamp1(-u)*AI_NAV.arcSteer,throttle:dir*Math.max(AI_NAV.arcThrottle,a<0.35?1:Math.cos(Math.min(a,1.3))),err};
