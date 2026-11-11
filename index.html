@@ -1855,7 +1855,8 @@ const FIGHT={
   invertM:[0.08,0.25],        // a flip or throw this high (m, x len) may land the bot upside down, rising to ...
   invertMax:0.85,             // ... this chance at the top of the range
   holdMaxS:10,                // the league's rule: a lift or a pin lets go after this long ...
-  releaseS:1.2, releaseThr:0.7,   // ... and a pin (under a wedge or against a wall) is broken by the pinner backing off this long, at this throttle
+  releaseS:2, releaseThr:0.7,   // ... and a pin (under a wedge or against a wall) is broken by the pinner backing off this long, at this throttle
+  pinClearS:4,                // 0.1.57: after the rule breaks a pin, that pinner can't get under that bot again for this long (it can still shove it)
   liftGrip:0.1,               // a bot held up on a lifter or in a crusher keeps this share of grip
   tipS:0.8, tipM:0.05, tipP:0.75,   // a lifter that holds a bot this long and lifts this high (m, x len) tips it over this often
   crushS:1, crushOpenS:0.6, crushAbsorb:0.5,   // a crusher's bite, opening again, and the share of absorb its point leaves
@@ -2299,6 +2300,7 @@ function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_
     const sc=o=>(o.cfg.extras.indexOf("skid")>=0?2:0)+(["wedge","lifter","flipper"].indexOf(o.b.weapon.type)>=0?part("weaponMaterial",o.cfg.weaponMaterial).hp/1000:part("chassis",o.cfg.chassis).hp/1000);
     const a=sc(A),b=sc(B);if(Math.abs(a-b)>1e-9)win=a>b?[A,B]:[B,A];if(win&&!can(win[0],win[1],"front"))win=null;}
   if(!win||win[0].team===win[1].team)return;const[X,Y]=win;
+  if(Y.pinClear&&Y.pinClear.by===X.i&&F.t<Y.pinClear.until)return;   // the pin rule just broke this pair up: no getting straight back under
   const seen=Y.underLog||(Y.underLog={});if(!(seen[X.i]>F.t-1.5))logIt(F,{k:"under",a:X.i,v:Y.i});seen[X.i]=F.t;   // one line per spell under
   Y.under={by:X.i,until:F.t+hold,grip:by==="front"&&X.st.parts.front>0?X.b.front.underGrip:0};if(X.under&&X.under.by===Y.i)X.under=null;}
 function walls(F,o){const H=F.arena.half,gr=grabberOf(F,o);
@@ -2364,7 +2366,7 @@ function stepJudge(F){const dt=F.dt,G=FIGHT.judge;
     if(by&&by.team!==o.team&&!by.out&&!by.mini)by.jd.ctrl+=dt;
     /* the pin rule: under a wedge or pinned for holdMaxS in one spell (gaps under 0.3 s don't break it), the pinner backs off */
     if(pinBy&&pinBy.team!==o.team&&!pinBy.out){if(!(o.pin&&o.pin.by===pinBy.i&&F.t-o.pin.last<0.3))o.pin={by:pinBy.i,t0:F.t,last:F.t};
-      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
+      o.pin.last=F.t;if(F.t-o.pin.t0>=FIGHT.holdMaxS){pinBy.release=F.t+FIGHT.releaseS;pinBy.releaseFrom=o.i;o.pin=null;o.under=null;o.pinClear={by:pinBy.i,until:F.t+FIGHT.releaseS+FIGHT.pinClearS};logIt(F,{k:"release",a:pinBy.i,v:o.i});}}}}
 /* a bot is out (knocked out or in the pit): any hold it is part of ends, whichever end of it the bot was on */
 function outBot(F,o,why,quiet){o.out=why;o.outAt=F.t;
   if(o.wp.held!=null){const t=F.bots[o.wp.held];if(t&&t.held===o.i)t.held=null;o.wp.held=null;o.wp.grab=null;}
@@ -5883,7 +5885,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.56.2";
+const VERSION="0.1.57.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6481,7 +6483,7 @@ function buFighting(){return typeof document!=="undefined"&&document.documentEle
 /* something worth keeping: a career past its first weeks, a bot fitted, or a couple of saved designs */
 function buProgress(){if(!S)return false;
   const c=S.career,nd=Object.values(S.designs||{}).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
-  return !!(c&&(+c.week||1)>=4)||Object.keys(S.bots||{}).length>0||nd>=2;}
+  return !!(c&&(+c.week||1)>=4)||nd>=2||!c&&Object.keys(S.bots||{}).length>0;}   // 0.1.57: in a career a fitted bot alone is not yet progress worth a reminder (it showed seconds in); week 4 is
 function buSaved(){if(!buPersistAsked&&buProgress())buPersist();}   // save() calls this after each good write
 function buPersist(){if(buPersistAsked)return;buPersistAsked=true;
   try{const st=typeof navigator!=="undefined"&&navigator.storage;if(!st||!st.persist||!st.persisted)return;
@@ -7473,6 +7475,8 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0
   ctlButtons(o,canSlide);CTL.last=out;return out;}
 /* the self-right button shows only when it's needed; Slide only with a wheel layout that can slide */
 function ctlButtons(o,canSlide){if(!CTL.el)return;const srb=CTL.el.querySelector("[data-c=sr]"),slb=CTL.el.querySelector("[data-c=sl]");
+  /* 0.1.57: nothing to fire (a pusher or a plain wedge with no kicker on the back) means no Weapon button */
+  const wb=CTL.el.querySelector("[data-c=wpn]"),t=o.b.weapon.type,dud=(t==="none"||t==="wedge")&&!(o.b.back&&o.b.back.kick);if(wb&&wb.hidden!==dud)wb.hidden=dud;
   if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
   if(slb&&slb.hidden===!!canSlide)slb.hidden=!canSlide;}
 function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}
@@ -7514,7 +7518,7 @@ const CONTROLS={read:ctlRead,mount:ctlMount,unmount:ctlUnmount};
    (clangs and motor whine, if Settings → Sound is on) and buzz() (scaled by the hit, only for hits on or by you).
    The frame loop steps the sim at its fixed 60 Hz with an accumulator clamped to 5 steps a frame, so a stall never
    fast-forwards the round, and pauses when the page is hidden (visibilitychange). The 2D view draws at 30 fps on Lite. */
-const FT={F:null,opp:"wedge",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
+const FT={F:null,opp:"",arena:"auto",style:"you",mode:"duel",kit:"basic",rounds:[],rv:0,bout:null,rp:null,speed:1,paused:false,raf:0,last:0,lastDraw:0,acc:0,flashes:[],logN:0,hudT:0,fights:0,
   you:false,on:false,view2d:false,partN:0,buzzT:0,
   sub:"spar",open:null,   // the Fight tab's page (spar / daily / school / reel / codes) and its open row (a picker, or "sc:<drill>")
   ext:null};   // ext: the shown fight isn't a spar of your fitted bot: {kind:"daily", day, bring, res} or {kind:"code", ver} (app/daily.js), {kind:"bench"} or {kind:"school", id, demo, res} (app/school.js)
@@ -7522,7 +7526,10 @@ const ftArena=cls=>FT.arena==="auto"?SIM.CLASSES[cls].arenaId:FT.arena;
 const ftAuto=(cfg,cls)=>SIM.autoStyle(SIM.evalBuild(cfg),ftArena(cls));
 const ftGL=()=>!!(window.SCRAP_VIS&&SCRAP_VIS._state&&SCRAP_VIS._state.r);
 /* the opponent picked: a named one in this class, else a test build */
-function ftOpp(cls,id){id=id||FT.opp;const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
+/* 0.1.57: until one is picked, a spar is against the class's first named spinner (a club bot at club skill that trades
+   hits), not the wedge at 0.7, which pinned a starter bot for most of the round */
+function ftOppDef(cls){const o=SIM.OPPONENTS.find(o=>o.cls===cls&&SIM.part("weapon",SIM.opponentCfg(o).weapon).type==="spinner");return o?o.id:"hsp";}
+function ftOpp(cls,id){id=id||FT.opp||ftOppDef(cls);const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
   if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op,livery:lvOpp("op:"+id)};
   const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
   return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.7},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24)
@@ -7789,7 +7796,7 @@ function ftEnter(){const F=FT.F;FT.on=true;FT.view2d=!ftGL()||!!ST().map2d;const
     pos.addEventListener("change",()=>{FT.rp.drag=false;ftSeek(+pos.value);});}
   SCRAP_VIS.setRun({reduce:reduced(),fxLow:fxLow(),mark:FT.you&&!FT.rp?0:null});   // mark: the forward arrow on the bot you drive (vis/arena.js fwdMark)
   if(ftGL()){SCRAP_VIS.setFight(F);SCRAP_VIS.setView("arena");}
-  if(FT.you)CONTROLS.mount(el);
+  if(FT.you){CONTROLS.mount(el);if(FT.F&&FT.F.bots[0])ctlButtons(FT.F.bots[0],false);}   // 0.1.57: the buttons fit the bot from the first frame (no Weapon on a pusher)
   if(tip){const ok=el.querySelector("[data-fv=tipok]");if(ok&&tip.drive)ok.focus({preventScroll:true});}
   ftOverlay();ftInsets();}
 /* the band of the screen the HUD leaves clear, for the camera: below the bot cards, above the controls or the replay bar */
@@ -7853,7 +7860,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};
     const dr=ftDrive(o,states),bs=o.flags.smoke||states.battery==="destroyed"?"broke":states.battery==="damaged"||bat<0.2?"worn":"ok";
     set("w",ftArmed(o)?ws:0,!o.fx.weaponOk?"broke":FT_ST[states.weapon]||"ok");set("dr",dr.v,dr.cls);set("bat",bat,bs);
-    const st=o.out?(o.out==="ko"?"Counted out":"In the pit"):o.fx.dead?"Dead":o.flat?"Battery flat":o.immobileS>0?`Immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"Upside down":o.held!=null?"Lifted":o.under?"Under a wedge":heat>0.85?"Overheating":"";
+    const st=o.out?(o.out==="ko"?"Counted out":"In the pit"):o.fx.dead?"Dead":o.flat?"Battery flat":o.immobileS>0?`Immobile ${Math.ceil(F.rules.koS-o.immobileS)}`:o.inverted?"Upside down":o.held!=null?"Lifted":o.under?"Wedged: no grip":heat>0.85?"Overheating":"";
     const sx=el.querySelector('[data-b="st"]');if(sx&&sx.textContent!==st)sx.textContent=st;
     /* where the status line is hidden (a rumble, a phone on its side), the status takes the worst part's place */
     const wo=st&&(many||FT_SHORT.matches)?{t:st,cls:"stw"}:ftWorst(o,states),wx=el.querySelector('[data-b="worst"]');if(wx){if(wx.textContent!==wo.t)wx.textContent=wo.t;if(wx.className!==wo.cls)wx.className=wo.cls;}el.classList.toggle("out",!!o.out);
@@ -8103,8 +8110,8 @@ function ftDrvHint(){if(FT.style!=="you")return"The AI drives your bot; you watc
 /* chip rows (wrap on a phone): [[value, label html]] */
 function ftChips(attr,label,items,cur){return`<div class="ftopp" role="group" aria-label="${label}">${items.map(it=>`<button type="button" data-${attr}="${it[0]}" class="${it[0]===cur?"on":""}" aria-pressed="${it[0]===cur}">${it[1]}</button>`).join("")}</div>`;}
 function ftPicker(cls){const ops=SIM.OPPONENTS.filter(o=>o.cls===cls),cur=ftOpp(cls);
-  return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),FT.opp):""}
-    ${ftChips("ftopp","Club regulars",SIM.TEST_BUILDS.map(t=>[t.id,`${esc(lvOppName("tb:"+t.id,t.name))} <small>${esc(t.name.toLowerCase())}</small>`]),FT.opp)}
+  return`<div class="field"><span class="lbl">Opponent</span>${ops.length?ftChips("ftopp","Named opponents",ops.map(o=>[o.id,esc(o.name)]),cur.id):""}
+    ${ftChips("ftopp","Club regulars",SIM.TEST_BUILDS.map(t=>[t.id,`${esc(lvOppName("tb:"+t.id,t.name))} <small>${esc(t.name.toLowerCase())}</small>`]),cur.id)}
     <p class="hint" id="ftOppLine">${ftOppLine(cur)}</p></div>`;}
 function ftOppLine(o){const tm=o.livery?`${lvBadge(o.livery,22,"in")}<b>${esc(o.name)}</b> · ${esc(o.livery.name)}`:`<b>${esc(o.name)}</b>`;
   if(!o.op)return`${tm}. A club regular's take on the ${esc(SIM.TEST_BUILDS.find(t=>t.id===o.id).name.toLowerCase())} test build, driven ${esc(SIM.AI_STYLES[SIM.autoStyle(SIM.evalBuild(o.cfg),ftArena(o.cfg.cls)) ].name.toLowerCase())}.`;
