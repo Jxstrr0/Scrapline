@@ -37,6 +37,7 @@ app/pwa.js
 app/boot.js
 app/build.js
 app/bench.js
+app/sheet.js
 app/debugview.js
 app/controls.js
 app/fight.js

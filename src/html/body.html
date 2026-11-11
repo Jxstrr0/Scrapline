@@ -16,11 +16,15 @@
   <div id="panel">
     <!-- BUILD: design the robot under the weight limit -->
     <section class="tabpage on" id="tab-build" aria-labelledby="h-build">
+      <button type="button" class="bnext" id="bNext" hidden></button>
       <div class="bwbar" id="bwBar">
         <div class="bwtop"><h2 id="h-build">Build <span id="bwCls"></span></h2><span class="mono" id="bwNum"></span></div>
-        <div class="bwtrack" role="meter" id="bwMeter" aria-labelledby="h-build" aria-valuemin="0"><i id="bwFill"></i></div>
+        <div class="bwtrack" role="meter" id="bwMeter" aria-labelledby="h-build" aria-valuemin="0"></div>
         <div class="bcap" id="bCap"></div>
       </div>
+      <div class="bbands" id="bBands" role="group" aria-label="Mass budget by group"></div>
+      <div class="bpage"><div class="seg" id="bPage" role="group" aria-label="Build page"><button type="button" data-bpage="sheet">Sheet</button><button type="button" data-bpage="parts">Parts</button></div><span id="bVerdict"></span></div>
+      <div id="bSheet" hidden></div>
       <div id="bRows"></div>
       <div class="fitbar" id="fitBar" hidden></div>
       <details class="raw" id="bxRaw" hidden><summary>Raw evalBuild() result</summary><pre class="mono" id="simOut"></pre></details>

@@ -253,14 +253,38 @@ function bRender(){visBot();if(B.sel&&!SIM.footprints(draft()).some(f=>f.key===B
   const r=bEval(),c=SIM.CLASSES[bCls()],pct=100*r.totalG/r.limitG,bar=$("bwBar"),v=VERDICT[r.verdict]||VERDICT.flaws,w=r.weapon;
   $("bwCls").textContent=c.name;
   $("bwNum").innerHTML=r.totalG>r.limitG?`<span class="broke">${fmtG(r.totalG-r.limitG)} over</span>`:`${fmtG(r.limitG-r.totalG)} left`;
-  $("bwFill").style.width=Math.min(100,pct).toFixed(1)+"%";bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
+  bar.classList.toggle("near",pct>=97&&pct<=100);bar.classList.toggle("over",pct>100);
+  /* the mass budget in bands (0.1.58): one band a group, widths in grams of the limit (squeezed to fit when over) */
+  const G=shGroups(r),sc=100/Math.max(r.limitG,r.totalG);
+  $("bwMeter").innerHTML=G.map(g=>`<i data-band="${g.sec}" style="width:${(g.g*sc).toFixed(2)}%"></i>`).join("");
+  $("bBands").innerHTML=G.map(g=>`<button type="button" data-band="${g.sec}"><small>${g.label}</small><b class="mono">${Math.round(g.g).toLocaleString("en-GB")}</b></button>`).join("");
+  /* Sheet or Parts (0.1.58): Parts until a bot is fitted in the class, Sheet after; picked again when the class changes */
+  if(B.pageCls!==bCls()){B.pageCls=bCls();B.page=bBot().cfg?"sheet":"parts";}
+  if(typeof TUT_ON!=="undefined"&&TUT_ON)B.page="parts";   // the tutorial points at the parts
+  const sheet=B.page==="sheet";
+  document.querySelectorAll("#bPage button").forEach(x=>{const on=x.dataset.bpage===B.page;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on);});
+  $("bVerdict").innerHTML=`<span class="chip ${v[0]}">${v[1]}</span>`;
+  $("bCap").hidden=sheet;$("bRows").hidden=sheet;$("bSheet").hidden=!sheet;
+  $("bSheet").innerHTML=sheet?sheetHtml(bCls(),draft()):"";
+  bNextBout();
   const m=$("bwMeter");m.setAttribute("aria-valuemax",r.limitG);m.setAttribute("aria-valuenow",Math.round(r.totalG));m.setAttribute("aria-valuetext",`${fmtG(r.totalG)} of ${fmtG(r.limitG)}`);
   const run=r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":`${Math.floor(r.runtimeS/60)}:${String(Math.round(r.runtimeS%60)).padStart(2,"0")}`,cell=(l,v)=>`<span class="bst"><small>${l}</small><b>${v}</b></span>`;
   $("bCap").innerHTML=cell("Top speed",`${r.driveSpeed.toFixed(1)}<i> m/s</i>`)+(w.energyJ>=1?cell("Hit energy",`<span class="readout">${Math.round(w.energyJ).toLocaleString("en-GB")}</span><i> J</i>`):cell("Weapon",w.type==="none"?"none":esc(w.type)))
-    +cell("Weak side",FACE_LBL[bWeak(r)])+cell("Battery",run)+`<span class="chip ${v[0]}">${v[1]}</span>`;
-  $("bRows").innerHTML=B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
+    +cell("Weak side",FACE_LBL[bWeak(r)])+cell("Battery",run);
+  $("bRows").innerHTML=sheet?"":B_SECS.map(s=>{const o=!!B.open[s.id];return`<div class="acc${o?" open":""}" data-sec="${s.id}"><button type="button" class="acch" aria-expanded="${o}"><span class="t">${s.t}</span><span class="sum">${esc(s.sum())}</span><span class="chev"></span></button><div class="accb">${o?s.body():""}</div></div>`;}).join("");
   bFitBar(r);
   if(!$("bxRaw").hidden&&$("bxRaw").open)$("simOut").textContent=JSON.stringify(r,(k,v)=>typeof v==="number"?Math.round(v*1000)/1000:v,1);}
+/* the Next bout banner (0.1.58), career only: today's next fight when an event day is on, else the next event you can
+   enter. It names an opponent only when the draw is known (a fight today). Tapping it goes to Career › This week. */
+function bNextBout(){const el=$("bNext");if(!el)return;let t="";
+  if(crOn()&&!S.career.over){const c=S.career;
+    if(c.day){const nx=crNext(c.day);if(nx){const vs=nx.idx.filter(i=>i!==0).map(i=>c.day.field[i]).filter(Boolean).map(e=>lvOppName(e.id,e.name));
+      t=`<b>Next bout</b> ${esc(nx.label)}${vs.length?" vs "+esc(crAnd(vs)):""}`;}}
+    else{const e=crCalendar().find(e=>e.week>=c.week&&e.week<=TIME.weeks&&!c.events[crKey(e)]&&!crClassLock(e.cls)&&S.bots[e.cls]&&S.bots[e.cls].cfg);
+      if(e)t=`<b>Next bout</b> ${esc(e.name)} · ${e.week===c.week?"this week":"week "+e.week}`;}}
+  el.hidden=!t;el.innerHTML=t?`<span>${t}</span><span class="chev" aria-hidden="true"></span>`:"";}
+/* open one section on the Parts page (a mass band, and the post-mortem's Fix it) */
+function bOpenSec(id){B.page="parts";B.pageCls=bCls();B.open={[id]:true};bRender();bToHead(id);}
 function bFitBar(r){const b=bBot(),fb=$("fitBar");
   if(b.cfg&&SIM.sameParts(b.cfg,b.draft)){fb.hidden=true;return;}
   const bill=SIM.fitBill(b.cfg,b.draft),ok=r.valid,n=bill.lines.length,off=bill.removed.length;
@@ -298,6 +322,10 @@ function bClearDamage(b,bill){const d=b.damage,hit=k=>{for(const x in d)if(k(x))
 function bToHead(id){const r=document.querySelector(`#bRows [data-sec="${id}"]`),P=$("panel"),bar=$("bwBar");if(!r||!P)return;const d=r.getBoundingClientRect().top-(bar?bar.getBoundingClientRect().bottom:P.getBoundingClientRect().top)-8;if(d)P.scrollTo({top:P.scrollTop+d,behavior:"auto"});}
 /* ---- events (one set, on the tab) ---- */
 function bClick(e){const t=e.target;let x;
+  if((x=t.closest("[data-bpage]"))){if(B.page!==x.dataset.bpage){B.page=x.dataset.bpage;bRender();pageIn($(B.page==="sheet"?"bSheet":"bRows"));}return;}
+  if((x=t.closest("[data-band]"))){bOpenSec(x.dataset.band);return;}
+  if(t.closest("#bNext")){goTo("career/week");return;}
+  if((x=t.closest("[data-shtest]"))){const id=x.dataset.shtest;BN.pick=[id];showTab("bench");const c=document.querySelector(`#bnBody [data-test="${id}"]`);if(c)c.scrollIntoView({block:"start",behavior:"auto"});return;}
   if(t.closest('[data-act="team"]')){lvOpen();return;}
   if((x=t.closest(".acch"))){const id=x.parentNode.dataset.sec,was=!!B.open[id];B.open=was?{}:{[id]:true};bRender();if(!was){bToHead(id);const nb=document.querySelector(`#bRows [data-sec="${id}"] .accb`);if(nb&&!reduced())nb.classList.add("pgin");}return;}
   if((x=t.closest("[data-cls]"))){ST().buildCls=x.dataset.cls;B.sel=null;B.delKey=null;save();bRender();return;}
