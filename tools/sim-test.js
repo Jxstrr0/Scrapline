@@ -189,7 +189,7 @@ for (const cls of SIM.CLASS_IDS) {
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
   const KIND = { vsp: "slot", drisk: "slot", saw: "slot", drum: "pocket", beater: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
-    lifter: "deck", grabber: "deck", clamp: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none", spear: "none" }, eps = 1e-9;
+    lifter: "deck", grabber: "deck", clamp: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none", spear: "none", flame: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
     if (!y) { fail(`${lbl}: no bay`); continue; }
@@ -563,6 +563,50 @@ for (const cls of SIM.CLASS_IDS) {
   if (!F.log.some((e) => e.k === "land" || (e.k === "inv" && e.v === 1)) && t.air) fail("a dropped bot should land");
   if (!grabs) fail("a clamp and lift should grab something in eight fights");
   console.log(`0.1.65 checks: the clamp lifts ${row.join(", ")}, refuses a front, holds a bot up at the full lift and drops it when let go; ${grabs} grabs in 8 fights; replays match`);
+}
+
+/* 0.1.66: the flamethrower, the flame nozzle and the saucer */
+{
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls: cls || "beetle" });
+  const fl = (cls) => Object.assign(T("hammer", cls), { weapon: "flame" }), row = [];
+  const sc = (cls) => Object.assign(T("drum", cls), { body: "saucer" });
+  for (const cls of SIM.CLASS_IDS) {
+    const b = SIM.evalBuild(fl(cls)), s = SIM.evalBuild(sc(cls)), box = SIM.evalBuild(T("drum", cls));
+    if (!b.valid) fail(`${cls} flamethrower: ${b.errors.join("; ")}`);
+    if (!b.flame || b.flame.src !== "weapon" || !(b.flame.fuelS > 0) || !(b.flame.reachM > 0)) fail(`${cls} flamethrower: no flame on the build`);
+    if (!s.valid) fail(`${cls} saucer: ${s.errors.join("; ")}`);
+    if (!s.round || s.polygon.length !== 8) fail(`${cls} saucer: should have an eight-sided outline`);
+    if (!s.height.drivesInverted) fail(`${cls} saucer: should drive either way up`);
+    if (!(s.height.rimMm < box.height.clearanceMm)) fail(`${cls} saucer: its rim (${s.height.rimMm} mm) should sit under a box's clearance (${box.height.clearanceMm} mm)`);
+    let n = 0, m = 0; const c = SIM.CLASSES[cls];
+    for (let y = 0; y < c.gridH; y++) for (let x = 0; x < c.gridW; x++) { if (SIM.cellOn(cls, "hdpe", x, y, "saucer")) n++; if (SIM.cellOn(cls, "hdpe", x, y)) m++; }
+    if (n !== m - 4 * c.fp * c.fp) fail(`${cls} saucer: should lose its four corner cells (${n} of ${m})`);
+    row.push(`${cls} ${(b.flame.reachM * 1000).toFixed(0)} mm`);
+  }
+  if (!SIM.evalBuild(Object.assign(fl(), { front: "nozzle" })).errors.length) fail("a flamethrower should refuse a flame nozzle");
+  const nz = SIM.evalBuild(Object.assign(T("vsp"), { front: "nozzle" }));
+  if (!nz.flame || nz.flame.src !== "front") fail("a flame nozzle should put a flame on a vertical spinner: " + nz.errors.join("; "));
+  const fight = (a, b, seed) => SIM.runFight({ seed, arena: "clubbox", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+  let burns = 0, fires = 0;
+  for (let s = 1; s <= 4; s++) for (const [a, o] of [[fl(), T("vsp")], [Object.assign(T("vsp"), { front: "nozzle" }), T("brick")], [sc(), T("wedge")], [sc(), T("flipper")]]) {
+    const r = fight(a, o, s), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a 0.1.66 fight replays differently`);
+    burns += r.log.entries.filter((e) => e.k === "burn" && e.a === 0).length; fires += r.log.entries.filter((e) => e.k === "fire" && e.a === 0).length;
+  }
+  /* by hand: a dead bot parked in front heats up and burns, and the fuel runs out */
+  const F = SIM.newFight({ seed: 3, arena: "box", bots: [{ cfg: fl(), driver: null }, { cfg: T("brick"), driver: null }] }), a = F.bots[0], t = F.bots[1];
+  const gap = a.b.lengthM / 2 + t.b.lengthM / 2 + a.b.flame.reachM * 0.5;
+  t.x = a.x + Math.cos(a.h) * gap; t.y = a.y + Math.sin(a.h) * gap; t.h = a.h + Math.PI;
+  const on = { throttle: 0, steer: 0, weapon: 1, selfRight: 0 }, off = { throttle: 0, steer: 0, weapon: 0, selfRight: 0 };
+  for (let i = 0; i < 60 * 4; i++) SIM.stepFight(F, [on, off]);
+  const heat = t.heat.d / t.b.heat.drive.budgetJ, burnt = t.stats.taken;
+  if (!(heat > 0.8)) fail(`4 s in the flame should heat a parked bot's drive near its budget, not ${heat.toFixed(2)}`);
+  if (!(burnt > 0)) fail("the flame should burn a parked bot");
+  if (!(a.jd.contact > 3)) fail(`the judges should count the flame as contact (${a.jd.contact.toFixed(2)} s)`);
+  for (let i = 0; i < 60 * 12; i++) SIM.stepFight(F, [on, off]);
+  if (a.fl.fuel > 0 || a.fl.on) fail("the flame should run out of fuel");
+  if (!fires || !burns) fail(`flames should light and burn in 16 fights (${fires} lit, ${burns} burns)`);
+  console.log(`0.1.66 checks: the flame reaches ${row.join(", ")}; a parked brick in it is at ${(heat * 100).toFixed(0)}% of its drive heat after 4 s and has taken ${burnt.toFixed(1)} J; ${fires} lit and ${burns} burns in 16 fights; the saucer drives either way up on an eight-sided outline; replays match`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }

@@ -262,6 +262,9 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   else if(w.type==="flipper"||w.type==="hammer"||w.type==="crusher"||w.type==="spear")out.weapon=m.inZone&&m.zoneT>=0&&F.t-m.zoneT>=late&&
     !(w.type==="flipper"&&t.inverted&&!t.b.height.drivesInverted&&!t.fx.righter)?1:0;   // a flipper leaves a stranded bot upside down
   else if(w.type==="lifter"||w.type==="grabber")out.weapon=m.inZone||o.wp.held!=null?1:0;
+  else if(w.type==="flame")out.weapon=m.inZone&&o.fl.fuel>0?1:0;   // 0.1.66: hold the flame on it while it is in the cone
+  /* a flame nozzle (0.1.66): lit while the bot is in front of it (it shares the weapon button) */
+  if(o.fz&&o.b.flame.src==="front"&&o.fl.fuel>0&&zoneTouch(o,t,o.fz))out.weapon=1;
   /* a kicker (0.1.32): a bot at its back gets flicked away (the same button as the weapon) */
   if(o.kz&&o.kick.shots>0&&!(o.kick.recharge>0)&&zoneTouch(o,t,o.kz))out.weapon=1;
   return out;}

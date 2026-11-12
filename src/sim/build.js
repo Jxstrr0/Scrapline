@@ -7,7 +7,9 @@
      wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm, backEdgeMm, frontBareMm (the edge with the front
-            knocked off)}
+            knocked off), rimMm (0.1.66: a saucer's rim, the edge it meets anything getting under it with; null otherwise)}
+     flame {src "weapon"|"front", fuelS, reachM, heatFrac, burnJps} (0.1.66: a flamethrower or a front nozzle) or null;
+     round (0.1.66: a saucer, an eight-sided outline)
      front {id, name, slope, ramMul, underGrip}, back {id, name, ramMul, kick, selfRights} (0.1.32, frontInfo / backInfo)
      weapon {type, energyJ, allRound / melty (0.1.34: an all-round spinner, the whole bot spinning), storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
@@ -63,6 +65,8 @@ function evalBuild(cfgIn,opts){
   if(bd.twoWheel&&wb.id!=="std")errors.push("A "+bd.name.toLowerCase()+" runs on one big wheel a side: no "+wb.name.toLowerCase());
   if(bd.twoWheel&&wh.tracks)errors.push("A "+bd.name.toLowerCase()+" runs on wheels, not tracks");
   const wbScrub=wb.scrubMul*(bd.scrubMul||1),wbLat=wb.latMul*(bd.latMul||1);
+  /* 0.1.66: one flame at a time. A flamethrower's tank and a nozzle's would share the front */
+  if(fr.flame&&wp.type==="flame")errors.push("The flamethrower already burns out of the front: no room for a "+fr.name.toLowerCase());
   /* the tuning dials (0.1.33, TUNE in sim/parts.js): each a multiplier at 1 when the dial is stock */
   const tu=cfg.tune,TV=TUNE.volt,TW=TUNE.wheel,TB=TUNE.bias;
   const vCell=1+TV.cells*tu.volt,vPow=1+TV.power*tu.volt,vSpd=1+TV.speed*tu.volt,vHeat=Math.max(TV.heatMin,1+TV.heat*tu.volt);
@@ -74,19 +78,22 @@ function evalBuild(cfgIn,opts){
   /* ---- geometry (mm) ---- */
   const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*bd.heightMul*M.len;
   const cellsAll=c.gridW*c.gridH;let cellsOn=0;
-  for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y))cellsOn++;
+  for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y,cfg.body))cellsOn++;
   const cellFrac=cellsOn/cellsAll;
   const cx=x=>((x+0.5)-c.gridW/2)*cellMm/1000, cy=y=>(c.gridH/2-(y+0.5))*cellMm/1000;   // cell centre in m
-  const cut=ch.shape==="wedge"?c.fp*cellMm/1000:0;
+  const rc=bd.round?c.fp*cellMm/1000:0,cut=ch.shape==="wedge"||rc?c.fp*cellMm/1000:0;   // 0.1.66: a saucer cuts all four corners (rc)
   const hw=W/2000,hl=L/2000,boomM=tail&&wp.boomMm?wp.boomMm*M.len/1000:0;   // a thwackbot's boom, from the back face to the head
-  const polygon=cut?[[-hw+cut,hl],[hw-cut,hl],[hw,hl-cut],[hw,-hl],[-hw,-hl],[-hw,hl-cut]]:[[-hw,hl],[hw,hl],[hw,-hl],[-hw,-hl]];
+  const rp=rc*(bd.roundCut||1),polygon=rc?[[-hw+rp,hl],[hw-rp,hl],[hw,hl-rp],[hw,-hl+rp],[hw-rp,-hl],[-hw+rp,-hl],[-hw,-hl+rp],[-hw,hl-rp]]:
+    cut?[[-hw+cut,hl],[hw-cut,hl],[hw,hl-cut],[hw,-hl],[-hw,-hl],[-hw,hl-cut]]:[[-hw,hl],[hw,hl],[hw,-hl],[-hw,-hl]];
 
   /* ---- mass items: {key, slot, id, g, x, y} (x, y in m), plus the moment-of-inertia extras ---- */
   const items=[];const addM=(key,slot,id,g,x,y)=>{items.push({key,slot,id,g,x,y});};
-  addM("chassis","chassis",ch.id,ch.massPerCell*bd.massMul*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
+  addM("chassis","chassis",ch.id,ch.massPerCell*bd.massMul*BASE.cells*M.mass*(rc?1:cellFrac),0,cut&&!rc?-cut*0.2:0);   // a saucer is pressed whole: its corners are lost room, not lost weight
 
   /* armour: plate area x thickness x density; the top covers the whole outline */
-  const faceArea={front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
+  const faceArea=rc?{front:(W-2*rc*1000+Math.SQRT2*rc*1000)*H,back:(W-2*rc*1000+Math.SQRT2*rc*1000)*H,   // a saucer's eight sides: each corner's
+      left:(L-2*rc*1000+Math.SQRT2*rc*1000)*H,right:(L-2*rc*1000+Math.SQRT2*rc*1000)*H,top:W*L*cellFrac}:   // slant shared by the faces either side
+    {front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
     back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
@@ -172,7 +179,7 @@ function evalBuild(cfgIn,opts){
 
   /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
   const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale)*vSpd*wSpd*(wb.speedMul||1),F0=dr.forceN*M.mass*powerScale*vSpd*wForce;
-  const grip=wh.grip*wb.gripMul*bPush,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
+  const grip=wh.grip*wb.gripMul*bPush*(bd.gripMul||1),weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
   const resist=K.crr*weightN*wb.crrMul;
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
@@ -199,7 +206,9 @@ function evalBuild(cfgIn,opts){
   const selfRight=has("selfRight")||!!wp.selfRights||!!bk.selfRights;
   const backEdgeMm=bk.edgeMm!=null?Math.max(0.5*M.edge,bk.edgeMm*M.edge):clearanceMm;
   const invertible=centred||selfRight;
-  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm)};
+  /* 0.1.66: a saucer's rim meets the floor rimMm (x edge) low on every face: what tries to get under it meets that, not its clearance */
+  const rimMm=bd.rimMm!=null?r3(Math.max(0.5*M.edge,bd.rimMm*M.edge)):null;
+  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm),rimMm};
 
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:allRound?[0,0]:tail?[com.x,com.y]:wpos,allRound,melty:!!wp.bodyK,thwack:tail,boomM,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
@@ -224,13 +233,19 @@ function evalBuild(cfgIn,opts){
   if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale*vPow,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});
   if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale*vSpd,energyJ:wp.crushJ*M.mass*powerScale*vPow,reachM:0.5*L/1000,bite:wm.bite});
   if(wp.type==="wedge")Object.assign(weapon,{reachM:wp.reachMm*M.len/1000,bite:wm.bite});
+  /* the flamethrower (0.1.66): seconds of fuel, the cone's reach past the front, the share of a heat budget it puts into
+     what it burns a second, and its burn (J a second, x the class's mass). energyJ is the burn over the whole tank */
+  if(wp.type==="flame")Object.assign(weapon,{fuelS:wp.fuelS,reachM:wp.reachMm*M.len/1000,heatFrac:wp.heatFrac,burnJps:wp.burnJps*M.mass,energyJ:wp.burnJps*M.mass*wp.fuelS,bite:1});
+  /* a flame on the bot, the weapon's or a front nozzle's (0.1.66): what the fight burns with, or null */
+  const fl=wp.type==="flame"?{src:"weapon",fuelS:wp.fuelS,reachM:weapon.reachM,heatFrac:wp.heatFrac,burnJps:weapon.burnJps}:
+    fr.flame&&!ownFront?{src:"front",fuelS:fr.flame.fuelS,reachM:fr.flame.reachMm*M.len/1000,heatFrac:fr.flame.heatFrac,burnJps:fr.flame.burnJps*M.mass}:null;
 
   const bay=bayOf(wp,weapon,wpos,fpOf("weapon"),lay.place.weapon,{W:W/1000,L:L/1000,H:H/1000,clr:clearanceMm/1000,cell:cellMm/1000,c,M,cellFrac});
 
   /* ---- exposure: per cell, from each face (closer and less armoured is worse) and from above ---- */
   const cells=[];let topE=K.topWeight*(1-armourMapJ.top.prot);
   for(let y=0;y<c.gridH;y++){const row=[];for(let x=0;x<c.gridW;x++){
-    if(!cellOn(cfg.cls,cfg.chassis,x,y)){row.push(null);continue;}
+    if(!cellOn(cfg.cls,cfg.chassis,x,y,cfg.body)){row.push(null);continue;}
     const d={front:y/c.fp,back:(c.gridH-1-y)/c.fp,left:x/c.fp,right:(c.gridW-1-x)/c.fp};let e=topE;
     for(const f in K.faceWeight)e+=K.faceWeight[f]*(1-armourMapJ[f].prot)/((1+d[f])*(1+d[f]));
     row.push(r3(e));}cells.push(row);}
@@ -286,7 +301,7 @@ function evalBuild(cfgIn,opts){
     limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:batWs},
-    height,weapon,bay,front:frontInfo(fr,ownFront,M),back:backInfo(bk,M,limitKg),armourMapJ,weakestFace,exposureScore,cells,parts,
+    height,weapon,flame:fl,round:!!bd.round,bay,front:frontInfo(fr,ownFront,M),back:backInfo(bk,M,limitKg),armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,tune:Object.assign({},tu),wheelRadiusMm:r3(rWheel),
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
   b.stress=stressReport(b);

@@ -111,6 +111,9 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
   if(w.type==="hammer")return Object.assign(r,{kind:"hammer",energyJ:w.energyJ,swingS:w.swingS,hitJ:w.energyJ*(w.bite||1)});
   if(w.type==="crusher")return Object.assign(r,{kind:"crush",energyJ:w.energyJ,forceN:w.forceN,hitJ:w.energyJ});
   if(w.type==="spear")return Object.assign(r,{kind:"stab",energyJ:w.energyJ,forceN:w.forceN,strokeM:w.strokeM,shots:w.shots,rechargeS:w.rechargeS,hitJ:w.energyJ*(w.bite||1)});   // 0.1.64
+  /* 0.1.66: the flamethrower burns, it doesn't hit: the tank, the cone's reach, the burn a second, and how long a cold
+     motor held in it takes to derate (one heat budget at heatFrac a second) */
+  if(w.type==="flame")return Object.assign(r,{kind:"flame",fuelS:w.fuelS,reachM:w.reachM,burnJps:w.burnJps,heatFrac:w.heatFrac,derateS:1/w.heatFrac,hitJ:w.burnJps});
   const ramJ=0.5*m*b.driveSpeed*b.driveSpeed;
   return Object.assign(r,{kind:"ram",ramJ,pushN:b.pushN,edgeMm:b.height.frontEdgeMm,reachM:w.reachM||0,hitJ:ramJ});}
 

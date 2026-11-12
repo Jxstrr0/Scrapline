@@ -254,6 +254,8 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="grab")SS.sfx("grab",0.7);
   else if(e.k==="kick"&&!e.heavy)SS.sfx("kick",0.7);
   else if(e.k==="stab")SS.sfx("kick",0.6);   // 0.1.64: a spear's stab into thin air
+  else if(e.k==="slip"&&(e.w==="flip"||e.w==="kick"))SS.sfx(e.w==="kick"?"kick":"flip",0.6);   // 0.1.66: it fired, and skated off a saucer
+  else if(e.k==="fire")SS.sfx("flame",0.6);   // 0.1.66: a flamethrower or a nozzle lights
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
   else if(e.k==="haz"){if(e.what!=="flame")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);}
   else if(e.k==="flame")SS.sfx("flame",0.55);
@@ -376,7 +378,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
-    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"||w.type==="spear"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
+    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"||w.type==="spear"?o.wp.shots/(w.shots||1):w.type==="flame"?o.fl.fuel/(o.b.flame.fuelS||1):w.type==="none"||w.type==="wedge"?0:1;
     if(o.flags.bent&&states.weapon==="intact")states.weapon="damaged";
     /* three bars: how long is how ready (disc speed, shots left; drive left on each side; charge), the colour is how damaged */
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};
@@ -532,6 +534,9 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
     case"drop":return e.h!=null?`${ftCap(N(a))} ${V(a,"drops","drop")} ${N(v)} from ${Math.max(1,Math.round(e.h*100))} cm up${e.r?` (${FT_HOLD} s hold limit)`:""}`   // 0.1.65: a clamp and lift lets go
       :`${ftCap(N(a))} ${V(a,"lets","let")} ${N(v)} down (${FT_HOLD} s hold limit)`;
     case"release":return`${ftCap(N(a))} ${V(a,"backs","back")} off ${N(v)} (${FT_HOLD} s pin limit)`;
+    case"slip":return e.rim?`${ftCap(N(a,1))} ${({flip:"flipper",kick:"kicker",grab:"jaw",lift:"lifter"})[e.w]||"lip"} skates off ${N(v,1)} rim`:null;   // 0.1.66: a saucer
+    case"fire":return`${ftCap(N(a))} ${V(a,"lights","light")} ${a===0?"your":"its"} ${F.bots[a].b.flame&&F.bots[a].b.flame.src==="front"?"nozzle":"flamethrower"}${v>=0?" on "+N(v):""}`;   // 0.1.66
+    case"burn":return e.x?`The flame burns ${N(v,1)} ${FT_FACE[e.f]||e.f||"armour"} · ${ftParts(F,v,e.x)}`:null;   // only when it costs a part
     case"tip":return`${ftCap(N(a))} ${V(a,"tips","tip")} ${N(v)} ${e.inv?"over":"off the lifter"}`;
     case"inv":return e.inv?`${ftCap(N(v))} ${V(v,"lands","land")} upside down`:`${ftCap(N(v))} ${V(v,"lands","land")} back on ${v===0?"your":"its"} wheels`;
     case"land":{const x=e.x||[],tot=x.reduce((q,p)=>q+p[1],0),dead=x.filter(p=>p[2]);if(!dead.length&&tot<2*F.M.mass)return null;
@@ -624,10 +629,10 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
      me and them are {b, wt (weapon type), wn (weapon name)}; done is the list of bench tests run on the fitted bot. */
 const MATCH_ROWS=[
   ["speed","Top speed",b=>b.driveSpeed,v=>sh2(v)+" m/s"],
-  ["hit","Hit energy",b=>b.weapon.energyJ>=1?b.weapon.energyJ:null,v=>sh0(v)+" J"],
+  ["hit","Hit energy",b=>b.weapon.energyJ>=1&&b.weapon.type!=="flame"?b.weapon.energyJ:null,v=>sh0(v)+" J"],
   ["runtime","Runtime",b=>b.runtimeS==null||!isFinite(b.runtimeS)?null:b.runtimeS,v=>sh0(v)+" s"],
   ["weak","Weakest face",b=>FACE_LBL[b.weakestFace],null]];
-const MATCH_NONE={hit:b=>b.weapon.type==="none"?"no weapon":"no spinner",runtime:()=>"no limit"};
+const MATCH_NONE={hit:b=>b.weapon.type==="none"?"no weapon":b.weapon.type==="flame"?"a flame":"no spinner",runtime:()=>"no limit"};
 const MATCH_ADVICE=[
   {test:"gauge",when:(me,th,done)=>["wedge","lifter","flipper"].indexOf(th.wt)>=0&&done.indexOf("gauge")<0,
     text:(me,th)=>`<b>Front edge not gauged.</b> ${Math.round(me.b.height.frontEdgeMm*10)/10} mm on the sheet, and they run a ${esc(th.wn)}.`},

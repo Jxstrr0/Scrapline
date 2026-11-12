@@ -891,3 +891,22 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Letting go** (the button, the hold limit, or the power going) drops the bot from wherever the arm has it. It takes the landing damage, and it lands upside down 35% of the time from the top of the lift, less from lower down (`flipP`).
 - **Opponents:** Hebebühne (ant, the club: a garage car lift) and Gabelstapler (feather, Eisenau: a forklift with a clamp). 36 named opponents. The wedge era favours it.
 - **Looks:** the grabber's forks and top jaw, wider and longer, with a steel tower either side of the hinge. The forks and the jaw rise with the bot they hold, to the height the sim has it at.
+
+## The flamethrower and the saucer (0.1.66, oddities part four)
+
+- **Flamethrower** (`flame`, type `flame`, €220 / 6 h, from the Flamethrower R&D project: €900 / 18 h, after the welder). A gas tank along the deck and a nozzle out of the middle of the front. Held, it burns a box past the front, 0.6 of the bot's width, out to its reach (75 mm at beetle scale, scaled with the class's length). It has 14 s of fuel, which runs down only while it burns. It burns either way up.
+- **What the flame does** (`FIGHT.flame`, `stepBurn`):
+  - **Heat:** a bot in it takes 0.22 of a heat budget a second into its drive and its weapon. That is up to 1.15 budgets, as on a flame grate (`FIGHT.flameCap`), so a motor held in it derates in about 4.5 s.
+  - **Burns:** every 0.5 s it does 1 J a second at beetle scale (x the class's mass) through the armour (no absorb: heat goes through plate). That is a little, never a knockout on its own.
+  - **Judges:** the burner's judges count the time as contact, which is aggression.
+- **Flame nozzle** (`nozzle` in `PARTS.front`, €120 / 3 h, the same R&D project). A small burner on the front with its own little tank: 6 s of fuel, 45 mm of reach, 0.15 of a heat budget a second, 0.7 J a second. It shares the weapon button and lights only with a bot in front of it, so it doesn't waste fuel. It fits wherever a front does, but not with the flamethrower (one flame at a time).
+- **Saucer** (`saucer` in `PARTS.body`, press brake, €110 / 6 h). A low round disc pressed from sheet, 0.75 of a box's height:
+  - Its outline is an octagon (the four corners cut 0.4 of a cell), so pushes slide off its curve (`FIGHT.saucer.mu` 0.85 x the contact friction).
+  - Its plates deflect a little from every side.
+  - Its rim meets the floor 1.1 mm low at beetle scale (`height.rimMm`), so only the sharpest edge gets under it. A lifter's, a grabber's, a flipper's or a kicker's lip skates off the rim 15% of the time (`slipP`; a flipper's or a kicker's shot is spent).
+  - It drives either way up.
+  - In return, the corners are lost room but not lost weight (it is pressed whole), and it has half the grip (`gripMul` 0.5), so it shoves poorly.
+- **The log** has `fire` when a flame lights, `burn` for its burns (merged like small hits), and `slip` with `rim` when a lip skates off a saucer.
+- **Opponents:** Lötlampe (hobby, Stahlbrück: a flamethrower on a wedge with wedgelets) and Untertasse (feather, Grauwald: an eggbeater saucer with a flame nozzle). 38 named opponents. The armour era favours flame.
+- **Looks:** every tier draws the tank and the nozzle, and the flame while it burns. On Full and Ultra the flame is two see-through cones added together, flickering. On Lite it is one plain cone with fewer sides, and under reduced motion it holds still. The saucer is a flatter dome with a rim skirt and the side plates pulled in at the corners.
+- **Build, Bench and Fight:** the Sheet has a Flame reach row, and Bench › Weapon gives the reach, the fuel, how long a motor held in it takes to overheat, and the burn a second. The fight bar counts the fuel down. The matchup's Hit energy row says "a flame".

@@ -52,6 +52,8 @@ const OPP_TEAMS={
   "op:rammbock":["Pneumatik Velm","navy","clay","shield","piston","PV"],
   "op:hebebuehne":["Autohaus Brenner","sand","coal","square","wrench","AB"],
   "op:gabelstapler":["Hafenlager Eisenau","teal","sand","hex","claw","HE"],
+  "op:loetlampe":["Installateur Wyss","clay","coal","shield","flame",""],
+  "op:untertasse":["Bahnkantine Grauwald","lilac","coal","round","none","BK"],
   "op:weichensteller":["Signalbau Ost","teal","sand","diamond","bolt",""],
   "op:lindwurm":["Drachenloch","green","wine","shield","flame",""],
   "op:schrottkran":["Altmetall Velm","steel","sand","gear","claw",""],
