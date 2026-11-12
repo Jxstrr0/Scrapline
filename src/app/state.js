@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.66.0";
+const VERSION="0.1.67.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -132,28 +132,70 @@ const SEASON_EVENTS=[
 /* rivals: builders who turn up at your events in their classes, remember every fight (S.rivals) and say so in one line.
    bots: per class, a starting build ("op:<OPPONENTS id>" or "tb:<TEST_BUILDS id>") and steps: upgrades taken one a
    season, and one more for every two times you beat them (a step that won't fit the weight limit is skipped). skill:
-   their driving, + 0.03 a step. talk: before a fight, by how the last one went. */
+   their driving, + 0.03 a step. talk: before a fight, by how the last one went; grudge: before a grudge match (0.1.67).
+   base: "op:<id>", "tb:<id>", or a cfg written for any class like a test build's (0.1.67). */
 const RIVALS=[
   {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.55,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
     bots:{beetle:{name:"Unruh",base:"tb:flipper"},hobby:{name:"Unruh II",base:"tb:flipper"},feather:{name:"Hemmung",base:"tb:flipper"},heavy:{name:"Grande Complication",base:"tb:flipper"}},
     steps:[{wheels:"pu"},{armour:{front:"ar500"}},{extras:["skid"]},{battery:"hd"},{armour:{left:"ar500",right:"ar500"}}],
     talk:{first:"I've seen your bot. Interesting tolerances. By which I mean there aren't any.",won:"Same again? I brought a spare. You'll want two.",
-      lost:"Lucky. I've re-timed the flipper since. To the millisecond.",streak:"Fine. You're good. Don't tell anyone I said so."}},
+      lost:"Lucky. I've re-timed the flipper since. To the millisecond.",streak:"Fine. You're good. Don't tell anyone I said so.",
+      grudge:"Third meeting. I've kept notes. Pages of them."}},
   {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.5,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
     bots:{beetle:{name:"Amboss",base:"tb:brick"},hobby:{name:"Amboss II",base:"tb:brick"},feather:{name:"Walzblock",base:"tb:brick"},heavy:{name:"Hochofen Nord",base:"tb:brick"}},
     steps:[{armour:{top:"steel"}},{wheels:"tracks"},{armour:{back:"ar500"}},{drive:"gearbox"},{electronics:"failsafe"}],
     talk:{first:"Spinner? Wedge? Doesn't matter. It all bounces off.",won:"Told you. It all bounces off.",
-      lost:"Something got through. I've welded over it.",streak:"I'm adding another plate. And another."}},
+      lost:"Something got through. I've welded over it.",streak:"I'm adding another plate. And another.",
+      grudge:"You and me again. I brought extra plate, just for you."}},
   {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.6,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
     bots:{beetle:{name:"Strudel",base:"tb:vsp"},hobby:{name:"Strudel II",base:"tb:vsp"},feather:{name:"Kielwasser",base:"tb:drum"},heavy:{name:"Sturmflut",base:"tb:vsp"}},
     steps:[{weaponMaterial:"s7"},{battery:"hd"},{armour:{front:"ar500"}},{electronics:"cooling"},{wheels:"pu"}],
     talk:{first:"Don't worry, the first hit is the only one you'll feel.",won:"Bring more plate next time. Or a bucket.",
-      lost:"My disc was off balance. It won't be.",streak:"Okay. Okay. I'm going bigger."}},
+      lost:"My disc was off balance. It won't be.",streak:"Okay. Okay. I'm going bigger.",
+      grudge:"Third time. I balanced the disc just for this."}},
   {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.5,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
     bots:{ant:{name:"Kleinbahn",base:"tb:hammer"},beetle:{name:"Weiche",base:"tb:hammer"},hobby:{name:"Rangierlok",base:"tb:hammer"},feather:{name:"Stellwerk",base:"tb:hammer"},heavy:{name:"Güterzug",base:"tb:hammer"}},
     steps:[{armour:{top:"ar500"}},{wheels:"pu"},{extras:["selfright"]},{electronics:"failsafe"},{drive:"gearbox"}],
     talk:{first:"I'll wait. The hammer comes down when it comes down.",won:"On time, as always.",
-      lost:"Delays happen. The timetable gets revised.",streak:"Right. I'm re-signalling the whole thing."}}];
+      lost:"Delays happen. The timetable gets revised.",streak:"Right. I'm re-signalling the whole thing.",
+      grudge:"Third meeting. I've been waiting. I'm good at waiting."}},
+  /* 0.1.67 (Kelbo: two more rivals): one for the Garage act, and one built round a newer part */
+  {id:"fenna",name:"Fenna Kessler",from:"club",skill:0.5,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
+    bots:{ant:{name:"Blechdose",base:"tb:wedge"},beetle:{name:"Keksdose",base:"tb:wedge"},hobby:{name:"Brotkasten",base:"tb:wedge"},feather:{name:"Werkzeugkiste",base:"tb:wedge"}},
+    steps:[{battery:"hd"},{electronics:"failsafe"},{back:"rearwedge"},{armour:{top:"steel"}},{wheels:"tracks"}],
+    talk:{first:"Don't laugh at the tin. Everyone laughs at the tin.",won:"The tin wins again. I paint a stripe on it for every one.",
+      lost:"You got under me. I'm going lower.",streak:"Okay. I'm asking my dad about the welder.",
+      grudge:"Third time. I've been practising in the school car park."}},
+  {id:"hedda",name:"Hedda Brandt",from:"stahl",skill:0.6,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
+    bots:{hobby:{name:"Glut",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
+      feather:{name:"Zunder",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
+      heavy:{name:"Esse",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}}},
+    steps:[{electronics:"cooling"},{wheels:"pu"},{battery:"hd"},{armour:{left:"ar500",right:"ar500"}},{back:"rearwedge"}],
+    talk:{first:"Bring your bot. I'll bring the weather.",won:"Smell that? That's your motors.",
+      lost:"Ran out of gas. I've fitted a bigger bottle.",streak:"Fine. I'm turning it up.",
+      grudge:"Third time. The burner's been on all week."}}];
+/* rival stories (0.1.67, Kelbo picked rebuild, grudge and messages). counters: when you beat a rival, what beat them
+   (your weapon, or the pit) picks a counter (by, by weapon id; pit and pushers are "grip"), and their bots take it from
+   then on, on top of the season's steps: the first of its alts that fits the weight limit (one that is already fitted
+   means there is nothing to add). A rival keeps the ctrMax most recent. grudgeAt: meetings before the next one is a
+   grudge match (a one on one), worth grudgeRep rep to win. msgMax: the messages kept per rival (S.rivals[id].msgs,
+   {y, wk, k}: the text comes from the tables, so a save holds no words). */
+const RIVAL_STORY={grudgeAt:2,grudgeRep:3,ctrMax:3,msgMax:8,
+  by:{hsp:"side",under:"side",shell:"side",ring:"side",melty:"side",thwack:"side",vsp:"front",drum:"front",beater:"front",drisk:"front",spear:"front",
+    flipper:"right",flipper2:"right",lifter:"right",grabber:"right",clamp:"right",hammer:"top",crusher:"top",saw:"top",flame:"heat",wedge:"grip",none:"grip"},
+  counters:{
+    side: {name:"side armour",alts:[{armour:{left:"ar500",right:"ar500"}},{armour:{left:"ar500",right:"ar500",back:"hdpe6"}},{armour:{left:"steel",right:"steel",back:"hdpe6"}},{armour:{left:"steel",right:"steel",back:"hdpe6",top:"hdpe6"}}],
+      line:"Your spinner found my sides. It won't now: hardened plate, both of them."},
+    front:{name:"front armour",alts:[{armour:{front:"ar500"}},{armour:{front:"ar500",back:"hdpe6"}},{armour:{front:"steel",back:"hdpe6"}},{armour:{front:"steel",back:"hdpe6",top:"hdpe6"}}],
+      line:"New front plate. Hit it as hard as you like."},
+    right:{name:"a self-righter",alts:[{extras:["selfright"]},{extras:["selfright"],armour:{back:"hdpe6"}},{extras:["selfright"],armour:{back:"hdpe6",top:"hdpe6"}},{back:"kicker",armour:{back:"hdpe6",top:"hdpe6"}}],
+      line:"You turned me over. I've fitted something to turn me back."},
+    top:  {name:"top armour",alts:[{armour:{top:"ar500"}},{armour:{top:"ar500",back:"hdpe6"}},{armour:{top:"steel",back:"hdpe6"}},{armour:{top:"alu",back:"hdpe6"}}],
+      line:"The top took a beating. It's hardened plate now."},
+    heat: {name:"cooling",alts:[{electronics:"cooling"},{electronics:"cooling",armour:{back:"hdpe6"}},{electronics:"cooling",armour:{back:"hdpe6",top:"hdpe6"}}],
+      line:"You cooked my motors. They've got fans now."},
+    grip: {name:"more grip",alts:[{wheels:"pu"},{drive:"gearbox"},{wheels:"pu",armour:{back:"hdpe6"}},{wheels:"tracks"}],
+      line:"You out-pushed me. New tyres. Try it now."}}};
 /* after-fight repair bills (app/report.js; charged from PR 7). A damaged part costs a fee of its price x (minShare + the
    share of its hp lost x (maxShare - minShare)); a destroyed one is re-bought at full price. The chassis is never
    re-bought: a broken chassis costs rebuildShare of its price. Hours: each repair kind's workshop hours (x the class's
@@ -259,7 +301,7 @@ const RULES_BY_SEASON=[
 const KIT_LINE={act:3,base:400,repRef:200,seeds:1,skill:0.6};   // one seed a test build: eleven fights, under a second on a desktop (run on the main thread)
 
 /* ---- state: the scr-save shape (plan section 15). settings belong to this phone and survive loading a slot. ---- */
-const SAVE_V=20;
+const SAVE_V=21;
 function freshSettings(){return{seen:false,theme:"dark",gfx:null,gfxAuto:true,reduce:null,sound:true,tab:"build",buildCls:"beetle",controls:"direct",stick:"point",map2d:false,leftHanded:false,assists:true,effects:"full",tutDone:false,voice:true,comm:true,captions:"muted",dev:false,tips:{},buildView:"3d"};}   // effects, tutDone: PR 9; voice, comm (commentary), captions ("muted": only when sound or voices are off, or "off"): 0.1.16; dev (Dev mode, Settings): 0.1.30; tips ({drive, map}: the first-fight tips already read, app/fight.js ftTips): 0.1.49; buildView ("3d" or "plan": what the view shows on the Build tab, app/build.js bViewSync; a save without it reads as 3d, so no SAVE_V bump): 0.1.62
 function freshTeam(){return{name:"Eckwerkstatt",main:"#D97757",accent:"#2B2B2A",shape:"shield",emblem:"bolt",text:""};}   // the same as LIVERY.team
 function freshState(){return{v:SAVE_V,settings:freshSettings(),
@@ -270,7 +312,7 @@ function freshState(){return{v:SAVE_V,settings:freshSettings(),
   team:freshTeam(),               // your team (0.1.24, app/livery.js): {name, main, accent, shape, emblem, text}; each bot's own name is bots[cls].name
   designs:{},                     // {<classId>: [{name, cfg}]}: blueprints (PR 2)
   unlocks:{tools:{},rnd:{}},       // tools: {<TOOLS id>: true} owned in the career (PR 7); rnd: {<RND id>: true} researched (PR 8)
-  staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, beat, last}} what each remembers (PR 7); staff: [{id, y, w}] hired (STAFF.people id, when); sponsors: [{id, y, w}] signed (SPONSORS id, when; PR 8)
+  staff:[],sponsors:[],rivals:{}, // rivals: {<RIVALS id>: {w, l, run, last, ctr, msgs}} what each remembers (PR 7; ctr: counter ids, msgs: [{y, wk, k}], 0.1.67); staff: [{id, y, w}] hired (STAFF.people id, when); sponsors: [{id, y, w}] signed (SPONSORS id, when; PR 8)
   lastFight:null,                 // the latest fight log, for replay (PR 6)
   reel:{m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0},   // the highlight reel (0.1.27.0, app/reel.js): moments by id, this season's five, last season's reel (and its year), the career's best three, the Sandbox's five
   daily:{last:null,streak:0,top:0,best:null,tries:0},   // the daily challenge (0.1.20.0, app/daily.js): last day fought ("YYYY-MM-DD"), days in a row, longest run, today's best {score, txt, bring}, today's tries
@@ -312,6 +354,7 @@ const MIGRATE={
   17:o=>{if(o.settings&&typeof o.settings==="object")o.settings.tips={};return o;},   // 0.1.49.0: the first-fight tips (the stick, the 2D map) are shown once to everyone
   18:o=>{const s=o.settings;if(s&&typeof s==="object"){s.stick="seat";s.map2d=false;}return o;},   // 0.1.55.0: Point to go is the stick for new players; a save from before keeps the stick it learned (seat). The 2D map choice is remembered
   19:o=>{o.met={};return o;},   // 0.1.61.0: the record of who you have met starts empty (the matchup card shows an opponent's numbers after a first fight)
+  20:o=>{const r=o.rivals;if(r&&typeof r==="object")for(const k in r){const m=r[k];if(m&&typeof m==="object"){if(!Array.isArray(m.ctr))m.ctr=[];if(!Array.isArray(m.msgs))m.msgs=[];}}return o;},   // 0.1.67.0: rivals keep counters and messages
 };
 function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRATE[v])return null;o=MIGRATE[v](o);v++;o.v=v;}return o;}
 /* the tutorial (app/help.js) runs on a loaner: nothing it does is written to storage */

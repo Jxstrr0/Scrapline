@@ -178,7 +178,7 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
     cues.push("venue:"+vc.venue,"event:"+vc.event,opt(vc.venue==="eisenhalle"?"c:tv":"c:intro"),opt("class:"+vc.cls),opt("kind:"+vc.kind));}
   else if(!vc&&!round&&kind!=="duel")cues.push("kind:"+kind);
   if(!round){if(vc&&vc.fmt==="bracket")cues.push(opt("round:"+vc.label));
-    if(kind==="duel"){cues.push("name:you");if(rv)cues.push({opt:"rival:"+rv,alt:"name:rv:"+rv});else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
+    if(kind==="duel"){cues.push("name:you");if(rv&&SCRAP_VOICE.pool("name:rv:"+rv).length)cues.push({opt:"rival:"+rv,alt:"name:rv:"+rv});else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
   else if(W){if(round===2)cues.push("bo3:decider");}
   else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
   cues.push("countdown");
@@ -393,9 +393,11 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
     if(snd&&i<4){SCRAP_SOUND.whine(i,o.out?0:o.wp.om/(w.omega||1),o.out?0:Math.hypot(o.vx,o.vy)/Math.max(o.b.driveSpeed||1,0.1));if(!F.over&&!FT.paused){ftSpinUp(F,o,i);ftWheelSfx(F,o,i);}}});
   if(snd&&!F.over&&!FT.paused)SCRAP_SOUND.crowd(FT_BED[F.arena.id]||"club");   // the crowd under the fight (every tier)
   const n=$("fNote");if(n){const me=F.bots[0],t=F.arena.pit&&!SIM.pitOpen(F)?`Pit opens ${ftT(F.arena.pit.openS)}`:"";
-    const s=FT.tipHold&&!F.over?"Starts when you tap Got it":F.drill?scNote(F):FT.hold&&!F.over?"Intro: the controls unlock at the bell":FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":t;if(n.textContent!==s)n.textContent=s;
+    const s=FT.tipHold&&!F.over?"Starts when you tap Got it":F.drill?scNote(F):FT.hold&&!F.over?(ftGrudge()?`Grudge match, ${ftGrudge()}: controls unlock at the bell`:"Intro: the controls unlock at the bell"):FT.you&&me.release>F.t?"Pin limit: backing off":FT.you&&me.inverted&&!me.b.height.drivesInverted&&me.fx.righter?"Upside down: self-right":ftGrudge()&&F.t<6&&!F.over?`Grudge match, ${ftGrudge()}`:t;if(n.textContent!==s)n.textContent=s;
     const ov=$("fov"),hd=!F.over&&!!(FT.tipHold||FT.hold);if(ov&&ov.classList.contains("hold")!==hd)ov.classList.toggle("hold",hd);}   // .hold gives the note a line of its own on a phone (0.1.51); the intro holds the clock: say so (a play-tester thought the fight had hung)
   if(!snd)SCRAP_SOUND.stop();}
+/* a career bout's grudge match (0.1.67, crGrudgeOf in app/career.js): the record going in, "you 1–1", or "" */
+function ftGrudge(){const B=FT.bout,W=FT.rp&&FT.rp.watch?FT.watch:null,v=W?W.voice:B&&B.ev?B.ev.voice:null,g=v&&v.grudge;return g?`you ${g.w}–${g.l}`:"";}
 /* the bell at the end, and the crowd: a cheer for a knockout or the pit, applause for the judges (every tier) */
 function ftEndSfx(F){if(F.reason==="stopped"||ST().sound===false)return;SCRAP_SOUND.sfx("bell",0.7);if(F.drill){if(F.drill.medal)SCRAP_SOUND.sfx("cheer",0.5);return;}
   if(F.reason==="judges"||F.reason==="draw")SCRAP_SOUND.sfx("clap",0.6);else SCRAP_SOUND.sfx("cheer",0.6);}

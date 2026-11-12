@@ -62,6 +62,8 @@ const OPP_TEAMS={
   "rv:rudi":["Gerber Walzblech","steel","sand","hex","hammer",""],
   "rv:mira":["Hafenkran Vogt","teal","coal","diamond","saw",""],
   "rv:anselm":["Stellwerk Huber","forest","bone","shield","none","SH"],
+  "rv:fenna":["Robotik-AG Haldis","sky","clay","square","wasp",""],
+  "rv:hedda":["Härterei Brandt","wine","sand","hex","flame",""],
   "tb:wedge":["Keilbau Fasel","sand","coal","diamond","none","KF","Türkeil"],
   "tb:lifter":["Lagerhalle 7","sky","sand","square","none","L7","Hubwagen"],
   "tb:flipper":["Sprungfeder","rose","bone","round","bolt","","Katapult"],
