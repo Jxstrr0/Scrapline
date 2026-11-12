@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.63.0";
+const VERSION="0.1.64.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -241,7 +241,7 @@ const META_WAVES=[
   {id:"spinner",name:"The spinner era",     favour:["vsp","hsp","drum","beater","drisk","shell","ring","melty","thwack"],line:"Everyone's running discs. Armour your front and fear the first hit."},
   {id:"wedge",  name:"The wedge era",       favour:["wedge","none","lifter"], line:"Low, fast and pointy. Get under them, or get a skid plate."},
   {id:"under",  name:"The undercutter era", favour:["under","hsp","drum","saw"],line:"Discs at wheel height. Mind your wheels and your sides."},
-  {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper","grabber"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
+  {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper","grabber","spear"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
 /* rule changes (app/team.js crRules): each comes in at the start of its season (the career's season index, 0 = the
    first), is announced a season ahead, and stays. capJ: a spinner energy cap (J at beetle scale, x the class's mass
    multiplier; the disc's top speed comes down to fit, sim/fight.js); hazard: an extra hazard in one arena; limit: a class's

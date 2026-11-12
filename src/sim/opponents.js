@@ -1,6 +1,6 @@
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
-   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
+   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
    bots too), growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -53,6 +53,10 @@ const OPPONENTS=[
   {id:"achtachser",name:"Achtachser",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.65},
     line:"Eight wheels, a pair of forks and a saw overhead. Stahlbrück built it like a low-loader: it gets under, then it starts cutting.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",wheelbase:"eight",battery:"large",electronics:"dual",weapon:"saw",weaponMaterial:"steel",front:"forks",extras:[]}},
+  /* 0.1.64: the piston spear */
+  {id:"stosszahn",name:"Stoßzahn",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.65},
+    line:"A forge's drop-hammer cylinder turned on its side, with a tusk on the end. Lines you up, then puts the point through whatever you hid behind.",
+    cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"spear",weaponMaterial:"s7",front:"wedgelets",extras:[]}},
   {id:"ringelnatter",name:"Ringelnatter",cls:"hobby",from:"grauwald",driver:{style:"keepaway",skill:0.6},
     line:"A ring of steel going round a box that stays still. Keeps its distance, circles, and lets you run onto it.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"ring",weaponMaterial:"steel",extras:[]}},
@@ -105,6 +109,9 @@ const OPPONENTS=[
   {id:"schrottkran",name:"Schrottkran",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:0.8},
     line:"The scrapyard's own crane. Has carried better bots than yours to the pit and felt nothing.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"grabber",weaponMaterial:"steel",back:"rearwedge",extras:[]}},
+  {id:"rammbock",name:"Rammbock",cls:"heavy",from:"eisenhalle",driver:{style:"rush",skill:0.8},
+    line:"A plow to push you and a spear to make it hurt. Comes straight across the hall and doesn't stop until you're against something.",
+    cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"gearbox",wheels:"rubber",battery:"large",electronics:"dual",weapon:"spear",weaponMaterial:"s7",front:"plow",extras:[]}},
   {id:"muehlstein",name:"Mühlstein",cls:"heavy",from:"eisenhalle",driver:{style:"cautious",skill:0.8},
     line:"A hundred kilos of millstone that spins up slowly and grinds slowly. Hit it hard enough and it forgets where forward is.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"melty",weaponMaterial:"s7",extras:[]}}

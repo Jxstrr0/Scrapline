@@ -88,6 +88,10 @@ const FIGHT={
   tipS:0.8, tipM:0.05, tipP:0.75,   // a lifter that holds a bot this long and lifts this high (m, x len) tips it over this often
   crushS:1, crushOpenS:0.6, crushAbsorb:0.5,   // a crusher's bite, opening again, and the share of absorb its point leaves
   hammerShare:0.9,            // share of a hammer blow that goes into damage
+  /* 0.1.64, the piston spear: share of a stab's energy that goes into damage, the share of the face's absorb its point
+     leaves (like the crusher's), the share that shoves the bot away along the spear, the attacker's kick back (x that
+     shove), and how much the chance of glancing off a sloped front grows (x the slope) */
+  spear:{share:0.9,absorb:0.5,shove:0.15,recoil:0.3,slope:0.5},
   lethal:{ant:1,beetle:1,hobby:1,feather:1,heavy:1.2},   // weapon damage x this in each class (heavies' discs spin up slower and land fewer full hits)
   /* a spinner hit with at least minShare of its full energy can shake the electronics loose (a lead out, an ESC off its
      mount) whatever the armour: this chance per class (failsafe electronics halve it). Plan 8e: single-hit knockouts
@@ -115,7 +119,7 @@ const FIGHT={
      footprint width (full: the chassis width), reach x the bot's length (or the weapon's own reachM); top: it hits the
      top of what it lands on */
   zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},beater:{w:0.9},drisk:{w:0.65},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
-    hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1},
+    hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1},spear:{w:1},   // 0.1.64: a spear's box is its one cell wide, out to the stroke
     shell:{circle:1},ring:{circle:1},melty:{circle:1},thwack:{circle:1}},   // 0.1.34: the all-round ones, a circle round the middle (mountM [0, 0]); 0.1.63: a thwackbot's round its centre of mass
   /* 0.1.32: a kicker (the back-up flipper, b.back.kick) works a box behind the back face, kickW x the width; it throws
      backwards and kickFwd m/s (x sqrt len) further. A grabber's clamp does grabJ (x mass) to what it closes on, and it
@@ -338,6 +342,7 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     else tq-=FIGHT.spinDrag*tau0;
     wp.om=Math.max(0,Math.min(wm,wp.om+tq/w.inertia*dt));return draw;}
   if(w.type==="flipper"){if(u.weapon&&f.motorOk&&wp.shots>0&&wp.recharge<=0&&!o.air&&upright){wp.shots--;wp.recharge=w.rechargeS||1;fireFlipper(F,o);}return 0;}
+  if(w.type==="spear"){if(u.weapon&&f.motorOk&&wp.shots>0&&wp.recharge<=0&&!o.air){wp.shots--;wp.recharge=w.rechargeS||1;fireSpear(F,o);}return 0;}   // either way up
   if(w.type==="lifter"||w.type==="grabber"){const h=wp.held,grab=w.type==="grabber";
     /* a grabber (0.1.32) clamps what it lifts and carries it (grabCarry, each step); it never tips it, and only lets go when
        the button does, the power goes, or the league's hold limit is up */
@@ -380,6 +385,18 @@ function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon
     damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
   if(!hit)logIt(F,{k:"flip",a:o.i,v:-1});}
 function lethalOf(F){return FIGHT.lethal[F.cls]||1;}
+/* the piston spear (0.1.64): the first bot in the stroke's box takes the stab on the face it meets, through part of that
+   face's absorb, and a shove away along the spear; a sloped front can turn the point aside */
+function fireSpear(F,o){const w=o.b.weapon,S=FIGHT.spear;
+  for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;
+    const face=faceAt(t,c.px,c.py),E0=w.energyJ*(w.bite||1)*(1+FIGHT.biteJitter*(2*F.rng()-1)),sl=face==="front"&&!t.inverted?slopeOf(t):0;
+    const dfl=F.rng()<Math.min(0.9,t.b.armourMapJ[face].deflect+S.slope*sl),E=E0*S.share*(dfl?FIGHT.glance:1)*lethalOf(F);
+    damageBot(F,t,face,E,"hit",o.i,{absorbMul:S.absorb,gl:dfl});fxPush(F,{k:"hit",x:c.px,y:c.py,E,v:t.i});o.stats.hits++;o.wp.last[t.i]=F.t;
+    const J=Math.sqrt(2*t.m*E0*S.shove*(dfl?FIGHT.glance:1)),dx=Math.cos(o.h),dy=Math.sin(o.h);
+    impulseAt(t,dx*J,dy*J,c.px,c.py);impulseAt(o,-dx*J*S.recoil,-dy*J*S.recoil,c.px,c.py);
+    if(t.under&&t.under.by===o.i)t.under=null; /* the stab knocks it off our own wedge: a front holds it for one shot, not twenty */
+    return;}
+  logIt(F,{k:"stab",a:o.i,v:-1});}
 /* the kicker (0.1.32, b.back.kick): on the weapon button, a bot touching the back is flicked up and away behind it.
    Its own gas: shots and a recharge of its own */
 function stepKick(F,o){const k=o.b.back.kick,q=o.kick;if(!k)return;if(q.recharge>0)q.recharge-=F.dt;

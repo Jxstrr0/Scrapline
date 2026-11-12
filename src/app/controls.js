@@ -102,7 +102,7 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0
   /* the weapon */
   if(spinner){if(CTL.wPress)CTL.wToggle=!CTL.wToggle;wpn=CTL.wToggle&&(!A.autoSpin||near||CTL.order&&CTL.order.k==="attack");}
   else if(W.type==="lifter"||W.type==="grabber")wpn=wpn||held;
-  else wpn=wpn||CTL.wPress||held&&W.type!=="flipper";
+  else wpn=wpn||CTL.wPress||held&&W.type!=="flipper"&&W.type!=="spear";
   CTL.wPress=false;
   /* slide (mecanum, swerve): the stick's sideways push goes straight to the sim as a slide, no turn assists */
   const canSlide=o.b.wheelbase&&o.b.wheelbase.strafe>0,slide=canSlide&&(CTL.slide||K.sl||(gp&&gp.sl));

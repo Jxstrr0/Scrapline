@@ -48,6 +48,8 @@ const OPP_TEAMS={
   "op:schwungrad":["Hafenwinde Eisenau","sky","coal","gear","bolt",""],
   "op:peitsche":["Seilerei Eisenau","sand","teal","round","bolt",""],
   "op:dreschflegel":["Hof Grauwald","forest","bone","shield","wrench","HG"],
+  "op:stosszahn":["Gesenkschmiede Stahlbrück","coal","sand","hex","rhino",""],
+  "op:rammbock":["Pneumatik Velm","navy","clay","shield","piston","PV"],
   "op:weichensteller":["Signalbau Ost","teal","sand","diamond","bolt",""],
   "op:lindwurm":["Drachenloch","green","wine","shield","flame",""],
   "op:schrottkran":["Altmetall Velm","steel","sand","gear","claw",""],

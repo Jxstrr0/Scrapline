@@ -110,6 +110,7 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
     return r;}
   if(w.type==="hammer")return Object.assign(r,{kind:"hammer",energyJ:w.energyJ,swingS:w.swingS,hitJ:w.energyJ*(w.bite||1)});
   if(w.type==="crusher")return Object.assign(r,{kind:"crush",energyJ:w.energyJ,forceN:w.forceN,hitJ:w.energyJ});
+  if(w.type==="spear")return Object.assign(r,{kind:"stab",energyJ:w.energyJ,forceN:w.forceN,strokeM:w.strokeM,shots:w.shots,rechargeS:w.rechargeS,hitJ:w.energyJ*(w.bite||1)});   // 0.1.64
   const ramJ=0.5*m*b.driveSpeed*b.driveSpeed;
   return Object.assign(r,{kind:"ram",ramJ,pushN:b.pushN,edgeMm:b.height.frontEdgeMm,reachM:w.reachM||0,hitJ:ramJ});}
 

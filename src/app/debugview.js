@@ -53,7 +53,7 @@ const DEBUGVIEW={
       /* the weapon's working zone */
       const Z=o.zone,wp=o.b.weapon;if(Z&&o.fx.weaponOk){let a=0.35;
         if(wp.type==="spinner"||wp.type==="saw")a=0.15+0.75*(o.wp.om/(wp.omega||1));
-        else if(o.wp.phase===1||(wp.type==="flipper"&&o.wp.recharge>(wp.rechargeS||1)-0.15)||o.wp.held!=null)a=0.95;
+        else if(o.wp.phase===1||((wp.type==="flipper"||wp.type==="spear")&&o.wp.recharge>(wp.rechargeS||1)-0.15)||o.wp.held!=null)a=0.95;
         g.strokeStyle=DV_COL.zone;g.globalAlpha=(o.out?0.3:1)*a;g.lineWidth=1.5*dpr;g.beginPath();
         if(Z.circle){const c=at(Z.x,Z.y);g.arc(c[0],c[1],Z.r*s*grow,0,Math.PI*2);}
         else{const q=[at(Z.x0,Z.y1),at(Z.x1,Z.y1),at(Z.x1,Z.y0),at(Z.x0,Z.y0)];g.moveTo(q[0][0],q[0][1]);for(let k=1;k<4;k++)g.lineTo(q[k][0],q[k][1]);g.closePath();}

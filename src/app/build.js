@@ -278,6 +278,8 @@ function bProfile(){const r=bEval(),h=r.height,cfg=draft(),wp=SIM.part("weapon",
   else if(r.weapon.radiusM&&cfg.weapon!=="hsp"){const R=r.weapon.radiusM*1000,cy=Math.max(R+h.frontEdgeMm+1,bodyY+H/2);reach=R*1.05;top=Math.max(top,cy+R);
     wpn=`<circle class="wp" cx="${L}" cy="${cy}" r="${R}"/><path class="wp" d="M${L-R*0.2},${bodyY+H*0.3} L${L+R*0.9},${h.frontEdgeMm}"/>`;}
   else if(cfg.weapon==="hsp"){const R=r.weapon.radiusM*1000;reach=R*0.5;wpn=`<line class="wp" x1="${L/2-R}" y1="${bodyY+H+3}" x2="${L/2+R+reach}" y2="${bodyY+H+3}" stroke-width="4"/>`;top+=6;}
+  else if(wp.type==="spear"){reach=r.weapon.reachM*1000+H*0.25;const y=bodyY+H*0.5;   // 0.1.64: the rod out of the front at half height, and its point
+    wpn=`<line class="wp" x1="${L}" y1="${y}" x2="${L+reach-H*0.2}" y2="${y}" stroke-width="3"/><path class="wp" d="M${L+reach-H*0.2},${y+H*0.1} L${L+reach},${y} L${L+reach-H*0.2},${y-H*0.1}"/>`;}
   else if(wp.edgeMm!=null){wpn=`<path class="wp" d="M${L},${bodyY+H*0.5} L${L+H*0.3},${h.frontEdgeMm} L${L},${bodyY}"/>`;reach=H*0.3;}
   const pad=Math.max(8,L*0.04),vw=L+reach+pad*2,vh=top+pad*2,Y=y=>vh-pad-y;   // y up from the ground
   const flip=s=>s.replace(/(cy|y1|y2)="([\d.\-]+)"/g,(m,a,v)=>`${a}="${Y(+v)}"`).replace(/([ML])([\d.\-]+),([\d.\-]+)/g,(m,c,x,y)=>`${c}${+x+pad},${Y(+y)}`).replace(/(cx|x1|x2)="([\d.\-]+)"/g,(m,a,v)=>`${a}="${+v+pad}"`);

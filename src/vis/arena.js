@@ -309,6 +309,8 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
       if(u.blur)u.blur.material.opacity=o.fx&&o.fx.weaponOk===false?0:0.45*Math.min(1,o.wp.om/(W.omega||1));
       u.spin.visible=!(o.fx&&o.fx.weaponOk===false&&o.st.parts.weapon<=0);}
     if(u.flip){if(o.wp.shots<B.shots)B.flipT=now;B.shots=o.wp.shots;const k=Math.max(0,1-(now-B.flipT)/350);u.flip.rotation.x=1.1*Math.sin(Math.min(1,k*1.4)*Math.PI/2);}
+    if(u.spear){if(o.wp.shots<B.shots)B.stabT=now;B.shots=o.wp.shots;   // 0.1.64: the spear shoots out the stroke and draws back
+      const t=now-(B.stabT||-1e9),k=t<60?t/60:Math.max(0,1-(t-60)/260);u.spear.position.z=u.spear.userData.z0-u.spear.userData.stroke*k;}
     if(u.forks){const want=o.wp.held!=null?0.45:0;u.forks.rotation.x+=(want-u.forks.rotation.x)*Math.min(1,dt*8);}
     if(u.jaw){const want=o.wp.grab?0.05:0.35;u.jaw.rotation.x+=(want-u.jaw.rotation.x)*Math.min(1,dt*12);}   // the grabber's jaw shuts on a bot it holds
     if(u.kick&&o.kick){if(o.kick.shots<B.kshots)B.kickT=now;B.kshots=o.kick.shots;   // the back-up flipper's plate kicks up when it fires
