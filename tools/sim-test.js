@@ -189,7 +189,7 @@ for (const cls of SIM.CLASS_IDS) {
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
   const KIND = { vsp: "slot", drisk: "slot", saw: "slot", drum: "pocket", beater: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
-    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none", spear: "none" }, eps = 1e-9;
+    lifter: "deck", grabber: "deck", clamp: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none", spear: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
     if (!y) { fail(`${lbl}: no bay`); continue; }
@@ -521,6 +521,48 @@ for (const cls of SIM.CLASS_IDS) {
   if (!F.log.some((e) => e.k === "hit" && e.a === 0 && e.v === 1 && e.E > 0)) fail("a bot in the spear's stroke should take a hit");
   if (!hits) fail("a spear should land hits in eight fights");
   console.log(`0.1.64 checks: the spear stabs ${row.join(", ")}, takes a wedgelet, plow or forks front, fires once a recharge and hurts a bot in its stroke; ${hits} hits in 8 fights; replays match`);
+}
+
+/* 0.1.65: the clamp and lift */
+{
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls: cls || "beetle" });
+  const cl = (cls) => Object.assign(T("lifter", cls), { weapon: "clamp" }), row = [];
+  for (const cls of SIM.CLASS_IDS) {
+    const b = SIM.evalBuild(cl(cls)), g = SIM.evalBuild(Object.assign(T("lifter", cls), { weapon: "grabber" })), w = b.weapon;
+    if (!b.valid) fail(`${cls} clamp: ${b.errors.join("; ")}`);
+    if (!w.clamp || w.type !== "grabber") fail(`${cls} clamp: should be a grabber with clamp set`);
+    /* it raises a bot at the weight limit, and higher than the grabber */
+    if (!(w.canLiftKg >= b.limitKg)) fail(`${cls} clamp: lifts ${w.canLiftKg} kg, under the ${b.limitKg} kg limit`);
+    if (!(w.liftM > g.weapon.liftM * 2)) fail(`${cls} clamp: lifts ${w.liftM} m, not well above the grabber's ${g.weapon.liftM} m`);
+    row.push(`${cls} ${(w.liftM * 1000).toFixed(0)} mm`);
+  }
+  if (!SIM.evalBuild(Object.assign(cl(), { front: "wedgelets" })).errors.length) fail("a clamp and lift is its own front: it should refuse wedgelets");
+  const fight = (a, b, seed) => SIM.runFight({ seed, arena: "clubbox", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+  let grabs = 0, drops = 0;
+  for (let s = 1; s <= 4; s++) for (const o of [T("vsp"), T("brick")]) {
+    const r = fight(cl(), o, s), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a 0.1.65 fight replays differently`);
+    grabs += r.log.entries.filter((e) => e.k === "grab" && e.a === 0).length;
+  }
+  /* by hand: a dead bot in front is clamped, raised to the full lift, held, and dropped from there when the button goes */
+  const F = SIM.newFight({ seed: 3, arena: "box", bots: [{ cfg: cl(), driver: null }, { cfg: T("brick"), driver: null }] }), a = F.bots[0], t = F.bots[1];
+  const gap = a.b.lengthM / 2 + t.b.lengthM / 2 + a.b.weapon.reachM * 0.4;
+  t.x = a.x + Math.cos(a.h) * gap; t.y = a.y + Math.sin(a.h) * gap; t.h = a.h + Math.PI;
+  const on = { throttle: 0, steer: 0, weapon: 1, selfRight: 0 }, off = { throttle: 0, steer: 0, weapon: 0, selfRight: 0 };
+  SIM.stepFight(F, [{}, {}]);
+  const slip = SIM.FIGHT.clamp.slip; SIM.FIGHT.clamp.slip = 0;   // no wriggling out while the arm goes up, for this test
+  for (let i = 0; i < 60 * 3; i++) SIM.stepFight(F, [on, off]);
+  if (a.wp.held !== 1) fail("the clamp should hold a bot parked in front of it");
+  else if (Math.abs(t.z - a.b.weapon.liftM) > 1e-6) fail(`a held bot should be up at the full lift (${a.b.weapon.liftM} m), not ${t.z} m`);
+  for (let i = 0; i < 3; i++) SIM.stepFight(F, [off, off]);   // the inputs are read every other step
+  const d = F.log.find((e) => e.k === "drop" && e.a === 0);
+  if (!d || !t.air || a.wp.held != null) fail("letting go of the button should drop the bot from the arm");
+  else drops++;
+  for (let i = 0; i < 60; i++) SIM.stepFight(F, [off, off]);
+  SIM.FIGHT.clamp.slip = slip;
+  if (!F.log.some((e) => e.k === "land" || (e.k === "inv" && e.v === 1)) && t.air) fail("a dropped bot should land");
+  if (!grabs) fail("a clamp and lift should grab something in eight fights");
+  console.log(`0.1.65 checks: the clamp lifts ${row.join(", ")}, refuses a front, holds a bot up at the full lift and drops it when let go; ${grabs} grabs in 8 fights; replays match`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }

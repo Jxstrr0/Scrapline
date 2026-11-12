@@ -165,7 +165,10 @@ const PARTS={
      Piston spear (0.1.64, Kelbo): a pneumatic ram down the middle with a hardened point. On the gas like a flipper (shots,
      forceN over strokeMm, rechargeS): each shot stabs the point out strokeMm past the front, and whatever face it meets
      takes the stroke's energy through part of its armour (FIGHT.spear.absorb) and a shove away. It doesn't lift and it
-     doesn't right the bot; it fires either way up, and a front fits either side of it. */
+     doesn't right the bot; it fires either way up, and a front fits either side of it.
+     Clamp and lift (0.1.65, Kelbo): a grabber (type grabber, clamp true) whose arm raises the whole bot clear, liftMm up,
+     on a geared motor like the lifter. Clear of the floor it can't wriggle free; it is carried for up to the league's hold
+     limit (FIGHT.holdMaxS), and letting go drops it from the top of the lift, which may land it upside down (FIGHT.clamp). */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -181,6 +184,7 @@ const PARTS={
     {id:"under",  name:"Undercutter",         type:"spinner",fp:[2,1],mount:"front",massG:50, motorMassG:80, powerW:280,heatW:40,edgeMm:3,   hp:70,cost:140,hours:5,unlock:"start",discMass:250,radius:60,rpmMax:5500, shapeK:0.5, bite:0.62,recoil:0.9},
     {id:"crusher",name:"Crusher",             type:"crusher",fp:[2,3],mount:"front",massG:150,motorMassG:120,powerW:220,heatW:35,edgeMm:3,   hp:90,cost:260,hours:8,unlock:"rnd:crusher",forceN:900,crushJ:30},
     {id:"grabber",name:"Grabber",             type:"grabber",fp:[2,2],mount:"front",massG:170,motorMassG:120,powerW:150,heatW:25,edgeMm:2,   hp:70,cost:200,hours:7,unlock:"rnd:grabber",reachMm:50,liftN:95,liftMm:30},
+    {id:"clamp",  name:"Clamp and lift",      type:"grabber",fp:[2,2],mount:"front",massG:185,motorMassG:135,powerW:180,heatW:30,edgeMm:2,   hp:80,cost:240,hours:7,unlock:"tool:welder",reachMm:55,liftN:110,liftMm:90,clamp:true},
     {id:"shell",  name:"Shell spinner",       type:"spinner",fp:[2,2],mount:"any",  massG:60, motorMassG:100,powerW:300,heatW:45,edgeMm:2,   hp:110,cost:260,hours:8,unlock:"tool:lathe",discMass:210,bodyR:1.0, rpmMax:2100, shapeK:0.75,bite:0.36,recoil:1.0},
     {id:"ring",   name:"Ring spinner",        type:"spinner",fp:[2,2],mount:"any",  massG:50, motorMassG:90, powerW:220,heatW:45,edgeMm:null,hp:60, cost:240,hours:8,unlock:"rnd:ring",discMass:200,bodyR:1.12,rpmMax:2000, shapeK:1.0, bite:0.36,recoil:1.0,bendMul:0.5},
     {id:"melty",  name:"Meltybrain",          type:"spinner",fp:null, mount:"front",massG:30, motorMassG:0,  powerW:200,heatW:0, edgeMm:null,hp:70, cost:300,hours:8,unlock:"rnd:melty",discMass:60,bodyR:1.05,rpmMax:1400, shapeK:1.0, bite:0.5, recoil:1.3,bodyK:0.33,inverts:true},

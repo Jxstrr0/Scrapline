@@ -882,3 +882,12 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **What it doesn't do:** it doesn't lift or right the bot. It fires either way up, and a front (wedgelets, plow, forks) fits either side of it.
 - **Opponents:** Stoßzahn (hobby, Stahlbrück: a spear with wedgelets) and Rammbock (heavy, Eisenhalle: a spear behind a plow). 34 named opponents. The armour era favours spears.
 - **Looks:** every tier draws the ram's housing along the deck, and the rod and point out of the middle of the front. Both shoot out and back on each stab. The Build tab's side profile draws the rod.
+
+## The clamp and lift (0.1.65, oddities part three)
+
+- **Clamp and lift** (`clamp`, welder, €240 / 7 h). A grabber (type `grabber`, `weapon.clamp`) whose arm lifts the whole bot clear of the floor: 90 mm at beetle scale, scaled with the class's length (the grabber lifts 30 mm). It runs on a geared motor like the lifter, so it has no shot count. Like the grabber, it is its own front.
+- **A grab:** the jaws close in 0.8 s (`FIGHT.clamp.closeS`), with the other bot still in reach, and the arm takes 1 s to raise it (`liftS`). While the arm is going up, a bot that can drive wriggles free at 1.5 a second (`slip`). Once it is up, it can't escape.
+- **Carrying:** the clamp drives at 0.35 of its speed with a bot up (`carryV`) and takes it where it likes, to the pit if it can. It holds for up to the league's 10 s limit. Then, as with a pin, it backs off and can't grab that bot again for a few seconds.
+- **Letting go** (the button, the hold limit, or the power going) drops the bot from wherever the arm has it. It takes the landing damage, and it lands upside down 35% of the time from the top of the lift, less from lower down (`flipP`).
+- **Opponents:** Hebebühne (ant, the club: a garage car lift) and Gabelstapler (feather, Eisenau: a forklift with a clamp). 36 named opponents. The wedge era favours it.
+- **Looks:** the grabber's forks and top jaw, wider and longer, with a steel tower either side of the hinge. The forks and the jaw rise with the bot they hold, to the height the sim has it at.

@@ -529,7 +529,8 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
     case"under":return`${ftCap(N(a))} ${V(a,"gets","get")} under ${N(v)}`;
     case"flip":return v<0?`${ftCap(N(a))} ${V(a,"fires and misses","fire and miss")}`:e.heavy?`${ftCap(N(a))} can't lift ${N(v)}: too heavy`:`${ftCap(N(a))} ${V(a,"flips","flip")} ${N(v)} ${Math.round(e.h*100)} cm up`;
     case"lift":return`${ftCap(N(a))} ${V(a,"lifts","lift")} ${N(v)}`;
-    case"drop":return`${ftCap(N(a))} ${V(a,"lets","let")} ${N(v)} down (${FT_HOLD} s hold limit)`;
+    case"drop":return e.h!=null?`${ftCap(N(a))} ${V(a,"drops","drop")} ${N(v)} from ${Math.max(1,Math.round(e.h*100))} cm up${e.r?` (${FT_HOLD} s hold limit)`:""}`   // 0.1.65: a clamp and lift lets go
+      :`${ftCap(N(a))} ${V(a,"lets","let")} ${N(v)} down (${FT_HOLD} s hold limit)`;
     case"release":return`${ftCap(N(a))} ${V(a,"backs","back")} off ${N(v)} (${FT_HOLD} s pin limit)`;
     case"tip":return`${ftCap(N(a))} ${V(a,"tips","tip")} ${N(v)} ${e.inv?"over":"off the lifter"}`;
     case"inv":return e.inv?`${ftCap(N(v))} ${V(v,"lands","land")} upside down`:`${ftCap(N(v))} ${V(v,"lands","land")} back on ${v===0?"your":"its"} wheels`;

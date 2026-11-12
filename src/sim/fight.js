@@ -133,7 +133,13 @@ const FIGHT={
   melty:{turn:3.5,speed:0.7,accel:0.45,lat:0.4,syncJ:6,syncS:1.4,wobble:9},
   /* 0.1.63: a thwackbot spun up drives the same way, its tail sweeping round, only slower and less sharply: a long boom
      swinging round makes a poor platform (and there is no sync to lose: it never had one) */
-  thwack:{turn:2.5,speed:0.45,accel:0.35,lat:0.5}
+  thwack:{turn:2.5,speed:0.45,accel:0.35,lat:0.5},
+  /* 0.1.65, the clamp and lift (a grabber with weapon.clamp): the jaws close in closeS, the arm raises what it holds to its
+     full lift in liftS, and it carries it with drag x the held bot's weight in drag (it is off the floor: little). It holds
+     to the league's limit (holdMaxS), then backs off as from a pin (releaseS, pinClearS). A mobile bot wriggles free at slip
+     a second while the arm is still going up, never once it is clear of the floor; let go, it drops what it holds from where the arm has it,
+     landing it upside down flipP of the time at full height (less lower down), and the arm is ready again in rechargeS */
+  clamp:{closeS:0.8,liftS:1,slip:1.5,drag:0.1,carryV:0.35,flipP:0.35,rechargeS:2}
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
@@ -343,17 +349,18 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     wp.om=Math.max(0,Math.min(wm,wp.om+tq/w.inertia*dt));return draw;}
   if(w.type==="flipper"){if(u.weapon&&f.motorOk&&wp.shots>0&&wp.recharge<=0&&!o.air&&upright){wp.shots--;wp.recharge=w.rechargeS||1;fireFlipper(F,o);}return 0;}
   if(w.type==="spear"){if(u.weapon&&f.motorOk&&wp.shots>0&&wp.recharge<=0&&!o.air){wp.shots--;wp.recharge=w.rechargeS||1;fireSpear(F,o);}return 0;}   // either way up
-  if(w.type==="lifter"||w.type==="grabber"){const h=wp.held,grab=w.type==="grabber";
+  if(w.type==="lifter"||w.type==="grabber"){const h=wp.held,grab=w.type==="grabber",cl=!!w.clamp;
     /* a grabber (0.1.32) clamps what it lifts and carries it (grabCarry, each step); it never tips it, and only lets go when
-       the button does, the power goes, or the league's hold limit is up */
-    if(h!=null){const t=F.bots[h];if(!u.weapon||!f.motorOk||f.dead||!(p>0)||t.out||(!grab&&!zoneTouch(o,t))||t.air||o.air){t.held=null;wp.held=null;if(grab){wp.grab=null;wp.recharge=FIGHT.grabRechargeS*Math.min(1,wp.t/FIGHT.grabHoldS);}}
-      else if((wp.t+=dt)>=(grab?Math.min(FIGHT.grabHoldS,FIGHT.holdMaxS):FIGHT.holdMaxS)){t.held=null;wp.held=null;wp.grab=null;wp.recharge=grab?FIGHT.grabRechargeS:2;logIt(F,{k:"drop",a:o.i,v:t.i});}
-      else if(grab&&mobile(t)&&F.rng()<FIGHT.grabSlip*dt){t.held=null;wp.held=null;wp.grab=null;wp.recharge=FIGHT.grabRechargeS;logIt(F,{k:"slip",a:o.i,v:t.i});}
+       the button does, the power goes, or the league's hold limit is up. A clamp and lift (0.1.65) drops it from the arm */
+    if(h!=null){const t=F.bots[h];if(!u.weapon||!f.motorOk||f.dead||!(p>0)||t.out||(!grab&&!zoneTouch(o,t))||t.air||o.air){
+        if(cl&&!t.out&&!t.air)clampDrop(F,o,t);else{t.held=null;wp.held=null;if(grab){wp.grab=null;wp.recharge=FIGHT.grabRechargeS*Math.min(1,wp.t/FIGHT.grabHoldS);}}}
+      else if((wp.t+=dt)>=(cl?FIGHT.holdMaxS:grab?Math.min(FIGHT.grabHoldS,FIGHT.holdMaxS):FIGHT.holdMaxS)){if(cl)clampDrop(F,o,t,true);else{t.held=null;wp.held=null;wp.grab=null;wp.recharge=grab?FIGHT.grabRechargeS:2;logIt(F,{k:"drop",a:o.i,v:t.i});}}
+      else if(grab&&mobile(t)&&(!cl||wp.t<FIGHT.clamp.liftS)&&F.rng()<(cl?FIGHT.clamp.slip:FIGHT.grabSlip)*dt){t.held=null;wp.held=null;wp.grab=null;wp.recharge=FIGHT.grabRechargeS;logIt(F,{k:"slip",a:o.i,v:t.i});}
       else{if(!grab&&wp.t>=FIGHT.tipS&&w.liftM>=FIGHT.tipM*o.M.len){const flip=F.rng()<FIGHT.tipP;t.held=null;wp.held=null;
         launch(F,t,1.5*Math.sqrt(o.M.len),flip,o);logIt(F,{k:"tip",a:o.i,v:t.i,inv:flip?1:0});}}}
     else if(u.weapon&&f.motorOk&&upright&&!o.air&&!(wp.recharge>0)){let near=false;
-      for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&!slick(t)&&zoneTouch(o,t)){near=true;
-      if(grab&&(wp.ct=(wp.ct||0)+dt)<FIGHT.grabCloseS)break;   // the jaws take a moment to close: it has to stay in reach
+      for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&!slick(t)&&!(cl&&t.pinClear&&t.pinClear.by===o.i&&F.t<t.pinClear.until)&&zoneTouch(o,t)){near=true;
+      if(grab&&(wp.ct=(wp.ct||0)+dt)<(cl?FIGHT.clamp.closeS:FIGHT.grabCloseS))break;   // the jaws take a moment to close: it has to stay in reach
       wp.held=t.i;wp.ct=0;wp.t=0;t.held=o.i;
       if(grab){const l=toLocal(o,t.x,t.y);wp.grab={lx:l[0],ly:l[1],dh:wrapA(t.h-o.h)};t.under=null;
         const c=zoneTouch(o,t);if(c){damageBot(F,t,faceAt(t,c.px,c.py),FIGHT.grabJ*o.M.mass*lethalOf(F),"hit",o.i);fxPush(F,{k:"grab",x:c.px,y:c.py,E:FIGHT.grabJ*o.M.mass,v:t.i});}
@@ -373,6 +380,8 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
 /* a shell or meltybrain spun up (0.1.34): nothing can get a grip on it */
 function slick(t){const s=FIGHT.slick[t.b.weapon.id];return!!s&&t.b.weapon.omega>0&&t.wp.om>=s*t.b.weapon.omega;}
 /* a bot sent up: vz, a forward push, and whether it will land upside down */
+/* how high a held bot is: half a lifter's or a grabber's lift, all of a clamp's once its arm is up (0.1.65) */
+function heldZ(F,o){const a=F.bots[o.held],W=a.b.weapon;return W.clamp?W.liftM*Math.min(1,(a.wp.t||0)/FIGHT.clamp.liftS):((W.liftM)||0.02)*0.5;}
 function launch(F,t,vz,flip,by,att,fwd){t.air=true;t.stunNext=0;t.vz=vz;t.z=Math.max(t.z,0.001);t.zPeak=t.z;t.flipNext=!!flip;t.under=null;t.held=null;
   t.airBy=by?by.i:att!=null?att:null;
   if(by){const f=[Math.cos(by.h),Math.sin(by.h)],v=(FIGHT.flipFwd+(fwd||0))*Math.sqrt(by.M.len);t.vx+=f[0]*v;t.vy+=f[1]*v;t.w+=rRange(F.rng,-6,6);}}
@@ -412,6 +421,10 @@ function stepKick(F,o){const k=o.b.back.kick,q=o.kick;if(!k)return;if(q.recharge
    moves with it */
 function grabCarry(F,o){const g=o.wp.grab,h=o.wp.held;if(!g||h==null)return;const t=F.bots[h];if(!t||t.held!==o.i){o.wp.grab=null;return;}
   const p=toWorld(o,g.lx,g.ly);t.x=p[0];t.y=p[1];t.h=wrapA(o.h+g.dh);t.vx=o.vx-o.w*(p[1]-o.y);t.vy=o.vy+o.w*(p[0]-o.x);t.w=o.w;t.pw=worldPoly(t,t.poly);}
+/* a clamp and lift lets go (0.1.65): what it holds falls from the arm's height, and may land on its back */
+function clampDrop(F,o,t,rule){const wp=o.wp,C=FIGHT.clamp,hM=t.z||0,top=o.b.weapon.liftM||1,flip=F.rng()<C.flipP*Math.min(1,hM/top);
+  t.held=null;wp.held=null;wp.grab=null;wp.recharge=C.rechargeS;launch(F,t,0,flip,null,o.i);logIt(F,{k:"drop",a:o.i,v:t.i,h:r2(hM),r:rule?1:0});
+  if(rule){o.release=F.t+FIGHT.releaseS;o.releaseFrom=t.i;t.pinClear={by:o.i,until:F.t+FIGHT.releaseS+FIGHT.pinClearS};}}   // the hold rule, as for a pin (0.1.57): back off, and no grabbing it straight back
 /* the grabber holding o, if one is */
 function grabberOf(F,o){if(o.held==null)return null;const a=F.bots[o.held];return a&&a.b.weapon.type==="grabber"&&a.wp.held===o.i?a:null;}
 function strike(F,o){const w=o.b.weapon,isC=w.type==="crusher";
@@ -459,7 +472,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   if(o.air||grabberOf(F,o)){o.cmd=[0,0];return 0;}   // carried in a grabber (0.1.32): its wheels are off the floor
   const go=mobile(o)&&!o.righting&&!(o.dazed>F.t),p=powerOf(o)*(o.heat.dDer?BENCH.derate:1);
   const wb=b.wheelbase,gripMul=o.held!=null?FIGHT.liftGrip:o.under?Math.min(1,((WEDGE_RULES.underGripClass[F.cls]||WEDGE_RULES.underGrip)+(o.under.grip||0))*wb.underMul):1;
-  const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01)),N=o.m*g;
+  const vF=o.vx*fw[0]+o.vy*fw[1],half=b.trackM/2||b.widthM/2,v0=d.v0*Math.sqrt(Math.max(p,0.01))*(b.weapon.clamp&&o.wp.grab&&o.wp.held!=null?FIGHT.clamp.carryV:1),N=o.m*g;
   /* a bot that can't drive (knocked out, flat, both sides gone, or on its lid) isn't on its tyres as far as the floor cares:
      it slides on metal, the same lengthways, sideways and round (0.1.56; it slid like a bot on wheels, easy one way only) */
   if(!mobile(o)){o.cmd=[0,0];const sp=Math.hypot(o.vx,o.vy),dv=FIGHT.slideMu*g*gripMul*dt,k=sp>dv?1-dv/sp:0;o.vx*=k;o.vy*=k;
@@ -483,7 +496,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   const crr=K.crr*N*(go?1:FIGHT.deadDrag)*gripMul*wb.crrMul*f.drag,Fr=Math.abs(vF)*o.m/dt<crr?-vF*o.m/dt:-Math.sign(vF)*crr;
   /* carrying (0.1.32): the push moves both, and the held bot's back end drags on the floor */
   const cb=o.wp.grab&&o.wp.held!=null?F.bots[o.wp.held]:null,cw=cb?o.m/(o.m+cb.m):1,
-    cd=cb?FIGHT.grabDrag*cb.m*g:0,Fc=!cd?0:Math.abs(vF)*(o.m+cb.m)/dt<cd?-vF*(o.m+cb.m)/dt:-Math.sign(vF)*cd;
+    cd=cb?(b.weapon.clamp?FIGHT.clamp.drag:FIGHT.grabDrag)*cb.m*g:0,Fc=!cd?0:Math.abs(vF)*(o.m+cb.m)/dt<cd?-vF*(o.m+cb.m)/dt:-Math.sign(vF)*cd;
   const aF=(FL+FR+Fr+Fc)/o.m*cw;o.vx+=fw[0]*aF*dt;o.vy+=fw[1]*aF*dt;
   /* tyres don't slide sideways easily (mecanum rollers do: latMul). A strafing drive (0.1.31: mecanum, swerve) drives the
      sideways speed to what it's asked for instead of to nothing, as hard as its grip allows; upside down, right is left */
@@ -636,7 +649,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
     if(o.air){o.vz-=K.g*dt;o.z+=o.vz*dt;if(o.z>o.zPeak)o.zPeak=o.z;
       if(o.z<=0&&o.vz<0){o.z=0;o.vz=0;o.air=false;if(o.stunNext){o.dazed=F.t+o.stunNext;o.stunNext=0;}if(o.flipNext){o.inverted=!o.inverted;o.flipNext=false;o.invBy=o.inverted?o.airBy:null;logIt(F,{k:"inv",v:o.i,inv:o.inverted?1:0});}
         damageBot(F,o,"top",o.m*K.g*o.zPeak*BENCH.dropShare,"land",-1,{inverted:o.inverted});fxPush(F,{k:"land",x:o.x,y:o.y,E:o.m*K.g*o.zPeak,v:o.i});o.stats.landed++;o.zPeak=0;}}
-    else o.z=o.under?WEDGE_RULES.liftMm*o.M.len/1000:o.held!=null?((F.bots[o.held].b.weapon.liftM)||0.02)*0.5:0;
+    else o.z=o.under?WEDGE_RULES.liftMm*o.M.len/1000:o.held!=null?heldZ(F,o):0;
     if(o.under&&F.t>o.under.until)o.under=null;
     o.x+=o.vx*dt;o.y+=o.vy*dt;o.h=wrapA(o.h+o.w*dt);o.pw=worldPoly(o,o.poly);}
   for(const o of F.bots)if(o.wp.grab)grabCarry(F,o);
