@@ -1,6 +1,6 @@
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
-   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
+   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears), 36 from 0.1.65 (two clamp and lifts) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
    bots too), growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -18,6 +18,9 @@ const OPPONENTS=[
   {id:"tausendfuss",name:"Tausendfüßler",cls:"ant",from:"club",driver:{style:"boxrush",skill:0.45},
     line:"Walks on a dozen little feet, which the rulebook rewards with extra grams. Spent all of them on plate.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"steel",right:"steel",top:"steel"},drive:"gearbox",wheels:"pu",wheelbase:"legs",battery:"large",electronics:"dual",weapon:"none",weaponMaterial:"steel",front:"plow",back:"rearwedge",extras:["skid"]}},
+  {id:"hebebuehne",name:"Hebebühne",cls:"ant",from:"club",driver:{style:"hazard",skill:0.3},
+    line:"A garage's car lift shrunk to fit in your hand. Picks you up, has a think, and puts you down somewhere worse.",
+    cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"clamp",weaponMaterial:"steel",extras:[]}},
   /* beetleweights: the Gemeindehalle's club box */
   {id:"feierabend",name:"Feierabend",cls:"beetle",from:"club",driver:{style:"cautious",skill:0.55},
     line:"Waits for the disc to sing, takes one swing, then clocks off early. Has never once stayed late.",
@@ -87,6 +90,9 @@ const OPPONENTS=[
   {id:"dreschflegel",name:"Dreschflegel",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.65},
     line:"A farmer's flail on a plywood box, rebuilt in steel by the engine shed's night crew. Waits for you to come in, then swings.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"s7",extras:[]}},
+  {id:"gabelstapler",name:"Gabelstapler",cls:"feather",from:"eisenau",driver:{style:"hazard",skill:0.7},
+    line:"Built by the harbour's forklift drivers on their breaks. Gets its tines under you, clamps the lid down and goes looking for the edge of the quay.",
+    cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"clamp",weaponMaterial:"steel",extras:[]}},
   {id:"schneepflug",name:"Schneepflug",cls:"feather",from:"stahl",driver:{style:"boxrush",skill:0.7},
     line:"Clears the road. Plow at the front, six wheels in the middle and a flipper at the back for anyone who thought behind was safe.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",front:"plow",back:"kicker",extras:["skid"]}},

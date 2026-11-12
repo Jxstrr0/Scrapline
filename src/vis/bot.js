@@ -626,9 +626,9 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     if(T==="lifter"||T==="grabber"){const f=new THREE.Group();f.userData.role="forks";
       for(const s of [-1,1]){const fl=reach+bodyH;if(!pc(f,"wp_fork",M.steel,s*b.widthM*0.25,0,-fl/2,0.006*len,0.004*len,fl,"weapon")){
         const fk=new THREE.Mesh(new THREE.BoxGeometry(0.006*len,0.004*len,fl),M.steel);fk.position.set(s*b.widthM*0.25,0,-fl/2);fk.userData.part="weapon";f.add(fk);}}
-      f.position.set(front[0],clr+0.002*len,front[1]+bodyH*0.3);g.add(f);
+      f.position.set(front[0],clr+0.002*len,front[1]+bodyH*0.3);f.userData.len=reach+bodyH;g.add(f);
       ramp.scale.z*=0.4;ramp.position.set(front[0],top*0.8,front[1]-run*0.2);g.add(ramp);
-      if(T==="grabber")grabJaw(g,b,k,pc,reach);
+      if(T==="grabber")grabJaw(g,b,k,pc,reach,!!w.clamp);
       return;}
     /* flipper: the ramp is the plate, hinged at the top front, swinging up when it fires */
     const f=new THREE.Group();f.userData.role="flip";const pl=b.lengthM*0.55;
@@ -660,14 +660,18 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
   if(!k.th("front"))add(new THREE.BoxGeometry(b.widthM,bodyH*0.7,0.003*len),M.hdpe,front[0],clr+bodyH*0.4,front[1]-0.0015*len);}
 
 /* ---- the grabber's top jaw (0.1.32): hinged over the front of the deck, its toothed tip reaching down past the forks.
-   arena.js swings it: open while it hunts, shut on a bot it holds (o.wp.grab). Full and Ultra: gr_jaw from
+   arena.js swings it: open while it hunts, shut on a bot it holds (o.wp.grab). A clamp and lift's (cl, 0.1.65) is wider and
+   longer, with a tower either side of its hinge, and arena.js raises it and the forks with the bot they hold. Full and Ultra: gr_jaw from
    models/bot-attach.glb; Lite: two side arms and a tip bar in code ---- */
-function grabJaw(g,b,k,pc,reach){const M=V.mats,{hl,H,clr,bodyH,len,front,lift}=k,A=V.tier!=="lite"?botAttach():null;
-  const j=new THREE.Group();j.userData.role="jaw";const jw=b.widthM*0.7,jh=Math.max(0.01*len,H+lift-clr)*0.95,jl=reach+bodyH*0.9;
+function grabJaw(g,b,k,pc,reach,cl){const M=V.mats,{hl,H,clr,bodyH,len,front,lift}=k,A=V.tier!=="lite"?botAttach():null;
+  const j=new THREE.Group();j.userData.role="jaw";const jw=b.widthM*(cl?0.8:0.7),jh=Math.max(0.01*len,H+lift-clr)*(cl?1.1:0.95),jl=reach+bodyH*(cl?1.2:0.9);j.userData.len=jl;
   if(!(A&&shellAdd(j,A,"gr_jaw",M.alu,"weapon",0,-jh*0.4,-jl*0.4,jw,jh,jl))){const t=0.004*len;
     for(const s of [-1,1]){const a=new THREE.Mesh(new THREE.BoxGeometry(t,t,jl),M.alu);a.position.set(s*jw*0.4,0,-jl/2);a.userData.part="weapon";j.add(a);}
     const tip=new THREE.Mesh(new THREE.BoxGeometry(jw,jh*0.7,t*1.2),M.steel);tip.position.set(0,-jh*0.35,-jl);tip.userData.part="weapon";j.add(tip);}
-  j.position.set(front[0],H+lift+0.003*len,front[1]+bodyH*0.3);j.rotation.x=0.35;g.add(j);}
+  j.position.set(front[0],H+lift+0.003*len,front[1]+bodyH*0.3);j.rotation.x=0.35;g.add(j);
+  /* 0.1.65, the clamp and lift: the arm's motor tower, two steel cheeks either side of the hinge, on every tier */
+  if(cl)for(const s of [-1,1]){const c=new THREE.Mesh(new THREE.BoxGeometry(0.005*len,0.02*len,0.02*len),M.steel);
+    c.position.set(front[0]+s*jw*0.45,H+lift+0.008*len,front[1]+bodyH*0.3+0.004*len);c.userData.part="weapon";g.add(c);}}
 
 /* ---- the swappable front and the back slot (0.1.32, b.front and b.back). Each piece is drawn in its own box, ahead of
    the front edge or behind the back one, with the part key "front" or "back" so damage greys it. Full and Ultra use the

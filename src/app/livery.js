@@ -50,6 +50,8 @@ const OPP_TEAMS={
   "op:dreschflegel":["Hof Grauwald","forest","bone","shield","wrench","HG"],
   "op:stosszahn":["Gesenkschmiede Stahlbrück","coal","sand","hex","rhino",""],
   "op:rammbock":["Pneumatik Velm","navy","clay","shield","piston","PV"],
+  "op:hebebuehne":["Autohaus Brenner","sand","coal","square","wrench","AB"],
+  "op:gabelstapler":["Hafenlager Eisenau","teal","sand","hex","claw","HE"],
   "op:weichensteller":["Signalbau Ost","teal","sand","diamond","bolt",""],
   "op:lindwurm":["Drachenloch","green","wine","shield","flame",""],
   "op:schrottkran":["Altmetall Velm","steel","sand","gear","claw",""],

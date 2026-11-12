@@ -39,7 +39,7 @@ const COMBOS=[
   {id:"flip",sev:"bad",test:b=>b.weapon.type==="flipper"&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
     text:(b,v)=>"Flipper can't lift a bot over "+n1(v)+" kg in this class (the limit is "+n1(b.limitKg)+" kg)."},
   {id:"lift",sev:"warn",test:b=>(b.weapon.type==="lifter"||b.weapon.type==="grabber")&&b.weapon.canLiftKg<b.limitKg&&b.weapon.canLiftKg,
-    text:(b,v)=>(b.weapon.type==="grabber"?"Grabber":"Lifter")+" only raises "+n1(v)+" kg: a bot at the "+n1(b.limitKg)+" kg limit stays on the floor."},
+    text:(b,v)=>(b.weapon.clamp?"Clamp and lift":b.weapon.type==="grabber"?"Grabber":"Lifter")+" only raises "+n1(v)+" kg: a bot at the "+n1(b.limitKg)+" kg limit stays on the floor."},
   {id:"runtime",bench:"endurance",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:(b,m)=>{const s=m.endurance?m.endurance.runtimeS:b.runtimeS;return s!=null&&s<K.runtimeMin*1.33&&s;},
     text:(b,v)=>"Battery runtime "+n0(v)+" s"+(v<K.runtimeMin?": it goes flat before the 90 s bell.":": no margin for a three-round final.")},
   {id:"heat",bench:"endurance",sev:(b,v)=>v<K.runtimeMin?"bad":"warn",test:(b,m)=>{const s=m.endurance?m.endurance.derateS:b.heat.fightDerateS;return s!=null&&s<K.runtimeMin*1.33&&s;},
