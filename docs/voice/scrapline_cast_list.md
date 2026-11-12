@@ -1,6 +1,6 @@
 # Scrapline — Commentary pack v3: cast list
 
-Game code `SCRAP` · model `eleven_v4` · 1 take per line · 214 lines, ~8,900 spoken characters
+Game code `SCRAP` · model `eleven_v4` · 1 take per line · 221 lines, ~9,250 spoken characters
 Checked against the Scrapline repo (`src/sim/fight.js`, `src/app/fight.js`, `src/app/pit.js`, `src/app/career.js`, `src/app/state.js`) on 7 Nov 2026.
 
 ## Cast
@@ -19,7 +19,7 @@ Keep the two voices clearly different in pitch and pace, since live barks and an
 | Ottilie Brandt | **Kayla Rauch** | Clashed with Station Keeper's Ottilie Brandvold |
 | Rudi Kessler | **Mitch Gerber** | Kessel/Kessler is used in Red Skies and Escapement |
 
-Mira Vogt and Anselm Huber stay. Bot names, venues and event names are canon and unchanged.
+Mira Vogt and Anselm Huber stay. Added in 0.1.67.1: Fenna Pohl and Hedda Sauter (first written as Fenna Kessler and Hedda Brandt, renamed before recording for the same clashes), and a grudge-match pool (SCRAP-ANN-0070 to 0072). Bot names, venues and event names are canon and unchanged.
 
 ## Pronunciation (canon German-style names)
 
@@ -45,6 +45,8 @@ Record the name stingers first in the audition. Duncan's place-name lines were r
 | Walzwerk | /ˈvaltsvɛʁk/ |  |
 | Rauch | /ʁaʊ̯x/ |  |
 | Vogt | /foːkt/ |  |
+| Pohl | /poːl/ | Pole |
+| Sauter | /ˈzaʊ̯tɐ/ | Zow-ter |
 
 ## How the lines map to the game
 

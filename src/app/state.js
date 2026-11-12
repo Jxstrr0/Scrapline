@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.67.0";
+const VERSION="0.1.67.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -160,13 +160,13 @@ const RIVALS=[
       lost:"Delays happen. The timetable gets revised.",streak:"Right. I'm re-signalling the whole thing.",
       grudge:"Third meeting. I've been waiting. I'm good at waiting."}},
   /* 0.1.67 (Kelbo: two more rivals): one for the Garage act, and one built round a newer part */
-  {id:"fenna",name:"Fenna Kessler",from:"club",skill:0.5,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
+  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.5,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
     bots:{ant:{name:"Blechdose",base:"tb:wedge"},beetle:{name:"Keksdose",base:"tb:wedge"},hobby:{name:"Brotkasten",base:"tb:wedge"},feather:{name:"Werkzeugkiste",base:"tb:wedge"}},
     steps:[{battery:"hd"},{electronics:"failsafe"},{back:"rearwedge"},{armour:{top:"steel"}},{wheels:"tracks"}],
     talk:{first:"Don't laugh at the tin. Everyone laughs at the tin.",won:"The tin wins again. I paint a stripe on it for every one.",
       lost:"You got under me. I'm going lower.",streak:"Okay. I'm asking my dad about the welder.",
       grudge:"Third time. I've been practising in the school car park."}},
-  {id:"hedda",name:"Hedda Brandt",from:"stahl",skill:0.6,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
+  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.6,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
     bots:{hobby:{name:"Glut",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       feather:{name:"Zunder",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       heavy:{name:"Esse",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}}},

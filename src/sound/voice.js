@@ -49,8 +49,9 @@ let D=null;   // the director's fight
 function audioOn(){return O.sound!==false&&O.voice!==false;}
 /* where the clips come from: Longlight's asset host first (Cloudflare R2, 0.1.17.2), the page's own sounds/voice/ copy as the
    fallback. Per clip, any failure there (no network, a non-OK status, a CORS refusal, bytes that aren't MP3, a decode that
-   fails) fetches the local copy instead, and the first failure sends the rest of the visit straight to local, so a blocked
-   host never doubles every request. Change VOICE_CDN to move the host ("" = local only). */
+   fails) fetches the local copy instead. A failure before the host has served any clip sends the rest of the visit straight
+   to local, so a blocked host never doubles every request; once it has served one, a failure only sends that clip local
+   (0.1.67.1: a clip new in the repo that isn't on the host yet). Change VOICE_CDN to move the host ("" = local only). */
 const VOICE_CDN="https://assets.longlight.games/scrapline/voice/",VOICE_LOCAL="sounds/voice/";
 P.from={};P.cdnDead=!VOICE_CDN;
 /* MP3 bytes start with an ID3 tag or a frame sync; an error page from a misbehaving host does not */
@@ -58,7 +59,7 @@ function isMp3(a){const b=new Uint8Array(a,0,Math.min(3,a.byteLength));return b.
 function getBytes(url){return fetch(url).then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status)).then(a=>isMp3(a)?a:Promise.reject("not mp3"));}
 function fetchLocal(id){return getBytes(VOICE_LOCAL+L[id].f).then(a=>{P.bytes[id]=a;P.from[id]="local";}).catch(()=>{});}
 function fetchClip(id){if(P.cdnDead)return fetchLocal(id);
-  return getBytes(VOICE_CDN+L[id].f).then(a=>{P.bytes[id]=a;P.from[id]="cdn";},()=>{P.cdnDead=true;return fetchLocal(id);});}
+  return getBytes(VOICE_CDN+L[id].f).then(a=>{P.bytes[id]=a;P.from[id]="cdn";P.cdnOk=true;},()=>{if(!P.cdnOk)P.cdnDead=true;return fetchLocal(id);});}
 function load(){if(P.started||typeof fetch!=="function"||!Object.keys(L).length)return;P.started=true;
   const ids=Object.keys(L),core=new Set();for(const q of CORE)for(const id of POOL[q]||[])core.add(id);
   const list=[...core].concat(ids.filter(id=>!core.has(id)&&L[id].c==="c"&&!/^pm:/.test(L[id].q)),ids.filter(id=>!core.has(id)&&(L[id].c==="a"||/^pm:/.test(L[id].q))));
