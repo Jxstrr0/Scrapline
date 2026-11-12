@@ -937,4 +937,6 @@ Skill against skill now (same builds both sides, beetle, feather and heavy): 1 v
 
 Balance (`fight-test all`, test builds at 0.5 and 0.85) passes in every class. Beetle before → after: wedge 53 → 48, lifter 50 → 51, flipper 51 → 51, horizontal 67 → 64, vertical 70 → 66, drum 63 → 61, hammer 43 → 42, undercutter 50 → 56, glass 43 → 44, brick 44 → 48, invertible 64 → 66. In that test the named opponents run a few points higher than before (Krebsgang 72 → 79%), since a test build at 0.5 is now a weaker driver.
 
+**0.1.68.1, a small edge** (Kelbo, by popup): the named opponents, the rivals and the event fields came down 0.05 (opponents 0.45 to 0.95; rivals 0.65 to 0.75; events 0.65, 0.8, 0.75, 0.8, 0.9; `EVENT_SKILL_MAX` 0.92; the champion's Legacy cap stays 1). Every test build on auto against every named opponent in all five classes, 4 seeds: 44.1% → 46.2% at skill 0.85, 48.6% at 1. Staff, your quick sims and the spar's test-build opponent are unchanged.
+
 Replays, replay codes, highlights and the daily challenge re-run the sim, so a fight saved before 0.1.68 plays out differently now (as with earlier AI changes).
