@@ -7,7 +7,7 @@ Sister project: Prairie Engine Works (`Jxstrr0/350Chev`, PEW). The stack, build 
 ## Stack
 
 - Plain HTML, CSS and classic (non-module) JavaScript in a few big `<script>` blocks. No package.json, no npm, no bundler, no CI. The node scripts below are the only checks.
-- three.js **r128** from cdnjs. The bloom addons for Ultra come from jsdelivr `three@0.128.0` (the `SCR_LIBS` list in `src/html/body.html`, loaded on demand through `window.__scrPost`; a Lite phone never loads them). Google Fonts: Space Grotesk (UI) and JetBrains Mono (readouts). The voice pack loads from Longlight's asset host, `https://assets.longlight.games/scrapline/voice/` (Cloudflare R2, filled from the private `Jxstrr0/longlight-assets` repo; `VOICE_CDN` in `src/sound/voice.js`), with the repo's own `sounds/voice/` as the fallback (Kelbo, 0.1.17.2). Nothing else external.
+- three.js **r128** from cdnjs. The bloom addons for Ultra come from jsdelivr `three@0.128.0` (the `SCR_LIBS` list in `src/html/body.html`, loaded on demand through `window.__scrPost`; a Lite phone never loads them). Google Fonts: Space Grotesk (UI) and JetBrains Mono (readouts). The voice pack loads from Longlight's asset host, `https://assets.longlight.games/scrapline/voice/` (Cloudflare R2, filled from the private `Jxstrr0/longlight-assets` repo; `VOICE_CDN` in `src/sound/voice.js`), with the repo's own `sounds/voice/` as the fallback (Kelbo, 0.1.17.2). Cloudflare Web Analytics (`static.cloudflareinsights.com/beacon.min.js` in `src/html/tail.html`, cookieless visit counts; Kelbo, 0.1.64.1). Nothing else external.
 - PWA: `manifest.webmanifest`, `icons/`, and the generated `sw.js`. Installed copies work offline.
 - Assets: CC0 and CC-BY only, never NC or ND; from 0.1.54 also art generated with Higgsfield, which must be credited as AI-generated in its `CREDITS.md` (tool, model, date) and never called hand-made (Kelbo). Every one gets a line in a `CREDITS.md` next to its folder (`sounds/`, `models/`, `textures/`: name, author, licence, URL); Kelbo's own Blender work is noted as original. Ask Kelbo when a licence is unclear.
 - Node 16 or newer for the scripts (22 is what was last used). Nothing to install. `tools/make-icons.js` needs Playwright (run by hand; output is committed). `tools/pack-model.py` (packs a glTF into one `.glb`) and `tools/get-polyhaven.py` (fetches a Poly Haven model, texture or HDRI) need Python 3; run by hand, output committed. `tools/blender-arena-kit.py` builds `models/arena-kit.glb` (and `tools/blender-bot-shells.py` builds `models/bot-shells.glb`, `tools/blender-bot-weapons.py` builds `models/bot-weapons.glb`, `tools/blender-bot-wheels.py` builds `models/bot-wheels.glb`, `tools/blender-bot-detail.py` builds `models/bot-detail.glb`) with `bpy` (Blender as a Python module, `pip install bpy` in a venv); run by hand, output committed. `tools/make-marks.js` turns the logo files in `textures/marks/` into `src/vis/marks.js` (Playwright; run by hand after adding a logo, output committed; `--check` needs no browser). `tools/blender-arena-floors.py` bakes the arena floor tiles (`textures/floor-*.webp`) and needs `bpy`, `numpy` and `Pillow` in the same venv.
@@ -84,9 +84,9 @@ From PR 1, `tools/sim-test.js` does this. When physics or parts change, put the 
 - Real design decisions get asked, not guessed: stop and ask with a recommended default and two alternatives, then add the answer to the plan's section 1. Pitch fixes and ask these as question popups in the chat (Kelbo, 11 November), not as a list at the end of a message.
 - The site and the game use the name Kelbo only, never a real name. Studio name: Longlight Interactive. Credit line: "© year Kelbo / Longlight Interactive".
 
-## Current status (0.1.64.0)
+## Current status (0.1.64.1)
 
-The full log from PR 0 to 0.1.64.0 (what each version added, the tables and
+The full log from PR 0 to 0.1.64.1 (what each version added, the tables and
 save fields it brought) is `docs/HISTORY.md`. Read the matching entry before
 changing a system it describes; add each new release there and update this
 section.
