@@ -6115,7 +6115,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.64.0";
+const VERSION="0.1.64.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -10418,4 +10418,6 @@ function tutOffer(){if(ST().tutDone||TUT_ON)return;
     <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Not now costs nothing: Settings has it again any time.</p>
     <div class="row"><button type="button" class="btn pri" data-tut="go">Show me</button><button type="button" class="btn" data-tut="skip">Not now</button></div>`);}
 </script>
+<!-- Cloudflare Web Analytics: cookieless visit counts for Longlight (no personal data). -->
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "1ca537ec2a4f491c8da70d54d2f5319f"}'></script>
 </body></html>
