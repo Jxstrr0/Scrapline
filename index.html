@@ -11,7 +11,7 @@ function fail(s){if(bad)return;bad=1;b.classList.add("err");m.textContent=s;rl.h
 /* Reload: if a newer worker is installed and waiting (it may carry the fix for whatever broke), let it take over first */
 rl.onclick=function(){var go=function(){location.reload();},sw=navigator.serviceWorker;if(!sw||!sw.getRegistration)return go();
  sw.getRegistration().then(function(r){if(!r||!r.waiting)return go();sw.addEventListener("controllerchange",go);r.waiting.postMessage({type:"SKIP_WAITING"});setTimeout(go,3000);},go);};
-window.addEventListener("error",function(e){if(fin)return;var t=e.target;if(t&&t.tagName==="SCRIPT")fail("Couldn't load "+(/three/.test(t.src)?"the 3D library":"a game library")+". Check your connection and reload.");else if(e.message)fail("Something went wrong while loading. Reload to try again.");},true);
+window.addEventListener("error",function(e){if(fin)return;var t=e.target;if(t&&t.tagName==="SCRIPT"&&!t.hasAttribute("data-cf-beacon"))fail("Couldn't load "+(/three/.test(t.src)?"the 3D library":"a game library")+". Check your connection and reload.");else if(e.message)fail("Something went wrong while loading. Reload to try again.");},true);
 setTimeout(function(){if(!fin&&!bad)m.textContent="Still loading… slow connection?";},9000);
 })();</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6115,7 +6115,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.64.1";
+const VERSION="0.1.64.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
