@@ -30,7 +30,7 @@ function ftOppDef(cls){const o=SIM.OPPONENTS.find(o=>o.cls===cls&&SIM.part("weap
 function ftOpp(cls,id){id=id||FT.opp||ftOppDef(cls);const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
   if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op,livery:lvOpp("op:"+id)};
   const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
-  return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.7},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24)
+  return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.9},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24; 0.9 from 0.1.68, as hard as the old AI at 0.7)
 /* a rumble's other two bots: picked from the class's named opponents and the test builds by the seed */
 function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>o.id).concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy").map(t=>t.id)).filter(id=>id!==skip),out=[];
   let k=seed>>>3;while(out.length<2&&pool.length){const id=pool.splice(k%pool.length,1)[0];out.push(ftOpp(cls,id));k=(k*2654435761>>>7)+1;}return out;}
@@ -38,7 +38,7 @@ function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls)
 function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const opp=ftOpp(cls),you=FT.style==="you";
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
-  const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
+  const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.9}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
   if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,livery:o.livery,driver:o.driver});
   lvField(bots);
   FT.you=you;FT.sig=bnSig(bot.cfg);FT.oppKey=metOppId(opp);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;
