@@ -870,3 +870,15 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Opponents:** Peitsche (beetle, Eisenau: a drum with a tail) and Dreschflegel (feather, Grauwald: a box with a tail). 32 named opponents.
 - **Looks:** every tier draws the boom and head, spun with the bot with a blur circle, and the drum's barrel with end caps and one wheel a side.
 - **Balance** (auto, 8 seeds, against the test builds): beetle tail on a drum 53%, on a box 54% (meltybrain 44%, vertical 71%); feather 59 / 65%; heavy 55 / 51%. Between the meltybrain and the vertical disc, on purpose.
+
+## The piston spear (0.1.64, oddities part two)
+
+- **Piston spear** (`spear`, drill press, €200 / 6 h). A pneumatic ram down the middle of the bot, one cell wide and three long, with a hardened point. It runs on gas like the flipper: 20 shots, a 0.7 s recharge, one press for one stab.
+- **A stab** shoots the point out the stroke past the front (55 mm at beetle scale, scaled with the class's length). The first bot in that box takes the stroke's energy on the face it meets: 22 J at beetle scale, scaled with the class's mass like the hammer's.
+  - The point goes through half of that face's absorb (`FIGHT.spear.absorb`, like the crusher's point).
+  - It shoves the bot away along the spear (`FIGHT.spear.shove`).
+  - A sloped front or a plate's own deflect can turn it aside.
+  - A stab knocks a bot off the spear bot's own wedge, so a front sets up one stab, not a string of them.
+- **What it doesn't do:** it doesn't lift or right the bot. It fires either way up, and a front (wedgelets, plow, forks) fits either side of it.
+- **Opponents:** Stoßzahn (hobby, Stahlbrück: a spear with wedgelets) and Rammbock (heavy, Eisenhalle: a spear behind a plow). 34 named opponents. The armour era favours spears.
+- **Looks:** every tier draws the ram's housing along the deck, and the rod and point out of the middle of the front. Both shoot out and back on each stab. The Build tab's side profile draws the rod.

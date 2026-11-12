@@ -215,6 +215,10 @@ function evalBuild(cfgIn,opts){
   if(wp.type==="flipper"){const F=wp.forceN*M.mass,stroke=wp.strokeMm*M.len/1000,launchJ=F*stroke;
     Object.assign(weapon,{shots:wp.shots,forceN:F,launchJ,energyJ:launchJ,rechargeS:wp.rechargeS,canLiftKg:F/(K.g*K.flipLever),
       flipHeightM:Math.max(0,launchJ*K.flipEff/(limitKg*K.g)-stroke),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
+  /* the piston spear (0.1.64): the stroke's energy on each shot, the point reaching the stroke past the front. The energy
+     goes with the class's mass, as the hammer's does (armour does too); force x the class's stroke would add its length again */
+  if(wp.type==="spear"){const E=wp.forceN*wp.strokeMm/1000*M.mass,stroke=wp.strokeMm*M.len/1000;
+    Object.assign(weapon,{shots:wp.shots,forceN:E/stroke,strokeM:stroke,energyJ:E,rechargeS:wp.rechargeS,reachM:stroke,bite:wm.bite});}
   if(wp.type==="lifter"||wp.type==="grabber"){const F=wp.liftN*M.mass*powerScale*vSpd,liftM=wp.liftMm*M.len/1000;
     Object.assign(weapon,{liftN:F,liftM,energyJ:F*liftM,canLiftKg:F/(K.g*K.liftLever),reachM:wp.reachMm*M.len/1000,bite:wm.bite});}
   if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale*vPow,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});

@@ -245,7 +245,7 @@ const FT_SPIN={hsp:"spin_h",vsp:"spin_v",drum:"spin_drum",beater:"spin_drum",dri
 function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=null&&e.a>=0?F.bots[e.a]:null,V=e.v!=null&&e.v>=0?F.bots[e.v]:null,wid=A?A.b.cfg.weapon:"";
   const crowd=k=>{if(now-(FT.crowdT||0)<3500)return;if(SS.sfx(k,0.55))FT.crowdT=now;};
   if(e.k==="hit"&&V){const En=(e.E||0)/mm,v=0.25+0.5*Math.min(1,En/140);
-    if(wid==="hammer")SS.sfx("hammer",0.7);else if(wid==="crusher")SS.sfx("crush",0.7);
+    if(wid==="hammer")SS.sfx("hammer",0.7);else if(wid==="crusher")SS.sfx("crush",0.7);else if(wid==="spear")SS.sfx("kick",0.7);
     const pl=V.b.armourMapJ[e.f],id=pl&&pl.id!=="none"?pl.id:V.b.cfg.chassis;
     SS.sfx(e.x&&e.x.some(q=>/^wheel/.test(q[0]))?"tyre":FT_MAT[id]||"ar",v*0.8);
     if(En>60&&!V.mini)crowd("ooh");}
@@ -253,6 +253,7 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="lift")SS.sfx("lifter",0.6);
   else if(e.k==="grab")SS.sfx("grab",0.7);
   else if(e.k==="kick"&&!e.heavy)SS.sfx("kick",0.7);
+  else if(e.k==="stab")SS.sfx("kick",0.6);   // 0.1.64: a spear's stab into thin air
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
   else if(e.k==="haz"){if(e.what!=="flame")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);}
   else if(e.k==="flame")SS.sfx("flame",0.55);
@@ -375,7 +376,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
-    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
+    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"||w.type==="spear"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
     if(o.flags.bent&&states.weapon==="intact")states.weapon="damaged";
     /* three bars: how long is how ready (disc speed, shots left; drive left on each side; charge), the colour is how damaged */
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};

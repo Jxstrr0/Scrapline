@@ -142,7 +142,7 @@ const PARTS={
     {id:"failsafe", name:"Dual ESC + failsafe",  fp:[1,1],massG:30,maxPowerW:550,heatW:8, coolingW:0, idleW:1,hp:40,cost:70,hours:1.5,unlock:"start",failsafe:true},
     {id:"cooling",  name:"Dual ESC + fans",      fp:[1,1],massG:45,maxPowerW:550,heatW:8, coolingW:25,idleW:2,hp:25,cost:60,hours:1.5,unlock:"tool:printer"}
   ],
-  /* type: none | wedge | lifter | flipper | hammer | spinner | crusher | saw. mount "front" means the mount touches the
+  /* type: none | wedge | lifter | flipper | hammer | spinner | crusher | saw | spear. mount "front" means the mount touches the
      front row; "edge" any edge. massG is the structure (wedge plate, arm, forks, mount) and scales with the material;
      motorMassG the motor or the pneumatics. edgeMm the leading edge height (null: the chassis front is the edge).
      Spinners: discMass (g, x material), radius (mm), rpmMax, shapeK (I = shapeK m r^2: 0.5 a disc), bite (how much of the
@@ -161,7 +161,11 @@ const PARTS={
      Thwackbot tail (0.1.63, Kelbo): a boom boomMm long off the back with a head of discMass on its end, and no motor of
      its own. Held, the drive spins the whole bot on the spot (like a meltybrain, FIGHT.thwack) and the head sweeps a circle
      round the centre of mass; the energy is the whole bot's spin (its yaw inertia, head and all, at rpmMax). The boom takes
-     the back slot. Let go and it is a bot with a tail. */
+     the back slot. Let go and it is a bot with a tail.
+     Piston spear (0.1.64, Kelbo): a pneumatic ram down the middle with a hardened point. On the gas like a flipper (shots,
+     forceN over strokeMm, rechargeS): each shot stabs the point out strokeMm past the front, and whatever face it meets
+     takes the stroke's energy through part of its armour (FIGHT.spear.absorb) and a shove away. It doesn't lift and it
+     doesn't right the bot; it fires either way up, and a front fits either side of it. */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -181,6 +185,7 @@ const PARTS={
     {id:"ring",   name:"Ring spinner",        type:"spinner",fp:[2,2],mount:"any",  massG:50, motorMassG:90, powerW:220,heatW:45,edgeMm:null,hp:60, cost:240,hours:8,unlock:"rnd:ring",discMass:200,bodyR:1.12,rpmMax:2000, shapeK:1.0, bite:0.36,recoil:1.0,bendMul:0.5},
     {id:"melty",  name:"Meltybrain",          type:"spinner",fp:null, mount:"front",massG:30, motorMassG:0,  powerW:200,heatW:0, edgeMm:null,hp:70, cost:300,hours:8,unlock:"rnd:melty",discMass:60,bodyR:1.05,rpmMax:1400, shapeK:1.0, bite:0.5, recoil:1.3,bodyK:0.33,inverts:true},
     {id:"thwack", name:"Thwackbot tail",      type:"spinner",fp:null, mount:"back", massG:70, motorMassG:0,  powerW:220,heatW:0, edgeMm:null,hp:90, cost:160,hours:6,unlock:"tool:welder",discMass:130,boomMm:105,rpmMax:720, shapeK:1.0, bite:0.7, recoil:1.2},
+    {id:"spear",  name:"Piston spear",        type:"spear",  fp:[1,3],mount:"front",massG:150,motorMassG:160,powerW:10, heatW:0, edgeMm:null,hp:70, cost:200,hours:6,unlock:"tool:drillpress",shots:20,forceN:400,strokeMm:55,rechargeS:0.7},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
   ],
   /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends

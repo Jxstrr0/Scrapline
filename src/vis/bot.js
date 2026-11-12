@@ -41,7 +41,7 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
     else if(u.role==="blur"){o.material=o.material.clone();o.userData={role:"blur",own:true};g.userData.blur=o;}
     else if(u.role==="lamp"){o.material=o.material.clone();o.userData={role:"lamp",own:true};g.userData.lamp=o;}
     if(u.wheel)g.userData.wheels.push(o);});
-  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="leg")g.userData.legs.push(o);else if(r==="trk")g.userData.trk.push(o);});
+  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="spear")g.userData.spear=o;else if(r==="leg")g.userData.legs.push(o);else if(r==="trk")g.userData.trk.push(o);});
   return g;}
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
@@ -645,6 +645,17 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     if(T==="crusher"&&!pc(g,"wp_jaw",M.steel,front[0],clr+0.003*len,front[1]-0.012*len,b.widthM*0.4,0.004*len,0.03*len)){
       const jaw=new THREE.Mesh(new THREE.BoxGeometry(b.widthM*0.4,0.004*len,0.03*len),M.steel);jaw.position.set(front[0],clr+0.003*len,front[1]-0.012*len);g.add(jaw);}
     return;}
+  /* 0.1.64, the piston spear: the gas ram in a housing along the deck, and the rod with its point out of the middle of the
+     front at half height. The rod and the point are one group (role "spear") that arena.js shoots forward the stroke when
+     a shot goes. Coded on every tier (Lite has fewer sides) */
+  if(T==="spear"){const rr=0.005*len,tl=0.024*len,y=clr+bodyH*0.5,rl=0.05*len,sides=Math.max(8,seg>>1);
+    const hs=new THREE.CylinderGeometry(0.011*len,0.011*len,b.lengthM*0.5,sides);hs.rotateX(Math.PI/2);
+    add(hs,M.alu,mount[0],H+lift+0.011*len,front[1]+b.lengthM*0.3);
+    const sp=new THREE.Group();sp.userData.role="spear";sp.userData.stroke=w.strokeM||0.04;
+    const rg=new THREE.CylinderGeometry(rr,rr,rl,sides);rg.rotateX(Math.PI/2);const rod=new THREE.Mesh(rg,M.steel);rod.position.z=rl/2-0.002*len;rod.userData.part="weapon";sp.add(rod);
+    const cg=new THREE.ConeGeometry(rr*1.9,tl,sides);cg.rotateX(-Math.PI/2);const tip=new THREE.Mesh(cg,M.steel);tip.position.z=-0.002*len-tl/2;tip.userData.part="weapon";sp.add(tip);
+    const fa=b.armourMapJ&&b.armourMapJ.front,ft=fa&&fa.id!=="none"?Math.max(0.002*len,(fa.thickMm||0)/1000):0,z0=front[1]-ft;   // clear of the front plate
+    sp.position.set(mount[0],y,z0);sp.userData.z0=z0;g.add(sp);return;}
   /* a pusher: a plain plate on the front */
   if(!k.th("front"))add(new THREE.BoxGeometry(b.widthM,bodyH*0.7,0.003*len),M.hdpe,front[0],clr+bodyH*0.4,front[1]-0.0015*len);}
 
@@ -685,6 +696,7 @@ function buildAttach(g,b,k){const M=V.mats,{Wd,L,hw,clr,bh,boxTop,len,front,back
   else if(wpn.id==="drisk")kh=wR*0.45+0.008*len;
   else if(wpn.id==="vsp")kh=Math.max(0.005*len,wR*0.14)/2+0.008*len;
   else if(wpn.type==="crusher")kh=Wd*0.2;
+  else if(wpn.type==="spear")kh=0.012*len;   // 0.1.64: the spear's point comes out of the middle
   const spans=kh&&fr.id!=="none"?[[-hw,Math.min(hw,mx-kh-0.006*len)],[Math.max(-hw,mx+kh+0.006*len),hw]].filter(q=>q[1]-q[0]>Wd*0.07):null;
   if(fr.id==="wedgelets"){const d=L*0.12,h=clr+bh*0.45,w=Wd*0.3;
     if(spans)for(const q of spans){const ww=Math.min(w,q[1]-q[0]),xc=q[0]<=-hw+1e-6?-hw+ww/2:hw-ww/2;piece(g,"at_wedgelet",W,M.steel,"front",front[0]+xc,h/2,fz-d/2,ww,h,d);}

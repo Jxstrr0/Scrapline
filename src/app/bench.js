@@ -21,7 +21,7 @@ const BN={anim:{},open:null,pick:[]};
 const BN_WHY={drop:"a big flipper throw, landing both ways up",dummy:"three boxes that don't fight back, with a replay"};
 const BN_DESC={
   drive:"A short straight and a spin on the spot: top speed, time over the track, pull to one side.",
-  weapon:"Spin-up, stored energy and a hit on a fixed anvil; flippers and lifters against test masses; hammers, crushers and rams by their energy.",
+  weapon:"Spin-up, stored energy and a hit on a fixed anvil; flippers and lifters against test masses; hammers, crushers, spears and rams by their energy.",
   impact:"A swinging mass hits each face harder and harder until something behind it breaks: when the plate gives and which part dies first.",
   gauge:"Feeler gauges at the edge heights common in this class, slid under your front edge.",
   endurance:"Fight-pace bursts of drive and weapon until the battery is flat: runtime, heat, and when the motors back off.",
@@ -74,6 +74,7 @@ const BN_TEXT={
       .concat(r.kind==="flip"?[`${r.shots} shots, ${bn1(r.rechargeS)} s to recharge`]:[`Lifts up to ${rd(bn1(r.canLiftKg)+" kg")}`]);
     if(r.kind==="hammer")return[`Strike ${rd(bn0(r.energyJ)+" J")}, ${bn1(r.swingS)} s a swing`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}`];
     if(r.kind==="crush")return[`Crush force ${rd(bn0(r.forceN)+" N")}, ${rd(bn0(r.energyJ)+" J")} a bite`];
+    if(r.kind==="stab")return[`Stab ${rd(bn0(r.energyJ)+" J")}, the point out ${rd(bn0(r.strokeM*1000)+" mm")} past the front`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}, half the armour's give taken out by the point`,`${r.shots} shots, ${bn1(r.rechargeS)} s to recharge`];
     return[`No powered weapon: rams at ${rd(bn0(r.ramJ)+" J")} at top speed`,`Push ${rd(bn0(r.pushN)+" N")}, front edge ${bn1(r.edgeMm)} mm`];},
   impact:(r,b)=>["front","back","left","right","top"].map(f=>{const x=r.faces[f],w=f===r.weakest;
     return`${w?'<b class="broke">':"<b>"}${FACE_LBL[f]}</b> <small>(${esc(x.armour)})</small>: ${x.plateJ>0?`plate gives at ${rd(bn0(x.plateJ)+" J")}, `:x.hpJ>0?"":"no plate, "}${x.failJ!=null?`${esc(x.failName)} dies at ${rd(bn0(x.failJ)+" J")}`:`nothing breaks up to ${bn0(r.maxJ)} J`}${w?' <span class="broke">· weakest</span>':""}`;}),

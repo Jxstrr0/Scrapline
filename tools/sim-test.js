@@ -43,6 +43,7 @@ for (const slot in NEED) {
     for (const k of ["id", "name", "unlock"]) if (typeof p[k] !== "string") fail(`PARTS.${slot}.${p.id} has no ${k}`);
     if (!/^(start|tool:[a-z]+|rnd:[a-z]+)$/.test(p.unlock || "")) fail(`PARTS.${slot}.${p.id} unlock "${p.unlock}"`);
     for (const k of ["cost", "hours"].concat(NEED[slot])) if (!Number.isFinite(p[k])) fail(`PARTS.${slot}.${p.id}.${k} is not a number`);
+    if (p.type === "spear") for (const k of ["shots", "forceN", "strokeMm", "rechargeS"]) if (!Number.isFinite(p[k])) fail(`PARTS.weapon.${p.id}.${k}`);
     if (p.type === "spinner" || p.type === "saw") for (const k of ["discMass", p.bodyR ? "bodyR" : p.boomMm ? "boomMm" : "radius", "rpmMax", "shapeK", "bite", "recoil"]) if (!Number.isFinite(p[k])) fail(`PARTS.weapon.${p.id}.${k}`);
   }
 }
@@ -188,7 +189,7 @@ for (const cls of SIM.CLASS_IDS) {
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
   const KIND = { vsp: "slot", drisk: "slot", saw: "slot", drum: "pocket", beater: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
-    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none" }, eps = 1e-9;
+    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none", spear: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
     if (!y) { fail(`${lbl}: no bay`); continue; }
@@ -488,6 +489,38 @@ for (const cls of SIM.CLASS_IDS) {
   }
   if (!hits) fail("a tail should land hits in eight fights");
   console.log(`0.1.63 checks: the tail spins about the centre of mass in every class (beetle ${pb.weapon.storedJ.toFixed(0)} J, reach ${(pb.weapon.radiusM * 1000).toFixed(0)} mm), the drum turns ${db.turnRate.toFixed(0)} vs ${pb.turnRate.toFixed(0)} and drives either way up; ${hits} tail hits in 8 fights; replays match`);
+}
+
+/* 0.1.64: the piston spear */
+{
+  const T = (id, cls) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls: cls || "beetle" });
+  const sp = (cls) => Object.assign(T("hammer", cls), { weapon: "spear" }), row = [];
+  for (const cls of SIM.CLASS_IDS) {
+    const b = SIM.evalBuild(sp(cls)), h = SIM.evalBuild(T("hammer", cls)), w = b.weapon, M = SIM.classMult(cls);
+    if (!b.valid) fail(`${cls} spear: ${b.errors.join("; ")}`);
+    if (!(w.energyJ > 0 && w.shots > 0 && w.rechargeS > 0 && w.reachM > 0)) fail(`${cls} spear: ${JSON.stringify(w)}`);
+    /* its energy goes with the class's mass, as the hammer's does, so it keeps the same place against the armour in every class */
+    if (Math.abs(w.energyJ / M.mass - SIM.part("weapon", "spear").forceN * SIM.part("weapon", "spear").strokeMm / 1000) > 1e-6) fail(`${cls} spear: ${w.energyJ} J doesn't go with the class's mass`);
+    row.push(`${cls} ${w.energyJ.toFixed(0)} J`);
+  }
+  for (const f of ["wedgelets", "plow", "forks"]) { const r = SIM.evalBuild(Object.assign(sp(), { front: f })); if (r.errors.some((e) => /no room/.test(e)) || r.front.id !== f) fail(`a spear should take ${f} as a front: ${r.errors.join("; ")}`); }
+  /* fights replay the same; holding the button stabs once a recharge, and a bot in the stroke takes the hit */
+  const fight = (a, b, seed) => SIM.runFight({ seed, arena: "clubbox", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+  let hits = 0, shots = 0;
+  for (let s = 1; s <= 4; s++) for (const o of [T("vsp"), T("wedge")]) {
+    const r = fight(sp(), o, s), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a 0.1.64 fight replays differently`);
+    hits += r.bots[0].stats.hits;
+  }
+  const F = SIM.newFight({ seed: 3, arena: "clubbox", bots: [{ cfg: sp(), driver: null }, { cfg: T("brick"), driver: null }] }), a = F.bots[0], t = F.bots[1];
+  const n0 = a.wp.shots; t.x = a.x + Math.cos(a.h) * (a.b.lengthM / 2 + t.b.lengthM / 2 + a.b.weapon.reachM * 0.5); t.y = a.y + Math.sin(a.h) * (a.b.lengthM / 2 + t.b.lengthM / 2 + a.b.weapon.reachM * 0.5); t.h = a.h + Math.PI;
+  SIM.stepFight(F, [{}, {}]);   // the moved bot's outline is brought up to date on a step
+  for (let i = 0; i < 30; i++) SIM.stepFight(F, [{ throttle: 0, steer: 0, weapon: 1, selfRight: 0 }, { throttle: 0, steer: 0, weapon: 0, selfRight: 0 }]);
+  shots = n0 - a.wp.shots;
+  if (shots !== 1) fail(`holding the button for half a second should stab once (the recharge), not ${shots} times`);
+  if (!F.log.some((e) => e.k === "hit" && e.a === 0 && e.v === 1 && e.E > 0)) fail("a bot in the spear's stroke should take a hit");
+  if (!hits) fail("a spear should land hits in eight fights");
+  console.log(`0.1.64 checks: the spear stabs ${row.join(", ")}, takes a wedgelet, plow or forks front, fires once a recharge and hurts a bot in its stroke; ${hits} hits in 8 fights; replays match`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }
