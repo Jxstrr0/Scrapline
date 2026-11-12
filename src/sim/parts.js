@@ -61,7 +61,13 @@ const PARTS={
     {id:"pancake",name:"Pancake",      massMul:0.95,hpMul:1,   flexAdd:0,   heightMul:0.7, edgeMm:0,   deflect:{top:0.1},             cost:70, hours:5,unlock:"tool:mill",
       line:"Very low and flat. Wheels stand proud, so it drives either way up; it rides on its wheels, so wedges get under it more easily."},
     {id:"invert", name:"Invertible",   massMul:1.2, hpMul:1,   flexAdd:0,   heightMul:1,   edgeMm:0,   deflect:{},                    cost:110,hours:7,unlock:"tool:cnc",
-      line:"The same both ways up: it drives upside down and never needs to self-right. The heaviest body."}
+      line:"The same both ways up: it drives upside down and never needs to self-right. The heaviest body."},
+    /* 0.1.63, the odd ones (Kelbo): a drum lying across the bot between two wheels taller than it. twoWheel: the wheels
+       are at least wheelMul x the body's height across (they stand proud both ways up), the bot runs on one wheel a
+       side (every pod drives it), so it turns on the spot easily (scrubMul) and slides when it is shoved (latMul) */
+    {id:"cylinder",name:"Two-wheel drum",massMul:1.15,hpMul:1, flexAdd:0,   heightMul:1.1, edgeMm:0,   deflect:{front:0.15,back:0.15,top:0.25},cost:100,hours:6,unlock:"tool:lathe",
+      inverts:true,twoWheel:true,wheelMul:1.5,scrubMul:0.45,latMul:0.7,
+      line:"A drum between two big wheels. It drives either way up and hits glance off its curve, but two wheels turn on a coin and shove easily."}
   ],
   /* per face. Mass is worked out from the face's area x thickMm x density (g/cm3), so it follows the chassis. absorbPerG and
      hpPerG are J per gram of plate: absorb is eaten before any damage, hp is what the plate takes before it is gone.
@@ -151,7 +157,11 @@ const PARTS={
      hard hit can lose its heading (FIGHT.melty). None of them leaves room for a front or a back.
      Two more verticals (0.1.46). Eggbeater (beater): an open frame cut from one billet, two bars on a wide axle. Light,
      quick to spin up and it bites deepest of all, but the frame bends early (bendMul 0.65). Drisk: a drum as narrow as a
-     thick disc. The heaviest vertical and the hardest to bend (bendMul 1.25), with a narrow hit zone and a strong gyro. */
+     thick disc. The heaviest vertical and the hardest to bend (bendMul 1.25), with a narrow hit zone and a strong gyro.
+     Thwackbot tail (0.1.63, Kelbo): a boom boomMm long off the back with a head of discMass on its end, and no motor of
+     its own. Held, the drive spins the whole bot on the spot (like a meltybrain, FIGHT.thwack) and the head sweeps a circle
+     round the centre of mass; the energy is the whole bot's spin (its yaw inertia, head and all, at rpmMax). The boom takes
+     the back slot. Let go and it is a bot with a tail. */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -170,6 +180,7 @@ const PARTS={
     {id:"shell",  name:"Shell spinner",       type:"spinner",fp:[2,2],mount:"any",  massG:60, motorMassG:100,powerW:300,heatW:45,edgeMm:2,   hp:110,cost:260,hours:8,unlock:"tool:lathe",discMass:210,bodyR:1.0, rpmMax:2100, shapeK:0.75,bite:0.36,recoil:1.0},
     {id:"ring",   name:"Ring spinner",        type:"spinner",fp:[2,2],mount:"any",  massG:50, motorMassG:90, powerW:220,heatW:45,edgeMm:null,hp:60, cost:240,hours:8,unlock:"rnd:ring",discMass:200,bodyR:1.12,rpmMax:2000, shapeK:1.0, bite:0.36,recoil:1.0,bendMul:0.5},
     {id:"melty",  name:"Meltybrain",          type:"spinner",fp:null, mount:"front",massG:30, motorMassG:0,  powerW:200,heatW:0, edgeMm:null,hp:70, cost:300,hours:8,unlock:"rnd:melty",discMass:60,bodyR:1.05,rpmMax:1400, shapeK:1.0, bite:0.5, recoil:1.3,bodyK:0.33,inverts:true},
+    {id:"thwack", name:"Thwackbot tail",      type:"spinner",fp:null, mount:"back", massG:70, motorMassG:0,  powerW:220,heatW:0, edgeMm:null,hp:90, cost:160,hours:6,unlock:"tool:welder",discMass:130,boomMm:105,rpmMax:720, shapeK:1.0, bite:0.7, recoil:1.2},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
   ],
   /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends

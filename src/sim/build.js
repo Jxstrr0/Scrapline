@@ -57,6 +57,12 @@ function evalBuild(cfgIn,opts){
   const ownFront=OWN_FRONT.indexOf(wp.type)>=0||allRound;   // a wedge, lifter, flipper or grabber is its own front
   if(fr.id!=="none"&&ownFront)errors.push("The "+wp.name.toLowerCase()+(allRound?" spins all the way round":" is its own front")+": no room for "+fr.name.toLowerCase());
   if(bk.id!=="none"&&allRound)errors.push("The "+wp.name.toLowerCase()+" spins all the way round: no room for "+bk.name.toLowerCase());
+  /* 0.1.63: a thwackbot tail's boom comes off the back; a two-wheel drum runs on one big wheel a side */
+  const tail=wp.mount==="back";
+  if(bk.id!=="none"&&tail)errors.push("The "+wp.name.toLowerCase()+"'s boom takes the back: no room for "+bk.name.toLowerCase());
+  if(bd.twoWheel&&wb.id!=="std")errors.push("A "+bd.name.toLowerCase()+" runs on one big wheel a side: no "+wb.name.toLowerCase());
+  if(bd.twoWheel&&wh.tracks)errors.push("A "+bd.name.toLowerCase()+" runs on wheels, not tracks");
+  const wbScrub=wb.scrubMul*(bd.scrubMul||1),wbLat=wb.latMul*(bd.latMul||1);
   /* the tuning dials (0.1.33, TUNE in sim/parts.js): each a multiplier at 1 when the dial is stock */
   const tu=cfg.tune,TV=TUNE.volt,TW=TUNE.wheel,TB=TUNE.bias;
   const vCell=1+TV.cells*tu.volt,vPow=1+TV.power*tu.volt,vSpd=1+TV.speed*tu.volt,vHeat=Math.max(TV.heatMin,1+TV.heat*tu.volt);
@@ -72,7 +78,7 @@ function evalBuild(cfgIn,opts){
   const cellFrac=cellsOn/cellsAll;
   const cx=x=>((x+0.5)-c.gridW/2)*cellMm/1000, cy=y=>(c.gridH/2-(y+0.5))*cellMm/1000;   // cell centre in m
   const cut=ch.shape==="wedge"?c.fp*cellMm/1000:0;
-  const hw=W/2000,hl=L/2000;
+  const hw=W/2000,hl=L/2000,boomM=tail&&wp.boomMm?wp.boomMm*M.len/1000:0;   // a thwackbot's boom, from the back face to the head
   const polygon=cut?[[-hw+cut,hl],[hw-cut,hl],[hw,hl-cut],[hw,-hl],[-hw,-hl],[-hw,hl-cut]]:[[-hw,hl],[hw,hl],[hw,-hl],[-hw,-hl]];
 
   /* ---- mass items: {key, slot, id, g, x, y} (x, y in m), plus the moment-of-inertia extras ---- */
@@ -128,11 +134,11 @@ function evalBuild(cfgIn,opts){
   const isSpin=wp.type==="spinner"||wp.type==="saw";
   let wpos=centreOf("weapon")||[0,hl];
   const frontMounted=wp.mount==="front";
-  const discPos=allRound?[0,0]:isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;   // an all-round spinner turns about the middle
+  const discPos=allRound?[0,0]:tail?[0,-hl-boomM]:isSpin&&frontMounted&&wp.id!=="hsp"?[wpos[0],hl]:wpos;   // an all-round spinner turns about the middle
   const DP=cfg.disc?{r:DISC_PROFILES.rim[cfg.disc.rim]}:null;   // your own disc profile (normCfg keeps it on spinners only)
   const nTeeth=TUNE.teeth.base+tu.teeth,TT=DISC_PROFILES.teeth[nTeeth];   // 0.1.48: the Tooth count dial (two, and every factor 1, on anything but a disc or a drum)
   const structG=wp.massG*wm.massMult*M.mass,motorG=wp.motorMassG*M.mass,discG=isSpin?wp.discMass*wm.massMult*M.mass*(DP?DP.r.mass:1):0;
-  if(structG)addM("weapon_struct","weapon",wp.id,structG,wpos[0],wp.fp?wpos[1]:hl);
+  if(structG)addM("weapon_struct","weapon",wp.id,structG,tail?0:wpos[0],wp.fp?wpos[1]:tail?-hl-boomM/2:hl);
   if(motorG)addM("weapon_motor","weapon",wp.id,motorG,wpos[0],wpos[1]);
   if(discG)addM("weapon_disc","weapon",wp.id,discG,discPos[0],discPos[1]);
   for(const e of ex){const p=e.fp?centreOf(e.id):[0,e.id==="bar"?hl:0];if(p)addM(e.id,"extras",e.id,e.massG*M.mass,p[0],p[1]);}
@@ -149,9 +155,9 @@ function evalBuild(cfgIn,opts){
   let moi=0;for(const it of items){const dx=it.x-com.x,dy=it.y-com.y;moi+=it.g/1000*(dx*dx+dy*dy);}
   const plate=g=>g/1000*((W/1000)*(W/1000)+(L/1000)*(L/1000))/12;
   moi+=plate(items[0].g)+plate(armourMapJ.top.massG);
-  const radM=isSpin?(wp.bodyR?Math.hypot(W,L)/2000*wp.bodyR:wp.radius*M.len/1000):0;   // a shell or ring is as big as the bot
+  const radM=isSpin?(tail?Math.hypot(com.x,com.y+hl+boomM)+0.012*M.len:wp.bodyR?Math.hypot(W,L)/2000*wp.bodyR:wp.radius*M.len/1000):0;   // a shell or ring is as big as the bot; a tail reaches from the centre of mass to past its head
   const shapeK=wp.shapeK*(DP?DP.r.shapeK:1);
-  if(isSpin)moi+=discG/1000*radM*radM*(wp.id==="hsp"||allRound?shapeK:0.25);
+  if(isSpin&&!tail)moi+=discG/1000*radM*radM*(wp.id==="hsp"||allRound?shapeK:0.25);   // a tail's head is a weight on the boom, already in the sum
   if(totalG>c.limitG+1e-6)errors.push("Over the "+c.name+" limit");
   if(ex.some(e=>e.minibot)&&!MINIBOT.cls[cfg.cls])errors.push("An "+c.name.toLowerCase()+" has nothing smaller to carry as a minibot");
   const underBudgetPct=(1-totalG/c.limitG)*100;
@@ -175,14 +181,14 @@ function evalBuild(cfgIn,opts){
      F0 / 2 x (1 - its wheel speed / v0), capped by grip, against the tyres' scrub, FIGHT.scrub x grip x weight (x the wheel
      layout's scrubMul) at the wheels. It settles where push and scrub are level; a drive weaker than its scrub can't
      pivot at all. scrubShare is the share of the drive's stall push the scrub takes. Grippier tyres turn slower. */
-  const scrubN=FIGHT.scrub*traction*wb.scrubMul,scrubShare=F0>0?scrubN/F0:1;
+  const scrubN=FIGHT.scrub*traction*wbScrub,scrubShare=F0>0?scrubN/F0:1;
   const turnRate=trackM>0&&F0>scrubN?2*v0/trackM*(1-scrubN/F0):0;
   const turnAccel=moi>0?Math.max(0,pushN-scrubN)*trackM/2/moi:0;
   /* pull: with the COM off to one side, the light side's wheels slip first and the heavy side pushes it round */
   const pull=clamp(-com.x/(trackM/2||1),-1,1);
 
   /* ---- height profile ---- */
-  const rWheel=wh.radiusMm*M.len*wSize,proud=rWheel-H/2;
+  const rWheel=Math.max(wh.radiusMm*M.len*wSize,bd.twoWheel?H*bd.wheelMul/2:0),proud=rWheel-H/2;   // a two-wheel drum's wheels stand taller than it
   const inv=bd.inverts||!!wp.inverts,centred=inv||!wh.tracks&&proud>=K.proudMm*M.len;   // a meltybrain runs either way up
   const clearanceMm=centred?(inv?Math.max(proud,K.lowClearMm*M.edge):proud):K.lowClearMm*M.edge;
   /* the leading edge: the weapon's (or the clearance), a fitted front's if lower (0.1.32), then a skid plate and the body.
@@ -196,9 +202,9 @@ function evalBuild(cfgIn,opts){
   const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm)};
 
   /* ---- weapon ---- */
-  const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:allRound?[0,0]:wpos,allRound,melty:!!wp.bodyK,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
+  const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:allRound?[0,0]:tail?[com.x,com.y]:wpos,allRound,melty:!!wp.bodyK,thwack:tail,boomM,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
     hpJ:wp.hp*M.mass*wm.hp/160,material:wm.name};
-  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=wp.bodyK?wp.bodyK*massKg*radM*radM:shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*TT.recoil;
+  if(isSpin){const rpm=wp.rpmMax/M.len*vSpd,omega=rpm*2*Math.PI/60,I=tail?moi:wp.bodyK?wp.bodyK*massKg*radM*radM:shapeK*discG/1000*radM*radM,storedJ=0.5*I*omega*omega,rc=wp.recoil*TT.recoil;
     const spinUpS=weaponPowerW>0?storedJ/(weaponPowerW*powerScale*K.spinEff):Infinity;
     Object.assign(weapon,{rpm,omega,inertia:I,storedJ,energyJ:storedJ,tipSpeed:omega*radM,spinUpS,spinPowerW:weaponPowerW*powerScale*K.spinEff,radiusM:radM,discKg:discG/1000,recoil:rc,
       recoilFactor:clamp(rc*storedJ/(Math.max(massKg,1e-6)*K.recoilRef),0,1.5),bite:wp.bite*wm.bite*TT.bite,teeth:nTeeth,hitGap:TT.gap,minSpin:TT.spin,profile:cfg.disc||null,
@@ -239,7 +245,7 @@ function evalBuild(cfgIn,opts){
   addPart("battery","battery",bt.id,bt.hp*M.mass,bt.massG*M.mass*vCell);
   addPart("electronics","electronics",el.id,el.hp*M.mass,el.massG*M.mass);
   if(wp.type!=="none"){if(wp.fp)addPart("weapon","weapon",wp.id,weapon.hpJ,structG+motorG+discG);
-    else parts.push({key:"weapon",slot:"weapon",id:wp.id,cells:[],massKg:r3(structG/1000),hpJ:weapon.hpJ,exposure:r3(K.faceWeight.front),pos:[0,hl]});}
+    else parts.push({key:"weapon",slot:"weapon",id:wp.id,cells:[],massKg:r3((structG+discG)/1000),hpJ:weapon.hpJ,exposure:r3(K.faceWeight[tail?"back":"front"]),pos:[0,tail?-hl-boomM:hl]});}
   if(fr.hp&&!ownFront)parts.push({key:"front",slot:"front",id:fr.id,cells:[],massKg:r3(fr.massG*M.mass/1000),hpJ:fr.hp*M.mass,exposure:r3(K.faceWeight.front),pos:[0,hl]});
   if(bk.hp){if(bk.fp)addPart("back","back",bk.id,bk.hp*M.mass,(bk.massG+bk.motorMassG)*M.mass);
     else parts.push({key:"back",slot:"back",id:bk.id,cells:[],massKg:r3(bk.massG*M.mass/1000),hpJ:bk.hp*M.mass,exposure:r3(K.faceWeight.back),pos:[0,-hl]});}
@@ -271,7 +277,7 @@ function evalBuild(cfgIn,opts){
     totalG,limitG:c.limitG,massKg,limitKg,underBudgetPct,
     com,comOffsetMm:Math.hypot(com.x,com.y)*1000,pull,moi,polygon,widthM:W/1000,lengthM:L/1000,
     driveSpeed,accel,pushN,turnRate,turnAccel,scrubShare,trackM,powerScale,peakW,brushMismatch,grip,
-    wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wb.latMul,scrubMul:wb.scrubMul,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
+    wheelbase:{id:wb.id,strafe:wb.strafe,latMul:wbLat,scrubMul:wbScrub,crrMul:wb.crrMul,underMul:wb.underMul,caster:!!wb.caster,
       wheels:wheelAt.length,strafeSpeed:v0*wb.strafe,legs:!!wb.legs},
     limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},

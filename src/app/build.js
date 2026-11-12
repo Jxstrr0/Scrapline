@@ -119,7 +119,7 @@ const B_SECS=[
   {id:"chassis",t:"Chassis",sum:()=>bName("chassis",draft().chassis),
     body:()=>bOpts("chassis",draft().chassis,bFit("chassis"),(c,id)=>{c.chassis=id;})},
   {id:"body",t:"Body",sum:()=>bName("body",draft().body),
-    body:()=>{const p=SIM.part("body",draft().body);return(p&&p.line?`<p>${esc(p.line)}</p>`:"")+bOpts("body",draft().body,bFit("body"),(c,id)=>{c.body=id;});}},
+    body:()=>{const p=SIM.part("body",draft().body);return(p&&p.line?`<p>${esc(p.line)}</p>`:"")+bOpts("body",draft().body,bFit("body"),(c,id)=>{c.body=id;if(SIM.part("body",id).twoWheel){c.wheelbase="std";if(SIM.part("wheels",c.wheels).tracks)c.wheels="rubber";}});}},   // a two-wheel drum (0.1.63) runs on one big wheel a side
   {id:"armour",t:"Armour",sum:()=>{const r=bEval();return"weakest: "+FACE_LBL[r.weakestFace].toLowerCase();},
     body:()=>{const d=draft(),f=B.face;
       return bArmourMap()+`<div class="seg faces" role="group" aria-label="Face">${["front","back","left","right","top"].map(x=>`<button type="button" data-face="${x}" class="${x===f?"on":""}" aria-pressed="${x===f}">${FACE_LBL[x]}<small>${esc(bName("armour",d.armour[x]).replace("HDPE, ","HDPE "))}</small></button>`).join("")}</div>`
@@ -132,7 +132,7 @@ const B_SECS=[
   {id:"power",t:"Power",sum:()=>bName("battery",draft().battery)+" · "+bName("electronics",draft().electronics),
     body:()=>`<h4>Battery</h4>`+bOpts("battery",draft().battery,bFit("battery"),(c,id)=>{c.battery=id;})+`<h4>Speed controllers</h4>`+bOpts("electronics",draft().electronics,bFit("electronics"),(c,id)=>{c.electronics=id;})},
   {id:"weapon",t:"Weapon",sum:()=>bName("weapon",draft().weapon)+(draft().disc?` · “${draft().disc.name}”`:""),
-    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;if(SIM.ALL_ROUND.indexOf(id)>=0){c.front="none";c.back="none";}})+bDisc()},
+    body:()=>bOpts("weapon",draft().weapon,bFit("weapon"),(c,id)=>{c.weapon=id;if(SIM.ALL_ROUND.indexOf(id)>=0){c.front="none";c.back="none";}if(SIM.part("weapon",id).mount==="back")c.back="none";})+bDisc()},
   {id:"material",t:"Weapon material",sum:()=>draft().weapon==="none"?"no weapon":bName("weaponMaterial",draft().weaponMaterial),
     body:()=>draft().weapon==="none"?"<p>No weapon fitted, so there is nothing to make out of anything.</p>":bOpts("weaponMaterial",draft().weaponMaterial,bFit("weaponMaterial"),(c,id)=>{c.weaponMaterial=id;})+"<p>The disc, arm or wedge plate. Tougher stock bends later and bites harder; lighter stock stores less energy.</p>"},
   /* 0.1.32: a front attachment (not on a bot whose weapon is its own front) and the back slot */
@@ -141,7 +141,7 @@ const B_SECS=[
     body:()=>{const d=draft(),own=SIM.OWN_FRONT.indexOf(SIM.part("weapon",d.weapon).type)>=0,round=SIM.ALL_ROUND.indexOf(d.weapon)>=0,pf=SIM.part("front",d.front||"none"),pk=SIM.part("back",d.back||"none");
       if(round)return`<p>The ${esc(bName("weapon",d.weapon).toLowerCase())} spins all the way round the bot: there is no room for a front or a back.</p>`;
       return`<h4>Front</h4>`+(own?`<p>The ${esc(bName("weapon",d.weapon).toLowerCase())} is its own front: there is no room for an attachment.</p>`:(pf&&pf.line?`<p>${esc(pf.line)}</p>`:"")+bOpts("front",d.front||"none",bFit("front"),(c,id)=>{c.front=id;}))
-      +`<h4>Back</h4>`+(pk&&pk.line?`<p>${esc(pk.line)}</p>`:"")+bOpts("back",d.back||"none",bFit("back"),(c,id)=>{c.back=id;})
+      +`<h4>Back</h4>`+(SIM.part("weapon",d.weapon).mount==="back"?`<p>The ${esc(bName("weapon",d.weapon).toLowerCase())}'s boom comes off the back: there is no room for a back.</p>`:(pk&&pk.line?`<p>${esc(pk.line)}</p>`:"")+bOpts("back",d.back||"none",bFit("back"),(c,id)=>{c.back=id;}))
       +`<p class="hint">Swap the front between rounds in the pit to suit the bot you're fighting.</p>`;}},
   {id:"extras",t:"Extras",sum:()=>draft().extras.length?draft().extras.map(e=>bName("extras",e).toLowerCase()).join(", "):"none",
     body:()=>{const base=bEval(),M=SIM.classMult(bCls()),f=bBot().cfg;

@@ -46,6 +46,8 @@ const OPP_TEAMS={
   "op:schneepflug":["Winterdienst Stahlbrück","bone","clay","shield","wrench",""],
   "op:schneebesen":["Bäckerei Hug","bone","wine","round","star",""],
   "op:schwungrad":["Hafenwinde Eisenau","sky","coal","gear","bolt",""],
+  "op:peitsche":["Seilerei Eisenau","sand","teal","round","bolt",""],
+  "op:dreschflegel":["Hof Grauwald","forest","bone","shield","wrench","HG"],
   "op:weichensteller":["Signalbau Ost","teal","sand","diamond","bolt",""],
   "op:lindwurm":["Drachenloch","green","wine","shield","flame",""],
   "op:schrottkran":["Altmetall Velm","steel","sand","gear","claw",""],
