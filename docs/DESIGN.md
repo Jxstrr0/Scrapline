@@ -910,3 +910,31 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Opponents:** Lötlampe (hobby, Stahlbrück: a flamethrower on a wedge with wedgelets) and Untertasse (feather, Grauwald: an eggbeater saucer with a flame nozzle). 38 named opponents. The armour era favours flame.
 - **Looks:** every tier draws the tank and the nozzle, and the flame while it burns. On Full and Ultra the flame is two see-through cones added together, flickering. On Lite it is one plain cone with fewer sides, and under reduced motion it holds still. The saucer is a flatter dome with a rim skirt and the side plates pulled in at the corners.
 - **Build, Bench and Fight:** the Sheet has a Flame reach row, and Bench › Weapon gives the reach, the fuel, how long a motor held in it takes to overheat, and the burn a second. The fight bar counts the fuel down. The matchup's Hit energy row says "a flame".
+
+## Driver skill that shows (0.1.68)
+
+Kelbo picked "skill means something" (plan section 1): the bot should be the weak point, not the driver. Measured first, skill barely mattered (skill 1 beat skill 0 only 51% of the time, same builds), so all of this is in `sim/ai.js`:
+
+- **Lapses** (`AI_SKILL.lapse`, `AI_LAPSE`): at each look a driver may lose the thread, 80% of looks at skill 0 and none at skill 1, and steers and drives at a quarter until its next look. Its weapon still works (stopping the weapon too made low-skill spinners too strong and hammers too weak).
+- **Reading the matchup** (`AI_GROUP`, `AI_PLAN`, `AI_READ`): an `auto` driver reads the fight from skill 0.6 (always at 0.9). Its weapon and the target's each fall in a group (vertical, horizontal, wedge, lifter, flipper, hitter, undercutter, pusher) and the table gives the plan, a style, for that pair; a pair with no entry keeps the auto style. Each cell was fought both ways and kept only where it won; vertical spinners keep their own style (reading made them too strong).
+- **Plan B** (`AI_ALT`): every 12 s a reading driver checks the damage; when it has taken 1.3 times what it dealt (plus a margin), it switches to the next plan on its weapon's list.
+- **Named opponents keep their own style** and don't read.
+
+Every skill in the game moved to the new scale so the opponents stay as hard (measured against a fixed reference, the old AI at 0.7 on each test build, beetle, feather and heavy, 4 seeds: the named opponents beat it 61.2% before and 61.0% after):
+
+| | before | after |
+|---|---|---|
+| Named opponents (`OPPONENTS`) | 0.3 to 0.8 | +0.2, up to 1 |
+| Rivals (`RIVALS`) | 0.5 to 0.6 | 0.7 to 0.8 |
+| Events (`EVENT_KINDS`): club, tournament, rumble, tag, championship | 0.45, 0.6, 0.55, 0.6, 0.7 | 0.7, 0.85, 0.8, 0.85, 0.95 |
+| Act step, cap (`EVENT_SKILL_ACT`, `EVENT_SKILL_MAX`), Legacy cap | 0.08, 0.92, 0.98 | 0.05, 0.97, 1 |
+| Your quick sims (`TIME.skill`) | 0.5 to 0.9 (0.002 an xp) | 0.85 to 0.97 (0.001 an xp) |
+| Jonas, Vera (`STAFF`) | 0.7, 0.86 | 0.92, 1 |
+| Your bot on auto in a spar; a test build as the spar opponent | 0.7; 0.7 | 0.9; 0.9 |
+| The bench's test dummy driver; the school's brick | 0.8; 0.7 | 1; 0.9 |
+
+Skill against skill now (same builds both sides, beetle, feather and heavy): 1 vs 0 wins 76%, 0.9 vs 0.45 61%, 0.85 vs 0.7 55%; above 0.9 it flattens (0.98 vs 0.85, 51%). A club field (0.7) is a little easier than before, and your auto-drive is clearly better than it. Against the named opponents your auto-drive does about as well as the old one did (36 to 40% for a test build at 0.85 to 1, 39% before): the opponents were kept as hard, as asked.
+
+Balance (`fight-test all`, test builds at 0.5 and 0.85) passes in every class. Beetle before → after: wedge 53 → 48, lifter 50 → 51, flipper 51 → 51, horizontal 67 → 64, vertical 70 → 66, drum 63 → 61, hammer 43 → 42, undercutter 50 → 56, glass 43 → 44, brick 44 → 48, invertible 64 → 66. In that test the named opponents run a few points higher than before (Krebsgang 72 → 79%), since a test build at 0.5 is now a weaker driver.
+
+Replays, replay codes, highlights and the daily challenge re-run the sim, so a fight saved before 0.1.68 plays out differently now (as with earlier AI changes).

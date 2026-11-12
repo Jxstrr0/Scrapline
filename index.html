@@ -1807,7 +1807,7 @@ const WEDGE_GAUGES={      // the leading-edge heights (mm) of the wedges, lifter
   heavy:  [2,3,4,6,9,12]
 };
 const BENCH={
-  dummy:{S:20,seed:38,style:"aggressive",skill:0.8,traceS:0.5},   // the test dummy: seconds a dummy, the fight's seed, who drives your bot, the chart's step
+  dummy:{S:20,seed:38,style:"aggressive",skill:1,traceS:0.5},   // the test dummy: seconds a dummy, the fight's seed, who drives your bot, the chart's step
   trackM:2.4,        // drive test track, beetle scale (x len)
   pullYaw:0.12,      // heading drift from an off-centre COM: pull x this x speed / track width (rad/s)
   spinTorque:3,      // a spinner motor's torque runs out below 1/3 of top rpm (full power only above it)
@@ -2919,6 +2919,12 @@ function damageShare(b,st){let hp=chassisHp(b),left=Math.max(0,st.chassis);
                  spinner that has landed a hit and lost its speed backs off to spin up again (both more often the higher
                  the skill)
    driver.style "auto" picks one for the build and the arena (autoStyle).
+   Skill that shows (0.1.68, Kelbo: "skill means something"):
+     lapses      at each look a less skilled driver may lose the thread (AI_SKILL.lapse: 80% of looks at skill 0, none at
+                 skill 1) and steers and drives at a quarter until its next look (AI_LAPSE); its weapon still works
+     reading     an "auto" driver may read the matchup (from skill AI_READ.from, always at AI_READ.full): it picks a plan
+                 for its weapon against theirs (AI_GROUP, AI_PLAN), and every AI_READ.checkS it checks the damage; when it is
+                 well behind it tries the next plan in AI_ALT (plan B). Named opponents keep their own style.
      aiNew(o, seed, F)    a driver's memory for bot o
      aiThink(F, o)        this step's {throttle, steer, weapon, selfRight}
      autoStyle(b, arena)  a style id for an evalBuild result in an arena (an ARENAS id or arenaOf's object) ---- */
@@ -2934,7 +2940,8 @@ const AI_STYLES={
 };
 const AI_STYLE_IDS=Object.keys(AI_STYLES);
 /* skill 0 .. skill 1 */
-const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12],fireLate:[0.25,0.02],pitLook:[0.2,0.45],tactics:[0.25,1]};
+const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12],fireLate:[0.25,0.02],pitLook:[0.2,0.45],tactics:[0.25,1],lapse:[0.8,0]};
+const AI_LAPSE={steer:0.25,throttle:0.25};
 /* the paths' margins, in bot radii: round the pit, a floor hazard, the enemy; the pit counts from this long before it opens.
    flankR: how far to the side of a front weapon a flanking bot aims (radii of both bots); flankA: how square on the enemy
    must be facing it to bother (rad). reSpin: a spinner below this share of its top speed after a hit backs off; resetS how
@@ -2958,8 +2965,36 @@ function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&
   if(t==="wedge")return"aggressive";
   if(t==="none"||t==="lifter"||t==="grabber"||t==="flipper")return haz?"hazard":"boxrush";
   return"aggressive";}
-function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;if(!AI_STYLES[st])st=st==="auto"&&F?autoStyle(o.b,F.arena):"rush";
-  return{r:rng(seed),style:st,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
+/* ---- the game plan (0.1.68) ----
+   A driver on "auto" who reads the fight changes its plan when the matchup is against it: a wedge rushes a vertical spinner
+   instead of trading blows with it, a pusher takes a horizontal spinner on hard before the disc is up, a hammer works a
+   wedge towards the hazards. A bot that is on top in the matchup keeps its own game (autoStyle). AI_GROUP sorts the weapons;
+   AI_PLAN[own group][enemy group] is the style it switches to, from each test build's record per style against the auto
+   field in three classes (tools/fight-test.js -p prints it again); only cells where the build's own style lost and another
+   won 12 points or more are in it. How often a driver reads the fight: none below AI_READ.from skill, every fight from
+   AI_READ.full, a straight line between. Only "auto" plans: a style picked on the Fight tab, or a named opponent's own, is
+   kept. */
+const AI_GROUP={vsp:"vert",drum:"vert",beater:"vert",drisk:"vert",hsp:"horiz",shell:"horiz",ring:"horiz",melty:"horiz",thwack:"horiz",
+  under:"under",wedge:"wedge",none:"push",lifter:"lift",grabber:"lift",clamp:"lift",flipper:"flip",flipper2:"flip",hammer:"hit",crusher:"hit",spear:"hit"};
+const AI_PLAN={
+  wedge:{lift:"rush",vert:"rush",hit:"rush",under:"counter",push:"rush"},
+  lift:{wedge:"rush",lift:"counter",flip:"aggressive",horiz:"rush",push:"boxrush"},
+  flip:{lift:"aggressive",hit:"rush"},
+  horiz:{lift:"aggressive",vert:"aggressive",hit:"rush"},
+  vert:{push:"boxrush"},
+  hit:{wedge:"hazard",lift:"boxrush",vert:"cautious",under:"counter",push:"rush"},
+  under:{lift:"aggressive",vert:"hazard",push:"boxrush"},
+  push:{horiz:"aggressive",hit:"rush",under:"boxrush",push:"aggressive"}};
+const AI_READ={from:0.6,full:0.9,checkS:12,behind:1.3,minJ:0.02};
+/* plan B: a reading driver that is losing the trade (taking AI_READ.behind x what it deals, over minJ x its own hp) at a
+   check every checkS changes to the next style on its group's list that it hasn't tried */
+const AI_ALT={wedge:["rush","hazard"],lift:["aggressive","counter"],flip:["counter","keepaway"],horiz:["aggressive","counter"],
+  hit:["counter","aggressive"],under:["aggressive","hazard"],push:["aggressive","rush"]};
+/* the style a reading driver picks against t, or null to keep its own */
+function aiPlan(o,t){const a=AI_GROUP[o.b.weapon.id],b=AI_GROUP[t.b.weapon.id];return a&&b&&AI_PLAN[a]&&AI_PLAN[a][b]||null;}
+function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;const auto=!AI_STYLES[st]&&st==="auto"&&!!F;if(!AI_STYLES[st])st=auto?autoStyle(o.b,F.arena):"rush";
+  const r=rng(seed),sk=Math.max(0,Math.min(1,d.skill==null?0.6:d.skill)),read=auto&&r()<(sk-AI_READ.from)/(AI_READ.full-AI_READ.from);
+  return{r,style:st,own:st,read,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
 /* a strafing drive's move: face the enemy, and drive and slide towards (px, py) together (orbit, flank, commit), or slide
    out of the line of a weapon coming at it. null leaves the plain steering as it was. */
 const AI_STRAFE={dodgeR:3,dodgeV:0.3,faceK:2.4};   // dodge within dodgeR x both radii when it closes at dodgeV x its top speed; faceK: how hard it turns to face
@@ -3058,17 +3093,21 @@ function aiPitOut(F,o,r){const cx=(r[0]+r[2])/2,cy=(r[1]+r[3])/2,lim=F.arena.hal
   if(Math.abs(o.x+ax*o.rad*2)>lim)ax=0;if(Math.abs(o.y+ay*o.rad*2)>lim)ay=0;   // along the wall rather than into it
   if(Math.abs(ax)+Math.abs(ay)<0.2){ax=-o.x;ay=-o.y;}
   return Math.atan2(ay,ax);}
-function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.skill==null?0.6:d.skill)),S=AI_STYLES[m.style]||AI_STYLES.rush,
+function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.skill==null?0.6:d.skill));let S=AI_STYLES[m.style]||AI_STYLES.rush;const
     w=o.b.weapon,H=F.arena.half,out={throttle:0,steer:0,weapon:0,selfRight:0};
   const foes=F.bots.filter(t=>t!==o&&t.team!==o.team&&!t.out);if(!foes.length)return out;
   /* a fresh look at the fight */
   if(F.t>=m.next){m.next=F.t+aiLerp(AI_SKILL.reactS,sk)*(0.7+0.6*m.r());
     let t=foes[0],bd=1e9;for(const q of foes){const dd=Math.hypot(q.x-o.x,q.y-o.y);if(dd<bd){bd=dd;t=q;}}
     if(S.pick==="weak"){let ws=damageShare(t.b,t.st)+0.1;for(const q of foes){const sh=damageShare(q.b,q.st);if(sh>ws){ws=sh;t=q;}}}
+    if(m.read&&t.i!==m.tgt){m.style=aiPlan(o,t)||m.own;m.tried=[m.style];S=AI_STYLES[m.style];}   // a new enemy: the plan for it (0.1.68)
+    if(m.read&&F.t>=(m.chk||AI_READ.checkS)){m.chk=F.t+AI_READ.checkS;const st=o.stats,L=AI_ALT[AI_GROUP[w.id]];
+      if(L&&st.taken>st.dealt*AI_READ.behind+AI_READ.minJ*hpTotal(o.b)){const nx=L.find(x=>m.tried.indexOf(x)<0);if(nx){m.style=nx;m.tried.push(nx);S=AI_STYLES[nx];m.mode="close";m.modeT=F.t;}}}
     m.tgt=t.i;m.tx=t.x+t.vx*S.lead;m.ty=t.y+t.vy*S.lead;m.aim=(2*m.r()-1)*aiLerp(AI_SKILL.aimErr,sk);if(!m.dir)m.dir=m.r()<0.5?-1:1;
     m.dist=Math.hypot(t.x-o.x,t.y-o.y);m.tvx=t.vx;m.tvy=t.vy;m.th=t.h;
     m.tClose=m.dist>1e-6?((o.x-t.x)*t.vx+(o.y-t.y)*t.vy)/m.dist:0;   // how fast it is coming at us
     if(F.t>=(m.tacT||0)){m.tac=m.r()<aiLerp(AI_SKILL.tactics,sk);m.tacT=F.t+2+2*m.r();}   // for the next few seconds, does it play smart (flank, hit and run)?
+    m.lapse=m.r()<aiLerp(AI_SKILL.lapse,sk);   // 0.1.68: this look, its mind is elsewhere (see the end)
     }
   const t=F.bots[m.tgt]&&!F.bots[m.tgt].out?F.bots[m.tgt]:foes[0];
   /* a trigger weapon's driver watches its reach all the time (a thumb on the button), firing a skill-dependent beat late */
@@ -3116,6 +3155,7 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   const lim=H-o.rad*1.2;if(!carry){px=Math.max(-lim,Math.min(lim,px));py=Math.max(-lim,Math.min(lim,py));}
   if(!hold&&!carry){const q=aiPath(F,o,t,m,px,py,mode);px=q[0];py=q[1];}
   const c=aiSteer(o,m,px,py,sk);out.steer=c.steer;out.throttle=hold?0:mode==="orbit"?(c.throttle<0?Math.min(c.throttle,-0.5):Math.max(c.throttle,0.5)):c.throttle;
+  if(m.lapse&&!carry){out.steer*=AI_LAPSE.steer;out.throttle*=AI_LAPSE.throttle;}
   if(hold){const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h);out.steer=clamp1(-2.2*e);out.throttle=Math.abs(e)<0.3?0.15:0;}
   /* carrying (0.1.35): ease off as its own nose nears the pit's edge, so it drops the bot in and doesn't follow it */
   if(carry&&F.arena.pit){const r=F.arena.pit.rect,nx=o.x+Math.cos(o.h)*o.rad,ny=o.y+Math.sin(o.h)*o.rad,
@@ -3279,7 +3319,7 @@ const DRILLS=[
   {id:"line",name:"Hold the line",kind:"hold",limitS:20,medals:[17,13,8],zone:[0,0,0.42],
     line:"The brick wants you out of the ring. Stay in it for as much of twenty seconds as you can.",tip:"Meet it nose to nose and keep driving. Side on, you slide.",
     bot:schoolBot("wedge"),start:[0,-0.25,Math.PI/2],arena:schoolFloor(),
-    others:[{cfg:schoolBot("brick"),name:"The brick",at:[0,0.9,-Math.PI/2],driver:{style:"aggressive",skill:0.7}}],steps:[]},
+    others:[{cfg:schoolBot("brick"),name:"The brick",at:[0,0.9,-Math.PI/2],driver:{style:"aggressive",skill:0.9}}],steps:[]},
   {id:"target",name:"On target",kind:"hit",limitS:15,medals:[100,70,40],
     line:"One parked box, fifteen seconds. Your biggest single hit is your score.",tip:"A disc hits hardest at full speed: wait for the bar to fill, then drive in square.",
     bot:schoolBot("vsp"),start:[0,-0.9,Math.PI/2],arena:schoolFloor(),
@@ -3373,127 +3413,127 @@ function drillAuto(F){const D=F.drill,u={throttle:0,steer:0,weapon:0,selfRight:0
    object. ---- */
 const OPPONENTS=[
   /* antweights: the tabletop at club meets */
-  {id:"zahnrad",name:"Zahnrad",cls:"ant",from:"club",driver:{style:"keepaway",skill:0.45},
+  {id:"zahnrad",name:"Zahnrad",cls:"ant",from:"club",driver:{style:"keepaway",skill:0.65},
     line:"Cut from a watch-case blank by an apprentice who should have been finishing bezels. Spins up before the bell, every time.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"vsp",weaponMaterial:"steel",extras:[]}},
-  {id:"kiesel",name:"Kiesel",cls:"ant",from:"club",driver:{style:"hazard",skill:0.4},
+  {id:"kiesel",name:"Kiesel",cls:"ant",from:"club",driver:{style:"hazard",skill:0.6},
     line:"Doesn't hit you. Just keeps walking you toward the edge, like a pebble in a shoe.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"steel",left:"ar500",right:"ar500",top:"steel"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"wedge",weaponMaterial:"steel",extras:["skid"]}},
-  {id:"kreisel",name:"Kreisel",cls:"ant",from:"club",driver:{style:"aggressive",skill:0.5},
+  {id:"kreisel",name:"Kreisel",cls:"ant",from:"club",driver:{style:"aggressive",skill:0.7},
     line:"A spinning top that grew teeth. The whole bot is the weapon, which is fine until someone knocks it dizzy.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe6"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"melty",weaponMaterial:"steel",extras:[]}},
-  {id:"tausendfuss",name:"Tausendfüßler",cls:"ant",from:"club",driver:{style:"boxrush",skill:0.45},
+  {id:"tausendfuss",name:"Tausendfüßler",cls:"ant",from:"club",driver:{style:"boxrush",skill:0.65},
     line:"Walks on a dozen little feet, which the rulebook rewards with extra grams. Spent all of them on plate.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"steel",right:"steel",top:"steel"},drive:"gearbox",wheels:"pu",wheelbase:"legs",battery:"large",electronics:"dual",weapon:"none",weaponMaterial:"steel",front:"plow",back:"rearwedge",extras:["skid"]}},
-  {id:"hebebuehne",name:"Hebebühne",cls:"ant",from:"club",driver:{style:"hazard",skill:0.3},
+  {id:"hebebuehne",name:"Hebebühne",cls:"ant",from:"club",driver:{style:"hazard",skill:0.5},
     line:"A garage's car lift shrunk to fit in your hand. Picks you up, has a think, and puts you down somewhere worse.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"clamp",weaponMaterial:"steel",extras:[]}},
   /* beetleweights: the Gemeindehalle's club box */
-  {id:"feierabend",name:"Feierabend",cls:"beetle",from:"club",driver:{style:"cautious",skill:0.55},
+  {id:"feierabend",name:"Feierabend",cls:"beetle",from:"club",driver:{style:"cautious",skill:0.75},
     line:"Waits for the disc to sing, takes one swing, then clocks off early. Has never once stayed late.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe6"},drive:"dual",wheels:"solid",battery:"large",electronics:"dual",weapon:"hsp",weaponMaterial:"steel",extras:["selfright"]}},
-  {id:"holzwurm",name:"Holzwurm",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.6},
+  {id:"holzwurm",name:"Holzwurm",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.8},
     line:"Low, quick and always eating something. Started life as a plywood offcut and holds a grudge about it.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"under",weaponMaterial:"steel",extras:[]}},
-  {id:"kehrschaufel",name:"Kehrschaufel",cls:"beetle",from:"club",driver:{style:"boxrush",skill:0.5},
+  {id:"kehrschaufel",name:"Kehrschaufel",cls:"beetle",from:"club",driver:{style:"boxrush",skill:0.7},
     line:"A dustpan with opinions, low on small wheels. Sweeps you into the corner and leans on you until the clock runs out.",
     cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe15",left:"ar500",right:"ar500",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"wedge",weaponMaterial:"steel",extras:["skid"],tune:{wheel:-1,bias:-1}}},
-  {id:"schraubstock",name:"Schraubstock",cls:"beetle",from:"stahl",driver:{style:"aggressive",skill:0.6},
+  {id:"schraubstock",name:"Schraubstock",cls:"beetle",from:"stahl",driver:{style:"aggressive",skill:0.8},
     line:"Built in a Stahlbrück tool room by people who measure in hundredths. Bites, holds, and doesn't apologise.",
     cfg:{chassis:"alu",armour:{front:"steel",back:"hdpe15",left:"ar500",right:"ar500",top:"steel"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"crusher",weaponMaterial:"steel",extras:[]}},
-  {id:"topfdeckel",name:"Topfdeckel",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.55},
+  {id:"topfdeckel",name:"Topfdeckel",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.75},
     line:"A saucepan lid somebody balanced properly. Nothing to aim at: wherever you touch it, it's already spinning.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"shell",weaponMaterial:"steel",extras:[]}},
-  {id:"krebsgang",name:"Krebsgang",cls:"beetle",from:"eisenau",driver:{style:"counter",skill:0.65},
+  {id:"krebsgang",name:"Krebsgang",cls:"beetle",from:"eisenau",driver:{style:"counter",skill:0.85},
     line:"Never turns its back, because it never turns. Steps sideways off your line like a crab on the Eisenau quay and takes your flank.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",wheelbase:"mecanum",battery:"large",electronics:"dual",weapon:"hsp",weaponMaterial:"steel",extras:["selfright"]}},
   /* hobbyweights: the club box, scaled up */
-  {id:"uhrwerk",name:"Uhrwerk",cls:"hobby",from:"club",driver:{style:"aggressive",skill:0.6},
+  {id:"uhrwerk",name:"Uhrwerk",cls:"hobby",from:"club",driver:{style:"aggressive",skill:0.8},
     line:"A drum geared like a tower clock. It never hurries and it never stops.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe15",right:"hdpe15",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drum",weaponMaterial:"steel",extras:[]}},
-  {id:"faehrmann",name:"Fährmann",cls:"hobby",from:"eisenau",driver:{style:"hazard",skill:0.6},
+  {id:"faehrmann",name:"Fährmann",cls:"hobby",from:"eisenau",driver:{style:"hazard",skill:0.8},
     line:"From the Eisenau docks. Picks you up and carries you to the pit, unhurried, like freight.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",battery:"large",electronics:"dual",weapon:"lifter",weaponMaterial:"steel",extras:[]}},
-  {id:"prellbock",name:"Prellbock",cls:"hobby",from:"grauwald",driver:{style:"boxrush",skill:0.55},
+  {id:"prellbock",name:"Prellbock",cls:"hobby",from:"grauwald",driver:{style:"boxrush",skill:0.75},
     line:"A buffer stop from the Grauwald yards, on small wheels with lead in the tail. No weapon, no hurry, no give. You'll meet the wall eventually.",
     cfg:{chassis:"steel",armour:{front:"ar500",back:"ar500",left:"ar500",right:"ar500",top:"steel"},drive:"gearbox",wheels:"solid",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",extras:["skid"],tune:{wheel:-1,bias:-2}}},
-  {id:"ladebaum",name:"Ladebaum",cls:"hobby",from:"eisenau",driver:{style:"hazard",skill:0.65},
+  {id:"ladebaum",name:"Ladebaum",cls:"hobby",from:"eisenau",driver:{style:"hazard",skill:0.85},
     line:"A dockside derrick on six wheels. Closes its jaws, checks the manifest, and delivers you to the pit.",
     cfg:{chassis:"alu",armour:{front:"steel",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"grabber",weaponMaterial:"steel",back:"rearwedge",extras:[]}},
-  {id:"achtachser",name:"Achtachser",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.65},
+  {id:"achtachser",name:"Achtachser",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.85},
     line:"Eight wheels, a pair of forks and a saw overhead. Stahlbrück built it like a low-loader: it gets under, then it starts cutting.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",wheelbase:"eight",battery:"large",electronics:"dual",weapon:"saw",weaponMaterial:"steel",front:"forks",extras:[]}},
   /* 0.1.64: the piston spear */
-  {id:"stosszahn",name:"Stoßzahn",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.65},
+  {id:"stosszahn",name:"Stoßzahn",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.85},
     line:"A forge's drop-hammer cylinder turned on its side, with a tusk on the end. Lines you up, then puts the point through whatever you hid behind.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"spear",weaponMaterial:"s7",front:"wedgelets",extras:[]}},
-  {id:"ringelnatter",name:"Ringelnatter",cls:"hobby",from:"grauwald",driver:{style:"keepaway",skill:0.6},
+  {id:"ringelnatter",name:"Ringelnatter",cls:"hobby",from:"grauwald",driver:{style:"keepaway",skill:0.8},
     line:"A ring of steel going round a box that stays still. Keeps its distance, circles, and lets you run onto it.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"ring",weaponMaterial:"steel",extras:[]}},
   /* 0.1.66: the flamethrower */
-  {id:"loetlampe",name:"Lötlampe",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.6},
+  {id:"loetlampe",name:"Lötlampe",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.8},
     line:"A plumber's blowtorch on a wedge. Gets its nose under you and keeps it there until your motors start to smell.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
   /* featherweights: the regional arenas */
   /* 0.1.46: the two newer verticals in other people's bots */
-  {id:"schneebesen",name:"Schneebesen",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.55},
+  {id:"schneebesen",name:"Schneebesen",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.75},
     line:"The baker's whisk, cut from one billet on a borrowed mill. Up to speed before you've turned round, and it folds if you hit it back.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"beater",weaponMaterial:"steel",extras:[]}},
   /* 0.1.63: the thwackbot tail and the two-wheel drum */
-  {id:"peitsche",name:"Peitsche",cls:"beetle",from:"eisenau",driver:{style:"aggressive",skill:0.55},
+  {id:"peitsche",name:"Peitsche",cls:"beetle",from:"eisenau",driver:{style:"aggressive",skill:0.75},
     line:"A drum on two wheels with a tail off the back. Stands still and spins, and the end of the tail arrives before you see it move.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"steel",body:"cylinder",extras:[]}},
-  {id:"schwungrad",name:"Schwungrad",cls:"feather",from:"eisenau",driver:{style:"keepaway",skill:0.7},
+  {id:"schwungrad",name:"Schwungrad",cls:"feather",from:"eisenau",driver:{style:"keepaway",skill:0.9},
     line:"A flywheel off a harbour winch, narrowed until it fits. Turns like a loaded barge and hits like the quay wall.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe6",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drisk",weaponMaterial:"s7",extras:[]}},
-  {id:"walzwerk",name:"Walzwerk",cls:"feather",from:"stahl",driver:{style:"aggressive",skill:0.7},
+  {id:"walzwerk",name:"Walzwerk",cls:"feather",from:"stahl",driver:{style:"aggressive",skill:0.9},
     line:"A rolling mill on wheels. Feeds you in at one end and doesn't much care what comes out.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"hdpe10",left:"hdpe15",right:"hdpe15",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drum",weaponMaterial:"s7",extras:[]}},
-  {id:"hochofen",name:"Hochofen",cls:"feather",from:"stahl",driver:{style:"cautious",skill:0.7},
+  {id:"hochofen",name:"Hochofen",cls:"feather",from:"stahl",driver:{style:"cautious",skill:0.9},
     line:"Takes its time getting hot. Once it is, the regional crews start finding reasons to be in the car park.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"vsp",weaponMaterial:"s7",extras:[]}},
-  {id:"nachtschicht",name:"Nachtschicht",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.7},
+  {id:"nachtschicht",name:"Nachtschicht",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.9},
     line:"Built on night shifts in a Grauwald signal box. Patient, quiet, and then very loud, once.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"ar500",right:"ar500",top:"steel"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"hammer",weaponMaterial:"steel",extras:[]}},
-  {id:"drehscheibe",name:"Drehscheibe",cls:"feather",from:"grauwald",driver:{style:"aggressive",skill:0.7},
+  {id:"drehscheibe",name:"Drehscheibe",cls:"feather",from:"grauwald",driver:{style:"aggressive",skill:0.9},
     line:"Named after the engine shed's turntable, and it has the same view on visitors: everything that comes aboard gets turned round.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"shell",weaponMaterial:"s7",extras:[]}},
-  {id:"dreschflegel",name:"Dreschflegel",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.65},
+  {id:"dreschflegel",name:"Dreschflegel",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.85},
     line:"A farmer's flail on a plywood box, rebuilt in steel by the engine shed's night crew. Waits for you to come in, then swings.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"s7",extras:[]}},
   /* 0.1.66: the saucer */
-  {id:"untertasse",name:"Untertasse",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.7},
+  {id:"untertasse",name:"Untertasse",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.9},
     line:"Pressed from a shunting engine's buffer plate: low, round and hard to get a grip on. Lets you slide off it, then lights the burner.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"beater",weaponMaterial:"steel",front:"nozzle",body:"saucer",extras:[]}},
-  {id:"gabelstapler",name:"Gabelstapler",cls:"feather",from:"eisenau",driver:{style:"hazard",skill:0.7},
+  {id:"gabelstapler",name:"Gabelstapler",cls:"feather",from:"eisenau",driver:{style:"hazard",skill:0.9},
     line:"Built by the harbour's forklift drivers on their breaks. Gets its tines under you, clamps the lid down and goes looking for the edge of the quay.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"clamp",weaponMaterial:"steel",extras:[]}},
-  {id:"schneepflug",name:"Schneepflug",cls:"feather",from:"stahl",driver:{style:"boxrush",skill:0.7},
+  {id:"schneepflug",name:"Schneepflug",cls:"feather",from:"stahl",driver:{style:"boxrush",skill:0.9},
     line:"Clears the road. Plow at the front, six wheels in the middle and a flipper at the back for anyone who thought behind was safe.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",front:"plow",back:"kicker",extras:["skid"]}},
-  {id:"weichensteller",name:"Weichensteller",cls:"feather",from:"grauwald",driver:{style:"opportunist",skill:0.75},
+  {id:"weichensteller",name:"Weichensteller",cls:"feather",from:"grauwald",driver:{style:"opportunist",skill:0.95},
     line:"A signalman's bot on swerve pods. Decides which track you're on, slides across, and you're in the siding before you see the drum.",
     cfg:{chassis:"alu",armour:{front:"steel",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"brushless",wheels:"rubber",wheelbase:"swerve",battery:"hd",electronics:"brushless",weapon:"drum",weaponMaterial:"s7",extras:[]}},
   /* heavyweights: the Eisenhalle */
-  {id:"glockenschlag",name:"Glockenschlag",cls:"heavy",from:"eisenhalle",driver:{style:"opportunist",skill:0.8},
+  {id:"glockenschlag",name:"Glockenschlag",cls:"heavy",from:"eisenhalle",driver:{style:"opportunist",skill:1},
     line:"The Open's favourite. Rings once on the hour, and on whoever looks most dented.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"vsp",weaponMaterial:"s7",extras:[]}},
-  {id:"lawine",name:"Lawine",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:0.8},
+  {id:"lawine",name:"Lawine",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:1},
     line:"A flipper from the high valleys. Starts small, picks up speed, and ends with you somewhere you didn't choose.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"pu",battery:"large",electronics:"dual",weapon:"flipper",weaponMaterial:"steel",extras:[]}},
-  {id:"zange",name:"Zange",cls:"heavy",from:"eisenhalle",driver:{style:"counter",skill:0.75},
+  {id:"zange",name:"Zange",cls:"heavy",from:"eisenhalle",driver:{style:"counter",skill:0.95},
     line:"Blacksmith's tongs, televised. Lets you come to it, then holds on long after it's polite.",
     cfg:{chassis:"steel",armour:{front:"ar500",back:"hdpe10",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"rubber",battery:"large",electronics:"dual",weapon:"crusher",weaponMaterial:"steel",extras:[]}},
-  {id:"lindwurm",name:"Lindwurm",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:0.75},
+  {id:"lindwurm",name:"Lindwurm",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:0.95},
     line:"The valley's dragon: it walks, so it weighs more than anything else in the hall, and what it throws tends to land outside the lines.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"legs",battery:"hd",electronics:"dual",weapon:"flipper2",weaponMaterial:"steel",back:"rearspike",extras:[]}},
-  {id:"schrottkran",name:"Schrottkran",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:0.8},
+  {id:"schrottkran",name:"Schrottkran",cls:"heavy",from:"eisenhalle",driver:{style:"hazard",skill:1},
     line:"The scrapyard's own crane. Has carried better bots than yours to the pit and felt nothing.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"grabber",weaponMaterial:"steel",back:"rearwedge",extras:[]}},
-  {id:"rammbock",name:"Rammbock",cls:"heavy",from:"eisenhalle",driver:{style:"rush",skill:0.8},
+  {id:"rammbock",name:"Rammbock",cls:"heavy",from:"eisenhalle",driver:{style:"rush",skill:1},
     line:"A plow to push you and a spear to make it hurt. Comes straight across the hall and doesn't stop until you're against something.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"gearbox",wheels:"rubber",battery:"large",electronics:"dual",weapon:"spear",weaponMaterial:"s7",front:"plow",extras:[]}},
-  {id:"muehlstein",name:"Mühlstein",cls:"heavy",from:"eisenhalle",driver:{style:"cautious",skill:0.8},
+  {id:"muehlstein",name:"Mühlstein",cls:"heavy",from:"eisenhalle",driver:{style:"cautious",skill:1},
     line:"A hundred kilos of millstone that spins up slowly and grinds slowly. Hit it hard enough and it forgets where forward is.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"melty",weaponMaterial:"s7",extras:[]}}
 ];
@@ -6268,7 +6308,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.67.1";
+const VERSION="0.1.68.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6305,7 +6345,7 @@ const WORLD={
    act's championship, or your rep reached repTo; out of the Heavyweight act only by winning the Open Final. */
 const TIME={weeks:52,bankWeeks:2,eventHours:6,nightHours:4,perKm:0.3,night:45,
   startMoney:2500,loan:1000,loanRate:0.1,loanShare:0.5,
-  xp:{drive:3,sim:1,win:2},levels:[["rookie",0],["club",25],["pro",70]],skill:{base:0.5,perXp:0.002,max:0.9},
+  xp:{drive:3,sim:1,win:2},levels:[["rookie",0],["club",25],["pro",70]],skill:{base:0.85,perXp:0.001,max:0.97},
   acts:[
     {id:"garage", name:"Garage",     classes:["ant","beetle"],  repTo:45, line:"Club meets at the Haldis Gemeindehalle, a tournament or two, and the club championship."},
     {id:"circuit",name:"Circuit",    classes:["hobby","feather"],repTo:160,line:"Regional tournaments in Stahlbrück, Eisenau and Grauwald, rumbles and tag team, and the Regional Final."},
@@ -6335,14 +6375,15 @@ const TOOL_IDS=Object.keys(TOOLS);
 /* event kinds: format (league: a round robin; bracket: single elimination with a best-of-three final; rumble: one
    free-for-all; tag: you and a partner against two), the field size, entry fee and prizes by placing (x the class's
    prizeScale; a bracket's are 1st, 2nd, the semi-finals, the rest), rep by placing, the other drivers' skill (+ skillAct
-   per act), the pit kit the other crews bring */
+   per act), the pit kit the other crews bring. 0.1.68: skill shows now (a driver under 1 loses the thread now and then,
+   sim/ai.js), so every skill in the game went up about 0.2 (events 0.25, the act step down to 0.05) to stay as hard */
 const EVENT_KINDS={
-  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.45,crewKit:"basic"},
-  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.6, crewKit:"full"},
-  rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.55,crewKit:"basic"},
-  tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.6, crewKit:"basic"},
-  champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.7,crewKit:"full"}};
-const EVENT_SKILL_ACT=0.08,EVENT_SKILL_MAX=0.92;
+  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.7, crewKit:"basic"},
+  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.85,crewKit:"full"},
+  rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.8, crewKit:"basic"},
+  tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.85,crewKit:"basic"},
+  champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.95,crewKit:"full"}};
+const EVENT_SKILL_ACT=0.05,EVENT_SKILL_MAX=0.97;
 /* life after the Open (0.1.39, the Legacy act). The title: whoever won the Scrapline Open Final (final) last. Your legend
    level is how many Opens you've won in a row (up to maxLevel); it makes every Legacy field harder and the Final richer.
    Lose the Final, or don't enter it, and the run and the level go back to nothing. The hall of fame (S.hall) keeps a
@@ -6351,7 +6392,7 @@ const LEGACY={
   final:"h8",         // the SEASON_EVENTS id that carries the title
   maxLevel:5,
   skillStep:0.02,     // every driver in a Legacy field is this much sharper a level...
-  skillMax:0.98,      // ...up to this (past EVENT_SKILL_MAX)
+  skillMax:1,         // ...up to this (past EVENT_SKILL_MAX)
   rivalStep:1,        // and every rival's bot is this many steps further on a level
   cls:"heavy",        // the title's class: the champion's own bot in it carries...
   ballast:0.01,       // ...this much less of the weight limit a level (crLimitG, app/team.js): rebuild lighter to defend
@@ -6395,38 +6436,38 @@ const SEASON_EVENTS=[
    their driving, + 0.03 a step. talk: before a fight, by how the last one went; grudge: before a grudge match (0.1.67).
    base: "op:<id>", "tb:<id>", or a cfg written for any class like a test build's (0.1.67). */
 const RIVALS=[
-  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.55,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
+  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.75,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
     bots:{beetle:{name:"Unruh",base:"tb:flipper"},hobby:{name:"Unruh II",base:"tb:flipper"},feather:{name:"Hemmung",base:"tb:flipper"},heavy:{name:"Grande Complication",base:"tb:flipper"}},
     steps:[{wheels:"pu"},{armour:{front:"ar500"}},{extras:["skid"]},{battery:"hd"},{armour:{left:"ar500",right:"ar500"}}],
     talk:{first:"I've seen your bot. Interesting tolerances. By which I mean there aren't any.",won:"Same again? I brought a spare. You'll want two.",
       lost:"Lucky. I've re-timed the flipper since. To the millisecond.",streak:"Fine. You're good. Don't tell anyone I said so.",
       grudge:"Third meeting. I've kept notes. Pages of them."}},
-  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.5,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
+  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.7,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
     bots:{beetle:{name:"Amboss",base:"tb:brick"},hobby:{name:"Amboss II",base:"tb:brick"},feather:{name:"Walzblock",base:"tb:brick"},heavy:{name:"Hochofen Nord",base:"tb:brick"}},
     steps:[{armour:{top:"steel"}},{wheels:"tracks"},{armour:{back:"ar500"}},{drive:"gearbox"},{electronics:"failsafe"}],
     talk:{first:"Spinner? Wedge? Doesn't matter. It all bounces off.",won:"Told you. It all bounces off.",
       lost:"Something got through. I've welded over it.",streak:"I'm adding another plate. And another.",
       grudge:"You and me again. I brought extra plate, just for you."}},
-  {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.6,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
+  {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.8,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
     bots:{beetle:{name:"Strudel",base:"tb:vsp"},hobby:{name:"Strudel II",base:"tb:vsp"},feather:{name:"Kielwasser",base:"tb:drum"},heavy:{name:"Sturmflut",base:"tb:vsp"}},
     steps:[{weaponMaterial:"s7"},{battery:"hd"},{armour:{front:"ar500"}},{electronics:"cooling"},{wheels:"pu"}],
     talk:{first:"Don't worry, the first hit is the only one you'll feel.",won:"Bring more plate next time. Or a bucket.",
       lost:"My disc was off balance. It won't be.",streak:"Okay. Okay. I'm going bigger.",
       grudge:"Third time. I balanced the disc just for this."}},
-  {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.5,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
+  {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.7,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
     bots:{ant:{name:"Kleinbahn",base:"tb:hammer"},beetle:{name:"Weiche",base:"tb:hammer"},hobby:{name:"Rangierlok",base:"tb:hammer"},feather:{name:"Stellwerk",base:"tb:hammer"},heavy:{name:"Güterzug",base:"tb:hammer"}},
     steps:[{armour:{top:"ar500"}},{wheels:"pu"},{extras:["selfright"]},{electronics:"failsafe"},{drive:"gearbox"}],
     talk:{first:"I'll wait. The hammer comes down when it comes down.",won:"On time, as always.",
       lost:"Delays happen. The timetable gets revised.",streak:"Right. I'm re-signalling the whole thing.",
       grudge:"Third meeting. I've been waiting. I'm good at waiting."}},
   /* 0.1.67 (Kelbo: two more rivals): one for the Garage act, and one built round a newer part */
-  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.5,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
+  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.7,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
     bots:{ant:{name:"Blechdose",base:"tb:wedge"},beetle:{name:"Keksdose",base:"tb:wedge"},hobby:{name:"Brotkasten",base:"tb:wedge"},feather:{name:"Werkzeugkiste",base:"tb:wedge"}},
     steps:[{battery:"hd"},{electronics:"failsafe"},{back:"rearwedge"},{armour:{top:"steel"}},{wheels:"tracks"}],
     talk:{first:"Don't laugh at the tin. Everyone laughs at the tin.",won:"The tin wins again. I paint a stripe on it for every one.",
       lost:"You got under me. I'm going lower.",streak:"Okay. I'm asking my dad about the welder.",
       grudge:"Third time. I've been practising in the school car park."}},
-  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.6,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
+  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.8,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
     bots:{hobby:{name:"Glut",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       feather:{name:"Zunder",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       heavy:{name:"Esse",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}}},
@@ -6521,8 +6562,8 @@ const STAFF={
     {id:"konrad",role:"engineer",  name:"Konrad Fehr",  salary:9000, act:1,cut:0.3, line:"Did ten years on rail bogies in Grauwald. Calls every bot \"the rolling stock\"."},
     {id:"pia",   role:"fabricator",name:"Pia Lötscher", salary:3200, act:0,cut:0.1, line:"Welds the way other people write: neatly, and with opinions."},
     {id:"bruno", role:"fabricator",name:"Bruno Zaugg",  salary:10000,act:1,cut:0.3, line:"Ran the Stahlbrück mill's repair shop. Has never once asked for a drawing."},
-    {id:"jonas", role:"driver",    name:"Jonas Ritter", salary:3500, act:0,skill:0.7, line:"Club racer turned robot driver. Smooth, polite, and terrifying near a wall."},
-    {id:"vera",  role:"driver",    name:"Vera Hasler",  salary:14000,act:1,skill:0.86,line:"Two-time Regional champion. Reads a fight like a timetable."},
+    {id:"jonas", role:"driver",    name:"Jonas Ritter", salary:3500, act:0,skill:0.92,line:"Club racer turned robot driver. Smooth, polite, and terrifying near a wall."},
+    {id:"vera",  role:"driver",    name:"Vera Hasler",  salary:14000,act:1,skill:1,   line:"Two-time Regional champion. Reads a fight like a timetable."},
     {id:"emil",  role:"crew",      name:"Emil and Sohn",salary:2200, act:0,cut:0.25,line:"Father and son from the bicycle shop. Wheels off and on before you've said \"wheel\"."},
     {id:"irma",  role:"crew",      name:"Irma's crew",  salary:7000, act:1,cut:0.4, line:"Three people, one toolbox, no wasted moves. Irma times them with a stopwatch."}]};
 /* sponsors (Career tab): an offer comes after a podium (top two) when your rep has reached minRep. Each wants its colour
@@ -8166,7 +8207,7 @@ function ftOppDef(cls){const o=SIM.OPPONENTS.find(o=>o.cls===cls&&SIM.part("weap
 function ftOpp(cls,id){id=id||FT.opp||ftOppDef(cls);const op=SIM.OPPONENTS.find(o=>o.id===id&&o.cls===cls);
   if(op)return{id,name:op.name,cfg:SIM.opponentCfg(op),driver:Object.assign({},op.driver),op,livery:lvOpp("op:"+id)};
   const t=SIM.TEST_BUILDS.find(x=>x.id===id)||SIM.TEST_BUILDS[0],cfg=Object.assign({},t.cfg,{cls});
-  return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.7},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24)
+  return{id:t.id,name:lvOppName("tb:"+t.id,t.name),cfg,driver:{style:"auto",skill:0.9},livery:lvOpp("tb:"+t.id)};}   // a test build fights as a club regular (0.1.24; 0.9 from 0.1.68, as hard as the old AI at 0.7)
 /* a rumble's other two bots: picked from the class's named opponents and the test builds by the seed */
 function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls).map(o=>o.id).concat(SIM.TEST_BUILDS.filter(t=>t.id!=="sloppy").map(t=>t.id)).filter(id=>id!==skip),out=[];
   let k=seed>>>3;while(out.length<2&&pool.length){const id=pool.splice(k%pool.length,1)[0];out.push(ftOpp(cls,id));k=(k*2654435761>>>7)+1;}return out;}
@@ -8174,7 +8215,7 @@ function ftRumble(cls,seed,skip){const pool=SIM.OPPONENTS.filter(o=>o.cls===cls)
 function ftStart(){const bot=bBot(),cls=bCls();if(!bot.cfg)return;
   const opp=ftOpp(cls),you=FT.style==="you";
   const seed=((Date.now()&0x7fffffff)^(++FT.fights*0x9E3779B1))>>>0;   // the app picks the seed; the sim is deterministic from it
-  const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.7}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
+  const bots=[{cfg:bot.cfg,name:lvBotName(cls),livery:lvMine(),driver:you?null:{style:FT.style,skill:0.9}},{cfg:opp.cfg,name:opp.name,livery:opp.livery,driver:opp.driver}];
   if(FT.mode==="rumble")for(const o of ftRumble(cls,seed,opp.id))bots.push({cfg:o.cfg,name:o.name,livery:o.livery,driver:o.driver});
   lvField(bots);
   FT.you=you;FT.sig=bnSig(bot.cfg);FT.oppKey=metOppId(opp);FT.rounds=[];FT.rv=0;FT.rp=null;FT.ext=null;

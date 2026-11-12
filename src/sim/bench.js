@@ -24,7 +24,7 @@ const WEDGE_GAUGES={      // the leading-edge heights (mm) of the wedges, lifter
   heavy:  [2,3,4,6,9,12]
 };
 const BENCH={
-  dummy:{S:20,seed:38,style:"aggressive",skill:0.8,traceS:0.5},   // the test dummy: seconds a dummy, the fight's seed, who drives your bot, the chart's step
+  dummy:{S:20,seed:38,style:"aggressive",skill:1,traceS:0.5},   // the test dummy: seconds a dummy, the fight's seed, who drives your bot, the chart's step
   trackM:2.4,        // drive test track, beetle scale (x len)
   pullYaw:0.12,      // heading drift from an off-centre COM: pull x this x speed / track width (rad/s)
   spinTorque:3,      // a spinner motor's torque runs out below 1/3 of top rpm (full power only above it)

@@ -21,6 +21,12 @@
                  spinner that has landed a hit and lost its speed backs off to spin up again (both more often the higher
                  the skill)
    driver.style "auto" picks one for the build and the arena (autoStyle).
+   Skill that shows (0.1.68, Kelbo: "skill means something"):
+     lapses      at each look a less skilled driver may lose the thread (AI_SKILL.lapse: 80% of looks at skill 0, none at
+                 skill 1) and steers and drives at a quarter until its next look (AI_LAPSE); its weapon still works
+     reading     an "auto" driver may read the matchup (from skill AI_READ.from, always at AI_READ.full): it picks a plan
+                 for its weapon against theirs (AI_GROUP, AI_PLAN), and every AI_READ.checkS it checks the damage; when it is
+                 well behind it tries the next plan in AI_ALT (plan B). Named opponents keep their own style.
      aiNew(o, seed, F)    a driver's memory for bot o
      aiThink(F, o)        this step's {throttle, steer, weapon, selfRight}
      autoStyle(b, arena)  a style id for an evalBuild result in an arena (an ARENAS id or arenaOf's object) ---- */
@@ -36,7 +42,8 @@ const AI_STYLES={
 };
 const AI_STYLE_IDS=Object.keys(AI_STYLES);
 /* skill 0 .. skill 1 */
-const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12],fireLate:[0.25,0.02],pitLook:[0.2,0.45],tactics:[0.25,1]};
+const AI_SKILL={reactS:[0.45,0.08],aimErr:[0.3,0.03],kp:[1.6,2.8],kd:[0.04,0.12],fireLate:[0.25,0.02],pitLook:[0.2,0.45],tactics:[0.25,1],lapse:[0.8,0]};
+const AI_LAPSE={steer:0.25,throttle:0.25};
 /* the paths' margins, in bot radii: round the pit, a floor hazard, the enemy; the pit counts from this long before it opens.
    flankR: how far to the side of a front weapon a flanking bot aims (radii of both bots); flankA: how square on the enemy
    must be facing it to bother (rad). reSpin: a spinner below this share of its top speed after a hit backs off; resetS how
@@ -60,8 +67,36 @@ function autoStyle(b,arena){const A=typeof arena==="string"?ARENAS[arena]:arena&
   if(t==="wedge")return"aggressive";
   if(t==="none"||t==="lifter"||t==="grabber"||t==="flipper")return haz?"hazard":"boxrush";
   return"aggressive";}
-function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;if(!AI_STYLES[st])st=st==="auto"&&F?autoStyle(o.b,F.arena):"rush";
-  return{r:rng(seed),style:st,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
+/* ---- the game plan (0.1.68) ----
+   A driver on "auto" who reads the fight changes its plan when the matchup is against it: a wedge rushes a vertical spinner
+   instead of trading blows with it, a pusher takes a horizontal spinner on hard before the disc is up, a hammer works a
+   wedge towards the hazards. A bot that is on top in the matchup keeps its own game (autoStyle). AI_GROUP sorts the weapons;
+   AI_PLAN[own group][enemy group] is the style it switches to, from each test build's record per style against the auto
+   field in three classes (tools/fight-test.js -p prints it again); only cells where the build's own style lost and another
+   won 12 points or more are in it. How often a driver reads the fight: none below AI_READ.from skill, every fight from
+   AI_READ.full, a straight line between. Only "auto" plans: a style picked on the Fight tab, or a named opponent's own, is
+   kept. */
+const AI_GROUP={vsp:"vert",drum:"vert",beater:"vert",drisk:"vert",hsp:"horiz",shell:"horiz",ring:"horiz",melty:"horiz",thwack:"horiz",
+  under:"under",wedge:"wedge",none:"push",lifter:"lift",grabber:"lift",clamp:"lift",flipper:"flip",flipper2:"flip",hammer:"hit",crusher:"hit",spear:"hit"};
+const AI_PLAN={
+  wedge:{lift:"rush",vert:"rush",hit:"rush",under:"counter",push:"rush"},
+  lift:{wedge:"rush",lift:"counter",flip:"aggressive",horiz:"rush",push:"boxrush"},
+  flip:{lift:"aggressive",hit:"rush"},
+  horiz:{lift:"aggressive",vert:"aggressive",hit:"rush"},
+  vert:{push:"boxrush"},
+  hit:{wedge:"hazard",lift:"boxrush",vert:"cautious",under:"counter",push:"rush"},
+  under:{lift:"aggressive",vert:"hazard",push:"boxrush"},
+  push:{horiz:"aggressive",hit:"rush",under:"boxrush",push:"aggressive"}};
+const AI_READ={from:0.6,full:0.9,checkS:12,behind:1.3,minJ:0.02};
+/* plan B: a reading driver that is losing the trade (taking AI_READ.behind x what it deals, over minJ x its own hp) at a
+   check every checkS changes to the next style on its group's list that it hasn't tried */
+const AI_ALT={wedge:["rush","hazard"],lift:["aggressive","counter"],flip:["counter","keepaway"],horiz:["aggressive","counter"],
+  hit:["counter","aggressive"],under:["aggressive","hazard"],push:["aggressive","rush"]};
+/* the style a reading driver picks against t, or null to keep its own */
+function aiPlan(o,t){const a=AI_GROUP[o.b.weapon.id],b=AI_GROUP[t.b.weapon.id];return a&&b&&AI_PLAN[a]&&AI_PLAN[a][b]||null;}
+function aiNew(o,seed,F){const d=o.driver||{};let st=d.style;const auto=!AI_STYLES[st]&&st==="auto"&&!!F;if(!AI_STYLES[st])st=auto?autoStyle(o.b,F.arena):"rush";
+  const r=rng(seed),sk=Math.max(0,Math.min(1,d.skill==null?0.6:d.skill)),read=auto&&r()<(sk-AI_READ.from)/(AI_READ.full-AI_READ.from);
+  return{r,style:st,own:st,read,next:0,tx:0,ty:0,tgt:-1,aim:0,dir:0,stuck:0,spin:0,back:0,backSteer:0,mode:"close",modeT:0,zoneT:-1,push:0};}
 /* a strafing drive's move: face the enemy, and drive and slide towards (px, py) together (orbit, flank, commit), or slide
    out of the line of a weapon coming at it. null leaves the plain steering as it was. */
 const AI_STRAFE={dodgeR:3,dodgeV:0.3,faceK:2.4};   // dodge within dodgeR x both radii when it closes at dodgeV x its top speed; faceK: how hard it turns to face
@@ -160,17 +195,21 @@ function aiPitOut(F,o,r){const cx=(r[0]+r[2])/2,cy=(r[1]+r[3])/2,lim=F.arena.hal
   if(Math.abs(o.x+ax*o.rad*2)>lim)ax=0;if(Math.abs(o.y+ay*o.rad*2)>lim)ay=0;   // along the wall rather than into it
   if(Math.abs(ax)+Math.abs(ay)<0.2){ax=-o.x;ay=-o.y;}
   return Math.atan2(ay,ax);}
-function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.skill==null?0.6:d.skill)),S=AI_STYLES[m.style]||AI_STYLES.rush,
+function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.skill==null?0.6:d.skill));let S=AI_STYLES[m.style]||AI_STYLES.rush;const
     w=o.b.weapon,H=F.arena.half,out={throttle:0,steer:0,weapon:0,selfRight:0};
   const foes=F.bots.filter(t=>t!==o&&t.team!==o.team&&!t.out);if(!foes.length)return out;
   /* a fresh look at the fight */
   if(F.t>=m.next){m.next=F.t+aiLerp(AI_SKILL.reactS,sk)*(0.7+0.6*m.r());
     let t=foes[0],bd=1e9;for(const q of foes){const dd=Math.hypot(q.x-o.x,q.y-o.y);if(dd<bd){bd=dd;t=q;}}
     if(S.pick==="weak"){let ws=damageShare(t.b,t.st)+0.1;for(const q of foes){const sh=damageShare(q.b,q.st);if(sh>ws){ws=sh;t=q;}}}
+    if(m.read&&t.i!==m.tgt){m.style=aiPlan(o,t)||m.own;m.tried=[m.style];S=AI_STYLES[m.style];}   // a new enemy: the plan for it (0.1.68)
+    if(m.read&&F.t>=(m.chk||AI_READ.checkS)){m.chk=F.t+AI_READ.checkS;const st=o.stats,L=AI_ALT[AI_GROUP[w.id]];
+      if(L&&st.taken>st.dealt*AI_READ.behind+AI_READ.minJ*hpTotal(o.b)){const nx=L.find(x=>m.tried.indexOf(x)<0);if(nx){m.style=nx;m.tried.push(nx);S=AI_STYLES[nx];m.mode="close";m.modeT=F.t;}}}
     m.tgt=t.i;m.tx=t.x+t.vx*S.lead;m.ty=t.y+t.vy*S.lead;m.aim=(2*m.r()-1)*aiLerp(AI_SKILL.aimErr,sk);if(!m.dir)m.dir=m.r()<0.5?-1:1;
     m.dist=Math.hypot(t.x-o.x,t.y-o.y);m.tvx=t.vx;m.tvy=t.vy;m.th=t.h;
     m.tClose=m.dist>1e-6?((o.x-t.x)*t.vx+(o.y-t.y)*t.vy)/m.dist:0;   // how fast it is coming at us
     if(F.t>=(m.tacT||0)){m.tac=m.r()<aiLerp(AI_SKILL.tactics,sk);m.tacT=F.t+2+2*m.r();}   // for the next few seconds, does it play smart (flank, hit and run)?
+    m.lapse=m.r()<aiLerp(AI_SKILL.lapse,sk);   // 0.1.68: this look, its mind is elsewhere (see the end)
     }
   const t=F.bots[m.tgt]&&!F.bots[m.tgt].out?F.bots[m.tgt]:foes[0];
   /* a trigger weapon's driver watches its reach all the time (a thumb on the button), firing a skill-dependent beat late */
@@ -218,6 +257,7 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   const lim=H-o.rad*1.2;if(!carry){px=Math.max(-lim,Math.min(lim,px));py=Math.max(-lim,Math.min(lim,py));}
   if(!hold&&!carry){const q=aiPath(F,o,t,m,px,py,mode);px=q[0];py=q[1];}
   const c=aiSteer(o,m,px,py,sk);out.steer=c.steer;out.throttle=hold?0:mode==="orbit"?(c.throttle<0?Math.min(c.throttle,-0.5):Math.max(c.throttle,0.5)):c.throttle;
+  if(m.lapse&&!carry){out.steer*=AI_LAPSE.steer;out.throttle*=AI_LAPSE.throttle;}
   if(hold){const e=wrapA(Math.atan2(t.y-o.y,t.x-o.x)-o.h);out.steer=clamp1(-2.2*e);out.throttle=Math.abs(e)<0.3?0.15:0;}
   /* carrying (0.1.35): ease off as its own nose nears the pit's edge, so it drops the bot in and doesn't follow it */
   if(carry&&F.arena.pit){const r=F.arena.pit.rect,nx=o.x+Math.cos(o.h)*o.rad,ny=o.y+Math.sin(o.h)*o.rad,

@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.67.1";
+const VERSION="0.1.68.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -45,7 +45,7 @@ const WORLD={
    act's championship, or your rep reached repTo; out of the Heavyweight act only by winning the Open Final. */
 const TIME={weeks:52,bankWeeks:2,eventHours:6,nightHours:4,perKm:0.3,night:45,
   startMoney:2500,loan:1000,loanRate:0.1,loanShare:0.5,
-  xp:{drive:3,sim:1,win:2},levels:[["rookie",0],["club",25],["pro",70]],skill:{base:0.5,perXp:0.002,max:0.9},
+  xp:{drive:3,sim:1,win:2},levels:[["rookie",0],["club",25],["pro",70]],skill:{base:0.85,perXp:0.001,max:0.97},
   acts:[
     {id:"garage", name:"Garage",     classes:["ant","beetle"],  repTo:45, line:"Club meets at the Haldis Gemeindehalle, a tournament or two, and the club championship."},
     {id:"circuit",name:"Circuit",    classes:["hobby","feather"],repTo:160,line:"Regional tournaments in Stahlbrück, Eisenau and Grauwald, rumbles and tag team, and the Regional Final."},
@@ -75,14 +75,15 @@ const TOOL_IDS=Object.keys(TOOLS);
 /* event kinds: format (league: a round robin; bracket: single elimination with a best-of-three final; rumble: one
    free-for-all; tag: you and a partner against two), the field size, entry fee and prizes by placing (x the class's
    prizeScale; a bracket's are 1st, 2nd, the semi-finals, the rest), rep by placing, the other drivers' skill (+ skillAct
-   per act), the pit kit the other crews bring */
+   per act), the pit kit the other crews bring. 0.1.68: skill shows now (a driver under 1 loses the thread now and then,
+   sim/ai.js), so every skill in the game went up about 0.2 (events 0.25, the act step down to 0.05) to stay as hard */
 const EVENT_KINDS={
-  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.45,crewKit:"basic"},
-  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.6, crewKit:"full"},
-  rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.55,crewKit:"basic"},
-  tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.6, crewKit:"basic"},
-  champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.7,crewKit:"full"}};
-const EVENT_SKILL_ACT=0.08,EVENT_SKILL_MAX=0.92;
+  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.7, crewKit:"basic"},
+  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.85,crewKit:"full"},
+  rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.8, crewKit:"basic"},
+  tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.85,crewKit:"basic"},
+  champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.95,crewKit:"full"}};
+const EVENT_SKILL_ACT=0.05,EVENT_SKILL_MAX=0.97;
 /* life after the Open (0.1.39, the Legacy act). The title: whoever won the Scrapline Open Final (final) last. Your legend
    level is how many Opens you've won in a row (up to maxLevel); it makes every Legacy field harder and the Final richer.
    Lose the Final, or don't enter it, and the run and the level go back to nothing. The hall of fame (S.hall) keeps a
@@ -91,7 +92,7 @@ const LEGACY={
   final:"h8",         // the SEASON_EVENTS id that carries the title
   maxLevel:5,
   skillStep:0.02,     // every driver in a Legacy field is this much sharper a level...
-  skillMax:0.98,      // ...up to this (past EVENT_SKILL_MAX)
+  skillMax:1,         // ...up to this (past EVENT_SKILL_MAX)
   rivalStep:1,        // and every rival's bot is this many steps further on a level
   cls:"heavy",        // the title's class: the champion's own bot in it carries...
   ballast:0.01,       // ...this much less of the weight limit a level (crLimitG, app/team.js): rebuild lighter to defend
@@ -135,38 +136,38 @@ const SEASON_EVENTS=[
    their driving, + 0.03 a step. talk: before a fight, by how the last one went; grudge: before a grudge match (0.1.67).
    base: "op:<id>", "tb:<id>", or a cfg written for any class like a test build's (0.1.67). */
 const RIVALS=[
-  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.55,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
+  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.75,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
     bots:{beetle:{name:"Unruh",base:"tb:flipper"},hobby:{name:"Unruh II",base:"tb:flipper"},feather:{name:"Hemmung",base:"tb:flipper"},heavy:{name:"Grande Complication",base:"tb:flipper"}},
     steps:[{wheels:"pu"},{armour:{front:"ar500"}},{extras:["skid"]},{battery:"hd"},{armour:{left:"ar500",right:"ar500"}}],
     talk:{first:"I've seen your bot. Interesting tolerances. By which I mean there aren't any.",won:"Same again? I brought a spare. You'll want two.",
       lost:"Lucky. I've re-timed the flipper since. To the millisecond.",streak:"Fine. You're good. Don't tell anyone I said so.",
       grudge:"Third meeting. I've kept notes. Pages of them."}},
-  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.5,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
+  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.7,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
     bots:{beetle:{name:"Amboss",base:"tb:brick"},hobby:{name:"Amboss II",base:"tb:brick"},feather:{name:"Walzblock",base:"tb:brick"},heavy:{name:"Hochofen Nord",base:"tb:brick"}},
     steps:[{armour:{top:"steel"}},{wheels:"tracks"},{armour:{back:"ar500"}},{drive:"gearbox"},{electronics:"failsafe"}],
     talk:{first:"Spinner? Wedge? Doesn't matter. It all bounces off.",won:"Told you. It all bounces off.",
       lost:"Something got through. I've welded over it.",streak:"I'm adding another plate. And another.",
       grudge:"You and me again. I brought extra plate, just for you."}},
-  {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.6,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
+  {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.8,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
     bots:{beetle:{name:"Strudel",base:"tb:vsp"},hobby:{name:"Strudel II",base:"tb:vsp"},feather:{name:"Kielwasser",base:"tb:drum"},heavy:{name:"Sturmflut",base:"tb:vsp"}},
     steps:[{weaponMaterial:"s7"},{battery:"hd"},{armour:{front:"ar500"}},{electronics:"cooling"},{wheels:"pu"}],
     talk:{first:"Don't worry, the first hit is the only one you'll feel.",won:"Bring more plate next time. Or a bucket.",
       lost:"My disc was off balance. It won't be.",streak:"Okay. Okay. I'm going bigger.",
       grudge:"Third time. I balanced the disc just for this."}},
-  {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.5,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
+  {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.7,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
     bots:{ant:{name:"Kleinbahn",base:"tb:hammer"},beetle:{name:"Weiche",base:"tb:hammer"},hobby:{name:"Rangierlok",base:"tb:hammer"},feather:{name:"Stellwerk",base:"tb:hammer"},heavy:{name:"Güterzug",base:"tb:hammer"}},
     steps:[{armour:{top:"ar500"}},{wheels:"pu"},{extras:["selfright"]},{electronics:"failsafe"},{drive:"gearbox"}],
     talk:{first:"I'll wait. The hammer comes down when it comes down.",won:"On time, as always.",
       lost:"Delays happen. The timetable gets revised.",streak:"Right. I'm re-signalling the whole thing.",
       grudge:"Third meeting. I've been waiting. I'm good at waiting."}},
   /* 0.1.67 (Kelbo: two more rivals): one for the Garage act, and one built round a newer part */
-  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.5,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
+  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.7,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
     bots:{ant:{name:"Blechdose",base:"tb:wedge"},beetle:{name:"Keksdose",base:"tb:wedge"},hobby:{name:"Brotkasten",base:"tb:wedge"},feather:{name:"Werkzeugkiste",base:"tb:wedge"}},
     steps:[{battery:"hd"},{electronics:"failsafe"},{back:"rearwedge"},{armour:{top:"steel"}},{wheels:"tracks"}],
     talk:{first:"Don't laugh at the tin. Everyone laughs at the tin.",won:"The tin wins again. I paint a stripe on it for every one.",
       lost:"You got under me. I'm going lower.",streak:"Okay. I'm asking my dad about the welder.",
       grudge:"Third time. I've been practising in the school car park."}},
-  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.6,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
+  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.8,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
     bots:{hobby:{name:"Glut",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       feather:{name:"Zunder",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       heavy:{name:"Esse",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}}},
@@ -261,8 +262,8 @@ const STAFF={
     {id:"konrad",role:"engineer",  name:"Konrad Fehr",  salary:9000, act:1,cut:0.3, line:"Did ten years on rail bogies in Grauwald. Calls every bot \"the rolling stock\"."},
     {id:"pia",   role:"fabricator",name:"Pia Lötscher", salary:3200, act:0,cut:0.1, line:"Welds the way other people write: neatly, and with opinions."},
     {id:"bruno", role:"fabricator",name:"Bruno Zaugg",  salary:10000,act:1,cut:0.3, line:"Ran the Stahlbrück mill's repair shop. Has never once asked for a drawing."},
-    {id:"jonas", role:"driver",    name:"Jonas Ritter", salary:3500, act:0,skill:0.7, line:"Club racer turned robot driver. Smooth, polite, and terrifying near a wall."},
-    {id:"vera",  role:"driver",    name:"Vera Hasler",  salary:14000,act:1,skill:0.86,line:"Two-time Regional champion. Reads a fight like a timetable."},
+    {id:"jonas", role:"driver",    name:"Jonas Ritter", salary:3500, act:0,skill:0.92,line:"Club racer turned robot driver. Smooth, polite, and terrifying near a wall."},
+    {id:"vera",  role:"driver",    name:"Vera Hasler",  salary:14000,act:1,skill:1,   line:"Two-time Regional champion. Reads a fight like a timetable."},
     {id:"emil",  role:"crew",      name:"Emil and Sohn",salary:2200, act:0,cut:0.25,line:"Father and son from the bicycle shop. Wheels off and on before you've said \"wheel\"."},
     {id:"irma",  role:"crew",      name:"Irma's crew",  salary:7000, act:1,cut:0.4, line:"Three people, one toolbox, no wasted moves. Irma times them with a stopwatch."}]};
 /* sponsors (Career tab): an offer comes after a podium (top two) when your rep has reached minRep. Each wants its colour

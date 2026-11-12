@@ -35,7 +35,7 @@ const DRILLS=[
   {id:"line",name:"Hold the line",kind:"hold",limitS:20,medals:[17,13,8],zone:[0,0,0.42],
     line:"The brick wants you out of the ring. Stay in it for as much of twenty seconds as you can.",tip:"Meet it nose to nose and keep driving. Side on, you slide.",
     bot:schoolBot("wedge"),start:[0,-0.25,Math.PI/2],arena:schoolFloor(),
-    others:[{cfg:schoolBot("brick"),name:"The brick",at:[0,0.9,-Math.PI/2],driver:{style:"aggressive",skill:0.7}}],steps:[]},
+    others:[{cfg:schoolBot("brick"),name:"The brick",at:[0,0.9,-Math.PI/2],driver:{style:"aggressive",skill:0.9}}],steps:[]},
   {id:"target",name:"On target",kind:"hit",limitS:15,medals:[100,70,40],
     line:"One parked box, fifteen seconds. Your biggest single hit is your score.",tip:"A disc hits hardest at full speed: wait for the bar to fill, then drive in square.",
     bot:schoolBot("vsp"),start:[0,-0.9,Math.PI/2],arena:schoolFloor(),
