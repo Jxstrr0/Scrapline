@@ -11,7 +11,7 @@ function fail(s){if(bad)return;bad=1;b.classList.add("err");m.textContent=s;rl.h
 /* Reload: if a newer worker is installed and waiting (it may carry the fix for whatever broke), let it take over first */
 rl.onclick=function(){var go=function(){location.reload();},sw=navigator.serviceWorker;if(!sw||!sw.getRegistration)return go();
  sw.getRegistration().then(function(r){if(!r||!r.waiting)return go();sw.addEventListener("controllerchange",go);r.waiting.postMessage({type:"SKIP_WAITING"});setTimeout(go,3000);},go);};
-window.addEventListener("error",function(e){if(fin)return;var t=e.target;if(t&&t.tagName==="SCRIPT")fail("Couldn't load "+(/three/.test(t.src)?"the 3D library":"a game library")+". Check your connection and reload.");else if(e.message)fail("Something went wrong while loading. Reload to try again.");},true);
+window.addEventListener("error",function(e){if(fin)return;var t=e.target;if(t&&t.tagName==="SCRIPT"&&!t.hasAttribute("data-cf-beacon"))fail("Couldn't load "+(/three/.test(t.src)?"the 3D library":"a game library")+". Check your connection and reload.");else if(e.message)fail("Something went wrong while loading. Reload to try again.");},true);
 setTimeout(function(){if(!fin&&!bad)m.textContent="Still loading… slow connection?";},9000);
 })();</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10450,4 +10450,6 @@ function tutOffer(){if(ST().tutDone||TUT_ON)return;
     <p class="hint">It runs on a loaner bot, so it changes nothing in your workshop. Not now costs nothing: Settings has it again any time.</p>
     <div class="row"><button type="button" class="btn pri" data-tut="go">Show me</button><button type="button" class="btn" data-tut="skip">Not now</button></div>`);}
 </script>
+<!-- Cloudflare Web Analytics: cookieless visit counts for Longlight (no personal data). -->
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "1ca537ec2a4f491c8da70d54d2f5319f"}'></script>
 </body></html>
