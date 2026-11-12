@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.68.0";
+const VERSION="0.1.68.1";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -78,12 +78,12 @@ const TOOL_IDS=Object.keys(TOOLS);
    per act), the pit kit the other crews bring. 0.1.68: skill shows now (a driver under 1 loses the thread now and then,
    sim/ai.js), so every skill in the game went up about 0.2 (events 0.25, the act step down to 0.05) to stay as hard */
 const EVENT_KINDS={
-  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.7, crewKit:"basic"},
-  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.85,crewKit:"full"},
-  rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.8, crewKit:"basic"},
-  tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.85,crewKit:"basic"},
-  champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.95,crewKit:"full"}};
-const EVENT_SKILL_ACT=0.05,EVENT_SKILL_MAX=0.97;
+  club:      {name:"Club meet",   format:"league", size:4,entry:20, prizes:[400,250,150,50],rep:[5,3,1,0], skill:0.65, crewKit:"basic"},
+  tournament:{name:"Tournament",  format:"bracket",size:8,entry:60, prizes:[1000,500,250,75],rep:[12,7,3,0],skill:0.8,crewKit:"full"},
+  rumble:    {name:"Rumble",      format:"rumble", size:4,entry:40, prizes:[500,200,0,0],   rep:[6,2,0,0], skill:0.75, crewKit:"basic"},
+  tag:       {name:"Tag team",    format:"tag",    size:4,entry:50, prizes:[600,0],         rep:[6,0],     skill:0.8,crewKit:"basic"},
+  champ:     {name:"Championship",format:"bracket",size:8,entry:100,prizes:[2000,900,400,0],rep:[20,12,5,1],skill:0.9,crewKit:"full"}};
+const EVENT_SKILL_ACT=0.05,EVENT_SKILL_MAX=0.92;
 /* life after the Open (0.1.39, the Legacy act). The title: whoever won the Scrapline Open Final (final) last. Your legend
    level is how many Opens you've won in a row (up to maxLevel); it makes every Legacy field harder and the Final richer.
    Lose the Final, or don't enter it, and the run and the level go back to nothing. The hall of fame (S.hall) keeps a
@@ -136,38 +136,38 @@ const SEASON_EVENTS=[
    their driving, + 0.03 a step. talk: before a fight, by how the last one went; grudge: before a grudge match (0.1.67).
    base: "op:<id>", "tb:<id>", or a cfg written for any class like a test build's (0.1.67). */
 const RIVALS=[
-  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.75,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
+  {id:"ottilie",name:"Kayla Rauch",from:"club",skill:0.7,line:"A watchmaker's apprentice. Measures twice, cuts once, gloats three times.",
     bots:{beetle:{name:"Unruh",base:"tb:flipper"},hobby:{name:"Unruh II",base:"tb:flipper"},feather:{name:"Hemmung",base:"tb:flipper"},heavy:{name:"Grande Complication",base:"tb:flipper"}},
     steps:[{wheels:"pu"},{armour:{front:"ar500"}},{extras:["skid"]},{battery:"hd"},{armour:{left:"ar500",right:"ar500"}}],
     talk:{first:"I've seen your bot. Interesting tolerances. By which I mean there aren't any.",won:"Same again? I brought a spare. You'll want two.",
       lost:"Lucky. I've re-timed the flipper since. To the millisecond.",streak:"Fine. You're good. Don't tell anyone I said so.",
       grudge:"Third meeting. I've kept notes. Pages of them."}},
-  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.7,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
+  {id:"rudi",name:"Mitch Gerber",from:"stahl",skill:0.65,line:"Rolls steel by day in Stahlbrück. Believes armour is a personality.",
     bots:{beetle:{name:"Amboss",base:"tb:brick"},hobby:{name:"Amboss II",base:"tb:brick"},feather:{name:"Walzblock",base:"tb:brick"},heavy:{name:"Hochofen Nord",base:"tb:brick"}},
     steps:[{armour:{top:"steel"}},{wheels:"tracks"},{armour:{back:"ar500"}},{drive:"gearbox"},{electronics:"failsafe"}],
     talk:{first:"Spinner? Wedge? Doesn't matter. It all bounces off.",won:"Told you. It all bounces off.",
       lost:"Something got through. I've welded over it.",streak:"I'm adding another plate. And another.",
       grudge:"You and me again. I brought extra plate, just for you."}},
-  {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.8,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
+  {id:"mira",name:"Mira Vogt",from:"eisenau",skill:0.75,line:"Eisenau docks crane driver. Only builds spinners. Only ever will.",
     bots:{beetle:{name:"Strudel",base:"tb:vsp"},hobby:{name:"Strudel II",base:"tb:vsp"},feather:{name:"Kielwasser",base:"tb:drum"},heavy:{name:"Sturmflut",base:"tb:vsp"}},
     steps:[{weaponMaterial:"s7"},{battery:"hd"},{armour:{front:"ar500"}},{electronics:"cooling"},{wheels:"pu"}],
     talk:{first:"Don't worry, the first hit is the only one you'll feel.",won:"Bring more plate next time. Or a bucket.",
       lost:"My disc was off balance. It won't be.",streak:"Okay. Okay. I'm going bigger.",
       grudge:"Third time. I balanced the disc just for this."}},
-  {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.7,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
+  {id:"anselm",name:"Anselm Huber",from:"grauwald",skill:0.65,line:"Grauwald rail yard signalman. Hammers, mostly. Very patient.",
     bots:{ant:{name:"Kleinbahn",base:"tb:hammer"},beetle:{name:"Weiche",base:"tb:hammer"},hobby:{name:"Rangierlok",base:"tb:hammer"},feather:{name:"Stellwerk",base:"tb:hammer"},heavy:{name:"Güterzug",base:"tb:hammer"}},
     steps:[{armour:{top:"ar500"}},{wheels:"pu"},{extras:["selfright"]},{electronics:"failsafe"},{drive:"gearbox"}],
     talk:{first:"I'll wait. The hammer comes down when it comes down.",won:"On time, as always.",
       lost:"Delays happen. The timetable gets revised.",streak:"Right. I'm re-signalling the whole thing.",
       grudge:"Third meeting. I've been waiting. I'm good at waiting."}},
   /* 0.1.67 (Kelbo: two more rivals): one for the Garage act, and one built round a newer part */
-  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.7,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
+  {id:"fenna",name:"Fenna Pohl",from:"club",skill:0.65,line:"Sixteen, from the Haldis school's robotics club. Builds wedges out of biscuit tins, and wins with them.",
     bots:{ant:{name:"Blechdose",base:"tb:wedge"},beetle:{name:"Keksdose",base:"tb:wedge"},hobby:{name:"Brotkasten",base:"tb:wedge"},feather:{name:"Werkzeugkiste",base:"tb:wedge"}},
     steps:[{battery:"hd"},{electronics:"failsafe"},{back:"rearwedge"},{armour:{top:"steel"}},{wheels:"tracks"}],
     talk:{first:"Don't laugh at the tin. Everyone laughs at the tin.",won:"The tin wins again. I paint a stripe on it for every one.",
       lost:"You got under me. I'm going lower.",streak:"Okay. I'm asking my dad about the welder.",
       grudge:"Third time. I've been practising in the school car park."}},
-  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.8,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
+  {id:"hedda",name:"Hedda Sauter",from:"stahl",skill:0.75,line:"Runs a heat-treatment furnace at the Stahlbrück mill. Thinks every problem is a temperature problem.",
     bots:{hobby:{name:"Glut",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       feather:{name:"Zunder",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
       heavy:{name:"Esse",base:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}}},
