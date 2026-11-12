@@ -133,14 +133,46 @@ function crCantEnter(e,kit){const c=S.career,b=S.bots[e.cls];
   return null;}
 
 /* ---- rivals ---- */
-function crBaseCfg(base,cls){const k=base.split(":");
+function crBaseCfg(base,cls){if(buObjS(base))return Object.assign(clone(base),{cls});const k=base.split(":");   // a cfg written for any class (0.1.67)
   if(k[0]==="op"){const op=SIM.OPPONENTS.find(o=>o.id===k[1]);if(op)return Object.assign(SIM.opponentCfg(op),{cls});}
   const t=SIM.TEST_BUILDS.find(x=>x.id===k[1])||SIM.TEST_BUILDS[0];return Object.assign(clone(t.cfg),{cls});}
 function crMerge(cfg,step){const c=clone(cfg);for(const k in step){if(k==="armour")Object.assign(c.armour,step.armour);else if(k==="extras")c.extras=Array.from(new Set(c.extras.concat(step.extras)));else c[k]=step[k];}return c;}
 function crRivalLevel(rv){const m=S.rivals[rv.id]||{};return(S.career?S.career.season:0)+Math.floor((m.w||0)/2)+crLegend()*LEGACY.rivalStep;}
-function crRivalCfg(rv,cls){let cfg=crBaseCfg(rv.bots[cls].base,cls);const n=Math.min(crRivalLevel(rv),rv.steps.length);
-  for(let i=0;i<n;i++){const t=crMerge(cfg,rv.steps[i]);if(SIM.evalBuild(t).valid)cfg=t;}return cfg;}
-function crTalk(rv){const m=S.rivals[rv.id];if(!m||!m.last)return rv.talk.first;if(m.last.won&&m.run>=2)return rv.talk.streak;return m.last.won?rv.talk.lost:rv.talk.won;}   // last.won: you won it
+function crRivalCfg(rv,cls,noCtr){let cfg=crBaseCfg(rv.bots[cls].base,cls);const n=Math.min(crRivalLevel(rv),rv.steps.length);
+  for(let i=0;i<n;i++){const t=crMerge(cfg,rv.steps[i]);if(SIM.evalBuild(t).valid)cfg=t;}
+  if(!noCtr)for(const id of crRivalMem(rv.id).ctr)cfg=crCounter(cfg,id).cfg;   // what they fitted against you (0.1.67)
+  return cfg;}
+/* ---- rival stories (0.1.67; RIVAL_STORY in app/state.js) ----
+   crRivalMem: what a rival remembers, with the 0.1.67 lists always there. crCounter: a counter's first alt that fits
+   (how: "added", "had" when it is already on, "nofit"). crTalk: the line before your next fight with them (grudge when
+   it would be one); crTalkKey is the same choice as a key, kept in the messages. */
+function crRivalMem(id){const m=buObjS(S.rivals[id])?S.rivals[id]:(S.rivals[id]={w:0,l:0,run:0});
+  if(!Array.isArray(m.ctr))m.ctr=[];if(!Array.isArray(m.msgs))m.msgs=[];return m;}
+const crSame=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function crCounter(cfg,id){const C=RIVAL_STORY.counters[id];if(!C)return{cfg,how:"nofit"};
+  for(const a of C.alts){const t=crMerge(cfg,a);if(crSame(t,cfg))return{cfg,how:"had"};if(SIM.evalBuild(t).valid)return{cfg:t,how:"added"};}
+  return{cfg,how:"nofit"};}
+const crMeets=id=>{const m=S.rivals[id];return m?(m.w|0)+(m.l|0):0;};
+const crGrudge=id=>crMeets(id)>=RIVAL_STORY.grudgeAt;
+function crTalkKey(rv,grudge){const m=S.rivals[rv.id];if(grudge&&rv.talk.grudge)return"grudge";if(!m||!m.last)return"first";if(m.last.won&&m.run>=2)return"streak";return m.last.won?"lost":"won";}   // last.won: you won it
+const crTalk=(rv,grudge)=>rv.talk[crTalkKey(rv,grudge)];
+/* a message's words, from the tables */
+const crLc=n=>/^[A-Z][a-z]/.test(n)?n[0].toLowerCase()+n.slice(1):n;
+function crStepTxt(st){const out=[],face={front:"the front",back:"the back",left:"the sides",right:"the sides",top:"top"};
+  for(const k in st){const v=st[k];
+    if(k==="armour"){const by={};for(const f in v){const n=crLc(SIM.part("armour",v[f]).name);(by[n]=by[n]||new Set()).add(face[f]);}for(const n in by)out.push(`${n} on ${crAnd(Array.from(by[n]))}`);}
+    else if(k==="extras")out.push(...v.map(x=>crLc(SIM.part("extras",x).name).replace(/^/,"a ")));
+    else if(k==="wheels")out.push(v==="tracks"?"tracks":crLc(SIM.part("wheels",v).name)+" wheels");
+    else if(k==="weaponMaterial")out.push(`a weapon in ${SIM.part("weaponMaterial",v).name}`);
+    else if(k==="electronics")out.push(crLc(SIM.part(k,v).name));
+    else{const p=SIM.part(k,v);if(p)out.push("a "+crLc(p.name));}}
+  return crAnd(out);}
+function crMsgTxt(rv,g){const k=g.k||"";
+  if(k.startsWith("ctr:")){const C=RIVAL_STORY.counters[k.slice(4)];return C?C.line:"";}
+  if(k==="step"){const st=rv.steps[g.n],b=rv.bots[g.cls];return st&&b?`${g.mid?"Back in the workshop":"Over the winter"}: ${b.name} got ${crStepTxt(st)}.`:"";}
+  return rv.talk[k]||"";}
+function crMsg(id,k,extra){const m=crRivalMem(id),c=S.career;m.msgs.push(Object.assign({y:c?c.year:0,wk:c?c.week:0,k},extra||{}));
+  if(m.msgs.length>RIVAL_STORY.msgMax)m.msgs.splice(0,m.msgs.length-RIVAL_STORY.msgMax);}
 
 /* ---- the field: who else is there ---- */
 /* ---- life after the Open (0.1.39; LEGACY, app/state.js) ----
@@ -241,13 +273,29 @@ function crRecord(day,nx,res,stopped){const k=EVENT_KINDS[day.kind],idx=nx.idx,F
     day.fights.push({label:nx.label,vs:crAnd(idx.filter((i,k)=>res.teams[k]!==me).map(i=>day.field[i].name)),won,draw:k.format==="league"&&day.res[day.res.length-1].w==null,
       score:nx.bo>1?`${res.wins[me]||0}–${Object.keys(res.wins).filter(t=>+t!==me).reduce((a,t)=>a+res.wins[t],0)}`:"",how:stopped?"forfeit":F.reason,t:F.endT});
     if(idx.length===2){const o=day.field[idx.find(i=>i!==0)],dr=day.fights[day.fights.length-1].draw;if(o&&o.id)metMeet(F.cls,o.id,F,dr?null:won,stopped?"forfeit":null);}   // the matchup card's record (0.1.61)
-    for(const [kk,i] of idx.entries())if(res.teams[kk]!==me&&day.field[i].rival)crRivalMeet(day.field[i].rival,won);}}
+    const fx=day.fights[day.fights.length-1],duel=idx.length===2;
+    for(const [kk,i] of idx.entries())if(res.teams[kk]!==me&&day.field[i].rival){const g=crRivalMeet(day.field[i].rival,won,{cls:day.cls,wp:day.field[0].cfg.weapon,how:stopped?"forfeit":F.reason,duel});
+      if(g.grudge){fx.grudge=1;if(g.rep)fx.rep=g.rep;}}}}
 const crAnd=a=>a.length>1?a.slice(0,-1).join(", ")+" and "+a[a.length-1]:a.join("");
 /* a rumble or tag team's finishing order by team: the winner, then who's still going, then the least damaged */
 function crRank(F,wt,teams,stopped){const T=Array.from(new Set(teams)),sc=t=>{const os=F.bots.filter(o=>o.team===t&&!o.mini);return os.reduce((a,o)=>a+(o.out||o.fx.dead?2:0)+SIM.damageShare(o.b,o.st),0)/os.length;};
   return T.sort((a,b)=>(a===wt?-1:b===wt?1:0)||(stopped?(a===0?1:b===0?-1:0):0)||sc(a)-sc(b));}
-function crRivalMeet(id,won){const m=S.rivals[id]||(S.rivals[id]={w:0,l:0,run:0});if(won){m.w++;m.run=m.last&&m.last.won?m.run+1:1;}else{m.l++;m.run=0;}
-  const c=S.career;m.last={y:c.year,wk:c.week,ev:c.day?crEv(c.day.ev).name:"",won};}
+/* a meeting with a rival: the record, then the story (0.1.67). x: {cls, wp: your weapon id, how: the fight's reason,
+   duel}. Beaten, they take a counter to what beat you (the pit or a pusher: grip); a one on one after grudgeAt meetings
+   is a grudge match, worth grudgeRep rep to you if you win it. Returns {grudge, rep}. */
+function crRivalMeet(id,won,x){x=x||{};const m=crRivalMem(id),grudge=!!x.duel&&crGrudge(id),rv=RIVALS.find(r=>r.id===id),c=S.career;
+  if(won){m.w++;m.run=m.last&&m.last.won?m.run+1:1;}else{m.l++;m.run=0;}
+  m.last={y:c.year,wk:c.week,ev:c.day?crEv(c.day.ev).name:"",won};
+  if(!rv)return{grudge,rep:0};
+  crMsg(id,crTalkKey(rv,false));
+  const lv=Math.min(crRivalLevel(rv),rv.steps.length);
+  if(won&&m.w%2===0&&lv>Math.min(crRivalLevel(rv)-1,rv.steps.length)){const bc=x.cls&&rv.bots[x.cls]?x.cls:Object.keys(rv.bots)[0];crMsg(id,"step",{n:lv-1,cls:bc,mid:1});}   // every second win, a step (crRivalLevel)
+  if(won){const ci=x.how==="pit"?"grip":RIVAL_STORY.by[x.wp];
+    if(ci&&RIVAL_STORY.counters[ci]){const cls=x.cls&&rv.bots[x.cls]?x.cls:Object.keys(rv.bots)[0],before=crRivalCfg(rv,cls);
+      m.ctr=m.ctr.filter(k=>k!==ci);m.ctr.push(ci);if(m.ctr.length>RIVAL_STORY.ctrMax)m.ctr.splice(0,m.ctr.length-RIVAL_STORY.ctrMax);
+      if(!crSame(crRivalCfg(rv,cls),before))crMsg(id,"ctr:"+ci);}}
+  const rep=grudge&&won?RIVAL_STORY.grudgeRep:0;if(rep)c.rep+=rep;
+  return{grudge,rep};}
 /* play every fight that isn't yours until it's your turn or the day is over */
 function crAdvance(day){const k=EVENT_KINDS[day.kind];let guard=0;
   while(!day.done&&guard++<40){
@@ -311,7 +359,10 @@ function crDrive(){const c=S.career,day=c.day,nx=crNext(day);if(!nx)return;const
 function crVoice(day,nx,e){const c=S.career,rv={},first=!day.said;day.said=1;
   nx.idx.forEach((i,k)=>{const f=day.field[i];if(f&&f.rival)rv[k]=f.rival;});
   return{venue:e.venue,cls:day.cls,kind:day.kind,fmt:EVENT_KINDS[day.kind].format,event:e.name.replace(/,.*$/,""),label:nx.label,first,
-    season:first&&!day.fights.length&&!c.results.some(r=>r.y===c.year),rivals:rv};}
+    season:first&&!day.fights.length&&!c.results.some(r=>r.y===c.year),rivals:rv,grudge:crGrudgeOf(day,nx)};}
+/* the grudge in a fight about to start (0.1.67): {name, w, l} of a rival met grudgeAt times in a one on one, or null */
+function crGrudgeOf(day,nx){if(nx.idx.length!==2)return null;const f=day.field[nx.idx[1]],id=f&&f.rival;if(!id||!crGrudge(id))return null;
+  const m=S.rivals[id],r=RIVALS.find(x=>x.id===id);return r?{name:r.name,w:m.w|0,l:m.l|0}:null;}
 /* a driven fight the app closed on (reload, the phone killed it): it counts as a forfeit, so a losing fight can't be
    fought again by reloading. Recorded against an unstarted fight with the bots as they went in. */
 function crLiveCheck(){const c=S.career,day=c&&c.day;if(!day||!day.live||(FT.bout&&FT.bout.ev&&!FT.bout.over))return;
@@ -400,7 +451,10 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   const tl=tmSeasonEnd();   // sponsors renew or go, the kit pays, the new season's rules and meta (app/team.js)
   c.seasons.push({y:c.year,act:c.act,rep:c.rep,money:c.money,best:best?`${best.name}: ${crPlaceTxt(best.kind,best.place)}`:null});
   rlSeasonEnd(c.year);   // this season's best five become its reel (app/reel.js)
-  if(up){c.act++;tpAward("promo",{id:"act"+c.act,name:`Up to the ${TIME.acts[c.act].name} act`,venue:null},null);}c.year++;c.season++;c.week=1;c.repY0=c.rep;
+  if(up){c.act++;tpAward("promo",{id:"act"+c.act,name:`Up to the ${TIME.acts[c.act].name} act`,venue:null},null);}
+  const lv0={};for(const r of RIVALS)lv0[r.id]=Math.min(crRivalLevel(r),r.steps.length);
+  c.year++;c.season++;c.week=1;c.repY0=c.rep;
+  const winter=crWinter(lv0);
   if(c.season>=WORLD.seasons){crHallAdd("done");c.over=true;c.done=true;}
   const T=crTitle(c),tline=c.act<3?"":vacant?`<p class="worn"><b>You didn't defend the Open</b>, so the title has gone to someone else. Your weight limit and the fields go back to normal; win the Final to take it back.</p>`
     :T.held?`<p class="ok"><b>You go into ${c.year} as the champion</b>${T.run>1?`, ${T.run} Opens in a row`:""}. Legend level ${T.level}, ${esc(crLegendName(T.level))}: your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit is now ${fmtG(crLimitG(LEGACY.cls))}, so check the Build tab before your next event.</p>`
@@ -408,7 +462,12 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
     ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
     ${c.done?"":tline}${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
-    ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>`}`),200);}
+    ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>${winter}`}`),200);}
+/* the new season's step for each rival with a bot in your act's classes: a message, and a line on the sheet (0.1.67) */
+function crWinter(lv0){const c=S.career,cls=TIME.acts[Math.min(c.act,TIME.acts.length-1)].classes,out=[];if(c.done)return"";
+  for(const r of RIVALS){const bc=cls.find(x=>r.bots[x]);if(!bc)continue;const n=Math.min(crRivalLevel(r),r.steps.length);
+    for(let i=lv0[r.id];i<n;i++){crMsg(r.id,"step",{n:i,cls:bc});out.push(`<li><b>${esc(r.name)}</b>: ${esc(r.bots[bc].name)} got ${esc(crStepTxt(r.steps[i]))}</li>`);}}
+  return out.length?`<ul class="crwinter">${out.join("")}</ul>`:"";}
 
 /* ---- the tab ---- */
 function crRender(){const el=$("crBody");if(!el)return;crLiveCheck();tmPaint();const c=S.career;
@@ -473,7 +532,13 @@ function crEvLine(e){const k=EVENT_KINDS[e.kind],v=WORLD.venues[e.venue],t=crTra
     ${crArenaLine(e)}<p class="hint">Entry ${fmt$(crEntry(e))} · travel ${fmt$(t.cost)}${t.nights?`, ${t.nights} night${t.nights>1?"s":""} away`:""} · ${t.hours} h of your week · first prize ${fmt$(crPrize(e,0))}.</p>`;}
 /* the arena it is fought in (0.1.28.0: the venue's own) and what is in it */
 function crArenaLine(e){const A=SIM.ARENAS[crArenaId(e.cls,e.venue)];return A?`<p class="hint">Arena: <b>${esc(A.name)}</b>. ${esc(A.line||"")}</p>`:"";}
-function crRivalsAt(e){const rs=RIVALS.filter(r=>r.bots[e.cls]);if(!rs.length)return"";return`<p class="hint">Rivals in the class: ${rs.map(r=>esc(r.name)).join(", ")}.</p>`;}
+/* This week: the rivals in the class, and which of them are in the field (crField is drawn from the seed, so it is
+   known before you enter); one you have met grudgeAt times is billed as a grudge match (0.1.67) */
+function crRivalsAt(e){const rs=RIVALS.filter(r=>r.bots[e.cls]);if(!rs.length)return"";
+  let inF=[];try{if(!S.career.day)inF=crField(e).filter(f=>f.rival).map(f=>f.rival);}catch(err){inF=[];}
+  const g=rs.filter(r=>inF.indexOf(r.id)>=0&&crGrudge(r.id));
+  return`<p class="hint">Rivals in the class: ${rs.map(r=>esc(r.name)+(inF.indexOf(r.id)>=0?" <small>(entered)</small>":"")).join(", ")}.</p>`+
+    g.map(r=>{const m=S.rivals[r.id];return`<p class="crgrudge"><b>Grudge match on the cards:</b> ${esc(r.name)} is entered and you're <span class="readout">${m.w|0}–${m.l|0}</span>. Meet them one on one and win it for +${RIVAL_STORY.grudgeRep} rep.</p>`;}).join("");}
 function crEnterOpen(){const c=S.career,e=crThisWeek();if(!e)return;const f=EVENT_KINDS[e.kind].format,noPit=f==="rumble"||f==="tag";
   CR.kit=noPit?"none":CR.kitPick||"basic";const t=crTravel(e);
   const kits=[["none","No kit","free"]].concat(Object.keys(PIT_KITS).map(k=>[k,PIT_KITS[k].name.replace(" kit",""),fmt$(crKitPrice(k,e.cls))]));
@@ -502,11 +567,11 @@ function crDayCard(day){const e=crEv(day.ev),k=EVENT_KINDS[day.kind],nx=crNext(d
     <p>Your bot: damage <span class="${sh>0.5?"broke":sh>0.15?"worn":"ok"}">${Math.round(sh*100)}%</span>${Object.keys(me.flags).length?` · <span class="worn">${crFlagTxt(me.flags)}</span>`:""} · kit: ${day.kit==="none"?"none":Object.keys(me.left).map(x=>`${PIT_NAMES[x].toLowerCase()} ${me.left[x]}`).join(", ")}</p>
     ${crFightsHtml(day.fights)}
     ${nx?`<div class="crnext"><p><b>Next: the ${esc(nx.label)}</b>${nx.bo>1?" (best of three)":""} against ${crAnd(opp.map(o=>`<b>${esc(o.name)}</b>${o.who?` (${esc(o.who)})`:""}`))}${partner?`, with ${esc(partner.name)} as your partner`:""}.</p>
-      ${rv.map(r=>`<p class="crtalk">“${esc(crTalk(r))}” <small>${esc(r.name)}</small></p>`).join("")}
+      ${rv.map(r=>{const g=opp.length===1&&crGrudge(r.id),m=S.rivals[r.id]||{};return`${g?`<p class="crgrudge"><b>Grudge match</b> · meeting ${crMeets(r.id)+1} · you <span class="readout">${m.w|0}–${m.l|0}</span> · win it for +${RIVAL_STORY.grudgeRep} rep</p>`:""}<p class="crtalk">“${esc(crTalk(r,g))}” <small>${esc(r.name)}</small></p>`;}).join("")}
       <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="watch">Watch it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
       <p class="hint">Watch it or Quick sim: ${esc(crSimWho())} and your crew does the pit work. Watch it plays the fight out; Quick sim jumps to the result. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
 function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${f.esc} speed controller dead`:""].filter(Boolean).join(", ");}
-function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}</small></li>`).join("")}</ul>`;}
+function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}${f.grudge?` · grudge match${f.rep?`, +${f.rep} rep`:""}`:""}</small></li>`).join("")}</ul>`;}
 /* the round robin's table, or the bracket so far */
 function crTable(day){const k=EVENT_KINDS[day.kind],nm=i=>i===0?"<b>You</b>":esc(day.field[i].name);
   if(k.format==="league"){const order=day.field.map((f,i)=>i).sort((a,b)=>day.field[b].pts-day.field[a].pts||day.field[b].diff-day.field[a].diff||a-b);
@@ -554,7 +619,15 @@ function crCalendarCard(){const c=S.career,list=crCalendar().filter(e=>e.week>=c
 function crRivalsCard(){const c=S.career,cls=TIME.acts[c.act].classes;
   return`<div class="card"><h3>Rivals</h3><ul class="crriv">${RIVALS.map(r=>{const m=S.rivals[r.id]||{w:0,l:0},bc=cls.find(x=>r.bots[x])||Object.keys(r.bots)[0];
     return`<li><b>${esc(r.name)}</b> <small>${esc(WORLD.venues[r.from].name)} · ${esc(r.bots[bc].name)} (${esc(SIM.CLASSES[bc].name.toLowerCase())}, ${esc(SIM.part("weapon",crRivalCfg(r,bc).weapon).name.toLowerCase())})</small><br><span class="hint">${esc(r.line)}</span>
-      ${m.w+m.l?`<br><span>You <span class="readout">${m.w}–${m.l}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}</span>`:""}</li>`;}).join("")}</ul></div>`;}
+      ${m.w+m.l?`<br><span>You <span class="readout">${m.w}–${m.l}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}${crGrudge(r.id)?` · <b>next one-on-one is a grudge match</b>`:""}</span>`:""}
+      ${crCtrLine(r,bc)}${crThread(r)}</li>`;}).join("")}</ul></div>`;}
+/* what a rival has fitted against you, and their last messages, newest first (0.1.67) */
+function crCtrLine(r,cls){const m=S.rivals[r.id];if(!m||!Array.isArray(m.ctr)||!m.ctr.length)return"";const base=crRivalCfg(r,cls,true);let cfg=base;const on=[];
+  for(const id of m.ctr){const t=crCounter(cfg,id);if(t.how==="added"){cfg=t.cfg;on.push(RIVAL_STORY.counters[id].name);}}
+  return on.length?`<br><small>Fitted against you: ${esc(crAnd(on))}</small>`:"";}
+function crThread(r){const m=S.rivals[r.id];if(!m||!Array.isArray(m.msgs)||!m.msgs.length)return"";
+  const list=m.msgs.slice(-3).reverse().map(g=>({g,t:crMsgTxt(r,g)})).filter(x=>x.t);if(!list.length)return"";
+  return`<ul class="crmsg">${list.map(({g,t})=>`<li><small class="readout">${g.y} wk ${g.wk}</small> “${esc(t)}”</li>`).join("")}</ul>`;}
 function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
   return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${r.y} wk ${r.w}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
 function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
