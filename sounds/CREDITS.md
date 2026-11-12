@@ -33,7 +33,7 @@ Changes: each clip was trimmed, peak-normalised, given a 40 ms fade-out and enco
 
 ## Voices (`voice/`)
 
-The announcer (Duncan Steiner) and commentator (Jess Moser), 214 lines: voices generated with ElevenLabs (eleven_v4), announcer and commentator, generated November 2026, for Kelbo / Longlight Interactive. The script is Kelbo's (`docs/voice/scrapline_commentary_script_sheet.csv`); the clips were re-encoded to 64 kbps mono MP3 for the page. Listed in `src/sound/voicelines.js` (built by `tools/make-voicelines.js`). Since 0.1.17.2 the game loads the same files from `https://assets.longlight.games/scrapline/voice/` (Longlight's asset host) and falls back to this folder; keep the two in step.
+The announcer (Duncan Steiner) and commentator (Jess Moser), 221 lines (seven added in 0.1.67.1, generated 12 November 2026 the same way: two new rivals' intros and name stingers, three grudge-match calls): voices generated with ElevenLabs (eleven_v4), announcer and commentator, generated November 2026, for Kelbo / Longlight Interactive. The script is Kelbo's (`docs/voice/scrapline_commentary_script_sheet.csv`); the clips were re-encoded to 64 kbps mono MP3 for the page. Listed in `src/sound/voicelines.js` (built by `tools/make-voicelines.js`). Since 0.1.17.2 the game loads the same files from `https://assets.longlight.games/scrapline/voice/` (Longlight's asset host) and falls back to this folder; keep the two in step.
 
 ## sfx/: the effects pack (original)
 

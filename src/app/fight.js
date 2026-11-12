@@ -178,7 +178,8 @@ function ftVoiceBegin(F,again){FT.hold=false;const sk=$("fSkip");if(sk)sk.hidden
     cues.push("venue:"+vc.venue,"event:"+vc.event,opt(vc.venue==="eisenhalle"?"c:tv":"c:intro"),opt("class:"+vc.cls),opt("kind:"+vc.kind));}
   else if(!vc&&!round&&kind!=="duel")cues.push("kind:"+kind);
   if(!round){if(vc&&vc.fmt==="bracket")cues.push(opt("round:"+vc.label));
-    if(kind==="duel"){cues.push("name:you");if(rv&&SCRAP_VOICE.pool("name:rv:"+rv).length)cues.push({opt:"rival:"+rv,alt:"name:rv:"+rv});else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);}}
+    if(kind==="duel"){cues.push("name:you");if(rv&&SCRAP_VOICE.pool("name:rv:"+rv).length)cues.push({opt:"rival:"+rv,alt:"name:rv:"+rv});else if(opp&&SCRAP_VOICE.pool("name:"+opp.name).length)cues.push("name:"+opp.name);
+      if(vc&&vc.grudge)cues.push("grudge");}}   // a grudge match (0.1.67.1): billed after the corners, never left out
   else if(W){if(round===2)cues.push("bo3:decider");}
   else if(B){if(PIT_KITS[B.kit])cues.push("pitclose");if(Object.keys(B.wins).length>=2&&Object.values(B.wins).every(w=>w===1))cues.push("bo3:decider");}
   cues.push("countdown");

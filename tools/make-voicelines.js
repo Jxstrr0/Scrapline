@@ -49,7 +49,7 @@ function mp3Secs(file) {
 }
 
 /* trigger text -> cue. Order matters: the first match wins. */
-const RIVAL_ID = { "Kayla Rauch": "ottilie", "Mitch Gerber": "rudi", "Mira Vogt": "mira", "Anselm Huber": "anselm" };   // RIVALS ids (app/state.js) stay as they were, so saves keep their records
+const RIVAL_ID = { "Kayla Rauch": "ottilie", "Mitch Gerber": "rudi", "Mira Vogt": "mira", "Anselm Huber": "anselm", "Fenna Pohl": "fenna", "Hedda Sauter": "hedda" };   // RIVALS ids (app/state.js) stay as they were, so saves keep their records
 const CUE = [
   [/^event day start: self intro$/, () => "intro"],
   [/venue welcome .*\(venue=(\w+)\)/, m => "venue:" + m[1]],
@@ -57,6 +57,7 @@ const CUE = [
   [/^event kind intro: (club meet|tournament|championship|rumble|tag team)/, m => "kind:" + { "club meet": "club", tournament: "tournament", championship: "champ", rumble: "rumble", "tag team": "tag" }[m[1]]],
   [/^bracket round: (quarter-final|semi-final|final)/, m => "round:" + m[1]],
   [/^rival intro: (.+)$/, m => RIVAL_ID[m[1]] ? "rival:" + RIVAL_ID[m[1]] : null],
+  [/^pool: grudge match intro/, () => "grudge"],
   [/countdown/, () => "countdown"],
   [/^pool: arena pit opens mid-fight/, () => "pitopen"],
   [/^pool: pit window opens/, () => "pitwin"],
