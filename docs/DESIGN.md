@@ -862,3 +862,11 @@ The post-mortem tells a pit-out nobody caused apart from one the other bot force
 - **Plan:** the bot from above, FRONT at the top: the chassis grid, each part as a labelled block where the Layout section has it, each side's armour as a coloured edge (thicker is stronger, dashed is none), and the centre of mass.
 - **Taps:** a part opens its Build section; a side opens Armour with that side picked. Parts are moved in the Layout section, not here.
 - **Cost:** the 3D view draws nothing while Plan shows, on every tier.
+
+## The thwackbot and the drum (0.1.63, oddities part one)
+
+- **Thwackbot tail** (`thwack`, welder, €160 / 6 h). A boom off the back with a steel head (105 mm at beetle scale, scaled with the class). The whole bot spins on the spot and the head hits from a circle round the centre of mass, so it hits from every side. Its inertia is the bot's own; it spins up to 720 rpm. Spun up, it drives like a meltybrain (a heading light, the throttle along it) but slower and less sharply (`FIGHT.thwack`), and it has no sync to lose. Above half speed a wedge can't get under it (`allGuard.thwack` 0.5); it hits low (`up.thwack` 0.15). The boom takes the back slot; a front still fits.
+- **Two-wheel drum** (`cylinder`, lathe, €100 / 6 h). A barrel between one big wheel a side, the wheels at least 1.5 x the body's height (`wheelMul`), so it drives either way up. It turns fast (`scrubMul` 0.45) but is easier to shove sideways (`latMul` 0.7). Standard wheelbase and wheels only.
+- **Opponents:** Peitsche (beetle, Eisenau: a drum with a tail) and Dreschflegel (feather, Grauwald: a box with a tail). 32 named opponents.
+- **Looks:** every tier draws the boom and head, spun with the bot with a blur circle, and the drum's barrel with end caps and one wheel a side.
+- **Balance** (auto, 8 seeds, against the test builds): beetle tail on a drum 53%, on a box 54% (meltybrain 44%, vertical 71%); feather 59 / 65%; heavy 55 / 51%. Between the meltybrain and the vertical disc, on purpose.

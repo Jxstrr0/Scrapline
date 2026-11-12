@@ -43,7 +43,7 @@ for (const slot in NEED) {
     for (const k of ["id", "name", "unlock"]) if (typeof p[k] !== "string") fail(`PARTS.${slot}.${p.id} has no ${k}`);
     if (!/^(start|tool:[a-z]+|rnd:[a-z]+)$/.test(p.unlock || "")) fail(`PARTS.${slot}.${p.id} unlock "${p.unlock}"`);
     for (const k of ["cost", "hours"].concat(NEED[slot])) if (!Number.isFinite(p[k])) fail(`PARTS.${slot}.${p.id}.${k} is not a number`);
-    if (p.type === "spinner" || p.type === "saw") for (const k of ["discMass", p.bodyR ? "bodyR" : "radius", "rpmMax", "shapeK", "bite", "recoil"]) if (!Number.isFinite(p[k])) fail(`PARTS.weapon.${p.id}.${k}`);
+    if (p.type === "spinner" || p.type === "saw") for (const k of ["discMass", p.bodyR ? "bodyR" : p.boomMm ? "boomMm" : "radius", "rpmMax", "shapeK", "bite", "recoil"]) if (!Number.isFinite(p[k])) fail(`PARTS.weapon.${p.id}.${k}`);
   }
 }
 
@@ -188,7 +188,7 @@ for (const cls of SIM.CLASS_IDS) {
 /* ---- 0.1.15.3: the weapon bay (b.bay) and an open bay as a weak spot ---- */
 {
   const KIND = { vsp: "slot", drisk: "slot", saw: "slot", drum: "pocket", beater: "pocket", hsp: "well", under: "underwell", hammer: "deck", flipper: "deck", flipper2: "deck",
-    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none" }, eps = 1e-9;
+    lifter: "deck", grabber: "deck", crusher: "deck", wedge: "none", none: "none", shell: "none", ring: "none", melty: "none", thwack: "none" }, eps = 1e-9;
   for (const cls of SIM.CLASS_IDS) for (const w of SIM.PARTS.weapon) {
     const b = SIM.evalBuild(Object.assign({}, SIM.DEFAULT_CFG, { cls, weapon: w.id, disc: null })), y = b.bay, lbl = `${cls}/${w.id}`;
     if (!y) { fail(`${lbl}: no bay`); continue; }
@@ -453,6 +453,41 @@ for (const cls of SIM.CLASS_IDS) {
   if (again.hits !== one.hits || again.best !== one.best) fail("the same fights with the same dial should come out the same");
   if (one.hits === five.hits && one.best === five.best) fail("the Tooth count dial changed nothing in a fight");
   console.log(`0.1.48 checks: tooth count ${row.join("; ")}. Six fights against the brick: one tooth ${one.hits} hits (${one.best.toFixed(0)} J dealt), five teeth ${five.hits} hits (${five.best.toFixed(0)} J dealt)`);
+}
+
+/* 0.1.63: the thwackbot tail and the two-wheel drum */
+{
+  const T = (id) => Object.assign({}, SIM.TEST_BUILDS.find((t) => t.id === id).cfg, { cls: "beetle" });
+  const tail = Object.assign({}, SIM.DEFAULT_CFG, { weapon: "thwack", weaponMaterial: "steel", front: "none", back: "none" }), drum = Object.assign({}, tail, { body: "cylinder" });
+  for (const cls of SIM.CLASS_IDS) {
+    const b = SIM.evalBuild(Object.assign({}, tail, { cls })), w = b.weapon;
+    if (!b.valid) fail(`${cls} tail: ${b.errors.join("; ")}`);
+    if (!w.thwack || w.melty || w.allRound) fail(`${cls} tail: flags thwack ${w.thwack}, melty ${w.melty}, allRound ${w.allRound}`);
+    if (Math.abs(w.mountM[0] - b.com.x) > 1e-9 || Math.abs(w.mountM[1] - b.com.y) > 1e-9) fail(`${cls} tail: it should spin about the centre of mass`);
+    if (!(w.radiusM > b.lengthM / 2 + w.boomM + b.com.y - 1e-6)) fail(`${cls} tail: its reach ${w.radiusM} m stops short of its head`);
+    if (!(w.storedJ > 0 && w.spinUpS > 0 && w.spinUpS < 4)) fail(`${cls} tail: ${w.storedJ} J, spin-up ${w.spinUpS} s`);
+  }
+  const bk = SIM.evalBuild(Object.assign({}, tail, { back: "rearwedge" }));
+  if (bk.valid || !bk.errors.some((e) => /boom takes the back/.test(e))) fail("a tail with a rear wedge should be refused");
+  const fr = SIM.evalBuild(Object.assign({}, tail, { front: "plow" }));
+  if (!fr.valid) fail(`a tail with a plow should be fine: ${fr.errors.join("; ")}`);
+  for (const k of [{ wheelbase: "six" }, { wheels: "tracks" }]) { const r = SIM.evalBuild(Object.assign({}, drum, k));
+    if (r.valid || !r.errors.some((e) => /two-wheel drum/i.test(e))) fail(`a drum with ${JSON.stringify(k)} should be refused`); }
+  const db = SIM.evalBuild(drum), pb = SIM.evalBuild(tail);
+  if (!db.valid) fail(`the drum: ${db.errors.join("; ")}`);
+  if (!db.height.drivesInverted) fail("a two-wheel drum should drive either way up");
+  if (!(db.turnRate > pb.turnRate)) fail(`a two-wheel drum should turn faster: ${db.turnRate} vs ${pb.turnRate}`);
+  if (!(db.wheelRadiusMm > pb.wheelRadiusMm)) fail("a two-wheel drum's wheels should be bigger");
+  /* fights replay the same; a spun-up tail holds still (no yaw of its own) while it hits */
+  const fight = (a, b, seed) => SIM.runFight({ seed, arena: "clubbox", bots: [{ cfg: a, driver: { style: "auto", skill: 0.8 } }, { cfg: b, driver: { style: "auto", skill: 0.8 } }] });
+  let hits = 0;
+  for (let s = 1; s <= 4; s++) for (const b of [T("vsp"), T("wedge")]) {
+    const r = fight(Object.assign({}, drum, { cls: "beetle" }), b, s), rp = SIM.replayFight(JSON.parse(JSON.stringify(r.log)));
+    if (!rp || rp.winner !== r.winner || rp.timeS !== r.timeS) fail(`seed ${s}: a 0.1.63 fight replays differently`);
+    hits += r.bots[0].stats.hits;
+  }
+  if (!hits) fail("a tail should land hits in eight fights");
+  console.log(`0.1.63 checks: the tail spins about the centre of mass in every class (beetle ${pb.weapon.storedJ.toFixed(0)} J, reach ${(pb.weapon.radiusM * 1000).toFixed(0)} mm), the drum turns ${db.turnRate.toFixed(0)} vs ${pb.turnRate.toFixed(0)} and drives either way up; ${hits} tail hits in 8 fights; replays match`);
 }
 
 if (fails) { console.log(`\n${fails} failed`); process.exit(1); }

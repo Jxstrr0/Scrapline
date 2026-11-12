@@ -56,8 +56,11 @@ function buildBot(b,team,sp,liv){
   SURF.tile=lite?0:0.09*len;
   const wp=(typeof SCRAP_SIM!=="undefined"&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},   /* SCRAP_SIM is a top-level const, so it is not on window (0.1.41: this lookup never found it, and tracks were drawn as wheels) */
     ws=b.wheelRadiusMm>0&&wp.radiusMm?b.wheelRadiusMm/(wp.radiusMm*len):1,   // the wheel-size dial (0.1.33): evalBuild's radius over the stock one
-    wr=Math.min(H*0.55*ws,(wp.radiusMm||28)/1000*len*ws),ww=Math.max(0.006*len,wr*(wp.tracks&&!lite?1.1:0.55));   // a track is twice a tyre's width (Lite keeps its thin box)
-  const wheels=b.parts.filter(p=>/^wheel\d/.test(p.key)),wl=b.wheelbase||{id:"std"};   // evalBuild's wheel layout (vis never reads SCRAP_SIM's tables for it)
+    wr=body==="cylinder"&&b.wheelRadiusMm>0?b.wheelRadiusMm/1000:Math.min(H*0.55*ws,(wp.radiusMm||28)/1000*len*ws),ww=Math.max(0.006*len,wr*(wp.tracks&&!lite?1.1:0.55));   // a track is twice a tyre's width (Lite keeps its thin box)
+  /* (a two-wheel drum's wheels, 0.1.63, are evalBuild's own radius: they stand taller than it) */
+  const wheels0=b.parts.filter(p=>/^wheel\d/.test(p.key)),wl=b.wheelbase||{id:"std"};   // evalBuild's wheel layout (vis never reads SCRAP_SIM's tables for it)
+  /* 0.1.63, the two-wheel drum: one big wheel a side at the middle. The sim keeps a wheel part per pod; the first on each side carries the drawn wheel */
+  const drum=body==="cylinder",wheels=drum?[-1,1].map(s=>{const p=wheels0.find(q=>(q.pos[0]<0?-1:1)===s);return p?Object.assign({},p,{pos:[p.pos[0],0]}):null;}).filter(Boolean):wheels0;
   const D=lite?null:botDetail(),allRound=["shell","ring","melty"].indexOf(b.weapon.id)>=0;   // the Blender detail parts (models/bot-detail.glb, 0.1.41)
   const bolts=[],bolt=(host,n,x,y,z,r,ax)=>{if(D&&host)bolts.push({host,n,x,y,z,r,ax});};   // fasteners, merged into one mesh per plate at the end   /* the surfaces' grain: one tile every 9 cm at beetle scale (vis/surface.js; 0 skips the projection) */
   /* the weapon bay (0.1.15.3): evalBuild's b.bay. A slot, pocket or well is cut out of the chassis, its front plate and
@@ -130,6 +133,11 @@ function buildBot(b,team,sp,liv){
     if(raisedCut){add(domeGeo(a,c,dh,reg,cx,cy,lite?18:36),topMat,0,0,0,topKey);sleeve(g,reg,cx,cy,L,dh,H,p=>(p[0]/a)*(p[0]/a)+(p[1]/c)*(p[1]/c)<0.995,topMat,topKey);}
     else{const dg=new THREE.SphereGeometry(0.5,lite?14:28,lite?5:10,0,Math.PI*2,0,Math.PI/2);dg.scale(Wd*1.02,bodyH*1.6,L*1.0);
       add(dg,topMat,-cx,Hc,cy,topKey);}}
+  else if(drum){   /* 0.1.63, the two-wheel drum: a barrel over the box between the wheels, its top and both ends one curve that hits glance off */
+    const s=bodyH*0.6,Rb=(L*L/4+s*s)/(2*s),ang=2*Math.asin(Math.min(1,L*0.5/Rb)),bw=Math.max(Wd*0.4,Wd-2*(ww+0.003*len)),n=lite?14:32;
+    const bg=new THREE.CylinderGeometry(Rb,Rb,bw,n,1,true,Math.PI/2-ang/2,ang);bg.rotateZ(Math.PI/2);add(bg,topMat,-cx,H+s-Rb,cy,topKey);
+    const sh=new THREE.Shape();for(let i=0;i<=n;i++){const a=-ang/2+ang*i/n,u=Rb*Math.sin(a),v=Rb*Math.cos(a)-(Rb-s);if(i)sh.lineTo(u,v);else sh.moveTo(u,v);}sh.closePath();
+    for(const sg of [-1,1]){const cg=new THREE.ShapeGeometry(sh);cg.rotateY(sg*Math.PI/2);add(cg,topMat,sg*bw/2-cx,H,cy,topKey);}}
   else if(th("top")||body==="invert"){const fw=Wd*(body==="pancake"?1.04:0.98),fl=L*(body==="pancake"?1.02:0.98);topBolts(flat(fw,fl,H,topMat,topKey,topCut),fw,fl,H+tt);}
   if(body==="invert"&&!S)flat(Wd*0.98,L*0.98,clr-tt,topMat,"chassis",!!reg&&bay.openBelow&&(bk==="slot"||bk==="pocket"||bk==="underwell"));   /* the same plate underneath */
   if(deck){const R=bay.rect;add(new THREE.BoxGeometry(R[2]-R[0],tt,R[3]-R[1]),topMat,(R[0]+R[2])/2-cx,boxTop+tt/2,cy-(R[1]+R[3])/2,topKey);}
@@ -152,7 +160,7 @@ function buildBot(b,team,sp,liv){
   const slab=(w,l,x,y,mat,up)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.0015*len,l),mat);m.position.set(x-cx,H+lid+up,cy-y);
     if(body==="wedge"){m.position.y=H-drop/2-y*Math.tan(wtl)+wt+up;m.rotation.x=-wtl;}g.add(m);return m;};
   let drape=null;
-  if(dome&&deco){g.updateMatrixWorld(true);const tops=[];g.traverse(o=>{if(o.isMesh&&o.userData.part===topKey)tops.push(o);});
+  if((dome||drum)&&deco){g.updateMatrixWorld(true);const tops=[];g.traverse(o=>{if(o.isMesh&&o.userData.part===topKey)tops.push(o);});
     const rc=new THREE.Raycaster(),dn=new THREE.Vector3(0,-1,0),o3=new THREE.Vector3();
     const hAt=(x,y)=>{o3.set(x-cx,H+bodyH*3,cy-y);rc.set(o3,dn);const h=rc.intersectObjects(tops,false);return h.length?h[0].point.y:H;};
     /* the same decal as a grid laid on the dome: each corner of the grid is dropped onto the shell (turn: the badge, which reads from the front) */
@@ -213,7 +221,7 @@ function buildBot(b,team,sp,liv){
      material covers the part that shows, like a mudguard. Not for tracks or legs, under a slab's skirts, in a scrap frame
      (its wheels stand bare between the rails), for swerve pods or under an all-round weapon */
   const guards=[];
-  if(!wp.tracks&&!wl.legs&&wl.id!=="swerve"&&body!=="slab"&&body!=="scrap"&&!allRound)for(const p of wheels){const q=P(p.pos[0],p.pos[1]),sd=p.pos[0]<0?"left":"right";
+  if(!wp.tracks&&!wl.legs&&wl.id!=="swerve"&&body!=="slab"&&body!=="scrap"&&!drum&&!allRound)for(const p of wheels){const q=P(p.pos[0],p.pos[1]),sd=p.pos[0]<0?"left":"right";
     const hs=body==="wedge"?H-drop/2-p.pos[1]*Math.tan(wtl)+wt:body==="dome"?boxTop:H+lid;if(2*wr-hs<0.003*len)continue;
     const R=wr*1.13,ri=wr*1.04,w=ww+0.003*len,a0=Math.asin(Math.max(-0.45,Math.min(0.9,(hs-0.001*len-wr)/R))),a1=Math.PI-a0,sh=new THREE.Shape();
     sh.absarc(0,0,R,a0,a1,false);sh.absarc(0,0,ri,a1,a0,true);sh.closePath();
@@ -229,7 +237,7 @@ function buildBot(b,team,sp,liv){
   /* the deck fittings (0.1.41, Full / Ultra): the power light, lit in the team's colour (app/arena puts it out with the bot),
      and the removable link, either side of the stripe behind the middle. On a flat top or a wedge's slope; not on a dome,
      under an all-round weapon or where a bay opens */
-  if(D&&!allRound&&body!=="dome"){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=spOn?Math.max(-0.17*L,-(spz-spd/2)*L+0.075*L):-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
+  if(D&&!allRound&&body!=="dome"&&!drum){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=spOn?Math.max(-0.17*L,-(spz-spd/2)*L+0.075*L):-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
     const free=x=>!(reg&&raisedCut&&rectHitsPoly(x-r*2.2,yf-r*2.2,x+r*2.2,yf+r*2.2,reg))&&!guards.some(q=>Math.abs(q[0]-x)<q[2]+r*2.2&&Math.abs(q[1]-yf)<q[3]+r*2.2);
     const fit=x=>{const G=new THREE.Group();G.position.set(x-cx,fy,cy-yf);G.rotation.x=-tl;g.add(G);return G;};
     if(free(-0.34*Wd)){const G=fit(-0.34*Wd),col=new THREE.Color(liv?parseInt(String(liv.main).slice(1),16)||0x888888:BOT_TEAM[team%BOT_TEAM.length]).convertSRGBToLinear();
@@ -240,8 +248,8 @@ function buildBot(b,team,sp,liv){
   boltMeshes(g,D,bolts);
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
-  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,crown:body==="dome"?H+bodyH*0.52:H+lid,wellD:bk==="well"||bk==="underwell"?dep:0,
-    lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:body==="wedge"?-drop/2:th("top")?tt:0});
+  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,crown:body==="dome"?H+bodyH*0.52:drum?H+bodyH*0.6:H+lid,wellD:bk==="well"||bk==="underwell"?dep:0,
+    lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:drum?bodyH*0.6:body==="wedge"?-drop/2:th("top")?tt:0});
   buildAttach(g,b,{P,add,Wd,L,hw,hl,clr,bh,bodyH,boxTop,len,seg,front,back,lite});
   if(!lite){g.updateMatrixWorld(true);g.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;
     if(o.material!==M.disc&&o.userData.role!=="blur"&&o.userData.role!=="decal")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
@@ -531,6 +539,18 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
   const barsX=(grp,R,n,wx,ty,tz,m)=>{for(let i=0;i<n;i++){const a=i*2*Math.PI/n,t=new THREE.Mesh(new THREE.BoxGeometry(wx,ty,tz),m||M.steel);
     t.position.set(0,Math.cos(a)*R,Math.sin(a)*R);t.rotation.x=a;t.userData.part="weapon";grp.add(t);}};
   if(T==="spinner"||T==="saw"){const spin=new THREE.Group();spin.userData.role="spin";
+    /* 0.1.63, the thwackbot tail: a boom off the back with a steel head on the end. The whole bot spins about its centre of
+       mass (app/arena turns the mesh, as for a meltybrain), so the "spin" is only the blur round it */
+    if(w.thwack){const y=clr+bodyH*0.45,bt=Math.max(0.004*len,bodyH*0.16),bwd=Math.max(0.006*len,0.03*len),y0=-hl,y1=-hl-(w.boomM||0.1*len),hr=0.022*len;
+      const bm=P(0,(y0+y1)/2),hd=P(0,y1+hr*0.4),c=P(w.mountM[0],w.mountM[1]);
+      add(new THREE.BoxGeometry(bwd*1.8,bodyH*0.5,0.012*len),M.steel,bm[0],y,P(0,y0)[1],"weapon");   /* the bracket on the back face */
+      add(new THREE.BoxGeometry(bwd,bt,y0-y1),M.alu,bm[0],y,bm[1],"weapon");   /* the boom */
+      const hg=new THREE.CylinderGeometry(hr,hr,Math.max(bt*2.6,bodyH*0.7),V.tier==="lite"?10:18);add(hg,mat,hd[0],y,hd[1],"weapon");   /* the head */
+      for(const sx of [-1,1])add(new THREE.BoxGeometry(hr*0.9,bt*1.4,hr*0.5),M.steel,hd[0]+sx*hr*1.15,y,hd[1],"weapon");   /* a tooth each side */
+      g.add(spin);spin.position.set(c[0],y,c[1]);g.userData.melty=true;
+      const blur=new THREE.Mesh(new THREE.CircleGeometry(r,seg),M.blur.clone());blur.userData.role="blur";blur.userData.own=true;blur.rotation.x=-Math.PI/2;
+      blur.position.set(c[0],y+bt,c[1]);g.add(blur);
+      return;}
     /* 0.1.34, the odd ones: all round the bot, at its middle. Full / Ultra: the Blender pieces (models/bot-odd.glb) */
     if(w.allRound){const Od=V.tier!=="lite"?botOdd():null,c=P(0,0),op=(name,m,y,sx,sy,sz)=>Od?shellAdd(spin,Od,name,m,"weapon",0,y,0,sx,sy,sz):null;
       if(id==="shell"){   /* a dome over the whole body, from just off the floor to above the lid, with two teeth on its rim */

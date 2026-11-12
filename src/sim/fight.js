@@ -35,7 +35,7 @@ const WEDGE_RULES={
   underBiteBy:{vsp:0.9,drum:0.75,beater:0.8,drisk:0.85},   // ... except a vertical disc, which still bites the wedge it's sitting on
   discGuard:{vsp:0.5,drum:0.6,beater:0.6,drisk:0.55},   // a vertical disc or drum spinning above this share of full speed meets a wedge first:
                     // nothing gets under its front, and the disc bites the wedge's lip instead (plan 8e: vertical beats wedge)
-  allGuard:{shell:0.35,ring:0.5,melty:0.35},   // 0.1.34: a shell, ring or meltybrain spinning above this share guards every face
+  allGuard:{shell:0.35,ring:0.5,melty:0.35,thwack:0.5},   // 0.1.34: a shell, ring or meltybrain (0.1.63: or a thwackbot) spinning above this share guards every face
   holdS:0.25,       // it stays lifted this long after the contact ends
   liftMm:12         // how high it rides up the wedge (beetle scale, x len), for the views
 };
@@ -72,7 +72,7 @@ const FIGHT={
                               // same 0.37 m, a third of a heavyweight's length; now about one body length in every class above a beetle (x 3 in
                               // a heavyweight). The sideways throw is as it was: scaled too, an undercutter won 78% of its featherweight fights
   recoilShare:0.5,            // the attacker takes this x the throw impulse x the weapon's recoil, the other way
-  up:{hsp:0,vsp:0.6,drum:0.5,beater:0.5,drisk:0.55,under:0.3,saw:0,shell:0.1,ring:0.05,melty:0},   // share of a spinner's throw that goes upward
+  up:{hsp:0,vsp:0.6,drum:0.5,beater:0.5,drisk:0.55,under:0.3,saw:0,shell:0.1,ring:0.05,melty:0,thwack:0.15},   // share of a spinner's throw that goes upward
   flipDmg:0.15,               // a flipper's arm hit: this x launchJ x bite in damage
   flipFwd:1,                  // m/s forward a flipped bot carries (x sqrt len)
   flipThrow:{ant:1.6,beetle:1.8,hobby:1.8},   // 0.1.17.5: a flipper's own flip throws this much further again (m/s, x sqrt len), in the
@@ -116,7 +116,7 @@ const FIGHT={
      top of what it lands on */
   zone:{hsp:{circle:1},vsp:{w:0.7},drum:{w:1},beater:{w:0.9},drisk:{w:0.65},under:{w:0.8},saw:{w:0.4,top:1},flipper:{w:1},lifter:{w:1},
     hammer:{w:0.7,reach:0.3,top:1},crusher:{w:1,reach:0.25,top:1},grabber:{w:1},
-    shell:{circle:1},ring:{circle:1},melty:{circle:1}},   // 0.1.34: the all-round ones, a circle round the middle (mountM [0, 0])
+    shell:{circle:1},ring:{circle:1},melty:{circle:1},thwack:{circle:1}},   // 0.1.34: the all-round ones, a circle round the middle (mountM [0, 0]); 0.1.63: a thwackbot's round its centre of mass
   /* 0.1.32: a kicker (the back-up flipper, b.back.kick) works a box behind the back face, kickW x the width; it throws
      backwards and kickFwd m/s (x sqrt len) further. A grabber's clamp does grabJ (x mass) to what it closes on, and it
      carries what it holds at its front: the pair drive as one, at the grabber's push over both their masses */
@@ -126,7 +126,10 @@ const FIGHT={
      at speed x top speed, picking up speed at accel x grip x g and holding its line sideways with lat x the usual grip;
      a hit of syncJ (x mass) or more knocks it out of sync for syncS, when its heading wanders by up to wobble rad/s */
   slick:{shell:0.35,melty:0.35},
-  melty:{turn:3.5,speed:0.7,accel:0.45,lat:0.4,syncJ:6,syncS:1.4,wobble:9}
+  melty:{turn:3.5,speed:0.7,accel:0.45,lat:0.4,syncJ:6,syncS:1.4,wobble:9},
+  /* 0.1.63: a thwackbot spun up drives the same way, its tail sweeping round, only slower and less sharply: a long boom
+     swinging round makes a poor platform (and there is no sync to lose: it never had one) */
+  thwack:{turn:2.5,speed:0.45,accel:0.35,lat:0.5}
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
@@ -447,7 +450,7 @@ function stepDrive(F,o){const dt=F.dt,b=o.b,d=b.drive,f=o.fx,g=K.g,u=o.release>F
   /* a meltybrain spun up (0.1.34): the whole bot is the weapon, so it can't skid-steer; it drives by pulsing its wheels once
      a turn. Its heading is the light the driver steers by: steer turns it at FIGHT.melty.turn, the throttle drives along
      it. Out of sync (a hard hit) the heading wanders */
-  if(b.weapon.melty&&b.weapon.omega>0&&o.wp.om>=FIGHT.minSpin*b.weapon.omega){const Mt=FIGHT.melty;o.w=0;o.cmd=[0,0];
+  if((b.weapon.melty||b.weapon.thwack)&&b.weapon.omega>0&&o.wp.om>=FIGHT.minSpin*b.weapon.omega){const Mt=b.weapon.thwack?FIGHT.thwack:FIGHT.melty;o.w=0;o.cmd=[0,0];
     if(go){o.h=wrapA(o.h-clamp1(u.steer)*Mt.turn*dt);if(o.desync>F.t)o.h=wrapA(o.h+(2*F.rng()-1)*Mt.wobble*dt);}
     const vt=go?clamp1(u.throttle)*v0*Mt.speed:0,am=Mt.accel*b.grip*g*gripMul*dt,dv=Math.max(-am,Math.min(am,vt-vF));o.vx+=fw[0]*dv;o.vy+=fw[1]*dv;
     const vL=o.vx*rt[0]+o.vy*rt[1],lt=Math.min(Math.abs(vL),FIGHT.latGrip*Mt.lat*b.grip*g*gripMul*dt);o.vx-=rt[0]*Math.sign(vL)*lt;o.vy-=rt[1]*Math.sign(vL)*lt;

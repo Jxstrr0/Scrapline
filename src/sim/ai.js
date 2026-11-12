@@ -249,7 +249,7 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   /* keep out of an open pit, and off a shut one from AI_NAV.pitSoonS before it opens: look ahead along the way it's going
      (at least its stopping distance);
      over the edge, drive off it along aiPitOut, by whichever end of the bot points that way */
-  const P=P0;if(P){const r=P.rect,sp0=Math.hypot(o.vx,o.vy),brake=(w.melty?FIGHT.melty.accel:1)*o.b.grip*K.g,
+  const P=P0;if(P){const r=P.rect,sp0=Math.hypot(o.vx,o.vy),brake=(w.melty?FIGHT.melty.accel:w.thwack?FIGHT.thwack.accel:1)*o.b.grip*K.g,
       la=carry?0.05:Math.max(aiLerp(AI_SKILL.pitLook,sk),sp0/(2*Math.max(brake,0.1))),   // 0.1.35: at least as far as it takes to stop (a meltybrain brakes softly)
       fx=Math.cos(o.h),fy=Math.sin(o.h),dir=out.throttle>=0?1:-1,
       ah=o.rad*(carry?0.3:0.8),qx=o.x+o.vx*la+fx*dir*ah,qy=o.y+o.vy*la+fy*dir*ah,e=o.rad*0.4;

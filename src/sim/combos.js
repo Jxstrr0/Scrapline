@@ -13,7 +13,7 @@ const FACE_NAME={front:"Front",back:"Rear",left:"Left",right:"Right",top:"Top"};
 const PART_NAME={drive:"drive pods",battery:"battery",electronics:"speed controllers",weapon:"weapon",extras:"extras",wheels:"wheels"};
 const n0=v=>String(Math.round(v)),n1=v=>(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,"");
 /* what a spinner's working part is called when it isn't a disc (0.1.48.2) */
-const SPIN_NOUN={drum:"drum",beater:"frame",shell:"shell",ring:"ring",melty:"body",saw:"blade"};
+const SPIN_NOUN={drum:"drum",beater:"frame",shell:"shell",ring:"ring",melty:"body",thwack:"tail",saw:"blade"};
 const gOrKg=g=>g>=1000?n1(g/1000)+" kg":n0(g)+" g";
 /* parts whose cells touch a face's edge row or column */
 function partsOnFace(b,f){const c=CLASSES[b.cls],out=new Set();

@@ -1,6 +1,6 @@
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
-   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
+   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
    bots too), growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -61,6 +61,10 @@ const OPPONENTS=[
   {id:"schneebesen",name:"Schneebesen",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.55},
     line:"The baker's whisk, cut from one billet on a borrowed mill. Up to speed before you've turned round, and it folds if you hit it back.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"beater",weaponMaterial:"steel",extras:[]}},
+  /* 0.1.63: the thwackbot tail and the two-wheel drum */
+  {id:"peitsche",name:"Peitsche",cls:"beetle",from:"eisenau",driver:{style:"aggressive",skill:0.55},
+    line:"A drum on two wheels with a tail off the back. Stands still and spins, and the end of the tail arrives before you see it move.",
+    cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"steel",body:"cylinder",extras:[]}},
   {id:"schwungrad",name:"Schwungrad",cls:"feather",from:"eisenau",driver:{style:"keepaway",skill:0.7},
     line:"A flywheel off a harbour winch, narrowed until it fits. Turns like a loaded barge and hits like the quay wall.",
     cfg:{chassis:"hdpe",armour:{front:"steel",back:"hdpe6",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"drisk",weaponMaterial:"s7",extras:[]}},
@@ -76,6 +80,9 @@ const OPPONENTS=[
   {id:"drehscheibe",name:"Drehscheibe",cls:"feather",from:"grauwald",driver:{style:"aggressive",skill:0.7},
     line:"Named after the engine shed's turntable, and it has the same view on visitors: everything that comes aboard gets turned round.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"shell",weaponMaterial:"s7",extras:[]}},
+  {id:"dreschflegel",name:"Dreschflegel",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.65},
+    line:"A farmer's flail on a plywood box, rebuilt in steel by the engine shed's night crew. Waits for you to come in, then swings.",
+    cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"s7",extras:[]}},
   {id:"schneepflug",name:"Schneepflug",cls:"feather",from:"stahl",driver:{style:"boxrush",skill:0.7},
     line:"Clears the road. Plow at the front, six wheels in the middle and a flipper at the back for anyone who thought behind was safe.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"failsafe",weapon:"none",weaponMaterial:"steel",front:"plow",back:"kicker",extras:["skid"]}},
