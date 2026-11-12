@@ -960,7 +960,15 @@ const PARTS={
        side (every pod drives it), so it turns on the spot easily (scrubMul) and slides when it is shoved (latMul) */
     {id:"cylinder",name:"Two-wheel drum",massMul:1.15,hpMul:1, flexAdd:0,   heightMul:1.1, edgeMm:0,   deflect:{front:0.15,back:0.15,top:0.25},cost:100,hours:6,unlock:"tool:lathe",
       inverts:true,twoWheel:true,wheelMul:1.5,scrubMul:0.45,latMul:0.7,
-      line:"A drum between two big wheels. It drives either way up and hits glance off its curve, but two wheels turn on a coin and shove easily."}
+      line:"A drum between two big wheels. It drives either way up and hits glance off its curve, but two wheels turn on a coin and shove easily."},
+    /* 0.1.66, the saucer (Kelbo: round, low, glancing): a low round disc pressed from sheet. round: it loses the four corner
+       cells' room and its outline is an octagon (the corners cut roundCut x a cell), so pushes slide off it (FIGHT.saucer.mu);
+       gripMul: its drive pushes with that much of its grip, so it shoves poorly; rimMm: its rim meets the floor this low
+       (beetle mm, x edge) on every face, so only the sharpest edge gets under it, and a lifter's, a flipper's or a grabber's
+       lip slips off it now and then (FIGHT.saucer.slipP). It is pressed whole, so its lost corners save no weight */
+    {id:"saucer", name:"Saucer",       massMul:1.3,hpMul:1, flexAdd:0,   heightMul:0.75,edgeMm:0,   deflect:{front:0.05,back:0.05,left:0.05,right:0.05,top:0.15},cost:110,hours:6,unlock:"tool:press",
+      inverts:true,round:true,rimMm:1.1,gripMul:0.5,roundCut:0.4,
+      line:"A low round disc. Hits glance off every side and its rim hugs the floor, so it's hard to get under, and it drives either way up. The rounded corners cost room inside, and it shoves poorly."}
   ],
   /* per face. Mass is worked out from the face's area x thickMm x density (g/cm3), so it follows the chassis. absorbPerG and
      hpPerG are J per gram of plate: absorb is eaten before any damage, hp is what the plate takes before it is gone.
@@ -1061,7 +1069,11 @@ const PARTS={
      doesn't right the bot; it fires either way up, and a front fits either side of it.
      Clamp and lift (0.1.65, Kelbo): a grabber (type grabber, clamp true) whose arm raises the whole bot clear, liftMm up,
      on a geared motor like the lifter. Clear of the floor it can't wriggle free; it is carried for up to the league's hold
-     limit (FIGHT.holdMaxS), and letting go drops it from the top of the lift, which may land it upside down (FIGHT.clamp). */
+     limit (FIGHT.holdMaxS), and letting go drops it from the top of the lift, which may land it upside down (FIGHT.clamp).
+     Flamethrower (0.1.66, Kelbo: heat, scorch, judges): a gas tank and a nozzle, an R&D project. Held, it burns a cone
+     reachMm past the front for fuelS seconds in all: what it burns heats heatFrac of its drive's and weapon's heat budgets
+     a second (keep it there and its motors derate), takes burnJps (x mass) through its plate a second, and the judges count
+     the time as aggression (FIGHT.flame). It does no knockout damage on its own; it fires either way up. */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -1083,6 +1095,7 @@ const PARTS={
     {id:"melty",  name:"Meltybrain",          type:"spinner",fp:null, mount:"front",massG:30, motorMassG:0,  powerW:200,heatW:0, edgeMm:null,hp:70, cost:300,hours:8,unlock:"rnd:melty",discMass:60,bodyR:1.05,rpmMax:1400, shapeK:1.0, bite:0.5, recoil:1.3,bodyK:0.33,inverts:true},
     {id:"thwack", name:"Thwackbot tail",      type:"spinner",fp:null, mount:"back", massG:70, motorMassG:0,  powerW:220,heatW:0, edgeMm:null,hp:90, cost:160,hours:6,unlock:"tool:welder",discMass:130,boomMm:105,rpmMax:720, shapeK:1.0, bite:0.7, recoil:1.2},
     {id:"spear",  name:"Piston spear",        type:"spear",  fp:[1,3],mount:"front",massG:150,motorMassG:160,powerW:10, heatW:0, edgeMm:null,hp:70, cost:200,hours:6,unlock:"tool:drillpress",shots:20,forceN:400,strokeMm:55,rechargeS:0.7},
+    {id:"flame",  name:"Flamethrower",        type:"flame",  fp:[1,2],mount:"front",massG:120,motorMassG:130,powerW:10, heatW:0, edgeMm:null,hp:55, cost:220,hours:6,unlock:"rnd:flame",fuelS:14,reachMm:75,heatFrac:0.22,burnJps:1},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
   ],
   /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends
@@ -1109,7 +1122,12 @@ const PARTS={
     {id:"plow",     name:"Plow",         massG:115,hp:75,cost:40,hours:2,  unlock:"tool:welder",edgeMm:1.5,slope:0.5,absorbJ:6, ramMul:1,  underGrip:0,
       line:"A wide curved scoop. Heavy, but a horizontal spinner skates off it and it soaks a hit."},
     {id:"spike",    name:"Ram spike",    massG:50,hp:60,cost:25,hours:1,  unlock:"start",edgeMm:null,slope:0,   absorbJ:0, ramMul:2.5,underGrip:0,
-      line:"A hardened point on the front. Every ram hurts more; no help getting under."}
+      line:"A hardened point on the front. Every ram hurts more; no help getting under."},
+    /* 0.1.66: a small flame nozzle on the front with its own little tank. It lights on the weapon button only with a bot
+       in front of it (like the kicker), shorter and cooler than the flamethrower (flame: fuelS, reachMm, heatFrac, burnJps) */
+    {id:"nozzle",   name:"Flame nozzle", massG:75,hp:30,cost:120,hours:3,  unlock:"rnd:flame",edgeMm:null,slope:0,   absorbJ:0, ramMul:1,  underGrip:0,
+      flame:{fuelS:6,reachMm:45,heatFrac:0.15,burnJps:0.7},
+      line:"A little burner on the front, on its own tank. It lights when you press the weapon with a bot in front: heats its motors and the judges like it."}
   ],
   /* back (0.1.32): the rear. edgeMm a low rear edge that gets under like a front one (null: the clearance), ramMul and
      absorbJ as the front's, on the back face. A kicker is a small pneumatic flipper facing backwards: it fires with the
@@ -1231,9 +1249,11 @@ function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;
 
 /* ---- the chassis grid ---- */
 /* cells that exist on this chassis: a box has them all; the custom shape cuts the front corners */
-function cellOn(cls,chassisId,x,y){const c=CLASSES[cls],ch=part("chassis",chassisId)||PARTS.chassis[0];
+function cellOn(cls,chassisId,x,y,bodyId){const c=CLASSES[cls],ch=part("chassis",chassisId)||PARTS.chassis[0];
   if(x<0||y<0||x>=c.gridW||y>=c.gridH)return false;
   if(ch.shape==="wedge"&&y<c.fp&&(x<c.fp||x>=c.gridW-c.fp))return false;
+  /* 0.1.66: a round body (the saucer) loses all four corner cells (c.fp across, a heavyweight's two) */
+  const bd=bodyId&&part("body",bodyId);if(bd&&bd.round&&(y<c.fp||y>=c.gridH-c.fp)&&(x<c.fp||x>=c.gridW-c.fp))return false;
   return true;}
 /* the parts that take cells, in placing order: [{key, slot, id, w, h, mount}] at this class's grid size */
 function footprints(cfg){cfg=normCfg(cfg);const c=CLASSES[cfg.cls],m=c.fp,out=[];
@@ -1253,7 +1273,7 @@ function placeOk(cfg,f,x,y,taken){const c=CLASSES[cfg.cls];
   if(f.mount==="edge"&&!(y===0||x===0||y+f.h===c.gridH||x+f.w===c.gridW))return false;
   if(f.mount==="left"&&x!==0)return false;
   if(f.mount==="right"&&x+f.w!==c.gridW)return false;
-  for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++){if(!cellOn(cfg.cls,cfg.chassis,x+i,y+j))return false;if(taken&&taken.has((x+i)+","+(y+j)))return false;}
+  for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++){if(!cellOn(cfg.cls,cfg.chassis,x+i,y+j,cfg.body))return false;if(taken&&taken.has((x+i)+","+(y+j)))return false;}
   return true;}
 /* where a part goes if the player hasn't put it anywhere: weapon front and centre, drive pods on the sides (two near the
    middle, four front and back), battery in the middle, electronics behind it, extras at the back */
@@ -1308,7 +1328,9 @@ const TEST_BUILDS=[
      wheelbase {id, strafe, latMul, scrubMul, crrMul, underMul, caster, wheels, strafeSpeed} (the wheel layout, 0.1.31),
      drive {f0 stall push N, v0 no-load m/s, tractionN, resistN}, power {driveW, weaponW, idleW, capW, batteryWs usable}
      height {clearanceMm, frontEdgeMm, heightMm, invertible, proudMm, backEdgeMm, frontBareMm (the edge with the front
-            knocked off)}
+            knocked off), rimMm (0.1.66: a saucer's rim, the edge it meets anything getting under it with; null otherwise)}
+     flame {src "weapon"|"front", fuelS, reachM, heatFrac, burnJps} (0.1.66: a flamethrower or a front nozzle) or null;
+     round (0.1.66: a saucer, an eight-sided outline)
      front {id, name, slope, ramMul, underGrip}, back {id, name, ramMul, kick, selfRights} (0.1.32, frontInfo / backInfo)
      weapon {type, energyJ, allRound / melty (0.1.34: an all-round spinner, the whole bot spinning), storedJ, tipSpeed, rpm, spinUpS, recoilFactor, bite, shearJ, reachM, mountM, launchJ,
              canLiftKg, flipHeightM, shots, ...}
@@ -1364,6 +1386,8 @@ function evalBuild(cfgIn,opts){
   if(bd.twoWheel&&wb.id!=="std")errors.push("A "+bd.name.toLowerCase()+" runs on one big wheel a side: no "+wb.name.toLowerCase());
   if(bd.twoWheel&&wh.tracks)errors.push("A "+bd.name.toLowerCase()+" runs on wheels, not tracks");
   const wbScrub=wb.scrubMul*(bd.scrubMul||1),wbLat=wb.latMul*(bd.latMul||1);
+  /* 0.1.66: one flame at a time. A flamethrower's tank and a nozzle's would share the front */
+  if(fr.flame&&wp.type==="flame")errors.push("The flamethrower already burns out of the front: no room for a "+fr.name.toLowerCase());
   /* the tuning dials (0.1.33, TUNE in sim/parts.js): each a multiplier at 1 when the dial is stock */
   const tu=cfg.tune,TV=TUNE.volt,TW=TUNE.wheel,TB=TUNE.bias;
   const vCell=1+TV.cells*tu.volt,vPow=1+TV.power*tu.volt,vSpd=1+TV.speed*tu.volt,vHeat=Math.max(TV.heatMin,1+TV.heat*tu.volt);
@@ -1375,19 +1399,22 @@ function evalBuild(cfgIn,opts){
   /* ---- geometry (mm) ---- */
   const cellMm=c.cellMm,W=c.gridW*cellMm,L=c.gridH*cellMm,H=ch.heightMm*bd.heightMul*M.len;
   const cellsAll=c.gridW*c.gridH;let cellsOn=0;
-  for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y))cellsOn++;
+  for(let y=0;y<c.gridH;y++)for(let x=0;x<c.gridW;x++)if(cellOn(cfg.cls,cfg.chassis,x,y,cfg.body))cellsOn++;
   const cellFrac=cellsOn/cellsAll;
   const cx=x=>((x+0.5)-c.gridW/2)*cellMm/1000, cy=y=>(c.gridH/2-(y+0.5))*cellMm/1000;   // cell centre in m
-  const cut=ch.shape==="wedge"?c.fp*cellMm/1000:0;
+  const rc=bd.round?c.fp*cellMm/1000:0,cut=ch.shape==="wedge"||rc?c.fp*cellMm/1000:0;   // 0.1.66: a saucer cuts all four corners (rc)
   const hw=W/2000,hl=L/2000,boomM=tail&&wp.boomMm?wp.boomMm*M.len/1000:0;   // a thwackbot's boom, from the back face to the head
-  const polygon=cut?[[-hw+cut,hl],[hw-cut,hl],[hw,hl-cut],[hw,-hl],[-hw,-hl],[-hw,hl-cut]]:[[-hw,hl],[hw,hl],[hw,-hl],[-hw,-hl]];
+  const rp=rc*(bd.roundCut||1),polygon=rc?[[-hw+rp,hl],[hw-rp,hl],[hw,hl-rp],[hw,-hl+rp],[hw-rp,-hl],[-hw+rp,-hl],[-hw,-hl+rp],[-hw,hl-rp]]:
+    cut?[[-hw+cut,hl],[hw-cut,hl],[hw,hl-cut],[hw,-hl],[-hw,-hl],[-hw,hl-cut]]:[[-hw,hl],[hw,hl],[hw,-hl],[-hw,-hl]];
 
   /* ---- mass items: {key, slot, id, g, x, y} (x, y in m), plus the moment-of-inertia extras ---- */
   const items=[];const addM=(key,slot,id,g,x,y)=>{items.push({key,slot,id,g,x,y});};
-  addM("chassis","chassis",ch.id,ch.massPerCell*bd.massMul*BASE.cells*M.mass*cellFrac,0,cut?-cut*0.2:0);
+  addM("chassis","chassis",ch.id,ch.massPerCell*bd.massMul*BASE.cells*M.mass*(rc?1:cellFrac),0,cut&&!rc?-cut*0.2:0);   // a saucer is pressed whole: its corners are lost room, not lost weight
 
   /* armour: plate area x thickness x density; the top covers the whole outline */
-  const faceArea={front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
+  const faceArea=rc?{front:(W-2*rc*1000+Math.SQRT2*rc*1000)*H,back:(W-2*rc*1000+Math.SQRT2*rc*1000)*H,   // a saucer's eight sides: each corner's
+      left:(L-2*rc*1000+Math.SQRT2*rc*1000)*H,right:(L-2*rc*1000+Math.SQRT2*rc*1000)*H,top:W*L*cellFrac}:   // slant shared by the faces either side
+    {front:(W-2*cut*1000+2*Math.SQRT2*cut*1000)*H,   // a custom shape's two cut corners are armoured with the front
     back:W*H,left:(L-cut*1000)*H,right:(L-cut*1000)*H,top:W*L*cellFrac};
   const facePos={front:[0,hl],back:[0,-hl],left:[-hw,0],right:[hw,0],top:[0,0]};
   const armourMapJ={};
@@ -1473,7 +1500,7 @@ function evalBuild(cfgIn,opts){
 
   /* ---- drive: force falls with speed, F = F0 (1 - v / v0); traction caps the push ---- */
   const v0=dr.speedMs*Math.sqrt(M.len)*(brushMismatch?0.6:1)*Math.sqrt(powerScale)*vSpd*wSpd*(wb.speedMul||1),F0=dr.forceN*M.mass*powerScale*vSpd*wForce;
-  const grip=wh.grip*wb.gripMul*bPush,weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
+  const grip=wh.grip*wb.gripMul*bPush*(bd.gripMul||1),weightN=massKg*K.g,traction=grip*weightN,pushN=Math.min(F0,traction);
   const resist=K.crr*weightN*wb.crrMul;
   const driveSpeed=F0>resist?v0*(1-resist/F0):0;
   const accel=Math.max(0,(pushN-resist)/Math.max(massKg,1e-6));
@@ -1500,7 +1527,9 @@ function evalBuild(cfgIn,opts){
   const selfRight=has("selfRight")||!!wp.selfRights||!!bk.selfRights;
   const backEdgeMm=bk.edgeMm!=null?Math.max(0.5*M.edge,bk.edgeMm*M.edge):clearanceMm;
   const invertible=centred||selfRight;
-  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm)};
+  /* 0.1.66: a saucer's rim meets the floor rimMm (x edge) low on every face: what tries to get under it meets that, not its clearance */
+  const rimMm=bd.rimMm!=null?r3(Math.max(0.5*M.edge,bd.rimMm*M.edge)):null;
+  const height={clearanceMm:r3(clearanceMm),frontEdgeMm:r3(frontEdgeMm),heightMm:r3(H),invertible,drivesInverted:centred,selfRight,proudMm:r3(proud),backEdgeMm:r3(backEdgeMm),frontBareMm:r3(frontBareMm),rimMm};
 
   /* ---- weapon ---- */
   const weapon={type:wp.type,id:wp.id,energyJ:0,bite:0,reachM:0,mountM:allRound?[0,0]:tail?[com.x,com.y]:wpos,allRound,melty:!!wp.bodyK,thwack:tail,boomM,edgeMm:wp.edgeMm!=null?r3(wp.edgeMm*M.edge):null,
@@ -1525,13 +1554,19 @@ function evalBuild(cfgIn,opts){
   if(wp.type==="hammer")Object.assign(weapon,{energyJ:wp.energyJ*M.mass*powerScale*vPow,swingS:wp.swingS/Math.sqrt(powerScale),reachM:0.6*L/1000,bite:wm.bite});
   if(wp.type==="crusher")Object.assign(weapon,{forceN:wp.forceN*M.mass*powerScale*vSpd,energyJ:wp.crushJ*M.mass*powerScale*vPow,reachM:0.5*L/1000,bite:wm.bite});
   if(wp.type==="wedge")Object.assign(weapon,{reachM:wp.reachMm*M.len/1000,bite:wm.bite});
+  /* the flamethrower (0.1.66): seconds of fuel, the cone's reach past the front, the share of a heat budget it puts into
+     what it burns a second, and its burn (J a second, x the class's mass). energyJ is the burn over the whole tank */
+  if(wp.type==="flame")Object.assign(weapon,{fuelS:wp.fuelS,reachM:wp.reachMm*M.len/1000,heatFrac:wp.heatFrac,burnJps:wp.burnJps*M.mass,energyJ:wp.burnJps*M.mass*wp.fuelS,bite:1});
+  /* a flame on the bot, the weapon's or a front nozzle's (0.1.66): what the fight burns with, or null */
+  const fl=wp.type==="flame"?{src:"weapon",fuelS:wp.fuelS,reachM:weapon.reachM,heatFrac:wp.heatFrac,burnJps:weapon.burnJps}:
+    fr.flame&&!ownFront?{src:"front",fuelS:fr.flame.fuelS,reachM:fr.flame.reachMm*M.len/1000,heatFrac:fr.flame.heatFrac,burnJps:fr.flame.burnJps*M.mass}:null;
 
   const bay=bayOf(wp,weapon,wpos,fpOf("weapon"),lay.place.weapon,{W:W/1000,L:L/1000,H:H/1000,clr:clearanceMm/1000,cell:cellMm/1000,c,M,cellFrac});
 
   /* ---- exposure: per cell, from each face (closer and less armoured is worse) and from above ---- */
   const cells=[];let topE=K.topWeight*(1-armourMapJ.top.prot);
   for(let y=0;y<c.gridH;y++){const row=[];for(let x=0;x<c.gridW;x++){
-    if(!cellOn(cfg.cls,cfg.chassis,x,y)){row.push(null);continue;}
+    if(!cellOn(cfg.cls,cfg.chassis,x,y,cfg.body)){row.push(null);continue;}
     const d={front:y/c.fp,back:(c.gridH-1-y)/c.fp,left:x/c.fp,right:(c.gridW-1-x)/c.fp};let e=topE;
     for(const f in K.faceWeight)e+=K.faceWeight[f]*(1-armourMapJ[f].prot)/((1+d[f])*(1+d[f]));
     row.push(r3(e));}cells.push(row);}
@@ -1587,7 +1622,7 @@ function evalBuild(cfgIn,opts){
     limits:{batteryW:bt.dischargeW*M.power*vCell,escW:el.maxPowerW*M.power},
     drive:{f0:F0,v0,tractionN:traction,resistN:resist},
     power:{driveW:drivePowerW,weaponW:weaponPowerW,idleW,capW,batteryWs:batWs},
-    height,weapon,bay,front:frontInfo(fr,ownFront,M),back:backInfo(bk,M,limitKg),armourMapJ,weakestFace,exposureScore,cells,parts,
+    height,weapon,flame:fl,round:!!bd.round,bay,front:frontInfo(fr,ownFront,M),back:backInfo(bk,M,limitKg),armourMapJ,weakestFace,exposureScore,cells,parts,
     runtimeS,avgDrawW,heat,cost,buildHours:hours,layout:lay,tune:Object.assign({},tu),wheelRadiusMm:r3(rWheel),
     items:items.map(it=>({key:it.key,slot:it.slot,id:it.id,g:Math.round(it.g*10)/10}))};
   b.stress=stressReport(b);
@@ -1856,6 +1891,9 @@ function benchWeapon(x){const b=asBuild(x),w=b.weapon,dt=1/STEP_HZ,m=Math.max(b.
   if(w.type==="hammer")return Object.assign(r,{kind:"hammer",energyJ:w.energyJ,swingS:w.swingS,hitJ:w.energyJ*(w.bite||1)});
   if(w.type==="crusher")return Object.assign(r,{kind:"crush",energyJ:w.energyJ,forceN:w.forceN,hitJ:w.energyJ});
   if(w.type==="spear")return Object.assign(r,{kind:"stab",energyJ:w.energyJ,forceN:w.forceN,strokeM:w.strokeM,shots:w.shots,rechargeS:w.rechargeS,hitJ:w.energyJ*(w.bite||1)});   // 0.1.64
+  /* 0.1.66: the flamethrower burns, it doesn't hit: the tank, the cone's reach, the burn a second, and how long a cold
+     motor held in it takes to derate (one heat budget at heatFrac a second) */
+  if(w.type==="flame")return Object.assign(r,{kind:"flame",fuelS:w.fuelS,reachM:w.reachM,burnJps:w.burnJps,heatFrac:w.heatFrac,derateS:1/w.heatFrac,hitJ:w.burnJps});
   const ramJ=0.5*m*b.driveSpeed*b.driveSpeed;
   return Object.assign(r,{kind:"ram",ramJ,pushN:b.pushN,edgeMm:b.height.frontEdgeMm,reachM:w.reachM||0,hitJ:ramJ});}
 
@@ -2075,7 +2113,17 @@ const FIGHT={
      to the league's limit (holdMaxS), then backs off as from a pin (releaseS, pinClearS). A mobile bot wriggles free at slip
      a second while the arm is still going up, never once it is clear of the floor; let go, it drops what it holds from where the arm has it,
      landing it upside down flipP of the time at full height (less lower down), and the arm is ready again in rechargeS */
-  clamp:{closeS:0.8,liftS:1,slip:1.5,drag:0.1,carryV:0.35,flipP:0.35,rechargeS:2}
+  clamp:{closeS:0.8,liftS:1,slip:1.5,drag:0.1,carryV:0.35,flipP:0.35,rechargeS:2},
+  /* 0.1.66, the flamethrower and the flame nozzle (b.flame, sim/build.js): held, the flame burns a box past the front w x
+     the bot's width (the weapon's cone, the nozzle's) out to its reach. What is in it takes heat into its drive and weapon
+     (b.flame.heatFrac of each heat budget a second, up to FIGHT.flameCap budgets, as on a flame grate), a burn every
+     tickS through absorb x its plate's absorb (heat goes through armour), and the burner's judges count the time as
+     contact (aggression). The fuel runs down only while it burns; a nozzle lights only with a bot in front of it */
+  flame:{w:{weapon:0.6,front:0.4},tickS:0.5,absorb:0,judge:1},
+  /* 0.1.66, the saucer (b.round): its rim (height.rimMm) is the edge anything trying to get under it meets; pushes slide
+     off its curve (mu x the contact friction, its own and what it pushes); a lifter, a grabber, a flipper or a kicker
+     slips off it this often (the lip skates off the rim; a flipper's or a kicker's shot is spent) */
+  saucer:{mu:0.85,slipP:0.15}
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
@@ -2111,12 +2159,17 @@ function impulseAt(o,jx,jy,px,py){if(!(o.m>0))return;o.vx+=jx/o.m;o.vy+=jy/o.m;o
   if(o.w>FIGHT.maxSpin)o.w=FIGHT.maxSpin;else if(o.w<-FIGHT.maxSpin)o.w=-FIGHT.maxSpin;}
 
 /* ---- the working zone of a bot's weapon, in its frame around the COM: {circle, x, y, r} or {x0, x1, y0, y1}, plus top ---- */
-function weaponZone(b){const w=b.weapon,Z=FIGHT.zone[w.id]||FIGHT.zone[w.type];if(!Z||w.type==="none"||w.type==="wedge")return null;
+function weaponZone(b){const w=b.weapon;if(w.type==="flame")return flameZone(b);
+  const Z=FIGHT.zone[w.id]||FIGHT.zone[w.type];if(!Z||w.type==="none"||w.type==="wedge")return null;
   const cx=b.com.x,cy=b.com.y,hl=b.lengthM/2,mx=w.mountM?w.mountM[0]:0;
   if(Z.circle)return{circle:true,x:mx-cx,y:(w.mountM?w.mountM[1]:hl)-cy,r:w.radiusM||0.05,top:false};
   const f=footprints(b.cfg).find(q=>q.key==="weapon"),ww=f?f.w*CLASSES[b.cls].cellMm/1000:b.widthM;
   const width=Z.full?b.widthM:ww*Z.w,reach=Z.reach!=null?Z.reach*b.lengthM:(w.reachM||0.04),back=0.02*b.lengthM;
   return{circle:false,x0:mx-width/2-cx,x1:mx+width/2-cx,y0:hl-back-cy,y1:hl+reach-cy,top:!!Z.top};}
+/* a flame's zone (0.1.66): a box past the front, round the weapon's mount (a nozzle's round the middle), or null */
+function flameZone(b){const fl=b.flame;if(!fl)return null;const hl=b.lengthM/2,mx=fl.src==="weapon"&&b.weapon.mountM?b.weapon.mountM[0]:0,
+    w=b.widthM*(FIGHT.flame.w[fl.src]||0.5)/2,cx=b.com.x,cy=b.com.y;
+  return{circle:false,x0:mx-w-cx,x1:mx+w-cx,y0:hl-0.02*b.lengthM-cy,y1:hl+fl.reachM-cy,top:false};}
 /* a kicker's zone (0.1.32): a box behind the back face, in the same frame, or null */
 function kickZone(b){const k=b.back&&b.back.kick;if(!k)return null;const hl=b.lengthM/2,w=b.widthM*FIGHT.kickW/2,cx=b.com.x,cy=b.com.y;
   return{circle:false,x0:-w-cx,x1:w-cx,y0:-hl-k.reachM-cy,y1:-hl+0.02*b.lengthM-cy,top:false};}
@@ -2141,7 +2194,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
   const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,livery:spec.livery||null,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
-    zone:weaponZone(b),kz:kickZone(b),kick:{shots:b.back.kick?b.back.kick.shots:0,recharge:0},st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
+    zone:weaponZone(b),kz:kickZone(b),fz:flameZone(b),fl:{fuel:b.flame?b.flame.fuelS:0,on:false,hit:{}},kick:{shots:b.back.kick?b.back.kick.shots:0,recharge:0},st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,dazed:-1,stunNext:0,
@@ -2233,7 +2286,7 @@ function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAG
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};F.fxHit=null;if(E<=0||o.out==="pit")return null;const before=o.fx;
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
   const s0=F.fxq&&(kind==="hit"||kind==="haz")?damageShare(o.b,st):-1;   // fx only: the damage number over the bot
-  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
+  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul!=null?opts.absorbMul:1),bay);
   /* a meltybrain hit hard while it spins loses its heading for a moment (0.1.34) */
   const mw=o.b.weapon;if(mw.melty&&kind!=="land"&&E>=FIGHT.melty.syncJ*F.M.mass&&o.wp.om>=FIGHT.minSpin*mw.omega&&!(o.desync>F.t)){o.desync=F.t+FIGHT.melty.syncS;logIt(F,{k:"self",v:o.i,what:"sync"});}
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
@@ -2297,6 +2350,7 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     else if(u.weapon&&f.motorOk&&upright&&!o.air&&!(wp.recharge>0)){let near=false;
       for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&!slick(t)&&!(cl&&t.pinClear&&t.pinClear.by===o.i&&F.t<t.pinClear.until)&&zoneTouch(o,t)){near=true;
       if(grab&&(wp.ct=(wp.ct||0)+dt)<(cl?FIGHT.clamp.closeS:FIGHT.grabCloseS))break;   // the jaws take a moment to close: it has to stay in reach
+      if(rimSlip(F,t)){wp.ct=0;wp.recharge=grab?FIGHT.grabCloseS:0.5;logIt(F,{k:"slip",a:o.i,v:t.i,rim:1,w:grab?"grab":"lift"});break;}   // 0.1.66: the lip skates off a saucer's rim
       wp.held=t.i;wp.ct=0;wp.t=0;t.held=o.i;
       if(grab){const l=toLocal(o,t.x,t.y);wp.grab={lx:l[0],ly:l[1],dh:wrapA(t.h-o.h)};t.under=null;
         const c=zoneTouch(o,t);if(c){damageBot(F,t,faceAt(t,c.px,c.py),FIGHT.grabJ*o.M.mass*lethalOf(F),"hit",o.i);fxPush(F,{k:"grab",x:c.px,y:c.py,E:FIGHT.grabJ*o.M.mass,v:t.i});}
@@ -2313,6 +2367,8 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     return wp.phase===1?o.b.power.weaponW*o.b.powerScale*p:0;}
   return 0;}
 
+/* 0.1.66: a lip that gets to a saucer slips off its rim this often (FIGHT.saucer.slipP) */
+function rimSlip(F,t){return!!t.b.round&&F.rng()<FIGHT.saucer.slipP;}
 /* a shell or meltybrain spun up (0.1.34): nothing can get a grip on it */
 function slick(t){const s=FIGHT.slick[t.b.weapon.id];return!!s&&t.b.weapon.omega>0&&t.wp.om>=s*t.b.weapon.omega;}
 /* a bot sent up: vz, a forward push, and whether it will land upside down */
@@ -2325,6 +2381,7 @@ function invertChance(F,hM){const a=FIGHT.invertM[0]*F.M.len,b=FIGHT.invertM[1]*
 function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon).strokeMm*o.M.len/1000;let hit=false;
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;hit=true;
     if(t.m>w.canLiftKg){logIt(F,{k:"flip",a:o.i,v:t.i,h:0,heavy:1});continue;}
+    if(rimSlip(F,t)){logIt(F,{k:"slip",a:o.i,v:t.i,rim:1,w:"flip"});continue;}   // 0.1.66: the plate skates off a saucer's rim
     const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);if(!o.mini&&!t.mini)o.jd.ctrl+=FIGHT.flipCtrlS[F.cls]||0;
     launch(F,t,Math.sqrt(2*K.g*h),flip,o,null,FIGHT.flipThrow[F.cls]||0);t.stunNext=FIGHT.flipStunS[F.cls]||0;logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
     damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
@@ -2349,10 +2406,27 @@ function stepKick(F,o){const k=o.b.back.kick,q=o.kick;if(!k)return;if(q.recharge
   let hit=null;for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.held!=null)continue;const c=zoneTouch(o,t,o.kz);if(c){hit=[t,c];break;}}
   if(!hit)return;q.shots--;q.recharge=k.rechargeS;const[t,c]=hit;
   if(t.m>k.canLiftKg){logIt(F,{k:"kick",a:o.i,v:t.i,h:0,heavy:1});return;}
+  if(rimSlip(F,t)){logIt(F,{k:"slip",a:o.i,v:t.i,rim:1,w:"kick"});return;}
   const h=Math.max(0,k.launchJ*K.flipEff/(t.m*K.g)-k.strokeM),flip=F.rng()<invertChance(F,h);
   launch(F,t,Math.sqrt(2*K.g*h),flip,null,o.i);t.stunNext=FIGHT.flipStunS[F.cls]||0;if(!o.mini&&!t.mini)o.jd.ctrl+=(FIGHT.flipCtrlS[F.cls]||0)/2;const v=FIGHT.kickFwd*Math.sqrt(o.M.len);t.vx-=Math.cos(o.h)*v;t.vy-=Math.sin(o.h)*v;t.w+=rRange(F.rng,-5,5);
   logIt(F,{k:"kick",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
   damageBot(F,t,faceAt(t,c.px,c.py),k.launchJ*FIGHT.flipDmg*lethalOf(F),"hit",o.i);fxPush(F,{k:"kick",x:c.px,y:c.py,E:k.launchJ,v:t.i});o.stats.hits++;}
+/* a flame (0.1.66, b.flame): on the weapon button, while there is fuel, it burns what is in its zone (FIGHT.flame). Either
+   way up. A nozzle lights only with a bot in front of it; a flamethrower burns whenever it is held. The log has "fire" when
+   it lights and "burn" for each burn (merged like small hits) */
+function stepBurn(F,o){const fl=o.b.flame,q=o.fl;if(!fl)return;const was=q.on;q.on=false;
+  if(!o.input.weapon||q.fuel<=0||o.air||o.fx.dead||!(powerOf(o)>0)||(fl.src==="weapon"?!o.fx.weaponOk:!(o.st.parts.front>0)))return;
+  const T=[];for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.air)continue;const c=zoneTouch(o,t,o.fz);if(c)T.push([t,c]);}
+  if(fl.src==="front"&&!T.length)return;
+  q.on=true;q.fuel=Math.max(0,q.fuel-F.dt);if(!was)logIt(F,{k:"fire",a:o.i,v:T.length?T[0][0].i:-1});
+  const G=FIGHT.flame,k=fl.heatFrac*F.dt;
+  for(const[t,c]of T){const hb=t.b.heat,h=t.heat;
+    if(hb&&hb.drive)h.d=Math.max(h.d,Math.min(hb.drive.budgetJ*FIGHT.flameCap,h.d+k*hb.drive.budgetJ));
+    if(hb&&hb.weapon)h.w=Math.max(h.w,Math.min(hb.weapon.budgetJ*FIGHT.flameCap,h.w+k*hb.weapon.budgetJ));
+    if(!o.mini&&!t.mini&&!(t.touch[o.i]!=null&&F.t-t.touch[o.i]<0.1))o.jd.contact+=F.dt*G.judge;   // touching, stepJudge counts it already
+    if(F.t<(q.hit[t.i]||0))continue;q.hit[t.i]=F.t+G.tickS;
+    const face=faceAt(t,c.px,c.py),E=fl.burnJps*G.tickS*lethalOf(F);
+    damageBot(F,t,face,E,"burn",o.i,{absorbMul:G.absorb});fxPush(F,{k:"burn",x:c.px,y:c.py,E,v:t.i});}}
 /* a grabber carrying what it holds (0.1.32): the held bot is put back where it was clamped, in the grabber's frame, and
    moves with it */
 function grabCarry(F,o){const g=o.wp.grab,h=o.wp.held;if(!g||h==null)return;const t=F.bots[h];if(!t||t.held!==o.i){o.wp.grab=null;return;}
@@ -2470,7 +2544,8 @@ function collide(F,A,B){if(A.air||B.air||A.out==="pit"||B.out==="pit")return;
   if(vn<0){const ca=ra[0]*n.ny-ra[1]*n.nx,cb=rb[0]*n.ny-rb[1]*n.nx,km=ima+imb+ca*ca/A.I+cb*cb/B.I;
     const jn=-(1+FIGHT.restitution)*vn/km;impulseAt(A,-n.nx*jn,-n.ny*jn,px,py);impulseAt(B,n.nx*jn,n.ny*jn,px,py);
     const tx=-n.ny,ty=n.nx,vt=vr[0]*tx+vr[1]*ty,ta=ra[0]*ty-ra[1]*tx,tb=rb[0]*ty-rb[1]*tx,kt=ima+imb+ta*ta/A.I+tb*tb/B.I;
-    let jt=-vt/kt;const lim=FIGHT.contactMu*jn;jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(A,-tx*jt,-ty*jt,px,py);impulseAt(B,tx*jt,ty*jt,px,py);
+    let jt=-vt/kt;const lim=FIGHT.contactMu*jn*(A.b.round||B.b.round?FIGHT.saucer.mu:1);   // 0.1.66: pushes slide off a saucer's curve
+    jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(A,-tx*jt,-ty*jt,px,py);impulseAt(B,tx*jt,ty*jt,px,py);
     const mu=1/(ima+imb),Elost=0.5*mu*vn*vn*(1-FIGHT.restitution*FIGHT.restitution)*FIGHT.ramShare;
     if(Elost>FIGHT.ramMinJ*F.M.mass){const foe=A.team!==B.team;   // a knock from a teammate still hurts but earns nothing with the judges
       damageBot(F,A,fa,Elost*ramOf(B,fb),"ram",foe?B.i:-1);damageBot(F,B,fb,Elost*ramOf(A,fa),"ram",foe?A.i:-1);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
@@ -2487,8 +2562,9 @@ function ramOf(o,face){const q=face==="front"?o.b.front:face==="back"?o.b.back:n
 function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_RULES.holdS;
   const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id]||WEDGE_RULES.allGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
   const can=(X,Y,fy)=>!(X.inverted&&!X.b.height.drivesInverted)&&!guard(Y,fy);
-  const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<edgeOf(Y,fy)-tol;
-  const underBack=(X,Y,fy)=>X.b.back.id!=="none"&&can(X,Y,fy)&&edgeOf(X,"back")<edgeOf(Y,fy)-tol;   // a rear wedge (0.1.32) gets under too
+  const rim=(Y,fy)=>{const e=edgeOf(Y,fy),r=Y.b.height.rimMm;return r!=null&&r<e?r:e;};   // 0.1.66: a saucer meets it with its rim
+  const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<rim(Y,fy)-tol;
+  const underBack=(X,Y,fy)=>X.b.back.id!=="none"&&can(X,Y,fy)&&edgeOf(X,"back")<rim(Y,fy)-tol;   // a rear wedge (0.1.32) gets under too
   let win=null,by="front";
   if(fa==="front"&&under(A,B,fb))win=[A,B];else if(fb==="front"&&under(B,A,fa))win=[B,A];
   else if(fa==="back"&&underBack(A,B,fb)){win=[A,B];by="back";}else if(fb==="back"&&underBack(B,A,fa)){win=[B,A];by="back";}
@@ -2574,7 +2650,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots)if(!o.out)readInput(F,o,inputs);else o.input={throttle:0,steer:0,weapon:0,selfRight:0};
   for(const o of F.bots){if(o.out==="pit")continue;
     /* a knocked-out bot still rolls to a stop (its drive is dead, so it draws nothing) but no longer heats or drains */
-    const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out){stepHeat(F,o,dW,wW);stepKick(F,o);}
+    const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out){stepHeat(F,o,dW,wW);stepKick(F,o);stepBurn(F,o);}else o.fl.on=false;
     /* self-righting */
     if(o.inverted&&!o.air&&!o.out){if(o.righting>0){o.righting-=dt;if(o.righting<=0){o.righting=0;o.inverted=false;o.invBy=null;logIt(F,{k:"right",v:o.i});}}
       else if(o.input.selfRight&&o.fx.righter&&!o.fx.dead&&!o.flat){const by=o.fx.righterBy;
@@ -2662,8 +2738,8 @@ function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules
      flips, lifts, self-rights, overheating), then hits that damaged parts, smallest first. Failures, knockouts, the end
      and the player's inputs (the replay) are never dropped, unless the inputs alone can't fit beside the entries that
      are kept (only a stick shaken flat out every tick gets there): then the story stays and the replay goes. */
-  const tier=e=>{switch(e.k){case"hit":case"ram":case"wall":case"grind":return e.x?3:0;case"land":return e.x&&e.x.some(p=>p[2])?9:1;
-    case"under":case"lift":case"grab":case"drop":case"tip":case"right":case"heat":case"inv":case"flip":case"kick":return 2;default:return 9;}};
+  const tier=e=>{switch(e.k){case"hit":case"ram":case"wall":case"grind":case"burn":return e.x?3:0;case"land":return e.x&&e.x.some(p=>p[2])?9:1;
+    case"under":case"lift":case"grab":case"drop":case"tip":case"right":case"heat":case"inv":case"flip":case"kick":case"fire":case"slip":return 2;default:return 9;}};
   let sz=JSON.stringify(L).length;
   if(sz>FIGHT.logMaxB&&JSON.stringify(Object.assign({},L,{entries:L.entries.filter(e=>tier(e)===9),trimmed:L.entries.length})).length>FIGHT.logMaxB-64){
     L.inputs={};L.noReplay=1;sz=JSON.stringify(L).length;}
@@ -3081,6 +3157,9 @@ function aiThink(F,o){const m=o.ai,d=o.driver||{},sk=Math.max(0,Math.min(1,d.ski
   else if(w.type==="flipper"||w.type==="hammer"||w.type==="crusher"||w.type==="spear")out.weapon=m.inZone&&m.zoneT>=0&&F.t-m.zoneT>=late&&
     !(w.type==="flipper"&&t.inverted&&!t.b.height.drivesInverted&&!t.fx.righter)?1:0;   // a flipper leaves a stranded bot upside down
   else if(w.type==="lifter"||w.type==="grabber")out.weapon=m.inZone||o.wp.held!=null?1:0;
+  else if(w.type==="flame")out.weapon=m.inZone&&o.fl.fuel>0?1:0;   // 0.1.66: hold the flame on it while it is in the cone
+  /* a flame nozzle (0.1.66): lit while the bot is in front of it (it shares the weapon button) */
+  if(o.fz&&o.b.flame.src==="front"&&o.fl.fuel>0&&zoneTouch(o,t,o.fz))out.weapon=1;
   /* a kicker (0.1.32): a bot at its back gets flicked away (the same button as the weapon) */
   if(o.kz&&o.kick.shots>0&&!(o.kick.recharge>0)&&zoneTouch(o,t,o.kz))out.weapon=1;
   return out;}
@@ -3285,7 +3364,7 @@ function drillAuto(F){const D=F.drill,u={throttle:0,steer:0,weapon:0,selfRight:0
   return u;}
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
-   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears), 36 from 0.1.65 (two clamp and lifts) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
+   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears), 36 from 0.1.65 (two clamp and lifts), 38 from 0.1.66 (a flamethrower and a saucer) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
    bots too), growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -3348,6 +3427,10 @@ const OPPONENTS=[
   {id:"ringelnatter",name:"Ringelnatter",cls:"hobby",from:"grauwald",driver:{style:"keepaway",skill:0.6},
     line:"A ring of steel going round a box that stays still. Keeps its distance, circles, and lets you run onto it.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"ring",weaponMaterial:"steel",extras:[]}},
+  /* 0.1.66: the flamethrower */
+  {id:"loetlampe",name:"Lötlampe",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.6},
+    line:"A plumber's blowtorch on a wedge. Gets its nose under you and keeps it there until your motors start to smell.",
+    cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
   /* featherweights: the regional arenas */
   /* 0.1.46: the two newer verticals in other people's bots */
   {id:"schneebesen",name:"Schneebesen",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.55},
@@ -3375,6 +3458,10 @@ const OPPONENTS=[
   {id:"dreschflegel",name:"Dreschflegel",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.65},
     line:"A farmer's flail on a plywood box, rebuilt in steel by the engine shed's night crew. Waits for you to come in, then swings.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"s7",extras:[]}},
+  /* 0.1.66: the saucer */
+  {id:"untertasse",name:"Untertasse",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.7},
+    line:"Pressed from a shunting engine's buffer plate: low, round and hard to get a grip on. Lets you slide off it, then lights the burner.",
+    cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"beater",weaponMaterial:"steel",front:"nozzle",body:"saucer",extras:[]}},
   {id:"gabelstapler",name:"Gabelstapler",cls:"feather",from:"eisenau",driver:{style:"hazard",skill:0.7},
     line:"Built by the harbour's forklift drivers on their breaks. Gets its tines under you, clamps the lid down and goes looking for the edge of the quay.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"clamp",weaponMaterial:"steel",extras:[]}},
@@ -3408,7 +3495,7 @@ const OPPONENTS=[
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"melty",weaponMaterial:"s7",extras:[]}}
 ];
 const opponentCfg=op=>Object.assign({},op.cfg,{cls:op.cls});
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,tuneOn,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,ALL_ROUND,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,BENCH_DUMMIES,benchDummy,benchDummySpec,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen,flamePhase,SCHOOL,DRILLS,drillSpec,drillMedal,drillAuto};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,tuneOn,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,ALL_ROUND,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,BENCH_DUMMIES,benchDummy,benchDummySpec,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,flameZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen,flamePhase,SCHOOL,DRILLS,drillSpec,drillMedal,drillAuto};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
@@ -4422,7 +4509,7 @@ function cloneBot(src){const g=src.clone(true);g.userData=Object.assign({},src.u
     else if(u.role==="blur"){o.material=o.material.clone();o.userData={role:"blur",own:true};g.userData.blur=o;}
     else if(u.role==="lamp"){o.material=o.material.clone();o.userData={role:"lamp",own:true};g.userData.lamp=o;}
     if(u.wheel)g.userData.wheels.push(o);});
-  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="spear")g.userData.spear=o;else if(r==="leg")g.userData.legs.push(o);else if(r==="trk")g.userData.trk.push(o);});
+  g.traverse(o=>{const r=o.userData.role;if(r==="spin")g.userData.spin=o;else if(r==="arm")g.userData.arm=o;else if(r==="forks")g.userData.forks=o;else if(r==="flip")g.userData.flip=o;else if(r==="jaw")g.userData.jaw=o;else if(r==="kick")g.userData.kick=o;else if(r==="spear")g.userData.spear=o;else if(r==="flame")g.userData.flame=o;else if(r==="leg")g.userData.legs.push(o);else if(r==="trk")g.userData.trk.push(o);});
   return g;}
 function chassisMat(id){const M=V.mats;return id==="ply"?M.ply:id==="hdpe"?M.hdpe:id==="steel"?M.steel:id==="ti"?M.ti:id==="custom"?M.botPlate||M.plate:M.alu;}
 function armourMat(id){const M=V.mats;return/^hdpe/.test(id)?M.hdpe:id==="alu"?M.alu:id==="ti"?M.ti:id==="ar500"?M.botPlate||M.plate:M.steel;}
@@ -4434,6 +4521,9 @@ function buildBot(b,team,sp,liv){
   const P=(x,y)=>[x-cx,-(y-cy)];   // build coords (m, y forward) to mesh (x, z), origin at the centre of mass
   const add=(geo,mat,x,y,z,part)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(part)m.userData.part=part;g.add(m);return m;};
   const body=cfg.body||"plain",drop=body==="wedge"?bodyH*0.6:0,bh=bodyH-drop,boxTop=clr+bh;   /* bh: the box height under a wedge shell's slope */
+  /* 0.1.66, the saucer: drawn as a flatter dome (domed) on its eight-sided chassis, plates only along the straight sides (rp:
+     the corners evalBuild cuts), and a rim round the bottom */
+  const sau=body==="saucer",domed=body==="dome"||sau,rp=sau&&b.polygon.length===8?Math.max(0,b.polygon[0][0]+hw):0;
   SURF.tile=lite?0:0.09*len;
   const wp=(typeof SCRAP_SIM!=="undefined"&&SCRAP_SIM.part("wheels",cfg.wheels))||{radiusMm:28},   /* SCRAP_SIM is a top-level const, so it is not on window (0.1.41: this lookup never found it, and tracks were drawn as wheels) */
     ws=b.wheelRadiusMm>0&&wp.radiusMm?b.wheelRadiusMm/(wp.radiusMm*len):1,   // the wheel-size dial (0.1.33): evalBuild's radius over the stock one
@@ -4470,19 +4560,19 @@ function buildBot(b,team,sp,liv){
     for(let i=0;i<=n;i++)for(const sy of [-1,1])bolt(m,"dt_hex",m.position.x-w/2+ix+(w-2*ix)*i/n,m.position.y+sy*(h/2-iy),m.position.z+dir*t/2,rb,dir<0?"-z":"+z");return m;};
   if(th("front")&&!sloped){const t=th("front"),fm=armourMat(A.front.id),ya=bh*0.02,yb=bh*0.94,xa=cut?frontGap(bay,hw,hl):null;
     const piece=(x0,x1,y0,y1)=>{if(x1-x0>1e-4&&y1-y0>1e-4)plateBolts(add(plateGeo(x1-x0,y1-y0,t,lite?0:0.0012*len),fm,(x0+x1)/2-cx,clr+(y0+y1)/2,front[1]-t/2,"armour_front"),x1-x0,y1-y0,t,-1);};
-    if(xa){piece(-hw,xa[0],ya,yb);piece(xa[1],hw,ya,yb);piece(xa[0],xa[1],ya,Math.min(yb,span[0]));piece(xa[0],xa[1],Math.max(ya,span[1]),yb);}
-    else piece(-hw,hw,ya,yb);}
-  if(th("back"))plateBolts(add(plateGeo(Wd,bodyH*0.92,th("back"),lite?0:0.0012*len),armourMat(A.back.id),back[0],clr+bodyH*0.48,back[1]+th("back")/2,"armour_back"),Wd,bodyH*0.92,th("back"),1);
+    if(xa){piece(-hw+rp,xa[0],ya,yb);piece(xa[1],hw-rp,ya,yb);piece(xa[0],xa[1],ya,Math.min(yb,span[0]));piece(xa[0],xa[1],Math.max(ya,span[1]),yb);}
+    else piece(-hw+rp,hw-rp,ya,yb);}
+  if(th("back"))plateBolts(add(plateGeo(Wd-2*rp,bodyH*0.92,th("back"),lite?0:0.0012*len),armourMat(A.back.id),back[0],clr+bodyH*0.48,back[1]+th("back")/2,"armour_back"),Wd-2*rp,bodyH*0.92,th("back"),1);
   /* the side plates stand a hair proud of the chassis (their faces used to share its plane and flicker); with wells, each
      is one plate with the wheel arches cut out of its bottom edge and a chamfer along its top */
   const proud=0.0007*len;
-  for(const s of ["left","right"])if(th(s)){const sg=s==="left"?-1:1,x=sg*(hw+proud)-cx,t=th(s),W=wells&&wells[s],y0=clr+bh*0.02,y1=clr+bh*0.94,z0=cy-L*0.48,z1=cy+L*0.48;
-    if(!W){const m=add(new THREE.BoxGeometry(t,bh*0.92,L*0.96),armourMat(A[s].id),x-sg*t/2,clr+bh*0.48,cy,"armour_"+s);
-      if(D&&body!=="slab"){const n=Math.max(1,Math.round(L*0.9/(0.06*len)));for(let i=0;i<=n;i++)for(const sy of [-1,1])bolt(m,"dt_hex",x,m.position.y+sy*(bh*0.46-rb*2.6),z0+L*0.03+L*0.9*i/n,rb,sg<0?"-x":"+x");}
+  for(const s of ["left","right"])if(th(s)){const sg=s==="left"?-1:1,x=sg*(hw+proud)-cx,t=th(s),W=wells&&wells[s],y0=clr+bh*0.02,y1=clr+bh*0.94,Ls=L-2*rp,z0=cy-Ls*0.48,z1=cy+Ls*0.48;
+    if(!W){const m=add(new THREE.BoxGeometry(t,bh*0.92,Ls*0.96),armourMat(A[s].id),x-sg*t/2,clr+bh*0.48,cy,"armour_"+s);
+      if(D&&body!=="slab"){const n=Math.max(1,Math.round(Ls*0.9/(0.06*len)));for(let i=0;i<=n;i++)for(const sy of [-1,1])bolt(m,"dt_hex",x,m.position.y+sy*(bh*0.46-rb*2.6),z0+Ls*0.03+Ls*0.9*i/n,rb,sg<0?"-x":"+x");}
       continue;}
     const ar=wellArch(W,wells,wr,cy,y0,y1),m=add(sidePlateGeo(z0-cy,z1-cy,y0-(y0+y1)/2,y1-(y0+y1)/2,t,sg,z=>ar.h(z+cy)-(y0+y1)/2,ar.cuts.map(c=>[c[0]-cy,c[1]-cy]),lite?0:Math.min(t*0.5,0.0015*len),lite?7:14),armourMat(A[s].id),x,(y0+y1)/2,cy,"armour_"+s);
-    if(D){const n=Math.max(1,Math.round(L*0.9/(0.06*len))),yb=y0+rb*2.6,yt=y1-rb*2.6;
-      for(let i=0;i<=n;i++){const z=z0+L*0.03+L*0.9*i/n,hz=Math.max(ar.h(z-rb*2),ar.h(z),ar.h(z+rb*2));
+    if(D){const n=Math.max(1,Math.round(Ls*0.9/(0.06*len))),yb=y0+rb*2.6,yt=y1-rb*2.6;
+      for(let i=0;i<=n;i++){const z=z0+Ls*0.03+Ls*0.9*i/n,hz=Math.max(ar.h(z-rb*2),ar.h(z),ar.h(z+rb*2));
         if(hz<yt-rb*2)bolt(m,"dt_hex",x,yt,z,rb,sg<0?"-x":"+x");if(hz<y0+1e-6)bolt(m,"dt_hex",x,yb,z,rb,sg<0?"-x":"+x");}}}
   const topKey=th("top")?"armour_top":"chassis",tt=Math.max(th("top"),0.0015*len),topMat=th("top")?armourMat(A.top.id):chassisMat(cfg.chassis);
   const S0=lite?null:botShells(),sideMat=s=>th(s)?armourMat(A[s].id):chassisMat(cfg.chassis),sideKey=s=>th(s)?"armour_"+s:"chassis";
@@ -4493,7 +4583,7 @@ function buildBot(b,team,sp,liv){
   const topCut=!!reg&&(bk==="slot"||bk==="pocket"||bk==="well"),raisedCut=!!reg&&(topCut||bk==="deck");   /* a deck cuts only a raised top */
   if(body==="scrap"){const wt=b.weapon.type,wid=b.weapon.id,up=topCut||["hammer","crusher","flipper","grabber","saw"].indexOf(wt)>=0;   /* what the scrap frame has to clear (scrapFrame) */
     sk.fr={none:wid==="shell",noPosts:wid==="ring",gap:topCut?frontGap(bay,hw,hl):null,over:up&&!(bay&&bay.rect[1]<-0.3*L)?1:0,cross:0};}
-  const deck=bk==="deck"&&(S&&SHELL_TOPS[body]||(!S&&(body==="wedge"||body==="dome")));
+  const deck=bk==="deck"&&(S&&SHELL_TOPS[body]||(!S&&(body==="wedge"||domed)));
   const bev=lite?0:Math.min(tt*0.4,0.0012*len),extB=(outline,holes,y0,y1,mat,part)=>y1-y0>1e-5?add(shapeGeo(outline,holes,y1-y0,cx,cy,y0,bev),mat,0,0,0,part):null;
   const flat=(w,l,y0,mat,part,c)=>{const p=rectPts(w,l),d=c?polyMinus(p,reg):null;return d?extB(d.outline,d.holes,y0,y0+tt,mat,part):extB(p,null,y0,y0+tt,mat,part);};
   /* a flat top's screws: round its edge, a row every 5 cm at beetle scale, none over an open bay */
@@ -4509,11 +4599,15 @@ function buildBot(b,team,sp,liv){
     for(const s of [-1,1]){const sg=new THREE.Shape();sg.moveTo(-run/2,0);sg.lineTo(run/2,0);sg.lineTo(run/2,drop);sg.closePath();   /* side cheeks filling the slope */
       const d=Math.max(th(s<0?"left":"right"),0.002*len),e=new THREE.ExtrudeGeometry(sg,{depth:d,bevelEnabled:false});e.rotateY(-Math.PI/2);
       add(e,th(s<0?"left":"right")?armourMat(A[s<0?"left":"right"].id):chassisMat(cfg.chassis),(s<0?-hw+d:hw)-cx,H-drop,cy,th(s<0?"left":"right")?(s<0?"armour_left":"armour_right"):"chassis");}}
-  else if(body==="dome"){   /* dome: a low half-ellipsoid clamshell over the box (round a bay, a height field with the bay cut out) */
-    const a=Wd*0.51,c=L*0.5,Hc=H-bodyH*0.3,dh=p=>Hc+bodyH*0.8*Math.sqrt(Math.max(0,1-(p[0]/a)*(p[0]/a)-(p[1]/c)*(p[1]/c)));
+  else if(domed){   /* dome: a low half-ellipsoid clamshell over the box (round a bay, a height field with the bay cut out); a saucer's is flatter */
+    const a=Wd*0.51,c=L*0.5,Hc=H-bodyH*(sau?0.1:0.3),dh=p=>Hc+bodyH*(sau?0.4:0.8)*Math.sqrt(Math.max(0,1-(p[0]/a)*(p[0]/a)-(p[1]/c)*(p[1]/c)));
     if(raisedCut){add(domeGeo(a,c,dh,reg,cx,cy,lite?18:36),topMat,0,0,0,topKey);sleeve(g,reg,cx,cy,L,dh,H,p=>(p[0]/a)*(p[0]/a)+(p[1]/c)*(p[1]/c)<0.995,topMat,topKey);}
-    else{const dg=new THREE.SphereGeometry(0.5,lite?14:28,lite?5:10,0,Math.PI*2,0,Math.PI/2);dg.scale(Wd*1.02,bodyH*1.6,L*1.0);
-      add(dg,topMat,-cx,Hc,cy,topKey);}}
+    else{const dg=new THREE.SphereGeometry(0.5,lite?14:28,lite?5:10,0,Math.PI*2,0,Math.PI/2);dg.scale(Wd*1.02,bodyH*(sau?0.8:1.6),L*1.0);
+      add(dg,topMat,-cx,Hc,cy,topKey);}
+    if(sau){   /* the rim: a low skirt round the bottom, open where a weapon comes out of the front */
+      const fg=cut?frontGap(bay,hw,hl):null,gp=fg?Math.min(2.4,2*Math.asin(Math.min(0.95,Math.max(Math.abs(fg[0]),Math.abs(fg[1]))/(Wd*0.56)))+0.2):0,rh=Math.max(0.002*len,bh*0.16);
+      const rg=new THREE.CylinderGeometry(0.5,0.56,1,lite?24:48,1,true,Math.PI+gp/2,2*Math.PI-gp);rg.scale(Wd,rh,L);
+      add(rg,sideMat("left"),-cx,clr+rh*0.5+0.001*len,cy,sideKey("left"));}}
   else if(drum){   /* 0.1.63, the two-wheel drum: a barrel over the box between the wheels, its top and both ends one curve that hits glance off */
     const s=bodyH*0.6,Rb=(L*L/4+s*s)/(2*s),ang=2*Math.asin(Math.min(1,L*0.5/Rb)),bw=Math.max(Wd*0.4,Wd-2*(ww+0.003*len)),n=lite?14:32;
     const bg=new THREE.CylinderGeometry(Rb,Rb,bw,n,1,true,Math.PI/2-ang/2,ang);bg.rotateZ(Math.PI/2);add(bg,topMat,-cx,H+s-Rb,cy,topKey);
@@ -4528,14 +4622,14 @@ function buildBot(b,team,sp,liv){
   if(body==="scrap"&&!S)scrapFrame(g,null,sk);
   /* team paint: a stripe down the top, so you can tell the bots apart from above; it stops short of an open bay. With a
      livery (0.1.24) the stripe is the team's main colour, two pinstripes beside it the accent, and the badge sits on it */
-  let ys0=-0.4*L,ys1=0.3*L;if(body==="dome"){ys0=-0.26*L;ys1=0.16*L;}
+  let ys0=-0.4*L,ys1=0.3*L;if(domed){ys0=-0.26*L;ys1=0.16*L;}
   /* 0.1.48.1, the top deck is laid out once so nothing lands on anything else: the sponsor's patch owns the back, the stripe
      stops short of it, the badge stays inside the stripe's length and between the fittings, and under a shell spinner there
      is no paint at all (it used to poke through the shell). On a dome every decal is draped over the curve (drape) */
-  const dome=body==="dome",deco=b.weapon.id!=="shell";
+  const dome=domed,deco=b.weapon.id!=="shell";
   const spz=dome?0.28:S&&(body==="wedge"||body==="pancake")?0.3:0.36,spd=dome?0.16:0.18,spw=dome?0.44:S&&body==="invert"?0.34:0.6;   /* the patch: how far back its middle is, its depth and width (over a shell: clear of the bolts and rails) */
   const spOn=!!(sp&&sp.top&&deco);if(spOn)ys0=Math.max(ys0,-(spz-spd/2)*L+0.02*L);
-  if(reg&&(topCut||(raisedCut&&(body==="wedge"||body==="dome"||(S&&SHELL_TOPS[body]))))&&bay.rect[0]<Wd*0.14&&bay.rect[2]>-Wd*0.14)ys1=Math.max(ys0+0.12*L,Math.min(ys1,bay.rect[1]-0.03*L));
+  if(reg&&(topCut||(raisedCut&&(body==="wedge"||domed||(S&&SHELL_TOPS[body]))))&&bay.rect[0]<Wd*0.14&&bay.rect[2]>-Wd*0.14)ys1=Math.max(ys0+0.12*L,Math.min(ys1,bay.rect[1]-0.03*L));
   const lid=S&&SHELL_LID[body]!=null?SHELL_LID[body]*bodyH:th("top"),wt=S&&body==="wedge"?0.07*bodyH:tt,wtl=body==="wedge"?Math.atan2(drop,L*0.98):0;
   /* a flat decal: a thin box w wide and l long, its middle at (x, y) in build coords, up above the top (a wedge: on its slope) */
   const slab=(w,l,x,y,mat,up)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.0015*len,l),mat);m.position.set(x-cx,H+lid+up,cy-y);
@@ -4603,7 +4697,7 @@ function buildBot(b,team,sp,liv){
      (its wheels stand bare between the rails), for swerve pods or under an all-round weapon */
   const guards=[];
   if(!wp.tracks&&!wl.legs&&wl.id!=="swerve"&&body!=="slab"&&body!=="scrap"&&!drum&&!allRound)for(const p of wheels){const q=P(p.pos[0],p.pos[1]),sd=p.pos[0]<0?"left":"right";
-    const hs=body==="wedge"?H-drop/2-p.pos[1]*Math.tan(wtl)+wt:body==="dome"?boxTop:H+lid;if(2*wr-hs<0.003*len)continue;
+    const hs=body==="wedge"?H-drop/2-p.pos[1]*Math.tan(wtl)+wt:domed?boxTop:H+lid;if(2*wr-hs<0.003*len)continue;
     const R=wr*1.13,ri=wr*1.04,w=ww+0.003*len,a0=Math.asin(Math.max(-0.45,Math.min(0.9,(hs-0.001*len-wr)/R))),a1=Math.PI-a0,sh=new THREE.Shape();
     sh.absarc(0,0,R,a0,a1,false);sh.absarc(0,0,ri,a1,a0,true);sh.closePath();
     const ge=new THREE.ExtrudeGeometry(sh,{depth:w,bevelEnabled:false,curveSegments:lite?6:14});ge.rotateY(Math.PI/2);ge.translate(-w/2,0,0);
@@ -4618,7 +4712,7 @@ function buildBot(b,team,sp,liv){
   /* the deck fittings (0.1.41, Full / Ultra): the power light, lit in the team's colour (app/arena puts it out with the bot),
      and the removable link, either side of the stripe behind the middle. On a flat top or a wedge's slope; not on a dome,
      under an all-round weapon or where a bay opens */
-  if(D&&!allRound&&body!=="dome"&&!drum){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=spOn?Math.max(-0.17*L,-(spz-spd/2)*L+0.075*L):-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
+  if(D&&!allRound&&!domed&&!drum){const tl=body==="wedge"?Math.atan2(drop,L*0.98):0,yf=spOn?Math.max(-0.17*L,-(spz-spd/2)*L+0.075*L):-0.17*L,fy=body==="wedge"?H-drop/2-yf*Math.tan(tl)+wt:H+lid,r=0.0075*len;
     const free=x=>!(reg&&raisedCut&&rectHitsPoly(x-r*2.2,yf-r*2.2,x+r*2.2,yf+r*2.2,reg))&&!guards.some(q=>Math.abs(q[0]-x)<q[2]+r*2.2&&Math.abs(q[1]-yf)<q[3]+r*2.2);
     const fit=x=>{const G=new THREE.Group();G.position.set(x-cx,fy,cy-yf);G.rotation.x=-tl;g.add(G);return G;};
     if(free(-0.34*Wd)){const G=fit(-0.34*Wd),col=new THREE.Color(liv?parseInt(String(liv.main).slice(1),16)||0x888888:BOT_TEAM[team%BOT_TEAM.length]).convertSRGBToLinear();
@@ -4629,8 +4723,8 @@ function buildBot(b,team,sp,liv){
   boltMeshes(g,D,bolts);
   /* the weapon */
   /* an arm or a flipper lies on its deck; otherwise over the dome's crown or halfway down the wedge's slope */
-  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,crown:body==="dome"?H+bodyH*0.52:drum?H+bodyH*0.6:H+lid,wellD:bk==="well"||bk==="underwell"?dep:0,
-    lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:drum?bodyH*0.6:body==="wedge"?-drop/2:th("top")?tt:0});
+  buildWeapon(g,b,{P,add,hw,hl,H,clr,bodyH,len,seg,front,th,bh,boxTop,crown:body==="dome"?H+bodyH*0.52:sau?H+bodyH*0.32:drum?H+bodyH*0.6:H+lid,wellD:bk==="well"||bk==="underwell"?dep:0,
+    lift:deck?boxTop+tt-H:body==="dome"?bodyH*0.5:sau?bodyH*0.3:drum?bodyH*0.6:body==="wedge"?-drop/2:th("top")?tt:0});
   buildAttach(g,b,{P,add,Wd,L,hw,hl,clr,bh,bodyH,boxTop,len,seg,front,back,lite});
   if(!lite){g.updateMatrixWorld(true);g.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;
     if(o.material!==M.disc&&o.userData.role!=="blur"&&o.userData.role!=="decal")uvProject(o.geometry,o.matrixWorld);});}   /* discs keep their cap UVs (turning marks round the hub); the tyres were done above */
@@ -5037,6 +5131,12 @@ function buildWeapon(g,b,k){const M=V.mats,w=b.weapon,T=w.type,id=w.id,{P,add,hw
     const cg=new THREE.ConeGeometry(rr*1.9,tl,sides);cg.rotateX(-Math.PI/2);const tip=new THREE.Mesh(cg,M.steel);tip.position.z=-0.002*len-tl/2;tip.userData.part="weapon";sp.add(tip);
     const fa=b.armourMapJ&&b.armourMapJ.front,ft=fa&&fa.id!=="none"?Math.max(0.002*len,(fa.thickMm||0)/1000):0,z0=front[1]-ft;   // clear of the front plate
     sp.position.set(mount[0],y,z0);sp.userData.z0=z0;g.add(sp);return;}
+  /* 0.1.66, the flamethrower: a gas tank along the deck and a nozzle out of the middle of the front at half height, with
+     its flame (flameJet, hidden until arena.js lights it). Coded on every tier (Lite has fewer sides) */
+  if(T==="flame"){const sides=Math.max(8,seg>>1),tr=0.012*len,tl=b.lengthM*0.4,pr=0.004*len,pl=0.03*len,y=clr+bodyH*0.55;
+    const tg=new THREE.CylinderGeometry(tr,tr,tl,sides);tg.rotateX(Math.PI/2);add(tg,M.alu,mount[0],H+lift+tr,front[1]+b.lengthM*0.32,"weapon");
+    const ng=new THREE.CylinderGeometry(pr*0.8,pr,pl,sides);ng.rotateX(Math.PI/2);add(ng,M.steel,mount[0],y,front[1]-pl/2+0.004*len,"weapon");
+    flameJet(g,mount[0],y,front[1]-pl+0.004*len,(b.flame&&b.flame.reachM)||0.05,b.widthM*0.6,V.tier==="lite");return;}
   /* a pusher: a plain plate on the front */
   if(!k.th("front"))add(new THREE.BoxGeometry(b.widthM,bodyH*0.7,0.003*len),M.hdpe,front[0],clr+bodyH*0.4,front[1]-0.0015*len);}
 
@@ -5061,6 +5161,13 @@ function grabJaw(g,b,k,pc,reach,cl){const M=V.mats,{hl,H,clr,bodyH,len,front,lif
      plow       a ramp the whole width, taller                 spike      a cone pointing forwards
      rearwedge  a ramp the whole width, facing back            rearspike  two cones pointing back
      kicker     a plate hinged at the top of the back, sloping down behind; arena.js swings it up when it fires ---- */
+/* 0.1.66: a flame out of a nozzle at (x, y, z), reaching forward (-z) reach and w wide at its end: see-through cones (Full and
+   Ultra two, added together, the inner one yellow; Lite one plain cone and fewer sides), hidden until arena.js lights it (role "flame") */
+function flameJet(g,x,y,z,reach,w,lite){const C=c=>new THREE.Color(c).convertSRGBToLinear(),fj=new THREE.Group();fj.userData.role="flame";
+  const mk=(col,op)=>{const m=new THREE.MeshBasicMaterial({color:C(col),transparent:true,opacity:lite?0.6:op,depthWrite:false,fog:false});if(!lite)m.blending=THREE.AdditiveBlending;return m;};
+  for(const [col,op,s] of lite?[[0xff7a1a,0.6,1]]:[[0xff7a1a,0.55,1],[0xffd66b,0.7,0.55]]){const geo=new THREE.ConeGeometry(w/2*s,reach*(0.6+0.4*s),lite?6:10,1,true);
+    geo.rotateX(Math.PI/2);geo.translate(0,0,-reach*(0.6+0.4*s)/2);const c=new THREE.Mesh(geo,mk(col,op));c.userData.own=true;fj.add(c);}   // the cone's point at the nozzle, opening forward
+  fj.position.set(x,y,z);fj.visible=false;g.add(fj);return fj;}
 let ATT_WEDGE=null;   // a unit ramp (tip low at -z, tall at +z), shared by every bot and never disposed
 function attWedge(){if(!ATT_WEDGE){const s=new THREE.Shape();s.moveTo(-0.5,-0.5);s.lineTo(0.5,-0.5);s.lineTo(0.5,0.5);s.closePath();
   const e=new THREE.ExtrudeGeometry(s,{depth:1,bevelEnabled:false});e.rotateY(-Math.PI/2);e.translate(0.5,0,0);ATT_WEDGE=e;}return ATT_WEDGE;}
@@ -5081,7 +5188,7 @@ function buildAttach(g,b,k){const M=V.mats,{Wd,L,hw,clr,bh,boxTop,len,front,back
   else if(wpn.id==="drisk")kh=wR*0.45+0.008*len;
   else if(wpn.id==="vsp")kh=Math.max(0.005*len,wR*0.14)/2+0.008*len;
   else if(wpn.type==="crusher")kh=Wd*0.2;
-  else if(wpn.type==="spear")kh=0.012*len;   // 0.1.64: the spear's point comes out of the middle
+  else if(wpn.type==="spear"||wpn.type==="flame")kh=0.012*len;   // 0.1.64: the spear's point comes out of the middle (0.1.66: a flamethrower's nozzle)
   const spans=kh&&fr.id!=="none"?[[-hw,Math.min(hw,mx-kh-0.006*len)],[Math.max(-hw,mx+kh+0.006*len),hw]].filter(q=>q[1]-q[0]>Wd*0.07):null;
   if(fr.id==="wedgelets"){const d=L*0.12,h=clr+bh*0.45,w=Wd*0.3;
     if(spans)for(const q of spans){const ww=Math.min(w,q[1]-q[0]),xc=q[0]<=-hw+1e-6?-hw+ww/2:hw-ww/2;piece(g,"at_wedgelet",W,M.steel,"front",front[0]+xc,h/2,fz-d/2,ww,h,d);}
@@ -5098,6 +5205,10 @@ function buildAttach(g,b,k){const M=V.mats,{Wd,L,hw,clr,bh,boxTop,len,front,back
   else if(fr.id==="spike"){const d=L*0.2,s=Math.min(Wd*0.22,bh*0.5);
     if(spans)for(const q of spans){const s2=Math.min(s,(q[1]-q[0])*0.85),d2=d*(0.6+0.4*s2/s);piece(g,"at_spike",cone(false),M.steel,"front",front[0]+(q[0]+q[1])/2,clr+bh*0.5,fz-d2/2,s2,s2,d2);}
     else piece(g,"at_spike",cone(false),M.steel,"front",front[0],clr+bh*0.5,fz-d/2,s,s,d);}
+  else if(fr.id==="nozzle"){const s=Math.min(Wd*0.12,bh*0.45),d=L*0.07,y=clr+bh*0.55,x=front[0]+(spans?(spans[spans.length-1][0]+spans[spans.length-1][1])/2:0);   // 0.1.66: a little burner, beside a weapon in the middle
+    const nb=new THREE.Mesh(new THREE.BoxGeometry(s,s,d),M.steel);nb.position.set(x,y,fz-d/2);nb.userData.part="front";g.add(nb);
+    const ng=new THREE.CylinderGeometry(s*0.18,s*0.28,d*0.8,lite?8:12);ng.rotateX(Math.PI/2);const nm=new THREE.Mesh(ng,M.steel);nm.position.set(x,y,fz-d-d*0.4);nm.userData.part="front";g.add(nm);
+    flameJet(g,x,y,fz-d*1.8,(b.flame&&b.flame.reachM)||0.04,Wd*0.4,lite);}
   if(bk.id==="rearwedge"){const d=L*0.12,h=clr+bh*0.6;piece(g,"at_rearwedge",W,M.steel,"back",back[0],h/2,bz+d/2,Wd,h,d,true);}
   else if(bk.id==="rearspike"){const d=L*0.15,s=Math.min(Wd*0.18,bh*0.4);
     if(!(A&&shellAdd(g,A,"at_rearspike",M.steel,"back",back[0],clr+bh*0.5,bz+d/2,Wd*0.6,s,d))){const c=cone(true);
@@ -5462,6 +5573,8 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(u.flip){if(o.wp.shots<B.shots)B.flipT=now;B.shots=o.wp.shots;const k=Math.max(0,1-(now-B.flipT)/350);u.flip.rotation.x=1.1*Math.sin(Math.min(1,k*1.4)*Math.PI/2);}
     if(u.spear){if(o.wp.shots<B.shots)B.stabT=now;B.shots=o.wp.shots;   // 0.1.64: the spear shoots out the stroke and draws back
       const t=now-(B.stabT||-1e9),k=t<60?t/60:Math.max(0,1-(t-60)/260);u.spear.position.z=u.spear.userData.z0-u.spear.userData.stroke*k;}
+    if(u.flame){const on=!!(o.fl&&o.fl.on&&!o.out);u.flame.visible=on;   // 0.1.66: the flame shows while it burns and flickers
+      if(on&&!V.run.reduce){const f=Math.sin(now/1000*23+o.i*1.7)*0.5+Math.sin(now/1000*37)*0.5;u.flame.scale.set(1+0.08*f,1+0.08*f,0.85+0.15*f);}}
     /* 0.1.65: a clamp and lift's forks and jaw rise with what they hold, to the height the sim has it at */
     const hb=W.clamp&&o.wp.held!=null?F.bots[o.wp.held]:null,hz=hb&&!hb.air?hb.z||0:0;
     if(u.forks){const want=o.wp.held!=null?(W.clamp?Math.atan2(hz,u.forks.userData.len||0.1):0.45):0;u.forks.rotation.x+=(want-u.forks.rotation.x)*Math.min(1,dt*8);}
@@ -6144,7 +6257,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.65.0";
+const VERSION="0.1.66.0";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
@@ -6337,7 +6450,9 @@ const RND={
   /* 0.1.34, the odd bodies (the shell spinner needs only the lathe, no R&D) */
   ring:      {name:"Ring spinner",          price:900, hours:18,act:0,needs:"welder",   line:"A toothed steel ring spun round the whole bot on rollers. Hits from every side; it bends if you're unlucky."},
   legs:      {name:"Shuffler legs",         price:1000,hours:20,act:0,needs:"drillpress",line:"Cams and feet instead of wheels. Slow, hard to shove, and the rules let a walker weigh 15% more."},
-  melty:     {name:"Meltybrain",            price:1500,hours:26,act:1,needs:"printer",  line:"The whole bot spins, and a flickering light and a sensor let you drive it while it does. Big hits lose the sync."}};
+  melty:     {name:"Meltybrain",            price:1500,hours:26,act:1,needs:"printer",  line:"The whole bot spins, and a flickering light and a sensor let you drive it while it does. Big hits lose the sync."},
+  /* 0.1.66 (Kelbo): the flamethrower and the flame nozzle (the saucer needs only the press brake) */
+  flame:     {name:"Flamethrower",          price:900, hours:18,act:0,needs:"welder",   line:"A gas tank, a valve and a nozzle: a flamethrower for the weapon, or a little burner on the front. Heats their motors; the judges love it."}};
 const RND_IDS=Object.keys(RND);
 /* the team (Shop tab): one person per role, hired from these. salary: euros a season, paid a week at a time at Close
    week (salary / 52). act: from which act they'll talk to you.
@@ -6377,7 +6492,7 @@ const META_WAVES=[
   {id:"spinner",name:"The spinner era",     favour:["vsp","hsp","drum","beater","drisk","shell","ring","melty","thwack"],line:"Everyone's running discs. Armour your front and fear the first hit."},
   {id:"wedge",  name:"The wedge era",       favour:["wedge","none","lifter","clamp"],line:"Low, fast and pointy. Get under them, or get a skid plate."},
   {id:"under",  name:"The undercutter era", favour:["under","hsp","drum","saw"],line:"Discs at wheel height. Mind your wheels and your sides."},
-  {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper","grabber","spear"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
+  {id:"armour", name:"The armour era",      favour:["none","hammer","crusher","flipper","grabber","spear","flame"],line:"Heavy plate everywhere. Bring something that goes over the top or round the back."}];
 /* rule changes (app/team.js crRules): each comes in at the start of its season (the career's season index, 0 = the
    first), is announced a season ahead, and stays. capJ: a spinner energy cap (J at beetle scale, x the class's mass
    multiplier; the disc's top speed comes down to fit, sim/fight.js); hazard: an extra hazard in one arena; limit: a class's
@@ -7443,7 +7558,7 @@ const BN={anim:{},open:null,pick:[]};
 const BN_WHY={drop:"a big flipper throw, landing both ways up",dummy:"three boxes that don't fight back, with a replay"};
 const BN_DESC={
   drive:"A short straight and a spin on the spot: top speed, time over the track, pull to one side.",
-  weapon:"Spin-up, stored energy and a hit on a fixed anvil; flippers and lifters against test masses; hammers, crushers, spears and rams by their energy.",
+  weapon:"Spin-up, stored energy and a hit on a fixed anvil; flippers and lifters against test masses; hammers, crushers, spears and rams by their energy; a flame by its reach and the heat it puts into a motor.",
   impact:"A swinging mass hits each face harder and harder until something behind it breaks: when the plate gives and which part dies first.",
   gauge:"Feeler gauges at the edge heights common in this class, slid under your front edge.",
   endurance:"Fight-pace bursts of drive and weapon until the battery is flat: runtime, heat, and when the motors back off.",
@@ -7497,6 +7612,7 @@ const BN_TEXT={
     if(r.kind==="hammer")return[`Strike ${rd(bn0(r.energyJ)+" J")}, ${bn1(r.swingS)} s a swing`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}`];
     if(r.kind==="crush")return[`Crush force ${rd(bn0(r.forceN)+" N")}, ${rd(bn0(r.energyJ)+" J")} a bite`];
     if(r.kind==="stab")return[`Stab ${rd(bn0(r.energyJ)+" J")}, the point out ${rd(bn0(r.strokeM*1000)+" mm")} past the front`,`On the anvil: ${rd(bn0(r.hitJ)+" J")}, half the armour's give taken out by the point`,`${r.shots} shots, ${bn1(r.rechargeS)} s to recharge`];
+    if(r.kind==="flame")return[`Flame ${rd(bn0(r.reachM*1000)+" mm")} past the front, ${rd(bn0(r.fuelS)+" s")} of fuel`,`A motor held in it overheats in about ${rd(bn1(r.derateS)+" s")}`,`Burns ${rd(bn1(r.burnJps)+" J")} a second through the armour`];   // 0.1.66
     return[`No powered weapon: rams at ${rd(bn0(r.ramJ)+" J")} at top speed`,`Push ${rd(bn0(r.pushN)+" N")}, front edge ${bn1(r.edgeMm)} mm`];},
   impact:(r,b)=>["front","back","left","right","top"].map(f=>{const x=r.faces[f],w=f===r.weakest;
     return`${w?'<b class="broke">':"<b>"}${FACE_LBL[f]}</b> <small>(${esc(x.armour)})</small>: ${x.plateJ>0?`plate gives at ${rd(bn0(x.plateJ)+" J")}, `:x.hpJ>0?"":"no plate, "}${x.failJ!=null?`${esc(x.failName)} dies at ${rd(bn0(x.failJ)+" J")}`:`nothing breaks up to ${bn0(r.maxJ)} J`}${w?' <span class="broke">· weakest</span>':""}`;}),
@@ -7600,6 +7716,7 @@ function bnHead(id,r,rows){const row=rows.find(x=>x.test===id&&(x.state==="ok"||
   if(id==="weapon"){if(r.kind==="flip"){const q=r.rows.filter(x=>x.lifts).pop();return{text:q?bn1(q.heightM)+" m throw":"stays down",cmp:q?`a ${bn1(q.kg)} kg bot`:""};}
     if(r.kind==="lift")return{text:bn1(r.canLiftKg)+" kg",cmp:"the most it lifts"};
     if(r.kind==="crush")return{text:bn0(r.forceN)+" N",cmp:"crush force"};
+    if(r.kind==="flame")return{text:bn0(r.reachM*1000)+" mm flame",cmp:bn0(r.fuelS)+" s of fuel"};
     return{text:bn0(r.hitJ||0)+" J",cmp:r.kind==="ram"?"a ram at top speed":"on the anvil"};}
   return{text:"tested",cmp:""};}
 /* why run it: what the sheet has for that test, waiting to be proved */
@@ -7699,7 +7816,8 @@ const SHEET_ROWS=[
   {id:"push",label:"Push",test:"drive",calc:b=>b.pushN,bench:r=>r.pushN,fmt:v=>sh1(v)+" N",tol:0.05,better:"hi"},
   {id:"turn",label:"Spin on the spot",test:"drive",calc:b=>b.turnRate*180/Math.PI,bench:r=>r.turnDegS,fmt:v=>sh0(v)+" °/s",tol:0.05,better:"hi"},
   {id:"spinup",label:"Spin-up",test:"weapon",when:shSpin,calc:b=>b.weapon.spinUpS,bench:r=>r.kind==="spin"?(r.spinUpS==null?"never reaches full speed":r.spinUpS):null,fmt:v=>sh2(v)+" s",tol:0,better:null,gap:"lo"},
-  {id:"hit",label:"Hit energy",test:"weapon",when:b=>b.weapon.energyJ>=1,calc:b=>b.weapon.energyJ,bench:r=>r.hitJ,fmt:v=>sh0(v)+" J",calcNote:"stored",benchNote:"delivered",tol:0,better:null},
+  {id:"flame",label:"Flame reach",test:"weapon",when:b=>b.weapon.type==="flame",calc:b=>b.flame.reachM*1000,bench:r=>r.kind==="flame"?r.reachM*1000:null,fmt:v=>sh0(v)+" mm",tol:0,better:null},   // 0.1.66
+  {id:"hit",label:"Hit energy",test:"weapon",when:b=>b.weapon.energyJ>=1&&b.weapon.type!=="flame",calc:b=>b.weapon.energyJ,bench:r=>r.hitJ,fmt:v=>sh0(v)+" J",calcNote:"stored",benchNote:"delivered",tol:0,better:null},
   {id:"runtime",label:"Runtime",test:"endurance",calc:b=>b.runtimeS==null||!isFinite(b.runtimeS)?"no limit":b.runtimeS,bench:r=>r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":r.runtimeS,fmt:v=>sh0(v)+" s",tol:0.05,better:"hi"},
   {id:"weak",label:"Weakest face",test:"impact",calc:b=>FACE_LBL[b.weakestFace],bench:r=>r.weakest?`${FACE_LBL[r.weakest]}, fails at ${sh0(r.faces[r.weakest].failJ)} J`:"nothing failed",tol:0,better:null},
   {id:"edge",label:"Front edge",test:"gauge",calc:b=>b.height.frontEdgeMm,bench:r=>{const u=r.rows.filter(q=>q.under).map(q=>q.mm);return u.length?`gauges to ${Math.max(...u)} mm get under`:"no gauge gets under";},fmt:v=>(Math.round(v*10)/10)+" mm",tol:0,better:null},
@@ -7936,8 +8054,9 @@ function ctlRead(F,o){const out={throttle:0,steer:0,weapon:0,selfRight:0,slide:0
   ctlButtons(o,canSlide);CTL.last=out;return out;}
 /* the self-right button shows only when it's needed; Slide only with a wheel layout that can slide */
 function ctlButtons(o,canSlide){if(!CTL.el)return;const srb=CTL.el.querySelector("[data-c=sr]"),slb=CTL.el.querySelector("[data-c=sl]");
-  /* 0.1.57: nothing to fire (a pusher or a plain wedge with no kicker on the back) means no Weapon button */
-  const wb=CTL.el.querySelector("[data-c=wpn]"),t=o.b.weapon.type,dud=(t==="none"||t==="wedge")&&!(o.b.back&&o.b.back.kick);if(wb&&wb.hidden!==dud)wb.hidden=dud;
+  /* 0.1.57: nothing to fire (a pusher or a plain wedge with no kicker on the back or flame nozzle on the front) means no Weapon button */
+  const wb=CTL.el.querySelector("[data-c=wpn]"),t=o.b.weapon.type,dud=(t==="none"||t==="wedge")&&!(o.b.back&&o.b.back.kick)&&!o.b.flame;
+  if(wb&&wb.hidden!==dud)wb.hidden=dud;
   if(srb){const need=o.inverted&&!o.b.height.drivesInverted;if(srb.hidden===need)srb.hidden=!need;}
   if(slb&&slb.hidden===!!canSlide)slb.hidden=!canSlide;}
 function ctlFoe(F,o){let best=null,bd=1e9;for(const t of F.bots)if(t.team!==o.team&&!t.out){const d=Math.hypot(t.x-o.x,t.y-o.y);if(d<bd){bd=d;best=t;}}return best;}
@@ -8217,6 +8336,8 @@ function ftSfx(F,e,now){const SS=SCRAP_SOUND,mm=Math.max(F.M.mass,1e-6),A=e.a!=n
   else if(e.k==="grab")SS.sfx("grab",0.7);
   else if(e.k==="kick"&&!e.heavy)SS.sfx("kick",0.7);
   else if(e.k==="stab")SS.sfx("kick",0.6);   // 0.1.64: a spear's stab into thin air
+  else if(e.k==="slip"&&(e.w==="flip"||e.w==="kick"))SS.sfx(e.w==="kick"?"kick":"flip",0.6);   // 0.1.66: it fired, and skated off a saucer
+  else if(e.k==="fire")SS.sfx("flame",0.6);   // 0.1.66: a flamethrower or a nozzle lights
   else if(e.k==="under"||e.k==="grind")SS.sfx("scrape",0.45);
   else if(e.k==="haz"){if(e.what!=="flame")SS.sfx(e.what==="pusher"?"pusher":"floorspin",0.6);}
   else if(e.k==="flame")SS.sfx("flame",0.55);
@@ -8339,7 +8460,7 @@ function ftOverlay(){const F=FT.F;if(!F||!FT.on)return;
   F.bots.forEach((o,i)=>{const el=document.querySelector(`.fbot[data-i="${i}"]`);if(!el){if(o.mini&&FT.on&&!FT.view2d)SCRAP_VIS.damage(i,SIM.partStates(o.b,o.st));return;}   // a minibot has no strip, but greys in the arena
     const w=o.b.weapon,h=o.b.heat,states=SIM.partStates(o.b,o.st);
     const bat=o.b.power.batteryWs>0?o.bat/o.b.power.batteryWs:0,heat=Math.max(h.drive.budgetJ>0?o.heat.d/h.drive.budgetJ:0,h.weapon&&h.weapon.budgetJ>0?o.heat.w/h.weapon.budgetJ:0);
-    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"||w.type==="spear"?o.wp.shots/(w.shots||1):w.type==="none"||w.type==="wedge"?0:1;
+    const ws=!o.fx.weaponOk?0:w.type==="spinner"||w.type==="saw"?o.wp.om/(w.omega||1):w.type==="flipper"||w.type==="spear"?o.wp.shots/(w.shots||1):w.type==="flame"?o.fl.fuel/(o.b.flame.fuelS||1):w.type==="none"||w.type==="wedge"?0:1;
     if(o.flags.bent&&states.weapon==="intact")states.weapon="damaged";
     /* three bars: how long is how ready (disc speed, shots left; drive left on each side; charge), the colour is how damaged */
     const set=(k,v,cls)=>{const x=el.querySelector(`[data-b="${k}"]`);if(!x)return;const p=Math.round(Math.max(0,Math.min(1,v))*100)+"%";if(x.style.width!==p)x.style.width=p;if(x.className!==cls)x.className=cls;};
@@ -8495,6 +8616,9 @@ function ftLine(F,e){const a=e.a,v=e.v,N=(i,p)=>ftName(F,i,p),J=x=>`<span class=
     case"drop":return e.h!=null?`${ftCap(N(a))} ${V(a,"drops","drop")} ${N(v)} from ${Math.max(1,Math.round(e.h*100))} cm up${e.r?` (${FT_HOLD} s hold limit)`:""}`   // 0.1.65: a clamp and lift lets go
       :`${ftCap(N(a))} ${V(a,"lets","let")} ${N(v)} down (${FT_HOLD} s hold limit)`;
     case"release":return`${ftCap(N(a))} ${V(a,"backs","back")} off ${N(v)} (${FT_HOLD} s pin limit)`;
+    case"slip":return e.rim?`${ftCap(N(a,1))} ${({flip:"flipper",kick:"kicker",grab:"jaw",lift:"lifter"})[e.w]||"lip"} skates off ${N(v,1)} rim`:null;   // 0.1.66: a saucer
+    case"fire":return`${ftCap(N(a))} ${V(a,"lights","light")} ${a===0?"your":"its"} ${F.bots[a].b.flame&&F.bots[a].b.flame.src==="front"?"nozzle":"flamethrower"}${v>=0?" on "+N(v):""}`;   // 0.1.66
+    case"burn":return e.x?`The flame burns ${N(v,1)} ${FT_FACE[e.f]||e.f||"armour"} · ${ftParts(F,v,e.x)}`:null;   // only when it costs a part
     case"tip":return`${ftCap(N(a))} ${V(a,"tips","tip")} ${N(v)} ${e.inv?"over":"off the lifter"}`;
     case"inv":return e.inv?`${ftCap(N(v))} ${V(v,"lands","land")} upside down`:`${ftCap(N(v))} ${V(v,"lands","land")} back on ${v===0?"your":"its"} wheels`;
     case"land":{const x=e.x||[],tot=x.reduce((q,p)=>q+p[1],0),dead=x.filter(p=>p[2]);if(!dead.length&&tot<2*F.M.mass)return null;
@@ -8587,10 +8711,10 @@ function ftRender(){const el=$("ftBody");if(!el)return;ftVoiceLoad();const bot=b
      me and them are {b, wt (weapon type), wn (weapon name)}; done is the list of bench tests run on the fitted bot. */
 const MATCH_ROWS=[
   ["speed","Top speed",b=>b.driveSpeed,v=>sh2(v)+" m/s"],
-  ["hit","Hit energy",b=>b.weapon.energyJ>=1?b.weapon.energyJ:null,v=>sh0(v)+" J"],
+  ["hit","Hit energy",b=>b.weapon.energyJ>=1&&b.weapon.type!=="flame"?b.weapon.energyJ:null,v=>sh0(v)+" J"],
   ["runtime","Runtime",b=>b.runtimeS==null||!isFinite(b.runtimeS)?null:b.runtimeS,v=>sh0(v)+" s"],
   ["weak","Weakest face",b=>FACE_LBL[b.weakestFace],null]];
-const MATCH_NONE={hit:b=>b.weapon.type==="none"?"no weapon":"no spinner",runtime:()=>"no limit"};
+const MATCH_NONE={hit:b=>b.weapon.type==="none"?"no weapon":b.weapon.type==="flame"?"a flame":"no spinner",runtime:()=>"no limit"};
 const MATCH_ADVICE=[
   {test:"gauge",when:(me,th,done)=>["wedge","lifter","flipper"].indexOf(th.wt)>=0&&done.indexOf("gauge")<0,
     text:(me,th)=>`<b>Front edge not gauged.</b> ${Math.round(me.b.height.frontEdgeMm*10)/10} mm on the sheet, and they run a ${esc(th.wn)}.`},
@@ -10186,6 +10310,8 @@ const OPP_TEAMS={
   "op:rammbock":["Pneumatik Velm","navy","clay","shield","piston","PV"],
   "op:hebebuehne":["Autohaus Brenner","sand","coal","square","wrench","AB"],
   "op:gabelstapler":["Hafenlager Eisenau","teal","sand","hex","claw","HE"],
+  "op:loetlampe":["Installateur Wyss","clay","coal","shield","flame",""],
+  "op:untertasse":["Bahnkantine Grauwald","lilac","coal","round","none","BK"],
   "op:weichensteller":["Signalbau Ost","teal","sand","diamond","bolt",""],
   "op:lindwurm":["Drachenloch","green","wine","shield","flame",""],
   "op:schrottkran":["Altmetall Velm","steel","sand","gear","claw",""],

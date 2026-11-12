@@ -139,7 +139,17 @@ const FIGHT={
      to the league's limit (holdMaxS), then backs off as from a pin (releaseS, pinClearS). A mobile bot wriggles free at slip
      a second while the arm is still going up, never once it is clear of the floor; let go, it drops what it holds from where the arm has it,
      landing it upside down flipP of the time at full height (less lower down), and the arm is ready again in rechargeS */
-  clamp:{closeS:0.8,liftS:1,slip:1.5,drag:0.1,carryV:0.35,flipP:0.35,rechargeS:2}
+  clamp:{closeS:0.8,liftS:1,slip:1.5,drag:0.1,carryV:0.35,flipP:0.35,rechargeS:2},
+  /* 0.1.66, the flamethrower and the flame nozzle (b.flame, sim/build.js): held, the flame burns a box past the front w x
+     the bot's width (the weapon's cone, the nozzle's) out to its reach. What is in it takes heat into its drive and weapon
+     (b.flame.heatFrac of each heat budget a second, up to FIGHT.flameCap budgets, as on a flame grate), a burn every
+     tickS through absorb x its plate's absorb (heat goes through armour), and the burner's judges count the time as
+     contact (aggression). The fuel runs down only while it burns; a nozzle lights only with a bot in front of it */
+  flame:{w:{weapon:0.6,front:0.4},tickS:0.5,absorb:0,judge:1},
+  /* 0.1.66, the saucer (b.round): its rim (height.rimMm) is the edge anything trying to get under it meets; pushes slide
+     off its curve (mu x the contact friction, its own and what it pushes); a lifter, a grabber, a flipper or a kicker
+     slips off it this often (the lip skates off the rim; a flipper's or a kicker's shot is spent) */
+  saucer:{mu:0.85,slipP:0.15}
 };
 const clamp1=v=>v<-1?-1:v>1?1:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
@@ -175,12 +185,17 @@ function impulseAt(o,jx,jy,px,py){if(!(o.m>0))return;o.vx+=jx/o.m;o.vy+=jy/o.m;o
   if(o.w>FIGHT.maxSpin)o.w=FIGHT.maxSpin;else if(o.w<-FIGHT.maxSpin)o.w=-FIGHT.maxSpin;}
 
 /* ---- the working zone of a bot's weapon, in its frame around the COM: {circle, x, y, r} or {x0, x1, y0, y1}, plus top ---- */
-function weaponZone(b){const w=b.weapon,Z=FIGHT.zone[w.id]||FIGHT.zone[w.type];if(!Z||w.type==="none"||w.type==="wedge")return null;
+function weaponZone(b){const w=b.weapon;if(w.type==="flame")return flameZone(b);
+  const Z=FIGHT.zone[w.id]||FIGHT.zone[w.type];if(!Z||w.type==="none"||w.type==="wedge")return null;
   const cx=b.com.x,cy=b.com.y,hl=b.lengthM/2,mx=w.mountM?w.mountM[0]:0;
   if(Z.circle)return{circle:true,x:mx-cx,y:(w.mountM?w.mountM[1]:hl)-cy,r:w.radiusM||0.05,top:false};
   const f=footprints(b.cfg).find(q=>q.key==="weapon"),ww=f?f.w*CLASSES[b.cls].cellMm/1000:b.widthM;
   const width=Z.full?b.widthM:ww*Z.w,reach=Z.reach!=null?Z.reach*b.lengthM:(w.reachM||0.04),back=0.02*b.lengthM;
   return{circle:false,x0:mx-width/2-cx,x1:mx+width/2-cx,y0:hl-back-cy,y1:hl+reach-cy,top:!!Z.top};}
+/* a flame's zone (0.1.66): a box past the front, round the weapon's mount (a nozzle's round the middle), or null */
+function flameZone(b){const fl=b.flame;if(!fl)return null;const hl=b.lengthM/2,mx=fl.src==="weapon"&&b.weapon.mountM?b.weapon.mountM[0]:0,
+    w=b.widthM*(FIGHT.flame.w[fl.src]||0.5)/2,cx=b.com.x,cy=b.com.y;
+  return{circle:false,x0:mx-w-cx,x1:mx+w-cx,y0:hl-0.02*b.lengthM-cy,y1:hl+fl.reachM-cy,top:false};}
 /* a kicker's zone (0.1.32): a box behind the back face, in the same frame, or null */
 function kickZone(b){const k=b.back&&b.back.kick;if(!k)return null;const hl=b.lengthM/2,w=b.widthM*FIGHT.kickW/2,cx=b.com.x,cy=b.com.y;
   return{circle:false,x0:-w-cx,x1:w-cx,y0:-hl-k.reachM-cy,y1:-hl+0.02*b.lengthM-cy,top:false};}
@@ -205,7 +220,7 @@ function newBot(spec,i,F){const b=evalBuild(spec.cfg),cfg=b.cfg,M=classMult(b.cl
   const o={i,team:spec.team!=null?spec.team:i,name:spec.name||b.className,livery:spec.livery||null,cfg,b,driver:spec.driver||null,M,
     x:0,y:0,h:0,vx:0,vy:0,w:0,z:0,vz:0,zPeak:0,air:false,inverted:false,flipNext:false,
     m:b.massKg,I:Math.max(b.moi,1e-6),poly:b.polygon.map(p=>[p[0]-b.com.x,p[1]-b.com.y]),pw:null,rad:0,
-    zone:weaponZone(b),kz:kickZone(b),kick:{shots:b.back.kick?b.back.kick.shots:0,recharge:0},st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
+    zone:weaponZone(b),kz:kickZone(b),fz:flameZone(b),fl:{fuel:b.flame?b.flame.fuelS:0,on:false,hit:{}},kick:{shots:b.back.kick?b.back.kick.shots:0,recharge:0},st:damageState(b,spec.damage),flags:Object.assign({esc:null,smoke:false,cell:false,bent:false},carryFlags(spec.flags)),fx:null,
     wp:{om:0,shots:b.weapon.shots||0,recharge:0,phase:0,t:0,held:null,last:{}},
     heat:{d:0,w:0,dDer:false,wDer:false},bat:b.power.batteryWs,flat:false,
     under:null,held:null,righting:0,immobileS:0,out:null,outAt:null,dazed:-1,stunNext:0,
@@ -297,7 +312,7 @@ function inBay(F,t){const y=t.b.bay,p=y?(t.inverted?y.belowFrac:y.topFrac)*DAMAG
 function damageBot(F,o,face,E,kind,att,opts){opts=opts||{};F.fxHit=null;if(E<=0||o.out==="pit")return null;const before=o.fx;
   const st=o.st,hadBat=st.parts.battery,hadEl=st.parts.electronics,bay=opts.bay&&kind!=="land"&&!opts.below?(o.inverted?2:1):0;   // 2: into the bay underneath, upside down
   const s0=F.fxq&&(kind==="hit"||kind==="haz")?damageShare(o.b,st):-1;   // fx only: the damage number over the bot
-  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul||1),bay);
+  const res=kind==="land"||opts.below?landHit(o.b,st,E,opts.inverted):hitFace(o.b,face,E,st,o.fx.absorbMul*(opts.absorbMul!=null?opts.absorbMul:1),bay);
   /* a meltybrain hit hard while it spins loses its heading for a moment (0.1.34) */
   const mw=o.b.weapon;if(mw.melty&&kind!=="land"&&E>=FIGHT.melty.syncJ*F.M.mass&&o.wp.om>=FIGHT.minSpin*mw.omega&&!(o.desync>F.t)){o.desync=F.t+FIGHT.melty.syncS;logIt(F,{k:"self",v:o.i,what:"sync"});}
   if(opts.shock&&st.parts.electronics>0&&F.rng()<opts.shock*(o.b.cfg.electronics==="failsafe"?0.5:1)){st.parts.electronics=0;logIt(F,{k:"fail",v:o.i,what:"shock"});}
@@ -361,6 +376,7 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     else if(u.weapon&&f.motorOk&&upright&&!o.air&&!(wp.recharge>0)){let near=false;
       for(const t of F.bots)if(t!==o&&t.team!==o.team&&!t.out&&t.held==null&&t.m<=w.canLiftKg&&!slick(t)&&!(cl&&t.pinClear&&t.pinClear.by===o.i&&F.t<t.pinClear.until)&&zoneTouch(o,t)){near=true;
       if(grab&&(wp.ct=(wp.ct||0)+dt)<(cl?FIGHT.clamp.closeS:FIGHT.grabCloseS))break;   // the jaws take a moment to close: it has to stay in reach
+      if(rimSlip(F,t)){wp.ct=0;wp.recharge=grab?FIGHT.grabCloseS:0.5;logIt(F,{k:"slip",a:o.i,v:t.i,rim:1,w:grab?"grab":"lift"});break;}   // 0.1.66: the lip skates off a saucer's rim
       wp.held=t.i;wp.ct=0;wp.t=0;t.held=o.i;
       if(grab){const l=toLocal(o,t.x,t.y);wp.grab={lx:l[0],ly:l[1],dh:wrapA(t.h-o.h)};t.under=null;
         const c=zoneTouch(o,t);if(c){damageBot(F,t,faceAt(t,c.px,c.py),FIGHT.grabJ*o.M.mass*lethalOf(F),"hit",o.i);fxPush(F,{k:"grab",x:c.px,y:c.py,E:FIGHT.grabJ*o.M.mass,v:t.i});}
@@ -377,6 +393,8 @@ function stepWeapon(F,o){const w=o.b.weapon,u=o.input,dt=F.dt,f=o.fx,p=powerOf(o
     return wp.phase===1?o.b.power.weaponW*o.b.powerScale*p:0;}
   return 0;}
 
+/* 0.1.66: a lip that gets to a saucer slips off its rim this often (FIGHT.saucer.slipP) */
+function rimSlip(F,t){return!!t.b.round&&F.rng()<FIGHT.saucer.slipP;}
 /* a shell or meltybrain spun up (0.1.34): nothing can get a grip on it */
 function slick(t){const s=FIGHT.slick[t.b.weapon.id];return!!s&&t.b.weapon.omega>0&&t.wp.om>=s*t.b.weapon.omega;}
 /* a bot sent up: vz, a forward push, and whether it will land upside down */
@@ -389,6 +407,7 @@ function invertChance(F,hM){const a=FIGHT.invertM[0]*F.M.len,b=FIGHT.invertM[1]*
 function fireFlipper(F,o){const w=o.b.weapon,stroke=part("weapon",o.b.cfg.weapon).strokeMm*o.M.len/1000;let hit=false;
   for(const t of F.bots){if(t===o||t.team===o.team||t.out)continue;const c=zoneTouch(o,t);if(!c)continue;hit=true;
     if(t.m>w.canLiftKg){logIt(F,{k:"flip",a:o.i,v:t.i,h:0,heavy:1});continue;}
+    if(rimSlip(F,t)){logIt(F,{k:"slip",a:o.i,v:t.i,rim:1,w:"flip"});continue;}   // 0.1.66: the plate skates off a saucer's rim
     const h=Math.max(0,w.launchJ*K.flipEff/(t.m*K.g)-stroke),flip=F.rng()<invertChance(F,h);if(!o.mini&&!t.mini)o.jd.ctrl+=FIGHT.flipCtrlS[F.cls]||0;
     launch(F,t,Math.sqrt(2*K.g*h),flip,o,null,FIGHT.flipThrow[F.cls]||0);t.stunNext=FIGHT.flipStunS[F.cls]||0;logIt(F,{k:"flip",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
     damageBot(F,t,faceAt(t,c.px,c.py),w.launchJ*FIGHT.flipDmg*(w.bite||1)*lethalOf(F),"hit",o.i);fxPush(F,{k:"flip",x:c.px,y:c.py,E:w.launchJ,v:t.i});o.stats.hits++;}
@@ -413,10 +432,27 @@ function stepKick(F,o){const k=o.b.back.kick,q=o.kick;if(!k)return;if(q.recharge
   let hit=null;for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.held!=null)continue;const c=zoneTouch(o,t,o.kz);if(c){hit=[t,c];break;}}
   if(!hit)return;q.shots--;q.recharge=k.rechargeS;const[t,c]=hit;
   if(t.m>k.canLiftKg){logIt(F,{k:"kick",a:o.i,v:t.i,h:0,heavy:1});return;}
+  if(rimSlip(F,t)){logIt(F,{k:"slip",a:o.i,v:t.i,rim:1,w:"kick"});return;}
   const h=Math.max(0,k.launchJ*K.flipEff/(t.m*K.g)-k.strokeM),flip=F.rng()<invertChance(F,h);
   launch(F,t,Math.sqrt(2*K.g*h),flip,null,o.i);t.stunNext=FIGHT.flipStunS[F.cls]||0;if(!o.mini&&!t.mini)o.jd.ctrl+=(FIGHT.flipCtrlS[F.cls]||0)/2;const v=FIGHT.kickFwd*Math.sqrt(o.M.len);t.vx-=Math.cos(o.h)*v;t.vy-=Math.sin(o.h)*v;t.w+=rRange(F.rng,-5,5);
   logIt(F,{k:"kick",a:o.i,v:t.i,h:r2(h),inv:flip?1:0});
   damageBot(F,t,faceAt(t,c.px,c.py),k.launchJ*FIGHT.flipDmg*lethalOf(F),"hit",o.i);fxPush(F,{k:"kick",x:c.px,y:c.py,E:k.launchJ,v:t.i});o.stats.hits++;}
+/* a flame (0.1.66, b.flame): on the weapon button, while there is fuel, it burns what is in its zone (FIGHT.flame). Either
+   way up. A nozzle lights only with a bot in front of it; a flamethrower burns whenever it is held. The log has "fire" when
+   it lights and "burn" for each burn (merged like small hits) */
+function stepBurn(F,o){const fl=o.b.flame,q=o.fl;if(!fl)return;const was=q.on;q.on=false;
+  if(!o.input.weapon||q.fuel<=0||o.air||o.fx.dead||!(powerOf(o)>0)||(fl.src==="weapon"?!o.fx.weaponOk:!(o.st.parts.front>0)))return;
+  const T=[];for(const t of F.bots){if(t===o||t.team===o.team||t.out||t.air)continue;const c=zoneTouch(o,t,o.fz);if(c)T.push([t,c]);}
+  if(fl.src==="front"&&!T.length)return;
+  q.on=true;q.fuel=Math.max(0,q.fuel-F.dt);if(!was)logIt(F,{k:"fire",a:o.i,v:T.length?T[0][0].i:-1});
+  const G=FIGHT.flame,k=fl.heatFrac*F.dt;
+  for(const[t,c]of T){const hb=t.b.heat,h=t.heat;
+    if(hb&&hb.drive)h.d=Math.max(h.d,Math.min(hb.drive.budgetJ*FIGHT.flameCap,h.d+k*hb.drive.budgetJ));
+    if(hb&&hb.weapon)h.w=Math.max(h.w,Math.min(hb.weapon.budgetJ*FIGHT.flameCap,h.w+k*hb.weapon.budgetJ));
+    if(!o.mini&&!t.mini&&!(t.touch[o.i]!=null&&F.t-t.touch[o.i]<0.1))o.jd.contact+=F.dt*G.judge;   // touching, stepJudge counts it already
+    if(F.t<(q.hit[t.i]||0))continue;q.hit[t.i]=F.t+G.tickS;
+    const face=faceAt(t,c.px,c.py),E=fl.burnJps*G.tickS*lethalOf(F);
+    damageBot(F,t,face,E,"burn",o.i,{absorbMul:G.absorb});fxPush(F,{k:"burn",x:c.px,y:c.py,E,v:t.i});}}
 /* a grabber carrying what it holds (0.1.32): the held bot is put back where it was clamped, in the grabber's frame, and
    moves with it */
 function grabCarry(F,o){const g=o.wp.grab,h=o.wp.held;if(!g||h==null)return;const t=F.bots[h];if(!t||t.held!==o.i){o.wp.grab=null;return;}
@@ -534,7 +570,8 @@ function collide(F,A,B){if(A.air||B.air||A.out==="pit"||B.out==="pit")return;
   if(vn<0){const ca=ra[0]*n.ny-ra[1]*n.nx,cb=rb[0]*n.ny-rb[1]*n.nx,km=ima+imb+ca*ca/A.I+cb*cb/B.I;
     const jn=-(1+FIGHT.restitution)*vn/km;impulseAt(A,-n.nx*jn,-n.ny*jn,px,py);impulseAt(B,n.nx*jn,n.ny*jn,px,py);
     const tx=-n.ny,ty=n.nx,vt=vr[0]*tx+vr[1]*ty,ta=ra[0]*ty-ra[1]*tx,tb=rb[0]*ty-rb[1]*tx,kt=ima+imb+ta*ta/A.I+tb*tb/B.I;
-    let jt=-vt/kt;const lim=FIGHT.contactMu*jn;jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(A,-tx*jt,-ty*jt,px,py);impulseAt(B,tx*jt,ty*jt,px,py);
+    let jt=-vt/kt;const lim=FIGHT.contactMu*jn*(A.b.round||B.b.round?FIGHT.saucer.mu:1);   // 0.1.66: pushes slide off a saucer's curve
+    jt=jt>lim?lim:jt<-lim?-lim:jt;impulseAt(A,-tx*jt,-ty*jt,px,py);impulseAt(B,tx*jt,ty*jt,px,py);
     const mu=1/(ima+imb),Elost=0.5*mu*vn*vn*(1-FIGHT.restitution*FIGHT.restitution)*FIGHT.ramShare;
     if(Elost>FIGHT.ramMinJ*F.M.mass){const foe=A.team!==B.team;   // a knock from a teammate still hurts but earns nothing with the judges
       damageBot(F,A,fa,Elost*ramOf(B,fb),"ram",foe?B.i:-1);damageBot(F,B,fb,Elost*ramOf(A,fa),"ram",foe?A.i:-1);fxPush(F,{k:"ram",x:px,y:py,E:Elost});}}}
@@ -551,8 +588,9 @@ function ramOf(o,face){const q=face==="front"?o.b.front:face==="back"?o.b.back:n
 function wedgeRule(F,A,B,fa,fb){const tol=WEDGE_RULES.tolMm*F.M.edge,hold=WEDGE_RULES.holdS;
   const guard=(Y,fy)=>{const g=fy==="front"&&WEDGE_RULES.discGuard[Y.b.weapon.id]||WEDGE_RULES.allGuard[Y.b.weapon.id];return!!g&&Y.b.weapon.omega>0&&Y.wp.om>=g*Y.b.weapon.omega;};
   const can=(X,Y,fy)=>!(X.inverted&&!X.b.height.drivesInverted)&&!guard(Y,fy);
-  const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<edgeOf(Y,fy)-tol;
-  const underBack=(X,Y,fy)=>X.b.back.id!=="none"&&can(X,Y,fy)&&edgeOf(X,"back")<edgeOf(Y,fy)-tol;   // a rear wedge (0.1.32) gets under too
+  const rim=(Y,fy)=>{const e=edgeOf(Y,fy),r=Y.b.height.rimMm;return r!=null&&r<e?r:e;};   // 0.1.66: a saucer meets it with its rim
+  const under=(X,Y,fy)=>can(X,Y,fy)&&edgeOf(X,"front")<rim(Y,fy)-tol;
+  const underBack=(X,Y,fy)=>X.b.back.id!=="none"&&can(X,Y,fy)&&edgeOf(X,"back")<rim(Y,fy)-tol;   // a rear wedge (0.1.32) gets under too
   let win=null,by="front";
   if(fa==="front"&&under(A,B,fb))win=[A,B];else if(fb==="front"&&under(B,A,fa))win=[B,A];
   else if(fa==="back"&&underBack(A,B,fb)){win=[A,B];by="back";}else if(fb==="back"&&underBack(B,A,fa)){win=[B,A];by="back";}
@@ -638,7 +676,7 @@ function stepFight(F,inputs){if(F.over)return F;const dt=F.dt;
   for(const o of F.bots)if(!o.out)readInput(F,o,inputs);else o.input={throttle:0,steer:0,weapon:0,selfRight:0};
   for(const o of F.bots){if(o.out==="pit")continue;
     /* a knocked-out bot still rolls to a stop (its drive is dead, so it draws nothing) but no longer heats or drains */
-    const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out){stepHeat(F,o,dW,wW);stepKick(F,o);}
+    const wW=o.out?0:stepWeapon(F,o),dW=stepDrive(F,o);if(!o.out){stepHeat(F,o,dW,wW);stepKick(F,o);stepBurn(F,o);}else o.fl.on=false;
     /* self-righting */
     if(o.inverted&&!o.air&&!o.out){if(o.righting>0){o.righting-=dt;if(o.righting<=0){o.righting=0;o.inverted=false;o.invBy=null;logIt(F,{k:"right",v:o.i});}}
       else if(o.input.selfRight&&o.fx.righter&&!o.fx.dead&&!o.flat){const by=o.fx.righterBy;
@@ -726,8 +764,8 @@ function fightLog(F){const L={v:1,seed:F.seed,cls:F.cls,arena:F.spec.arena,rules
      flips, lifts, self-rights, overheating), then hits that damaged parts, smallest first. Failures, knockouts, the end
      and the player's inputs (the replay) are never dropped, unless the inputs alone can't fit beside the entries that
      are kept (only a stick shaken flat out every tick gets there): then the story stays and the replay goes. */
-  const tier=e=>{switch(e.k){case"hit":case"ram":case"wall":case"grind":return e.x?3:0;case"land":return e.x&&e.x.some(p=>p[2])?9:1;
-    case"under":case"lift":case"grab":case"drop":case"tip":case"right":case"heat":case"inv":case"flip":case"kick":return 2;default:return 9;}};
+  const tier=e=>{switch(e.k){case"hit":case"ram":case"wall":case"grind":case"burn":return e.x?3:0;case"land":return e.x&&e.x.some(p=>p[2])?9:1;
+    case"under":case"lift":case"grab":case"drop":case"tip":case"right":case"heat":case"inv":case"flip":case"kick":case"fire":case"slip":return 2;default:return 9;}};
   let sz=JSON.stringify(L).length;
   if(sz>FIGHT.logMaxB&&JSON.stringify(Object.assign({},L,{entries:L.entries.filter(e=>tier(e)===9),trimmed:L.entries.length})).length>FIGHT.logMaxB-64){
     L.inputs={};L.noReplay=1;sz=JSON.stringify(L).length;}

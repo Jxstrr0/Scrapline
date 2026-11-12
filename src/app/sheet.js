@@ -29,7 +29,8 @@ const SHEET_ROWS=[
   {id:"push",label:"Push",test:"drive",calc:b=>b.pushN,bench:r=>r.pushN,fmt:v=>sh1(v)+" N",tol:0.05,better:"hi"},
   {id:"turn",label:"Spin on the spot",test:"drive",calc:b=>b.turnRate*180/Math.PI,bench:r=>r.turnDegS,fmt:v=>sh0(v)+" °/s",tol:0.05,better:"hi"},
   {id:"spinup",label:"Spin-up",test:"weapon",when:shSpin,calc:b=>b.weapon.spinUpS,bench:r=>r.kind==="spin"?(r.spinUpS==null?"never reaches full speed":r.spinUpS):null,fmt:v=>sh2(v)+" s",tol:0,better:null,gap:"lo"},
-  {id:"hit",label:"Hit energy",test:"weapon",when:b=>b.weapon.energyJ>=1,calc:b=>b.weapon.energyJ,bench:r=>r.hitJ,fmt:v=>sh0(v)+" J",calcNote:"stored",benchNote:"delivered",tol:0,better:null},
+  {id:"flame",label:"Flame reach",test:"weapon",when:b=>b.weapon.type==="flame",calc:b=>b.flame.reachM*1000,bench:r=>r.kind==="flame"?r.reachM*1000:null,fmt:v=>sh0(v)+" mm",tol:0,better:null},   // 0.1.66
+  {id:"hit",label:"Hit energy",test:"weapon",when:b=>b.weapon.energyJ>=1&&b.weapon.type!=="flame",calc:b=>b.weapon.energyJ,bench:r=>r.hitJ,fmt:v=>sh0(v)+" J",calcNote:"stored",benchNote:"delivered",tol:0,better:null},
   {id:"runtime",label:"Runtime",test:"endurance",calc:b=>b.runtimeS==null||!isFinite(b.runtimeS)?"no limit":b.runtimeS,bench:r=>r.runtimeS==null||!isFinite(r.runtimeS)?"no limit":r.runtimeS,fmt:v=>sh0(v)+" s",tol:0.05,better:"hi"},
   {id:"weak",label:"Weakest face",test:"impact",calc:b=>FACE_LBL[b.weakestFace],bench:r=>r.weakest?`${FACE_LBL[r.weakest]}, fails at ${sh0(r.faces[r.weakest].failJ)} J`:"nothing failed",tol:0,better:null},
   {id:"edge",label:"Front edge",test:"gauge",calc:b=>b.height.frontEdgeMm,bench:r=>{const u=r.rows.filter(q=>q.under).map(q=>q.mm);return u.length?`gauges to ${Math.max(...u)} mm get under`:"no gauge gets under";},fmt:v=>(Math.round(v*10)/10)+" mm",tol:0,better:null},

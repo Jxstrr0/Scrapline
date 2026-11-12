@@ -311,6 +311,8 @@ function arenaTick(dt,now){const F=AR.F;if(!F||!AR.g)return;const U=AR.U;
     if(u.flip){if(o.wp.shots<B.shots)B.flipT=now;B.shots=o.wp.shots;const k=Math.max(0,1-(now-B.flipT)/350);u.flip.rotation.x=1.1*Math.sin(Math.min(1,k*1.4)*Math.PI/2);}
     if(u.spear){if(o.wp.shots<B.shots)B.stabT=now;B.shots=o.wp.shots;   // 0.1.64: the spear shoots out the stroke and draws back
       const t=now-(B.stabT||-1e9),k=t<60?t/60:Math.max(0,1-(t-60)/260);u.spear.position.z=u.spear.userData.z0-u.spear.userData.stroke*k;}
+    if(u.flame){const on=!!(o.fl&&o.fl.on&&!o.out);u.flame.visible=on;   // 0.1.66: the flame shows while it burns and flickers
+      if(on&&!V.run.reduce){const f=Math.sin(now/1000*23+o.i*1.7)*0.5+Math.sin(now/1000*37)*0.5;u.flame.scale.set(1+0.08*f,1+0.08*f,0.85+0.15*f);}}
     /* 0.1.65: a clamp and lift's forks and jaw rise with what they hold, to the height the sim has it at */
     const hb=W.clamp&&o.wp.held!=null?F.bots[o.wp.held]:null,hz=hb&&!hb.air?hb.z||0:0;
     if(u.forks){const want=o.wp.held!=null?(W.clamp?Math.atan2(hz,u.forks.userData.len||0.1):0.45):0;u.forks.rotation.x+=(want-u.forks.rotation.x)*Math.min(1,dt*8);}

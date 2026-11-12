@@ -67,7 +67,15 @@ const PARTS={
        side (every pod drives it), so it turns on the spot easily (scrubMul) and slides when it is shoved (latMul) */
     {id:"cylinder",name:"Two-wheel drum",massMul:1.15,hpMul:1, flexAdd:0,   heightMul:1.1, edgeMm:0,   deflect:{front:0.15,back:0.15,top:0.25},cost:100,hours:6,unlock:"tool:lathe",
       inverts:true,twoWheel:true,wheelMul:1.5,scrubMul:0.45,latMul:0.7,
-      line:"A drum between two big wheels. It drives either way up and hits glance off its curve, but two wheels turn on a coin and shove easily."}
+      line:"A drum between two big wheels. It drives either way up and hits glance off its curve, but two wheels turn on a coin and shove easily."},
+    /* 0.1.66, the saucer (Kelbo: round, low, glancing): a low round disc pressed from sheet. round: it loses the four corner
+       cells' room and its outline is an octagon (the corners cut roundCut x a cell), so pushes slide off it (FIGHT.saucer.mu);
+       gripMul: its drive pushes with that much of its grip, so it shoves poorly; rimMm: its rim meets the floor this low
+       (beetle mm, x edge) on every face, so only the sharpest edge gets under it, and a lifter's, a flipper's or a grabber's
+       lip slips off it now and then (FIGHT.saucer.slipP). It is pressed whole, so its lost corners save no weight */
+    {id:"saucer", name:"Saucer",       massMul:1.3,hpMul:1, flexAdd:0,   heightMul:0.75,edgeMm:0,   deflect:{front:0.05,back:0.05,left:0.05,right:0.05,top:0.15},cost:110,hours:6,unlock:"tool:press",
+      inverts:true,round:true,rimMm:1.1,gripMul:0.5,roundCut:0.4,
+      line:"A low round disc. Hits glance off every side and its rim hugs the floor, so it's hard to get under, and it drives either way up. The rounded corners cost room inside, and it shoves poorly."}
   ],
   /* per face. Mass is worked out from the face's area x thickMm x density (g/cm3), so it follows the chassis. absorbPerG and
      hpPerG are J per gram of plate: absorb is eaten before any damage, hp is what the plate takes before it is gone.
@@ -168,7 +176,11 @@ const PARTS={
      doesn't right the bot; it fires either way up, and a front fits either side of it.
      Clamp and lift (0.1.65, Kelbo): a grabber (type grabber, clamp true) whose arm raises the whole bot clear, liftMm up,
      on a geared motor like the lifter. Clear of the floor it can't wriggle free; it is carried for up to the league's hold
-     limit (FIGHT.holdMaxS), and letting go drops it from the top of the lift, which may land it upside down (FIGHT.clamp). */
+     limit (FIGHT.holdMaxS), and letting go drops it from the top of the lift, which may land it upside down (FIGHT.clamp).
+     Flamethrower (0.1.66, Kelbo: heat, scorch, judges): a gas tank and a nozzle, an R&D project. Held, it burns a cone
+     reachMm past the front for fuelS seconds in all: what it burns heats heatFrac of its drive's and weapon's heat budgets
+     a second (keep it there and its motors derate), takes burnJps (x mass) through its plate a second, and the judges count
+     the time as aggression (FIGHT.flame). It does no knockout damage on its own; it fires either way up. */
   weapon:[
     {id:"none",   name:"No weapon (pusher)",  type:"none",   fp:null, mount:"front",massG:0,  motorMassG:0,  powerW:0,  heatW:0, edgeMm:null,hp:0, cost:0,  hours:0,unlock:"start"},
     {id:"wedge",  name:"Wedge",               type:"wedge",  fp:null, mount:"front",massG:120,motorMassG:0,  powerW:0,  heatW:0, edgeMm:1,   hp:80,cost:25, hours:2,unlock:"start",reachMm:40},
@@ -190,6 +202,7 @@ const PARTS={
     {id:"melty",  name:"Meltybrain",          type:"spinner",fp:null, mount:"front",massG:30, motorMassG:0,  powerW:200,heatW:0, edgeMm:null,hp:70, cost:300,hours:8,unlock:"rnd:melty",discMass:60,bodyR:1.05,rpmMax:1400, shapeK:1.0, bite:0.5, recoil:1.3,bodyK:0.33,inverts:true},
     {id:"thwack", name:"Thwackbot tail",      type:"spinner",fp:null, mount:"back", massG:70, motorMassG:0,  powerW:220,heatW:0, edgeMm:null,hp:90, cost:160,hours:6,unlock:"tool:welder",discMass:130,boomMm:105,rpmMax:720, shapeK:1.0, bite:0.7, recoil:1.2},
     {id:"spear",  name:"Piston spear",        type:"spear",  fp:[1,3],mount:"front",massG:150,motorMassG:160,powerW:10, heatW:0, edgeMm:null,hp:70, cost:200,hours:6,unlock:"tool:drillpress",shots:20,forceN:400,strokeMm:55,rechargeS:0.7},
+    {id:"flame",  name:"Flamethrower",        type:"flame",  fp:[1,2],mount:"front",massG:120,motorMassG:130,powerW:10, heatW:0, edgeMm:null,hp:55, cost:220,hours:6,unlock:"rnd:flame",fuelS:14,reachMm:75,heatFrac:0.22,burnJps:1},
     {id:"saw",    name:"Overhead saw",        type:"saw",    fp:[2,2],mount:"front",massG:100,motorMassG:90, powerW:260,heatW:50,edgeMm:3,   hp:60,cost:220,hours:7,unlock:"rnd:saw",discMass:80,radius:45,rpmMax:10000,shapeK:0.5,bite:0.5,recoil:0.2,sawJps:15}
   ],
   /* what the weapon's working part is made of: massMult on the disc / arm / wedge, hp the J it takes before it bends
@@ -216,7 +229,12 @@ const PARTS={
     {id:"plow",     name:"Plow",         massG:115,hp:75,cost:40,hours:2,  unlock:"tool:welder",edgeMm:1.5,slope:0.5,absorbJ:6, ramMul:1,  underGrip:0,
       line:"A wide curved scoop. Heavy, but a horizontal spinner skates off it and it soaks a hit."},
     {id:"spike",    name:"Ram spike",    massG:50,hp:60,cost:25,hours:1,  unlock:"start",edgeMm:null,slope:0,   absorbJ:0, ramMul:2.5,underGrip:0,
-      line:"A hardened point on the front. Every ram hurts more; no help getting under."}
+      line:"A hardened point on the front. Every ram hurts more; no help getting under."},
+    /* 0.1.66: a small flame nozzle on the front with its own little tank. It lights on the weapon button only with a bot
+       in front of it (like the kicker), shorter and cooler than the flamethrower (flame: fuelS, reachMm, heatFrac, burnJps) */
+    {id:"nozzle",   name:"Flame nozzle", massG:75,hp:30,cost:120,hours:3,  unlock:"rnd:flame",edgeMm:null,slope:0,   absorbJ:0, ramMul:1,  underGrip:0,
+      flame:{fuelS:6,reachMm:45,heatFrac:0.15,burnJps:0.7},
+      line:"A little burner on the front, on its own tank. It lights when you press the weapon with a bot in front: heats its motors and the judges like it."}
   ],
   /* back (0.1.32): the rear. edgeMm a low rear edge that gets under like a front one (null: the clearance), ramMul and
      absorbJ as the front's, on the back face. A kicker is a small pneumatic flipper facing backwards: it fires with the
@@ -338,9 +356,11 @@ function unknownIds(cfg){const out=[];if(!cfg||typeof cfg!=="object")return out;
 
 /* ---- the chassis grid ---- */
 /* cells that exist on this chassis: a box has them all; the custom shape cuts the front corners */
-function cellOn(cls,chassisId,x,y){const c=CLASSES[cls],ch=part("chassis",chassisId)||PARTS.chassis[0];
+function cellOn(cls,chassisId,x,y,bodyId){const c=CLASSES[cls],ch=part("chassis",chassisId)||PARTS.chassis[0];
   if(x<0||y<0||x>=c.gridW||y>=c.gridH)return false;
   if(ch.shape==="wedge"&&y<c.fp&&(x<c.fp||x>=c.gridW-c.fp))return false;
+  /* 0.1.66: a round body (the saucer) loses all four corner cells (c.fp across, a heavyweight's two) */
+  const bd=bodyId&&part("body",bodyId);if(bd&&bd.round&&(y<c.fp||y>=c.gridH-c.fp)&&(x<c.fp||x>=c.gridW-c.fp))return false;
   return true;}
 /* the parts that take cells, in placing order: [{key, slot, id, w, h, mount}] at this class's grid size */
 function footprints(cfg){cfg=normCfg(cfg);const c=CLASSES[cfg.cls],m=c.fp,out=[];
@@ -360,7 +380,7 @@ function placeOk(cfg,f,x,y,taken){const c=CLASSES[cfg.cls];
   if(f.mount==="edge"&&!(y===0||x===0||y+f.h===c.gridH||x+f.w===c.gridW))return false;
   if(f.mount==="left"&&x!==0)return false;
   if(f.mount==="right"&&x+f.w!==c.gridW)return false;
-  for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++){if(!cellOn(cfg.cls,cfg.chassis,x+i,y+j))return false;if(taken&&taken.has((x+i)+","+(y+j)))return false;}
+  for(let i=0;i<f.w;i++)for(let j=0;j<f.h;j++){if(!cellOn(cfg.cls,cfg.chassis,x+i,y+j,cfg.body))return false;if(taken&&taken.has((x+i)+","+(y+j)))return false;}
   return true;}
 /* where a part goes if the player hasn't put it anywhere: weapon front and centre, drive pods on the sides (two near the
    middle, four front and back), battery in the middle, electronics behind it, extras at the back */

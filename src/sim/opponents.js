@@ -1,6 +1,6 @@
 /* ---- opponents.js: OPPONENTS (plan 8d), named bots across the classes, each with a build in the player's config format
    (cfg; its cls is the entry's; a few turn the tuning dials, 0.1.33), a driver {style (AI_STYLES), skill 0..1}, where it comes from (a WORLD venue key: club,
-   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears), 36 from 0.1.65 (two clamp and lifts) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
+   stahl, eisenau, grauwald, eisenhalle) and a one-line personality. 15 in PR 4b, 28 from 0.1.36, 30 from 0.1.46 (an eggbeater and a drisk), 32 from 0.1.63 (two thwackbots), 34 from 0.1.64 (two piston spears), 36 from 0.1.65 (two clamp and lifts), 38 from 0.1.66 (a flamethrower and a saucer) (the newer wheel layouts, fronts and backs, the grabber, the saw and the odd bodies turn up in other people's
    bots too), growing toward 40 as content. META_WAVES (PR 8)
    decides which turn up each season. opponentCfg(op) is its build with the class filled in. Then the SCRAP_SIM export
    object. ---- */
@@ -63,6 +63,10 @@ const OPPONENTS=[
   {id:"ringelnatter",name:"Ringelnatter",cls:"hobby",from:"grauwald",driver:{style:"keepaway",skill:0.6},
     line:"A ring of steel going round a box that stays still. Keeps its distance, circles, and lets you run onto it.",
     cfg:{chassis:"hdpe",armour:{front:"hdpe10",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"ring",weaponMaterial:"steel",extras:[]}},
+  /* 0.1.66: the flamethrower */
+  {id:"loetlampe",name:"Lötlampe",cls:"hobby",from:"stahl",driver:{style:"aggressive",skill:0.6},
+    line:"A plumber's blowtorch on a wedge. Gets its nose under you and keeps it there until your motors start to smell.",
+    cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"flame",weaponMaterial:"steel",front:"wedgelets",body:"wedge",extras:[]}},
   /* featherweights: the regional arenas */
   /* 0.1.46: the two newer verticals in other people's bots */
   {id:"schneebesen",name:"Schneebesen",cls:"beetle",from:"club",driver:{style:"aggressive",skill:0.55},
@@ -90,6 +94,10 @@ const OPPONENTS=[
   {id:"dreschflegel",name:"Dreschflegel",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.65},
     line:"A farmer's flail on a plywood box, rebuilt in steel by the engine shed's night crew. Waits for you to come in, then swings.",
     cfg:{chassis:"hdpe",armour:{front:"ar500",back:"steel",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"thwack",weaponMaterial:"s7",extras:[]}},
+  /* 0.1.66: the saucer */
+  {id:"untertasse",name:"Untertasse",cls:"feather",from:"grauwald",driver:{style:"counter",skill:0.7},
+    line:"Pressed from a shunting engine's buffer plate: low, round and hard to get a grip on. Lets you slide off it, then lights the burner.",
+    cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe10",left:"hdpe10",right:"hdpe10",top:"hdpe10"},drive:"dual",wheels:"rubber",battery:"large",electronics:"dual",weapon:"beater",weaponMaterial:"steel",front:"nozzle",body:"saucer",extras:[]}},
   {id:"gabelstapler",name:"Gabelstapler",cls:"feather",from:"eisenau",driver:{style:"hazard",skill:0.7},
     line:"Built by the harbour's forklift drivers on their breaks. Gets its tines under you, clamps the lid down and goes looking for the edge of the quay.",
     cfg:{chassis:"alu",armour:{front:"ar500",back:"hdpe15",left:"steel",right:"steel",top:"hdpe15"},drive:"gearbox",wheels:"pu",wheelbase:"six",battery:"large",electronics:"dual",weapon:"clamp",weaponMaterial:"steel",extras:[]}},
@@ -123,7 +131,7 @@ const OPPONENTS=[
     cfg:{chassis:"hdpe",armour:{front:"hdpe15",back:"hdpe15",left:"hdpe15",right:"hdpe15",top:"hdpe15"},drive:"dual",wheels:"rubber",battery:"hd",electronics:"dual",weapon:"melty",weaponMaterial:"s7",extras:[]}}
 ];
 const opponentCfg=op=>Object.assign({},op.cfg,{cls:op.cls});
-return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,tuneOn,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,ALL_ROUND,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,BENCH_DUMMIES,benchDummy,benchDummySpec,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen,flamePhase,SCHOOL,DRILLS,drillSpec,drillMedal,drillAuto};
+return{rng,rRange,rInt,rPick,CLASSES,CLASS_IDS,classMult,PARTS,FACES,part,DISC_PROFILES,MINIBOT,normDisc,sameDisc,DEFAULT_CFG,TEST_BUILDS,TUNE,TUNE_IDS,tuneOn,normTune,normCfg,unknownIds,cellOn,footprints,placeOk,autoLayout,K,evalBuild,fitBill,sameParts,OWN_FRONT,ALL_ROUND,COMBOS,stressReport,WEDGE_GAUGES,BENCH,BENCH_TESTS,BENCH_DUMMIES,benchDummy,benchDummySpec,runBench,benchPartName,STEP_HZ,WEDGE_RULES,FIGHT,newFight,stepFight,runFight,replayFight,fightResult,packInputs,unpackInputs,zoneTouch,faceAt,toWorld,weaponZone,flameZone,PART_STATES,DAMAGE,damageState,hitOrder,hitFace,landHit,damageEffects,damageTaken,partStates,damageShare,AI_STYLES,AI_STYLE_IDS,AI_SKILL,autoStyle,ARENAS,ARENA_IDS,JUDGE_WEIGHTS,OPPONENTS,opponentCfg,arenaOf,pitOpen,flamePhase,SCHOOL,DRILLS,drillSpec,drillMedal,drillAuto};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=SCRAP_SIM;
 </script>
