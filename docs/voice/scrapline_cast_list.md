@@ -17,7 +17,7 @@ Keep the two voices clearly different in pitch and pace, since live barks and an
 | Old | New | Why |
 |---|---|---|
 | Ottilie Brandt | **Kayla Rauch** | Too close to a name in another Longlight game |
-| Rudi Kessler | **Mitch Gerber** | Kessel/Kessler is used in Red Skies and Escapement |
+| Rudi Kessler | **Mitch Gerber** | Kessel/Kessler is used in Escapement |
 
 Mira Vogt and Anselm Huber stay. Added in 0.1.67.1: Fenna Pohl and Hedda Sauter (first written as Fenna Kessler and Hedda Brandt, renamed before recording for the same clashes), and a grudge-match pool (SCRAP-ANN-0070 to 0072). Bot names, venues and event names are canon and unchanged.
 
