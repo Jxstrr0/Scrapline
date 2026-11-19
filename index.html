@@ -870,7 +870,7 @@ window.__scrPost=function(cb){if(ready()){cb&&cb(true);return;}
  if(!p)p=new Promise(function(res){var i=0;(function next(){while(i<SCR_LIBS.length&&got(has[i][0]))i++;if(i>=SCR_LIBS.length){p=null;res(ready());return;}var s=document.createElement("script");s.src=SCR_LIBS[i];if(SCR_SRI[SCR_LIBS[i]])s.integrity=SCR_SRI[SCR_LIBS[i]];i++;s.async=false;s.crossOrigin="anonymous";s.onload=next;s.onerror=next;document.head.appendChild(s);})();});
  p.then(function(ok){cb&&cb(ok);});};
 var sv=null;try{sv=JSON.parse(localStorage.getItem("scr-save")||"null");}catch(e){}
-if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SCR_LIBS.map(function(u){return '<script src="'+u+'" crossorigin="anonymous"><\/script>';}).join(""));
+if(sv&&sv.settings&&sv.settings.gfx==="ultra")document.write(SCR_LIBS.map(function(u){return '<script src="'+u+'"'+(SCR_SRI[u]?' integrity="'+SCR_SRI[u]+'"':'')+' crossorigin="anonymous"><\/script>';}).join(""));
 })();</script>
 <script>__ld(.3,"3D library loaded")</script>
 <script>
@@ -6308,7 +6308,7 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.68.1";
+const VERSION="0.1.68.2";
 const SIM=SCRAP_SIM;
 const $=id=>document.getElementById(id);
 
