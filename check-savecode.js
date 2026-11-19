@@ -224,6 +224,16 @@ check("packing survives big, varied saves (LZW dictionary fills up)", () => {
   assert.deepStrictEqual(plain(a.buUnzip(a.buZip(new Uint8Array(0)))), []);
 });
 
+check("a short code built to unpack to gigabytes is stopped early and reads as damaged", () => {
+  const a = load();
+  /* 40 MB of one letter packs to a few thousand characters (buZip is the game's own packer) */
+  const body = a.buZip(new Uint8Array(40e6).fill(97)), code = "SCR1:" + body + a.buSum(body);
+  assert(code.length < 40000, "the test code should be short, it is " + code.length);
+  let n = 0; try { n = a.buUnzip(body).length; } catch (e) { n = -1; }
+  assert.strictEqual(n, -1, "unpacked " + n + " bytes instead of stopping");
+  assert.throws(() => a.buRead(code), e => e && e.bu === "damaged");
+  assert.strictEqual(a.buUnzip(a.buZip(new Uint8Array(2e6).fill(97))).length, 2e6);   // a big real backup still unpacks
+});
 check("a backup file (the code plus a line break) reads back, and its name carries the local date", () => {
   const a = load(); seed(a.localStorage); a.live = game();
   const file = a.buCode() + "\r\n";

@@ -17,7 +17,7 @@ Sister project: Prairie Engine Works (`Jxstrr0/350Chev`, PEW). The stack, build 
 ```
 node build.js            # rebuild index.html and sw.js from src/
 node build.js --check    # exit 1 if either is stale, a script block does not compile, or a function is declared twice
-node check-savecode.js   # 17 save-code checks: round trip, empty save, damaged and cut-off codes, other games, storage full, backup files, hidden markup
+node check-savecode.js   # 18 save-code checks: round trip, empty save, damaged and cut-off codes, other games, storage full, backup files, hidden markup
 ```
 
 Run all three before every commit, plus `node tools/sim-test.js`, `node tools/voice-test.js` (the voice director: two replays say the same lines; every cue the app asks for has a line; with sound on, on a fake clock, no two clips overlap and no intro runs long), `node tools/make-voicelines.js --check` (the voice lines match the sheet and `sounds/voice/`; run it without `--check` after changing the sheet) and `node tools/fight-test.js` (about 40 seconds for beetle; `-q` for a quick pass that prints the balance without enforcing it, `all` for every class in about 3.5 minutes, `-m` for the matchup matrix). From PR 1, `node tools/sim-test.js` runs the build maths on `DEFAULT_CFG` and the `TEST_BUILDS` and fails if `src/sim/` uses a banned call; from PR 4a, `node tools/fight-test.js` is the balance harness. To play a local copy: `python3 -m http.server` in the repo root and open it. The service worker only registers on a real host (or with `?sw=1`), so local testing is never cached. `?fps=1` shows the frame rate and tier in the corner of the 3D view; `?sim=1` opens the raw `evalBuild()` result on the Build tab.
