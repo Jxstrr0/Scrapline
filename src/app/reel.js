@@ -69,14 +69,14 @@ function rlDrop(id){const R=rlState();for(const k of["cur","last","best","sb"])R
 
 /* ---- the Highlights card (Fight tab) and the season sheet's button ---- */
 function rlRows(ids){const R=rlState();return`<ul class="rllist">${ids.map(id=>R.m[id]).filter(Boolean).map(m=>`<li><span class="nm"><b>${esc(m.title)}</b><small>${esc(m.sub)}</small></span>
-    <button type="button" class="btn sm" data-rl="one" data-id="${m.id}" aria-label="Watch: ${esc(m.title)}">Watch</button></li>`).join("")}</ul>`;}
+    <button type="button" class="btn sm" data-rl="one" data-id="${esc(m.id)}" aria-label="Watch: ${esc(m.title)}">Watch</button></li>`).join("")}</ul>`;}
 function rlCard(){const R=rlState(),car=S.mode==="career";let h="";
   const block=(t,ids,k,btn)=>ids.length?`<div class="rlsec"><div class="rlhd"><h4>${t}</h4>${ids.length>1?`<button type="button" class="btn sm pri" data-rl="${k}">${btn}</button>`:""}</div>${rlRows(ids)}</div>`:"";
-  if(car){h=block("This season",R.cur,"cur","Watch all")+block(`${R.lastY||"Last season"}'s reel`,R.last,"last","Watch the reel")+block("Career best",R.best,"best","Watch all");}
+  if(car){h=block("This season",R.cur,"cur","Watch all")+block(`${svNum(R.lastY)||"Last season"}'s reel`,R.last,"last","Watch the reel")+block("Career best",R.best,"best","Watch all");}
   else h=block("Your best spars",R.sb,"sb","Watch all");
   if(!h)return emptyHtml("film","No highlights yet",car?"Knockouts, pit falls, parts torn off and big hits from your event fights land here: the best five of each season, played back in slow motion. At the end of the season they become its reel.":"Knockouts, pit falls, parts torn off and big hits from your spars land here: your best five, played back in slow motion.",car?[["This week's events","career/week",1]]:[["Set up a spar","fight/spar",1]]).replace('class="card empty"','class="card empty" id="rlCard"');
   return`<div class="card" id="rlCard"><h3>Highlights</h3>${h}</div>`;}
-const rlSheetBtn=()=>{const R=rlState();return R.last.length?`<div class="row"><button type="button" class="btn pri" data-rl="last">Watch the ${R.lastY||""} reel</button></div>`:"";};
+const rlSheetBtn=()=>{const R=rlState();return R.last.length?`<div class="row"><button type="button" class="btn pri" data-rl="last">Watch the ${svNum(R.lastY)||""} reel</button></div>`:"";};
 
 /* ---- playing the reel: one clip after another through the replay ---- */
 function rlPlay(ids,title){if(FT.on)return;if(FT.bout&&FT.bout.ev&&!FT.bout.over){toast("Finish the fight first");return;}
@@ -84,13 +84,18 @@ function rlPlay(ids,title){if(FT.on)return;if(FT.bout&&FT.bout.ev&&!FT.bout.over
   if(sheetOn())closeSheet();if(curTab!=="fight")showTab("fight");
   FT.reel={list,k:-1,title,dropped:0,speed:1};rlNext();}
 /* the clip, run and checked: the sim plays the moment's fight to the clip's end and the moment has to happen again */
-function rlClip(m){try{const log=m.log,s0=Math.max(0,Math.round(m.t0*SIM.STEP_HZ)),s1=Math.min(log.steps,Math.max(s0+1,Math.round(m.t1*SIM.STEP_HZ)));
+/* a clip's log comes out of the save, which can come from anyone: it is checked the way a replay code is (rcOk,
+   app/daily.js) and each livery goes through lvNorm, so only a real colour, shape and emblem reach the page. A copy: the
+   save keeps what it had. null if it isn't a fight log. */
+function rlSafeLog(log){if(!buObjS(log)||!rcOk(Object.assign({},log,{v:RC_V})))return null;
+  return Object.assign({},log,{bots:log.bots.map(b=>Object.assign({},b,{livery:lvNorm(b.livery)}))});}
+function rlClip(m){try{const log=rlSafeLog(m.log);if(!log)return null;const s0=Math.max(0,Math.round(m.t0*SIM.STEP_HZ)),s1=Math.min(log.steps,Math.max(s0+1,Math.round(m.t1*SIM.STEP_HZ)));
     const G=ftRpFight(log,s1),k=m.key;
     if(!G.log.some(e=>e.k===k.k&&e.v===k.v&&(k.a==null||e.a===k.a)&&Math.abs(e.t-m.tf)<=REEL.match))return null;
-    const F=ftRpFight(log,s0);return{F,s0,s1,slow:ftSlowPlan({entries:G.log},F.M.mass)};}catch(e){return null;}}
+    const F=ftRpFight(log,s0);return{F,s0,s1,log,slow:ftSlowPlan({entries:G.log},F.M.mass)};}catch(e){return null;}}
 function rlNext(){const R=FT.reel;if(!R)return;clearTimeout(RL.t);if(FT.rp)R.speed=FT.rp.speed;
   while(++R.k<R.list.length){const m=R.list[R.k],c=rlClip(m);
-    if(c){FT.rp={i:-1,log:m.log,steps:c.s1,s0:c.s0,speed:R.speed,slow:c.slow,reel:true};FT.you=false;ftGo(c.F);return;}
+    if(c){FT.rp={i:-1,log:c.log,steps:c.s1,s0:c.s0,speed:R.speed,slow:c.slow,reel:true};FT.you=false;ftGo(c.F);return;}
     R.dropped++;rlDrop(m.id);R.list.splice(R.k,1);R.k--;}
   if(FT.on)rlDone();else{FT.reel=null;toast("Those moments play out differently on this version, so they were dropped");ftRender();}}
 /* a clip has run out: the next one after a breath, or the end card */

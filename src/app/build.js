@@ -26,11 +26,12 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const bEv=cfg=>SIM.evalBuild(cfg,{limitG:crLimitG(SIM.normCfg(cfg).cls)});
 
 /* ---- the bot and its draft for the class on the Build tab ---- */
-function bCls(){const c=ST().buildCls;return SIM.CLASSES[c]?c:"beetle";}
+function bCls(){const c=ST().buildCls;return tblGet(SIM.CLASSES,c)?c:"beetle";}   // tblGet: one of the table's own classes (state.js)
 /* a save from an older or damaged game may hold a draft or bot with missing fields or unknown ids: each one goes through
    normCfg once (unknown parts become the defaults) before anything reads it */
 const bNormed=new WeakSet();
-function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
+function bBot(cls){cls=cls||bCls();if(!tblGet(SIM.CLASSES,cls))cls=bCls();   // a class named by a save has to be a real one
+  let b=S.bots[cls];
   if(!b||typeof b!=="object")b=S.bots[cls]={cfg:null,damage:{},draft:null};
   if(!b.damage||typeof b.damage!=="object")b.damage={};
   if(b.cfg&&!bNormed.has(b.cfg)){b.cfg=typeof b.cfg==="object"?SIM.normCfg(Object.assign({},b.cfg,{cls})):null;if(b.cfg)bNormed.add(b.cfg);}

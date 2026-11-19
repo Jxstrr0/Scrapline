@@ -14,6 +14,10 @@
    Tests: `node check-savecode.js` in the repo root. */
 const BU_V=1,BU_PREFIX="SCR"+BU_V+":";
 const BU_B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",BU_MAXCODES=65536;
+/* The most a code may unpack to, in bytes. A browser keeps about 5 million characters per site, so no real backup (or
+   replay code, which unpacks through the same function) comes near this; a code built to unpack to gigabytes (a few
+   thousand characters can) is stopped here and reads as damaged. */
+const BU_UNZIP_MAX=16e6;
 const BU_KEY="scr-save";
 const BU_MSG={
   empty:"Paste a backup code into the box first.",
@@ -63,7 +67,8 @@ function buUnzip(str){
     else if(code===size)fb=first[prev];   // the code being defined right now (the classic LZW "KwKwK" case)
     else throw buFail("damaged");
     if(size<BU_MAXCODES){prefix.push(prev);suffix.push(fb);first.push(first[prev]);size++;}
-    emit(code);prev=code;}
+    emit(code);prev=code;
+    if(out.length>BU_UNZIP_MAX)throw buFail("damaged");}   // see BU_UNZIP_MAX: not a real backup
   return out;}
 /* FNV-1a of the body, as 6 base64url characters: a missing, extra or changed character almost surely won't match */
 function buSum(body){let h=2166136261;for(let i=0;i<body.length;i++){h^=body.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
@@ -119,7 +124,7 @@ function buRead(text){
   if(buSum(body)!==c.slice(-6))throw buFail("damaged");
   let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw buFail("damaged");}
   if(!buFullOk(d))throw buFail("bad");
-  return{kind:"full",data:d};}
+  return{kind:"full",data:cleanText(d)};}   // cleanText: nothing in a restored game or its slots can open a tag (state.js)
 
 /* ---- writing a checked backup: all four keys, or none of them ---- */
 function buWrite(d){

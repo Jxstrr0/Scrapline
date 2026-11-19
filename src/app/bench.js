@@ -34,7 +34,7 @@ const bnSigMemo=new Map();
 function bnNorm(cfg){const n=SIM.normCfg(cfg);if(n.body==="plain")delete n.body;return n;}   /* a plain body stays out, so 0.1.13 bench results still match */
 function bnSig(cfg){const k=JSON.stringify(bnNorm(cfg));let s=bnSigMemo.get(k);
   if(s==null){const n=bnNorm(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
-  return s;}
+  return cleanStr(s);}   // cleanStr: the same swap a loaded save gets (state.js), so a stored fingerprint still matches after a reload
 let bnCache={sig:"",b:null,res:{}};
 function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:bEv(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}

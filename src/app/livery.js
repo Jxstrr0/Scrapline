@@ -78,7 +78,7 @@ const OPP_TEAMS={
   "tb:sloppy":["Schrottplatz Moser","steel","sand","square","skull","","Restposten"]};
 /* a livery from anywhere, checked: null if it isn't one */
 function lvNorm(o){if(!o||typeof o!=="object")return null;const hex=v=>typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v);
-  if(!hex(o.main)||!hex(o.accent)||!LIVERY.shapes[o.shape]||!LIVERY.emblems[o.emblem])return null;
+  if(!hex(o.main)||!hex(o.accent)||!tblGet(LIVERY.shapes,o.shape)||!tblGet(LIVERY.emblems,o.emblem))return null;   // tblGet: the tables' own entries only (state.js)
   return{name:String(o.name||"").trim().slice(0,LIVERY.maxName),main:o.main.toUpperCase(),accent:o.accent.toUpperCase(),shape:o.shape,emblem:o.emblem,text:lvText(o.text)};}
 const lvText=t=>String(t||"").toUpperCase().replace(/[^A-Z0-9ÄÖÜ&]/g,"").slice(0,LIVERY.maxText);
 /* your team's livery (S.team, put right if it isn't one) */
