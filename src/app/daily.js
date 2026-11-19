@@ -51,7 +51,7 @@ function dlCard(){const P=dlPick(dlDay()),c=SIM.CLASSES[P.cls],opp=ftOpp(P.cls,P
     <div class="field"><span class="lbl">Bring</span>${mine.length?ftChips("dlbring","Your bots",mine.map(o=>[o.id,esc(o.name)]),cur.id):""}${ftChips("dlbring","Starting points",starts.map(o=>[o.id,esc(o.name)]),cur.id)}
       ${mine.length?"":`<p class="hint">No ${esc(c.name.toLowerCase())} of yours yet: bring a starting point, or fit or save one on the Build tab.</p>`}</div>
     ${ex?`<p class="ftres ${ex.won?"ok":""}" role="status">${esc(ex.txt)} · <span class="readout">${ex.score.toLocaleString("en-GB")}</span> points${ex.newBest?" · today's best":""}</p>`:""}
-    <p class="hint">${today&&D.best?`Today's best: ${esc(D.best.txt)} (<span class="readout">${D.best.score.toLocaleString("en-GB")}</span> points, ${esc(D.best.bring||"")}) · ${D.tries} ${D.tries===1?"try":"tries"}`:"Not fought yet today."}
+    <p class="hint">${today&&D.best?`Today's best: ${esc(D.best.txt)} (<span class="readout">${svNum(D.best.score).toLocaleString("en-GB")}</span> points, ${esc(D.best.bring||"")}) · ${svNum(D.tries)} ${D.tries===1?"try":"tries"}`:"Not fought yet today."}
       ${run?` · <b>${run}-day streak</b>`:""}${(D.top|0)>1?` (best ${D.top})`:""}</p>
     <div class="row"><button type="button" class="btn pri" data-dl="go">Fight the daily</button></div></div>`;}
 
@@ -63,9 +63,10 @@ const RC_MSG={empty:"Paste a replay code into the box first.",damaged:"That code
   bad:"That code opened, but the fight inside doesn't look right."};
 function rcCode(log){const d={v:RC_V,ver:VERSION,seed:log.seed,arena:log.arena,rules:log.rules||{},steps:log.steps,bots:log.bots,inputs:log.inputs||{}};
   const body=buZip(new TextEncoder().encode(JSON.stringify(d)));return RC_PREFIX+body+buSum(body);}
-function rcOk(d){if(!buObj(d)||d.v!==RC_V||!buNum(d.seed)||!SIM.ARENAS[d.arena]||!buObj(d.rules)||!buNum(d.steps)||d.steps<1||d.steps>60*600||!buObj(d.inputs))return false;
+/* tblGet: the arena and each class must be the tables' own entries (state.js) */
+function rcOk(d){if(!buObj(d)||d.v!==RC_V||!buNum(d.seed)||!tblGet(SIM.ARENAS,d.arena)||!buObj(d.rules)||!buNum(d.steps)||d.steps<1||d.steps>60*600||!buObj(d.inputs))return false;
   if(!Array.isArray(d.bots)||d.bots.length<2||d.bots.length>6)return false;
-  for(const b of d.bots){if(!buObj(b)||!buObj(b.cfg)||!SIM.CLASSES[b.cfg.cls]||SIM.unknownIds(b.cfg).length||(b.name!=null&&typeof b.name!=="string"))return false;}
+  for(const b of d.bots){if(!buObj(b)||!buObj(b.cfg)||!tblGet(SIM.CLASSES,b.cfg.cls)||SIM.unknownIds(b.cfg).length||(b.name!=null&&typeof b.name!=="string"))return false;}
   for(const k in d.inputs){const p=d.inputs[k];if(!buObj(p)||!buNum(p.n)||typeof p.d!=="string")return false;}
   return true;}
 function rcRead(text){const s=String(text==null?"":text).replace(/[\s​-‍⁠﻿]+/g,"");if(!s)throw new Error("empty");

@@ -8,8 +8,23 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.68.2";
+const VERSION="0.1.68.3";
 const SIM=SCRAP_SIM;
+/* nothing from a save may reach the page as markup (0.1.68.3, after PEW 1.76.142.1). A save, a save slot or a backup code can
+   come from anyone, and the screens write many of a save's values straight into the page. cleanStr(s) swaps < and > in a
+   piece of text for look-alikes (so no tag can open), and swaps the double quote too when the text also holds an = (so
+   nothing can close an attribute and start one of its own). A quote with no = is left alone: it can't do harm, and the bench
+   fingerprints (bots[cls].bench.sig, see bnSig) are full of them. cleanText(o) walks a whole save and does that to every text
+   and every key; it also drops any key named __proto__, which no real save has. Numbers, true/false and null pass through.
+   It changes o and returns it; a save the game wrote itself comes through unchanged. Kept on one line each: check-savecode.js
+   lifts them out of this file. */
+function cleanStr(s){if(s.indexOf("<")>=0||s.indexOf(">")>=0)s=s.replace(/[<>]/g,c=>c==="<"?"\u2039":"\u203A");return s.indexOf('"')>=0&&s.indexOf("=")>=0?s.replace(/"/g,"\u201D"):s;}
+function cleanText(o){if(Array.isArray(o)){for(let i=0;i<o.length;i++){const v=o[i];if(typeof v==="string")o[i]=cleanStr(v);else if(v&&typeof v==="object")cleanText(v);}return o;}if(!o||typeof o!=="object")return o;for(const k of Object.keys(o)){let v=o[k];if(k==="__proto__"){delete o[k];continue;}if(typeof v==="string")v=o[k]=cleanStr(v);else if(v&&typeof v==="object")cleanText(v);const k2=cleanStr(k);if(k2!==k){delete o[k];o[k2]=v;}}return o;}
+/* tblGet(T,id): the entry a table has under that id, or undefined. A plain T[id] also "finds" names every object carries
+   (constructor, toString, __proto__ ...), so an id that comes from a save or a code is looked up with this instead. */
+function tblGet(T,id){return typeof id==="string"&&Object.prototype.hasOwnProperty.call(T,id)?T[id]:undefined;}
+/* svNum(v): a number from a save, for printing. Anything that isn't a real number prints as 0. */
+function svNum(v){return typeof v==="number"&&isFinite(v)?v:0;}
 const $=id=>document.getElementById(id);
 
 /* ---- the world (plan section 1): Velmark, an invented alpine country ---- */
@@ -364,7 +379,7 @@ function save(){if(TUT_ON)return;try{localStorage.setItem("scr-save",JSON.string
 function snapshot(){return JSON.parse(JSON.stringify(S));}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
-  o=migrate(JSON.parse(JSON.stringify(o)));if(!o)return false;
+  o=migrate(cleanText(JSON.parse(JSON.stringify(o))));if(!o)return false;   // cleanText: no text in a save can open a tag (top of this file)
   const n=freshState();Object.assign(n,o);
   n.settings=Object.assign(freshSettings(),o.settings);
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
@@ -374,6 +389,8 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   if(!buObjS(n.reel)||!buObjS(n.reel.m))n.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};   // the lists are checked where they're used (rlState)
   if(!buObjS(n.team))n.team=freshTeam();   // checked in full where it's used (lvMine)
   for(const k of ["staff","sponsors","hall"])if(!Array.isArray(n[k]))n[k]=[];
+  /* the career's plain numbers are numbers. A backup code with text in one is refused (buSaveOk); a save edited in storage is put right here */
+  if(buObjS(n.career))for(const k of ["money","year","week","season","act","hours","driverXp","rep"])if(k in n.career&&svNum(n.career[k])!==n.career[k])n.career[k]=k==="year"?WORLD.startYear:k==="week"?1:0;
   S=n;return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;

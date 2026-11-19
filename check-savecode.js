@@ -6,12 +6,13 @@
  * It loads src/app/savecode.js on its own with a pretend localStorage and small stand-ins for the game functions it calls
  * (snapshot, hydrate, ...), so it runs in plain node with no browser. hydrate is a copy of the real one's rule (false without a
  * numeric v no newer than SAVE_V, a settings object and a bots object). It also makes sure index.html was rebuilt with the current savecode.js.
+ * cleanStr and cleanText (the pass that makes a save's text harmless) are lifted out of src/app/state.js, one line each.
  * Keys checked: scr-save, scr-slot1 .. scr-slot3. A new localStorage key goes into KEYS here as well as buMake / buWrite.
  * Zero dependencies (node >= 16).
  */
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm"), assert = require("assert");
-const ROOT = __dirname, SRC = path.join(ROOT, "src", "app", "savecode.js");
+const ROOT = __dirname, SRC = path.join(ROOT, "src", "app", "savecode.js"), STATE = path.join(ROOT, "src", "app", "state.js");
 
 /* ---- a pretend browser: localStorage in a Map, plus the game bits savecode.js calls ---- */
 function fakeStorage() {
@@ -28,7 +29,9 @@ function fakeStorage() {
   };
 }
 function load() {
-  const code = fs.readFileSync(SRC, "utf8");
+  const code = fs.readFileSync(SRC, "utf8"), state = fs.readFileSync(STATE, "utf8");
+  const cln = [/^function cleanStr\(.*$/m.exec(state), /^function cleanText\(.*$/m.exec(state)];
+  if (!cln[0] || !cln[1]) throw new Error("cleanStr / cleanText not found in src/app/state.js");
   const ctx = {
     localStorage: fakeStorage(), TextEncoder, TextDecoder, Uint8Array,
     SLOTS: 3, slotKey: i => "scr-slot" + i, VERSION: "test", WORLD: { startYear: 2026 },
@@ -40,6 +43,7 @@ function load() {
     fmt$: n => String(Math.round(n))
   };
   vm.createContext(ctx);
+  vm.runInContext(cln[0][0] + "\n" + cln[1][0], ctx, { filename: "state.js (cleanStr, cleanText)" });
   vm.runInContext(code, ctx, { filename: "savecode.js" });
   return ctx;
 }
@@ -225,6 +229,37 @@ check("a backup file (the code plus a line break) reads back, and its name carri
   const file = a.buCode() + "\r\n";
   assert.deepStrictEqual(plain(a.buRead(file).data.save), game());
   assert.strictEqual(a.buFileName(new Date(2026, 0, 5, 23, 30)), "scrapline-backup-2026-01-05.txt");
+});
+
+check("a code that hides markup is made harmless: nothing restored keeps < or >, or a double quote next to an =", () => {
+  const a = load(); seed(a.localStorage);
+  const H = "\"><img src=x onerror=alert(1)>";
+  /* markup in names, in ids, in a key, and in fields the game expects to be numbers */
+  const g = game7({ designs: { beetle: [{ name: "Kiste" + H, cfg: { cls: "beetle", weapon: "drum" + H } }] }, rivals: { ["jonas-r" + H]: { w: H, l: 2, msgs: [{ y: H, wk: H, k: "lost" }] } },
+    career: { results: [{ y: H, w: H, place: H, name: "Cup" + H, kind: "club" }], ledger: [{ w: H, what: "Rent" + H, amt: -150 }], trophies: [{ y: H, name: H, cls: "beetle" }] } });
+  g.bots.beetle.name = "It's \"Rost & Co\" <3" + H; g.hall = [{ team: H, y0: H, y1: H, wins: H, events: H, rep: H, seasons: H, titles: [H] }];
+  g.daily = { last: "2026-11-19", best: { score: H, txt: H }, tries: H }; g.reel = { m: { m1: { id: H, title: H } }, cur: [], last: ["m1"], best: [], sb: [], lastY: H, n: 1 };
+  const d = { v: 1, at: 1760000000000, ver: "test", save: g, slots: [plain(g), null, null] };
+  const code = "SCR1:" + (body => body + a.buSum(body))(a.buZip(new TextEncoder().encode(JSON.stringify(d))));
+  /* a number field of the career itself holding text is refused outright */
+  const g2 = plain(g); g2.career.week = H;
+  const code2 = "SCR1:" + (body => body + a.buSum(body))(a.buZip(new TextEncoder().encode(JSON.stringify({ v: 1, at: 1, ver: "test", save: g2, slots: [] }))));
+  assert.strictEqual(msg(a, code2), "bad");
+  const r = a.buRead(code); assert.strictEqual(r.kind, "full");
+  assert.strictEqual(a.buWrite(r.data), true);
+  const risky = t => /[<>]/.test(t) || (t.includes("\"") && t.includes("=")), walk = (v, where) => {
+    if (typeof v === "string") assert(!risky(v), where + " still holds markup characters: " + v.slice(0, 60));
+    else if (v && typeof v === "object") for (const k of Object.keys(v)) { assert(!risky(k), where + " has a risky key"); walk(v[k], where + "." + k); }
+  };
+  for (const k of Object.keys(a.localStorage.dump())) walk(JSON.parse(a.localStorage.getItem(k)), k);
+  assert.strictEqual(JSON.parse(a.localStorage.getItem("scr-save")).bots.beetle.name, "It's ”Rost & Co” ‹3”›‹img src=x onerror=alert(1)›");
+  /* and a save the game wrote itself comes through untouched: an apostrophe, an ampersand and quotes in names, and a bench
+     fingerprint (full of quotes, no =) */
+  const own = game7(); own.bots.beetle.name = "Kelbo's \"Rost & Co\""; own.bots.beetle.bench = { sig: JSON.stringify({ cls: "beetle", weapon: "vsp", layout: { battery: [1, 2] } }), done: ["weigh"] };
+  assert.deepStrictEqual(plain(a.cleanText(plain(own))), own);
+  /* a key named __proto__ (no real save has one) is dropped */
+  const p = a.cleanText(JSON.parse('{"a":{"__proto__":{"x":1},"b":2}}'));
+  assert.deepStrictEqual(Object.keys(p.a), ["b"]); assert.strictEqual(p.a.x, undefined);
 });
 
 let bad = 0;

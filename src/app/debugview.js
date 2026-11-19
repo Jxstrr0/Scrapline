@@ -7,7 +7,8 @@
    Like the 3D view, it is dark in both themes.
      DEBUGVIEW.draw(canvas, F, flashes, now)   flashes: [{x, y, E, t0, k}] (from F.fxq), now: performance.now() ms */
 /* a bot's colour: its team's main colour (0.1.24), or the accent where the main is too dark for the floor */
-function dvCol(o){const L=o.livery;if(!L)return DV_COL.bots[o.i%DV_COL.bots.length];const v=parseInt(L.main.slice(1),16),y=(0.3*(v>>16)+0.59*(v>>8&255)+0.11*(v&255))/255;return y<0.28?L.accent:L.main;}
+function dvCol(o){const L=o.livery,hex=/^#[0-9a-f]{6}$/i;if(!L||!hex.test(L.main)||!hex.test(L.accent))return DV_COL.bots[o.i%DV_COL.bots.length];   // only a real #RRGGBB colour is used: this one goes into a style on the page
+  const v=parseInt(L.main.slice(1),16),y=(0.3*(v>>16)+0.59*(v>>8&255)+0.11*(v&255))/255;return y<0.28?L.accent:L.main;}
 const DV_COL={floor:"#1A1917",grid:"#262421",wall:"#6B665D",text:"#E8E5DE",dim:"#9B978E",zone:"#E2A93B",hit:"#FFE3A6",land:"#9B978E",
   haz:"#8A7A55",hazOn:"rgba(226,169,59,.55)",
   bots:["#D97757","#B48CE8","#4CC38A","#7FB3E6"]};

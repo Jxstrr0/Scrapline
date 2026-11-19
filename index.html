@@ -6308,8 +6308,23 @@ window.SCRAP_VIS=SCRAP_VIS;
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.68.2";
+const VERSION="0.1.68.3";
 const SIM=SCRAP_SIM;
+/* nothing from a save may reach the page as markup (0.1.68.3, after PEW 1.76.142.1). A save, a save slot or a backup code can
+   come from anyone, and the screens write many of a save's values straight into the page. cleanStr(s) swaps < and > in a
+   piece of text for look-alikes (so no tag can open), and swaps the double quote too when the text also holds an = (so
+   nothing can close an attribute and start one of its own). A quote with no = is left alone: it can't do harm, and the bench
+   fingerprints (bots[cls].bench.sig, see bnSig) are full of them. cleanText(o) walks a whole save and does that to every text
+   and every key; it also drops any key named __proto__, which no real save has. Numbers, true/false and null pass through.
+   It changes o and returns it; a save the game wrote itself comes through unchanged. Kept on one line each: check-savecode.js
+   lifts them out of this file. */
+function cleanStr(s){if(s.indexOf("<")>=0||s.indexOf(">")>=0)s=s.replace(/[<>]/g,c=>c==="<"?"\u2039":"\u203A");return s.indexOf('"')>=0&&s.indexOf("=")>=0?s.replace(/"/g,"\u201D"):s;}
+function cleanText(o){if(Array.isArray(o)){for(let i=0;i<o.length;i++){const v=o[i];if(typeof v==="string")o[i]=cleanStr(v);else if(v&&typeof v==="object")cleanText(v);}return o;}if(!o||typeof o!=="object")return o;for(const k of Object.keys(o)){let v=o[k];if(k==="__proto__"){delete o[k];continue;}if(typeof v==="string")v=o[k]=cleanStr(v);else if(v&&typeof v==="object")cleanText(v);const k2=cleanStr(k);if(k2!==k){delete o[k];o[k2]=v;}}return o;}
+/* tblGet(T,id): the entry a table has under that id, or undefined. A plain T[id] also "finds" names every object carries
+   (constructor, toString, __proto__ ...), so an id that comes from a save or a code is looked up with this instead. */
+function tblGet(T,id){return typeof id==="string"&&Object.prototype.hasOwnProperty.call(T,id)?T[id]:undefined;}
+/* svNum(v): a number from a save, for printing. Anything that isn't a real number prints as 0. */
+function svNum(v){return typeof v==="number"&&isFinite(v)?v:0;}
 const $=id=>document.getElementById(id);
 
 /* ---- the world (plan section 1): Velmark, an invented alpine country ---- */
@@ -6664,7 +6679,7 @@ function save(){if(TUT_ON)return;try{localStorage.setItem("scr-save",JSON.string
 function snapshot(){return JSON.parse(JSON.stringify(S));}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
-  o=migrate(JSON.parse(JSON.stringify(o)));if(!o)return false;
+  o=migrate(cleanText(JSON.parse(JSON.stringify(o))));if(!o)return false;   // cleanText: no text in a save can open a tag (top of this file)
   const n=freshState();Object.assign(n,o);
   n.settings=Object.assign(freshSettings(),o.settings);
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
@@ -6674,6 +6689,8 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   if(!buObjS(n.reel)||!buObjS(n.reel.m))n.reel={m:{},cur:[],last:[],best:[],sb:[],lastY:null,n:0};   // the lists are checked where they're used (rlState)
   if(!buObjS(n.team))n.team=freshTeam();   // checked in full where it's used (lvMine)
   for(const k of ["staff","sponsors","hall"])if(!Array.isArray(n[k]))n[k]=[];
+  /* the career's plain numbers are numbers. A backup code with text in one is refused (buSaveOk); a save edited in storage is put right here */
+  if(buObjS(n.career))for(const k of ["money","year","week","season","act","hours","driverXp","rep"])if(k in n.career&&svNum(n.career[k])!==n.career[k])n.career[k]=k==="year"?WORLD.startYear:k==="week"?1:0;
   S=n;return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;
@@ -6884,7 +6901,7 @@ function buRead(text){
   if(buSum(body)!==c.slice(-6))throw buFail("damaged");
   let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw buFail("damaged");}
   if(!buFullOk(d))throw buFail("bad");
-  return{kind:"full",data:d};}
+  return{kind:"full",data:cleanText(d)};}   // cleanText: nothing in a restored game or its slots can open a tag (state.js)
 
 /* ---- writing a checked backup: all four keys, or none of them ---- */
 function buWrite(d){
@@ -7217,11 +7234,12 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const bEv=cfg=>SIM.evalBuild(cfg,{limitG:crLimitG(SIM.normCfg(cfg).cls)});
 
 /* ---- the bot and its draft for the class on the Build tab ---- */
-function bCls(){const c=ST().buildCls;return SIM.CLASSES[c]?c:"beetle";}
+function bCls(){const c=ST().buildCls;return tblGet(SIM.CLASSES,c)?c:"beetle";}   // tblGet: one of the table's own classes (state.js)
 /* a save from an older or damaged game may hold a draft or bot with missing fields or unknown ids: each one goes through
    normCfg once (unknown parts become the defaults) before anything reads it */
 const bNormed=new WeakSet();
-function bBot(cls){cls=cls||bCls();let b=S.bots[cls];
+function bBot(cls){cls=cls||bCls();if(!tblGet(SIM.CLASSES,cls))cls=bCls();   // a class named by a save has to be a real one
+  let b=S.bots[cls];
   if(!b||typeof b!=="object")b=S.bots[cls]={cfg:null,damage:{},draft:null};
   if(!b.damage||typeof b.damage!=="object")b.damage={};
   if(b.cfg&&!bNormed.has(b.cfg)){b.cfg=typeof b.cfg==="object"?SIM.normCfg(Object.assign({},b.cfg,{cls})):null;if(b.cfg)bNormed.add(b.cfg);}
@@ -7666,7 +7684,7 @@ const bnSigMemo=new Map();
 function bnNorm(cfg){const n=SIM.normCfg(cfg);if(n.body==="plain")delete n.body;return n;}   /* a plain body stays out, so 0.1.13 bench results still match */
 function bnSig(cfg){const k=JSON.stringify(bnNorm(cfg));let s=bnSigMemo.get(k);
   if(s==null){const n=bnNorm(cfg);n.layout=SIM.autoLayout(n).place;s=JSON.stringify(n);if(bnSigMemo.size>200)bnSigMemo.clear();bnSigMemo.set(k,s);}
-  return s;}
+  return cleanStr(s);}   // cleanStr: the same swap a loaded save gets (state.js), so a stored fingerprint still matches after a reload
 let bnCache={sig:"",b:null,res:{}};
 function bnBuild(cfg){const sig=bnSig(cfg);if(bnCache.sig!==sig)bnCache={sig,b:bEv(cfg),res:{}};return bnCache;}
 function bnResult(cfg,id){const c=bnBuild(cfg);if(!c.res[id])c.res[id]=SIM.runBench(c.b,id);return c.res[id];}
@@ -7961,7 +7979,8 @@ function sheetHtml(cls,cfg){const rows=sheetRows(cls,cfg);
    Like the 3D view, it is dark in both themes.
      DEBUGVIEW.draw(canvas, F, flashes, now)   flashes: [{x, y, E, t0, k}] (from F.fxq), now: performance.now() ms */
 /* a bot's colour: its team's main colour (0.1.24), or the accent where the main is too dark for the floor */
-function dvCol(o){const L=o.livery;if(!L)return DV_COL.bots[o.i%DV_COL.bots.length];const v=parseInt(L.main.slice(1),16),y=(0.3*(v>>16)+0.59*(v>>8&255)+0.11*(v&255))/255;return y<0.28?L.accent:L.main;}
+function dvCol(o){const L=o.livery,hex=/^#[0-9a-f]{6}$/i;if(!L||!hex.test(L.main)||!hex.test(L.accent))return DV_COL.bots[o.i%DV_COL.bots.length];   // only a real #RRGGBB colour is used: this one goes into a style on the page
+  const v=parseInt(L.main.slice(1),16),y=(0.3*(v>>16)+0.59*(v>>8&255)+0.11*(v&255))/255;return y<0.28?L.accent:L.main;}
 const DV_COL={floor:"#1A1917",grid:"#262421",wall:"#6B665D",text:"#E8E5DE",dim:"#9B978E",zone:"#E2A93B",hit:"#FFE3A6",land:"#9B978E",
   haz:"#8A7A55",hazOn:"rgba(226,169,59,.55)",
   bots:["#D97757","#B48CE8","#4CC38A","#7FB3E6"]};
@@ -9295,7 +9314,7 @@ function dlCard(){const P=dlPick(dlDay()),c=SIM.CLASSES[P.cls],opp=ftOpp(P.cls,P
     <div class="field"><span class="lbl">Bring</span>${mine.length?ftChips("dlbring","Your bots",mine.map(o=>[o.id,esc(o.name)]),cur.id):""}${ftChips("dlbring","Starting points",starts.map(o=>[o.id,esc(o.name)]),cur.id)}
       ${mine.length?"":`<p class="hint">No ${esc(c.name.toLowerCase())} of yours yet: bring a starting point, or fit or save one on the Build tab.</p>`}</div>
     ${ex?`<p class="ftres ${ex.won?"ok":""}" role="status">${esc(ex.txt)} · <span class="readout">${ex.score.toLocaleString("en-GB")}</span> points${ex.newBest?" · today's best":""}</p>`:""}
-    <p class="hint">${today&&D.best?`Today's best: ${esc(D.best.txt)} (<span class="readout">${D.best.score.toLocaleString("en-GB")}</span> points, ${esc(D.best.bring||"")}) · ${D.tries} ${D.tries===1?"try":"tries"}`:"Not fought yet today."}
+    <p class="hint">${today&&D.best?`Today's best: ${esc(D.best.txt)} (<span class="readout">${svNum(D.best.score).toLocaleString("en-GB")}</span> points, ${esc(D.best.bring||"")}) · ${svNum(D.tries)} ${D.tries===1?"try":"tries"}`:"Not fought yet today."}
       ${run?` · <b>${run}-day streak</b>`:""}${(D.top|0)>1?` (best ${D.top})`:""}</p>
     <div class="row"><button type="button" class="btn pri" data-dl="go">Fight the daily</button></div></div>`;}
 
@@ -9307,9 +9326,10 @@ const RC_MSG={empty:"Paste a replay code into the box first.",damaged:"That code
   bad:"That code opened, but the fight inside doesn't look right."};
 function rcCode(log){const d={v:RC_V,ver:VERSION,seed:log.seed,arena:log.arena,rules:log.rules||{},steps:log.steps,bots:log.bots,inputs:log.inputs||{}};
   const body=buZip(new TextEncoder().encode(JSON.stringify(d)));return RC_PREFIX+body+buSum(body);}
-function rcOk(d){if(!buObj(d)||d.v!==RC_V||!buNum(d.seed)||!SIM.ARENAS[d.arena]||!buObj(d.rules)||!buNum(d.steps)||d.steps<1||d.steps>60*600||!buObj(d.inputs))return false;
+/* tblGet: the arena and each class must be the tables' own entries (state.js) */
+function rcOk(d){if(!buObj(d)||d.v!==RC_V||!buNum(d.seed)||!tblGet(SIM.ARENAS,d.arena)||!buObj(d.rules)||!buNum(d.steps)||d.steps<1||d.steps>60*600||!buObj(d.inputs))return false;
   if(!Array.isArray(d.bots)||d.bots.length<2||d.bots.length>6)return false;
-  for(const b of d.bots){if(!buObj(b)||!buObj(b.cfg)||!SIM.CLASSES[b.cfg.cls]||SIM.unknownIds(b.cfg).length||(b.name!=null&&typeof b.name!=="string"))return false;}
+  for(const b of d.bots){if(!buObj(b)||!buObj(b.cfg)||!tblGet(SIM.CLASSES,b.cfg.cls)||SIM.unknownIds(b.cfg).length||(b.name!=null&&typeof b.name!=="string"))return false;}
   for(const k in d.inputs){const p=d.inputs[k];if(!buObj(p)||!buNum(p.n)||typeof p.d!=="string")return false;}
   return true;}
 function rcRead(text){const s=String(text==null?"":text).replace(/[\s​-‍⁠﻿]+/g,"");if(!s)throw new Error("empty");
@@ -9475,14 +9495,14 @@ function rlDrop(id){const R=rlState();for(const k of["cur","last","best","sb"])R
 
 /* ---- the Highlights card (Fight tab) and the season sheet's button ---- */
 function rlRows(ids){const R=rlState();return`<ul class="rllist">${ids.map(id=>R.m[id]).filter(Boolean).map(m=>`<li><span class="nm"><b>${esc(m.title)}</b><small>${esc(m.sub)}</small></span>
-    <button type="button" class="btn sm" data-rl="one" data-id="${m.id}" aria-label="Watch: ${esc(m.title)}">Watch</button></li>`).join("")}</ul>`;}
+    <button type="button" class="btn sm" data-rl="one" data-id="${esc(m.id)}" aria-label="Watch: ${esc(m.title)}">Watch</button></li>`).join("")}</ul>`;}
 function rlCard(){const R=rlState(),car=S.mode==="career";let h="";
   const block=(t,ids,k,btn)=>ids.length?`<div class="rlsec"><div class="rlhd"><h4>${t}</h4>${ids.length>1?`<button type="button" class="btn sm pri" data-rl="${k}">${btn}</button>`:""}</div>${rlRows(ids)}</div>`:"";
-  if(car){h=block("This season",R.cur,"cur","Watch all")+block(`${R.lastY||"Last season"}'s reel`,R.last,"last","Watch the reel")+block("Career best",R.best,"best","Watch all");}
+  if(car){h=block("This season",R.cur,"cur","Watch all")+block(`${svNum(R.lastY)||"Last season"}'s reel`,R.last,"last","Watch the reel")+block("Career best",R.best,"best","Watch all");}
   else h=block("Your best spars",R.sb,"sb","Watch all");
   if(!h)return emptyHtml("film","No highlights yet",car?"Knockouts, pit falls, parts torn off and big hits from your event fights land here: the best five of each season, played back in slow motion. At the end of the season they become its reel.":"Knockouts, pit falls, parts torn off and big hits from your spars land here: your best five, played back in slow motion.",car?[["This week's events","career/week",1]]:[["Set up a spar","fight/spar",1]]).replace('class="card empty"','class="card empty" id="rlCard"');
   return`<div class="card" id="rlCard"><h3>Highlights</h3>${h}</div>`;}
-const rlSheetBtn=()=>{const R=rlState();return R.last.length?`<div class="row"><button type="button" class="btn pri" data-rl="last">Watch the ${R.lastY||""} reel</button></div>`:"";};
+const rlSheetBtn=()=>{const R=rlState();return R.last.length?`<div class="row"><button type="button" class="btn pri" data-rl="last">Watch the ${svNum(R.lastY)||""} reel</button></div>`:"";};
 
 /* ---- playing the reel: one clip after another through the replay ---- */
 function rlPlay(ids,title){if(FT.on)return;if(FT.bout&&FT.bout.ev&&!FT.bout.over){toast("Finish the fight first");return;}
@@ -9490,13 +9510,18 @@ function rlPlay(ids,title){if(FT.on)return;if(FT.bout&&FT.bout.ev&&!FT.bout.over
   if(sheetOn())closeSheet();if(curTab!=="fight")showTab("fight");
   FT.reel={list,k:-1,title,dropped:0,speed:1};rlNext();}
 /* the clip, run and checked: the sim plays the moment's fight to the clip's end and the moment has to happen again */
-function rlClip(m){try{const log=m.log,s0=Math.max(0,Math.round(m.t0*SIM.STEP_HZ)),s1=Math.min(log.steps,Math.max(s0+1,Math.round(m.t1*SIM.STEP_HZ)));
+/* a clip's log comes out of the save, which can come from anyone: it is checked the way a replay code is (rcOk,
+   app/daily.js) and each livery goes through lvNorm, so only a real colour, shape and emblem reach the page. A copy: the
+   save keeps what it had. null if it isn't a fight log. */
+function rlSafeLog(log){if(!buObjS(log)||!rcOk(Object.assign({},log,{v:RC_V})))return null;
+  return Object.assign({},log,{bots:log.bots.map(b=>Object.assign({},b,{livery:lvNorm(b.livery)}))});}
+function rlClip(m){try{const log=rlSafeLog(m.log);if(!log)return null;const s0=Math.max(0,Math.round(m.t0*SIM.STEP_HZ)),s1=Math.min(log.steps,Math.max(s0+1,Math.round(m.t1*SIM.STEP_HZ)));
     const G=ftRpFight(log,s1),k=m.key;
     if(!G.log.some(e=>e.k===k.k&&e.v===k.v&&(k.a==null||e.a===k.a)&&Math.abs(e.t-m.tf)<=REEL.match))return null;
-    const F=ftRpFight(log,s0);return{F,s0,s1,slow:ftSlowPlan({entries:G.log},F.M.mass)};}catch(e){return null;}}
+    const F=ftRpFight(log,s0);return{F,s0,s1,log,slow:ftSlowPlan({entries:G.log},F.M.mass)};}catch(e){return null;}}
 function rlNext(){const R=FT.reel;if(!R)return;clearTimeout(RL.t);if(FT.rp)R.speed=FT.rp.speed;
   while(++R.k<R.list.length){const m=R.list[R.k],c=rlClip(m);
-    if(c){FT.rp={i:-1,log:m.log,steps:c.s1,s0:c.s0,speed:R.speed,slow:c.slow,reel:true};FT.you=false;ftGo(c.F);return;}
+    if(c){FT.rp={i:-1,log:c.log,steps:c.s1,s0:c.s0,speed:R.speed,slow:c.slow,reel:true};FT.you=false;ftGo(c.F);return;}
     R.dropped++;rlDrop(m.id);R.list.splice(R.k,1);R.k--;}
   if(FT.on)rlDone();else{FT.reel=null;toast("Those moments play out differently on this version, so they were dropped");ftRender();}}
 /* a clip has run out: the next one after a breath, or the end card */
@@ -9552,7 +9577,7 @@ function shKits(c){const cls=TIME.acts[c.act].classes.concat(c.act>0?TIME.acts[c
     <table class="shkits"><thead><tr><th></th>${cls.map(x=>`<th scope="col">${esc(SIM.CLASSES[x].name.replace("weight",""))}</th>`).join("")}</tr></thead><tbody>
     ${Object.keys(PIT_KITS).map(k=>`<tr><th scope="row">${esc(PIT_KITS[k].name)}<small>${Object.keys(PIT_KITS[k].allow).map(a=>`${PIT_NAMES[a].toLowerCase()} ${PIT_KITS[k].allow[a]}`).join(", ")}</small></th>${cls.map(x=>`<td class="readout">${fmt$(crKitPrice(k,x))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;}
 function shBooks(c){const L=c.ledger.slice(0,20);
-  return`<div class="card"><h3>The books</h3>${L.length?`<table class="shbooks"><tbody>${L.map(l=>`<tr><td class="readout">wk ${l.w}</td><td>${esc(l.what)}</td><td class="readout ${l.amt<0?"":"ok"}">${l.amt<0?"−":"+"}${fmt$(Math.abs(l.amt)).replace("−","")}</td></tr>`).join("")}</tbody></table>`:"<p>Nothing yet.</p>"}
+  return`<div class="card"><h3>The books</h3>${L.length?`<table class="shbooks"><tbody>${L.map(l=>`<tr><td class="readout">wk ${svNum(l.w)}</td><td>${esc(l.what)}</td><td class="readout ${l.amt<0?"":"ok"}">${l.amt<0?"−":"+"}${fmt$(Math.abs(l.amt)).replace("−","")}</td></tr>`).join("")}</tbody></table>`:"<p>Nothing yet.</p>"}
     <p class="hint">${fmt$(c.money)} in the tin${c.loan.owed>0?`, ${fmt$(c.loan.owed)} owed to ${esc(WORLD.bank)}`:""}.</p></div>`;}
 function shSlots(){let h="";for(let i=1;i<=SLOTS;i++){const o=buStored(slotKey(i));
     h+=`<li><span class="nm"><b>Slot ${i}</b><small>${o?esc(buWhat(o)):"Empty"}</small></span><button type="button" class="btn sm" data-shsave="${i}">${SH.ask==="sv:"+i?"Sure?":"Save here"}</button>${o?`<button type="button" class="btn sm ghost" data-shload="${i}">${SH.ask==="ld:"+i?"Sure?":"Load"}</button>`:""}</li>`;}
@@ -9775,8 +9800,8 @@ function crHallCard(){const c=S.career,rows=(Array.isArray(S.hall)?S.hall:[]).fi
   if(!rows.length)return"";rows.sort((a,b)=>b.r.titles.length-a.r.titles.length||b.r.rep-a.r.rep);
   const END={done:"twenty seasons",broke:"went broke",left:"left the circuit"};
   return`<div class="card"><h3>Hall of fame</h3><ol class="crhall">${rows.map(({r,now})=>{const n=r.titles.length;
-    return`<li${now?' class="now"':""}><b>${esc(r.team)}</b> <small>${now?"this career":`${r.y0} to ${r.y1}${END[r.end]?", "+END[r.end]:""}`}</small><br>
-      ${n?`<span class="ok">${n} Open${n>1?"s":""}</span> <small>(${r.titles.join(", ")})</small>${r.best>1?` · ${r.best} in a row`:""}`:`reached the ${esc((TIME.acts[r.act]||TIME.acts[0]).name)} act`} · ${r.wins} of ${r.events} events won · rep <span class="readout">${r.rep}</span> · ${r.seasons} season${r.seasons>1?"s":""}</li>`;}).join("")}</ol>
+    return`<li${now?' class="now"':""}><b>${esc(r.team)}</b> <small>${now?"this career":`${svNum(r.y0)} to ${svNum(r.y1)}${END[r.end]?", "+END[r.end]:""}`}</small><br>
+      ${n?`<span class="ok">${n} Open${n>1?"s":""}</span> <small>(${r.titles.map(svNum).join(", ")})</small>${r.best>1?` · ${svNum(r.best)} in a row`:""}`:`reached the ${esc((TIME.acts[r.act]||TIME.acts[0]).name)} act`} · ${svNum(r.wins)} of ${svNum(r.events)} events won · rep <span class="readout">${svNum(r.rep)}</span> · ${svNum(r.seasons)} season${r.seasons>1?"s":""}</li>`;}).join("")}</ol>
     <p class="hint">A career goes up here when it ends. Titles first, then rep.</p></div>`;}
 function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crHash(crKey(e)))>>>0),cls=e.cls;
   const L=crLegend(),up=LEGACY.skillStep*L,cap=L?LEGACY.skillMax:EVENT_SKILL_MAX;   // a champion's fields are sharper (0.1.39)
@@ -9891,7 +9916,7 @@ function crPlace(day){const k=EVENT_KINDS[day.kind];
 function crPlaceTxt(kind,place){const f=EVENT_KINDS[kind].format;
   if(f==="bracket")return["","won it","runner-up","semi-finalist","out in the quarter-finals"][place]||"";
   if(f==="tag")return place===1?"won it":"lost";
-  return["","1st","2nd","3rd","4th"][place]||place+"th";}
+  return["","1st","2nd","3rd","4th"][place]||Math.round(svNum(place))+"th";}   // svNum: the place comes from a save, so it is printed as a number
 /* the day is over: prize, rep, the damage goes home with the bot */
 function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],place=crPlace(day);
   const pi=k.format==="bracket"?Math.min(place-1,3):place-1;let prize=crPrize(e,pi),rep=k.rep[Math.min(pi,k.rep.length-1)]||0;
@@ -10017,7 +10042,7 @@ function crBroke(){const c=S.career;c.broke++;
     openSheet("Broke",`<p>The rent bounced. ${esc(ftCap(WORLD.bank))} lends you <b>${fmt$(TIME.loan)}</b>, once. You owe ${fmt$(c.loan.owed)}; half of every prize goes to paying it back.</p><p class="hint">They won't do it twice.</p>`);return false;}
   crHallAdd("broke");c.over=true;save();hud();crRender();
   openSheet("The end of the line",`<p>Broke again, and ${esc(WORLD.bank)} doesn't lend twice. The workshop's keys go back to the owner.</p><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p>`);return true;}
-function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).length;return`${c.season+1} season${c.season?"s":""} · ${c.results.length} events · ${wins} won · rep ${c.rep}`;}
+function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).length;return`${svNum(c.season)+1} season${c.season?"s":""} · ${c.results.length} events · ${wins} won · rep ${svNum(c.rep)}`;}
 function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act],ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];
   const best=c.results.filter(x=>x.y===c.year).sort((x,y)=>x.place-y.place||y.prize-x.prize)[0];
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
@@ -10031,10 +10056,10 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   const winter=crWinter(lv0);
   if(c.season>=WORLD.seasons){crHallAdd("done");c.over=true;c.done=true;}
   const T=crTitle(c),tline=c.act<3?"":vacant?`<p class="worn"><b>You didn't defend the Open</b>, so the title has gone to someone else. Your weight limit and the fields go back to normal; win the Final to take it back.</p>`
-    :T.held?`<p class="ok"><b>You go into ${c.year} as the champion</b>${T.run>1?`, ${T.run} Opens in a row`:""}. Legend level ${T.level}, ${esc(crLegendName(T.level))}: your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit is now ${fmtG(crLimitG(LEGACY.cls))}, so check the Build tab before your next event.</p>`
-    :T.wins.length?`<p class="hint">You go into ${c.year} as the challenger.</p>`:"";
-  setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
-    ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
+    :T.held?`<p class="ok"><b>You go into ${svNum(c.year)} as the champion</b>${T.run>1?`, ${T.run} Opens in a row`:""}. Legend level ${svNum(T.level)}, ${esc(crLegendName(T.level))}: your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit is now ${fmtG(crLimitG(LEGACY.cls))}, so check the Build tab before your next event.</p>`
+    :T.wins.length?`<p class="hint">You go into ${svNum(c.year)} as the challenger.</p>`:"";
+  setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${svNum(c.season)+1}, ${svNum(c.year)}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
+    ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${svNum(c.rep)}).</p>`:""}
     ${c.done?"":tline}${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>${winter}`}`),200);}
 /* the new season's step for each rival with a bot in your act's classes: a message, and a line on the sheet (0.1.67) */
@@ -10069,11 +10094,11 @@ function crHead(strip){const h=$("h-career");if(h)h.classList.toggle("vh",!!stri
 /* Close week, pinned at the bottom of the This week page like the Build tab's Fit bar. It is the main button unless an
    event you could still enter is waiting (then Enter is), and it is not shown during an event day. */
 function crWeekBar(){const c=S.career;if(c.day)return"";const st=crStage(),e=crThisWeek(),open=!!(e&&!c.events[crKey(e)]&&!crCantEnter(e));
-  return`<div class="fitbar gobar"><span class="ft"><b>Week ${c.week} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
+  return`<div class="fitbar gobar"><span class="ft"><b>Week ${svNum(c.week)} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
 document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;pageIn($("crBody"));});
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
-  const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
+  const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${svNum(c.season)+1}, week ${svNum(c.week)}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
     :c?`<p>Your last career is over. Switch to Career to start a new one.</p>`:`<p>No career yet. Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}, starting with ${fmt$(TIME.startMoney)} and hand tools.</p>`;
   return`<div class="card"><h3>You're in the Sandbox</h3><p>Every part, class, arena and opponent, fitted for free, with no calendar and no bills. A test bench for ideas.</p>${where}
     <div class="row"><button type="button" class="btn pri" data-cr="mode-career">Switch to Career</button></div>
@@ -10081,10 +10106,10 @@ function crSandboxCard(){const c=S.career;
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
 function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),next=TIME.levels.find(l=>l[1]>(c.driverXp||0));
-  return`<div class="card crstat"><h3>${esc(act.name)} act · season ${c.season+1}</h3>
-    <dl class="crdl"><div><dt>Week</dt><dd class="readout">${c.week} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
-      <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${c.rep}</dd></div>
-      <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-c.driverXp} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
+  return`<div class="card crstat"><h3>${esc(act.name)} act · season ${svNum(c.season)+1}</h3>
+    <dl class="crdl"><div><dt>Week</dt><dd class="readout">${svNum(c.week)} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
+      <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${svNum(c.rep)}</dd></div>
+      <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-svNum(c.driverXp)} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
     ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p></div>`;}
 function crTitleEnd(t){if(!t)return"";
   return t.k==="defended"?`<p class="ok"><b>Title defended:</b> ${t.n} Opens in a row. Next season the champion's ballast takes more off your weight limit.</p>`
@@ -10138,18 +10163,18 @@ function crDayCard(day){const e=crEv(day.ev),k=EVENT_KINDS[day.kind],nx=crNext(d
   const partner=k.format==="tag"?day.field[1]:null;
   return`<div class="card crday"><h3>${esc(e.name)} <small>${esc(WORLD.venues[e.venue].name)}</small></h3>
     ${crTable(day)}
-    <p>Your bot: damage <span class="${sh>0.5?"broke":sh>0.15?"worn":"ok"}">${Math.round(sh*100)}%</span>${Object.keys(me.flags).length?` · <span class="worn">${crFlagTxt(me.flags)}</span>`:""} · kit: ${day.kit==="none"?"none":Object.keys(me.left).map(x=>`${PIT_NAMES[x].toLowerCase()} ${me.left[x]}`).join(", ")}</p>
+    <p>Your bot: damage <span class="${sh>0.5?"broke":sh>0.15?"worn":"ok"}">${Math.round(sh*100)}%</span>${Object.keys(me.flags).length?` · <span class="worn">${crFlagTxt(me.flags)}</span>`:""} · kit: ${day.kit==="none"?"none":Object.keys(me.left).map(x=>`${PIT_NAMES[x].toLowerCase()} ${svNum(me.left[x])}`).join(", ")}</p>
     ${crFightsHtml(day.fights)}
     ${nx?`<div class="crnext"><p><b>Next: the ${esc(nx.label)}</b>${nx.bo>1?" (best of three)":""} against ${crAnd(opp.map(o=>`<b>${esc(o.name)}</b>${o.who?` (${esc(o.who)})`:""}`))}${partner?`, with ${esc(partner.name)} as your partner`:""}.</p>
       ${rv.map(r=>{const g=opp.length===1&&crGrudge(r.id),m=S.rivals[r.id]||{};return`${g?`<p class="crgrudge"><b>Grudge match</b> · meeting ${crMeets(r.id)+1} · you <span class="readout">${m.w|0}–${m.l|0}</span> · win it for +${RIVAL_STORY.grudgeRep} rep</p>`:""}<p class="crtalk">“${esc(crTalk(r,g))}” <small>${esc(r.name)}</small></p>`;}).join("")}
       <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="watch">Watch it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
       <p class="hint">Watch it or Quick sim: ${esc(crSimWho())} and your crew does the pit work. Watch it plays the fight out; Quick sim jumps to the result. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
-function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${f.esc} speed controller dead`:""].filter(Boolean).join(", ");}
-function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}${f.grudge?` · grudge match${f.rep?`, +${f.rep} rep`:""}`:""}</small></li>`).join("")}</ul>`;}
+function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${esc(f.esc)} speed controller dead`:""].filter(Boolean).join(", ");}
+function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${esc(f.score)}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}${f.grudge?` · grudge match${f.rep?`, +${svNum(f.rep)} rep`:""}`:""}</small></li>`).join("")}</ul>`;}
 /* the round robin's table, or the bracket so far */
 function crTable(day){const k=EVENT_KINDS[day.kind],nm=i=>i===0?"<b>You</b>":esc(day.field[i].name);
   if(k.format==="league"){const order=day.field.map((f,i)=>i).sort((a,b)=>day.field[b].pts-day.field[a].pts||day.field[b].diff-day.field[a].diff||a-b);
-    return`<table class="crtab"><thead><tr><th scope="col">Table</th><th scope="col">Played</th><th scope="col">Points</th></tr></thead><tbody>${order.map(i=>`<tr><th scope="row">${nm(i)}</th><td class="readout">${day.res.filter(r=>r.a===i||r.b===i).length}</td><td class="readout">${day.field[i].pts}</td></tr>`).join("")}</tbody></table>`;}
+    return`<table class="crtab"><thead><tr><th scope="col">Table</th><th scope="col">Played</th><th scope="col">Points</th></tr></thead><tbody>${order.map(i=>`<tr><th scope="row">${nm(i)}</th><td class="readout">${day.res.filter(r=>r.a===i||r.b===i).length}</td><td class="readout">${svNum(day.field[i].pts)}</td></tr>`).join("")}</tbody></table>`;}
   if(k.format==="bracket")return crBracketHtml(day);
   if(k.format==="tag")return`<p class="hint">You and ${esc(day.field[1].name)} against ${esc(day.field[2].name)} and ${esc(day.field[3].name)}.</p>`;
   return`<p class="hint">In the arena: you, ${day.field.slice(1).map(f=>esc(f.name)).join(", ")}.</p>`;}
@@ -10193,7 +10218,7 @@ function crCalendarCard(){const c=S.career,list=crCalendar().filter(e=>e.week>=c
 function crRivalsCard(){const c=S.career,cls=TIME.acts[c.act].classes;
   return`<div class="card"><h3>Rivals</h3><ul class="crriv">${RIVALS.map(r=>{const m=S.rivals[r.id]||{w:0,l:0},bc=cls.find(x=>r.bots[x])||Object.keys(r.bots)[0];
     return`<li><b>${esc(r.name)}</b> <small>${esc(WORLD.venues[r.from].name)} · ${esc(r.bots[bc].name)} (${esc(SIM.CLASSES[bc].name.toLowerCase())}, ${esc(SIM.part("weapon",crRivalCfg(r,bc).weapon).name.toLowerCase())})</small><br><span class="hint">${esc(r.line)}</span>
-      ${m.w+m.l?`<br><span>You <span class="readout">${m.w}–${m.l}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}${crGrudge(r.id)?` · <b>next one-on-one is a grudge match</b>`:""}</span>`:""}
+      ${m.w+m.l?`<br><span>You <span class="readout">${svNum(m.w)}–${svNum(m.l)}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}${crGrudge(r.id)?` · <b>next one-on-one is a grudge match</b>`:""}</span>`:""}
       ${crCtrLine(r,bc)}${crThread(r)}</li>`;}).join("")}</ul></div>`;}
 /* what a rival has fitted against you, and their last messages, newest first (0.1.67) */
 function crCtrLine(r,cls){const m=S.rivals[r.id];if(!m||!Array.isArray(m.ctr)||!m.ctr.length)return"";const base=crRivalCfg(r,cls,true);let cfg=base;const on=[];
@@ -10201,9 +10226,9 @@ function crCtrLine(r,cls){const m=S.rivals[r.id];if(!m||!Array.isArray(m.ctr)||!
   return on.length?`<br><small>Fitted against you: ${esc(crAnd(on))}</small>`:"";}
 function crThread(r){const m=S.rivals[r.id];if(!m||!Array.isArray(m.msgs)||!m.msgs.length)return"";
   const list=m.msgs.slice(-3).reverse().map(g=>({g,t:crMsgTxt(r,g)})).filter(x=>x.t);if(!list.length)return"";
-  return`<ul class="crmsg">${list.map(({g,t})=>`<li><small class="readout">${g.y} wk ${g.wk}</small> “${esc(t)}”</li>`).join("")}</ul>`;}
+  return`<ul class="crmsg">${list.map(({g,t})=>`<li><small class="readout">${svNum(g.y)} wk ${svNum(g.wk)}</small> “${esc(t)}”</li>`).join("")}</ul>`;}
 function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
-  return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${r.y} wk ${r.w}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
+  return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${svNum(r.y)} wk ${svNum(r.w)}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
 function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
   if(x.dataset.crfix){crFix(x.dataset.crfix,x.dataset.crkey||null);return;}
   const a=x.dataset.cr;
@@ -10507,7 +10532,7 @@ const OPP_TEAMS={
   "tb:sloppy":["Schrottplatz Moser","steel","sand","square","skull","","Restposten"]};
 /* a livery from anywhere, checked: null if it isn't one */
 function lvNorm(o){if(!o||typeof o!=="object")return null;const hex=v=>typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v);
-  if(!hex(o.main)||!hex(o.accent)||!LIVERY.shapes[o.shape]||!LIVERY.emblems[o.emblem])return null;
+  if(!hex(o.main)||!hex(o.accent)||!tblGet(LIVERY.shapes,o.shape)||!tblGet(LIVERY.emblems,o.emblem))return null;   // tblGet: the tables' own entries only (state.js)
   return{name:String(o.name||"").trim().slice(0,LIVERY.maxName),main:o.main.toUpperCase(),accent:o.accent.toUpperCase(),shape:o.shape,emblem:o.emblem,text:lvText(o.text)};}
 const lvText=t=>String(t||"").toUpperCase().replace(/[^A-Z0-9ÄÖÜ&]/g,"").slice(0,LIVERY.maxText);
 /* your team's livery (S.team, put right if it isn't one) */
@@ -10647,7 +10672,7 @@ const tpCup=gold=>`<svg viewBox="0 0 24 24" class="tpcup ${gold?"gold":""}" aria
 function tpWhat(t){return t.k==="promo"?"Promotion":t.k==="defend"?"Title defended":t.k==="title"?"Champions":"Winners";}
 function tpShelf(){const c=S.career;if(!c)return"";const T=Array.isArray(c.trophies)?c.trophies:[];
   if(!T.length)return emptyHtml("cup","Nothing on the shelf yet","Win an event and its trophy goes here. Championships and moving up an act are gold.",[["This week","career/week"]]);
-  return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${t.y}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
+  return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${svNum(t.y)}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
     :""}</div>`;}
 async function tpDraw(t){await cardFonts();const{c,g}=cardBase(),P=CARD.pad,gold=tpGold(t),cx=CARD.W/2;
   g.fillStyle=CARD.muted;g.font=`600 26px ${CARD.f}`;g.textAlign="right";g.fillText(tpWhat(t).toUpperCase(),CARD.W-P,96);g.textAlign="center";

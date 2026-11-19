@@ -119,7 +119,7 @@ function buRead(text){
   if(buSum(body)!==c.slice(-6))throw buFail("damaged");
   let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw buFail("damaged");}
   if(!buFullOk(d))throw buFail("bad");
-  return{kind:"full",data:d};}
+  return{kind:"full",data:cleanText(d)};}   // cleanText: nothing in a restored game or its slots can open a tag (state.js)
 
 /* ---- writing a checked backup: all four keys, or none of them ---- */
 function buWrite(d){

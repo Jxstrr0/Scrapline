@@ -84,7 +84,7 @@ const tpCup=gold=>`<svg viewBox="0 0 24 24" class="tpcup ${gold?"gold":""}" aria
 function tpWhat(t){return t.k==="promo"?"Promotion":t.k==="defend"?"Title defended":t.k==="title"?"Champions":"Winners";}
 function tpShelf(){const c=S.career;if(!c)return"";const T=Array.isArray(c.trophies)?c.trophies:[];
   if(!T.length)return emptyHtml("cup","Nothing on the shelf yet","Win an event and its trophy goes here. Championships and moving up an act are gold.",[["This week","career/week"]]);
-  return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${t.y}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
+  return`<div class="card"><h3>Trophy shelf</h3>${T.length?`<div class="tpshelf">${T.map((t,i)=>`<button type="button" class="tp${tpGold(t)?" gold":""}" data-tp="${i}">${tpCup(tpGold(t))}<span>${esc(t.name)}</span><small>${svNum(t.y)}${t.cls?" · "+esc(SIM.CLASSES[t.cls].name.replace("weight","")):""}</small></button>`).join("")}</div><p class="hint">Tap one for its card.</p>`
     :""}</div>`;}
 async function tpDraw(t){await cardFonts();const{c,g}=cardBase(),P=CARD.pad,gold=tpGold(t),cx=CARD.W/2;
   g.fillStyle=CARD.muted;g.font=`600 26px ${CARD.f}`;g.textAlign="right";g.fillText(tpWhat(t).toUpperCase(),CARD.W-P,96);g.textAlign="center";

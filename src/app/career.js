@@ -201,8 +201,8 @@ function crHallCard(){const c=S.career,rows=(Array.isArray(S.hall)?S.hall:[]).fi
   if(!rows.length)return"";rows.sort((a,b)=>b.r.titles.length-a.r.titles.length||b.r.rep-a.r.rep);
   const END={done:"twenty seasons",broke:"went broke",left:"left the circuit"};
   return`<div class="card"><h3>Hall of fame</h3><ol class="crhall">${rows.map(({r,now})=>{const n=r.titles.length;
-    return`<li${now?' class="now"':""}><b>${esc(r.team)}</b> <small>${now?"this career":`${r.y0} to ${r.y1}${END[r.end]?", "+END[r.end]:""}`}</small><br>
-      ${n?`<span class="ok">${n} Open${n>1?"s":""}</span> <small>(${r.titles.join(", ")})</small>${r.best>1?` · ${r.best} in a row`:""}`:`reached the ${esc((TIME.acts[r.act]||TIME.acts[0]).name)} act`} · ${r.wins} of ${r.events} events won · rep <span class="readout">${r.rep}</span> · ${r.seasons} season${r.seasons>1?"s":""}</li>`;}).join("")}</ol>
+    return`<li${now?' class="now"':""}><b>${esc(r.team)}</b> <small>${now?"this career":`${svNum(r.y0)} to ${svNum(r.y1)}${END[r.end]?", "+END[r.end]:""}`}</small><br>
+      ${n?`<span class="ok">${n} Open${n>1?"s":""}</span> <small>(${r.titles.map(svNum).join(", ")})</small>${r.best>1?` · ${svNum(r.best)} in a row`:""}`:`reached the ${esc((TIME.acts[r.act]||TIME.acts[0]).name)} act`} · ${svNum(r.wins)} of ${svNum(r.events)} events won · rep <span class="readout">${svNum(r.rep)}</span> · ${svNum(r.seasons)} season${r.seasons>1?"s":""}</li>`;}).join("")}</ol>
     <p class="hint">A career goes up here when it ends. Titles first, then rep.</p></div>`;}
 function crField(e){const c=S.career,k=EVENT_KINDS[e.kind],R=SIM.rng((c.seed^crHash(crKey(e)))>>>0),cls=e.cls;
   const L=crLegend(),up=LEGACY.skillStep*L,cap=L?LEGACY.skillMax:EVENT_SKILL_MAX;   // a champion's fields are sharper (0.1.39)
@@ -317,7 +317,7 @@ function crPlace(day){const k=EVENT_KINDS[day.kind];
 function crPlaceTxt(kind,place){const f=EVENT_KINDS[kind].format;
   if(f==="bracket")return["","won it","runner-up","semi-finalist","out in the quarter-finals"][place]||"";
   if(f==="tag")return place===1?"won it":"lost";
-  return["","1st","2nd","3rd","4th"][place]||place+"th";}
+  return["","1st","2nd","3rd","4th"][place]||Math.round(svNum(place))+"th";}   // svNum: the place comes from a save, so it is printed as a number
 /* the day is over: prize, rep, the damage goes home with the bot */
 function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],place=crPlace(day);
   const pi=k.format==="bracket"?Math.min(place-1,3):place-1;let prize=crPrize(e,pi),rep=k.rep[Math.min(pi,k.rep.length-1)]||0;
@@ -443,7 +443,7 @@ function crBroke(){const c=S.career;c.broke++;
     openSheet("Broke",`<p>The rent bounced. ${esc(ftCap(WORLD.bank))} lends you <b>${fmt$(TIME.loan)}</b>, once. You owe ${fmt$(c.loan.owed)}; half of every prize goes to paying it back.</p><p class="hint">They won't do it twice.</p>`);return false;}
   crHallAdd("broke");c.over=true;save();hud();crRender();
   openSheet("The end of the line",`<p>Broke again, and ${esc(WORLD.bank)} doesn't lend twice. The workshop's keys go back to the owner.</p><p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div><p class="hint">Your designs stay.</p>`);return true;}
-function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).length;return`${c.season+1} season${c.season?"s":""} · ${c.results.length} events · ${wins} won · rep ${c.rep}`;}
+function crSummary(){const c=S.career,wins=c.results.filter(r=>r.place===1).length;return`${svNum(c.season)+1} season${c.season?"s":""} · ${c.results.length} events · ${wins} won · rep ${svNum(c.rep)}`;}
 function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act],ch=SEASON_EVENTS.find(e=>e.act===a&&e.kind==="champ"),r=ch&&c.events[c.year+":"+ch.id];
   const best=c.results.filter(x=>x.y===c.year).sort((x,y)=>x.place-y.place||y.prize-x.prize)[0];
   let up=false;if(c.act<2&&((r&&r.place&&r.place<=2)||c.rep>=act.repTo))up=true;else if(c.act===2&&r&&r.place===1)up=true;
@@ -457,10 +457,10 @@ function crSeasonEnd(){const c=S.career,a=Math.min(c.act,2),act=TIME.acts[c.act]
   const winter=crWinter(lv0);
   if(c.season>=WORLD.seasons){crHallAdd("done");c.over=true;c.done=true;}
   const T=crTitle(c),tline=c.act<3?"":vacant?`<p class="worn"><b>You didn't defend the Open</b>, so the title has gone to someone else. Your weight limit and the fields go back to normal; win the Final to take it back.</p>`
-    :T.held?`<p class="ok"><b>You go into ${c.year} as the champion</b>${T.run>1?`, ${T.run} Opens in a row`:""}. Legend level ${T.level}, ${esc(crLegendName(T.level))}: your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit is now ${fmtG(crLimitG(LEGACY.cls))}, so check the Build tab before your next event.</p>`
-    :T.wins.length?`<p class="hint">You go into ${c.year} as the challenger.</p>`:"";
-  setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${c.season+1}, ${c.year}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
-    ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${c.rep}).</p>`:""}
+    :T.held?`<p class="ok"><b>You go into ${svNum(c.year)} as the champion</b>${T.run>1?`, ${T.run} Opens in a row`:""}. Legend level ${svNum(T.level)}, ${esc(crLegendName(T.level))}: your ${SIM.CLASSES[LEGACY.cls].name.toLowerCase()} limit is now ${fmtG(crLimitG(LEGACY.cls))}, so check the Build tab before your next event.</p>`
+    :T.wins.length?`<p class="hint">You go into ${svNum(c.year)} as the challenger.</p>`:"";
+  setTimeout(()=>openSheet(c.done?"Twenty seasons":"A new season",`<p>${c.done?"That's the career: twenty seasons.":`Season ${svNum(c.season)+1}, ${svNum(c.year)}.`} ${best?`Best of last season: ${esc(best.name)}, ${crPlaceTxt(best.kind,best.place)}.`:"Nothing entered last season."}</p>${rlSheetBtn()}
+    ${up?`<p class="ok"><b>Up to the ${esc(TIME.acts[c.act].name)} act.</b> ${esc(TIME.acts[c.act].line)}</p>`:c.act===2?`<p class="hint">To move up: win the ${esc(ch.name)}.</p>`:c.act<3?`<p class="hint">To move up: place top two at the ${esc(ch.name)}, or reach rep ${act.repTo} (you have ${svNum(c.rep)}).</p>`:""}
     ${c.done?"":tline}${c.done?"":tl.map(l=>`<p>${l}</p>`).join("")}
     ${c.done?`<p>${crSummary()}</p><div class="row"><button type="button" class="btn pri" data-cr="restart">Start a new career</button></div>`:`<p class="hint">Your rivals have been busy over the winter.</p>${winter}`}`),200);}
 /* the new season's step for each rival with a bot in your act's classes: a message, and a line on the sheet (0.1.67) */
@@ -495,11 +495,11 @@ function crHead(strip){const h=$("h-career");if(h)h.classList.toggle("vh",!!stri
 /* Close week, pinned at the bottom of the This week page like the Build tab's Fit bar. It is the main button unless an
    event you could still enter is waiting (then Enter is), and it is not shown during an event day. */
 function crWeekBar(){const c=S.career;if(c.day)return"";const st=crStage(),e=crThisWeek(),open=!!(e&&!c.events[crKey(e)]&&!crCantEnter(e));
-  return`<div class="fitbar gobar"><span class="ft"><b>Week ${c.week} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
+  return`<div class="fitbar gobar"><span class="ft"><b>Week ${svNum(c.week)} of ${TIME.weeks}</b>${crR1(c.hours)} h left · ${fmt$(st.rent)} rent</span><button type="button" class="btn${open?"":" pri"}" data-cr="close">Close week</button></div>`;}
 document.addEventListener("click",e=>{const x=e.target.closest("#crBody [data-crsub]");if(!x)return;CR.sub=x.dataset.crsub;CR.restartAsk=false;crRender();$("panel").scrollTop=0;pageIn($("crBody"));});
 /* the Career tab while in the Sandbox: where the career stands, and the way back to it */
 function crSandboxCard(){const c=S.career;
-  const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${c.season+1}, week ${c.week}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
+  const where=c&&!c.over?`<p>Your career is waiting: ${esc(crAct().name)} act, season ${svNum(c.season)+1}, week ${svNum(c.week)}, ${fmt$(c.money)} in the bank. Its garage is kept as you left it.</p>`
     :c?`<p>Your last career is over. Switch to Career to start a new one.</p>`:`<p>No career yet. Twenty seasons from ${esc(WORLD.home)} to ${esc(WORLD.open)}, starting with ${fmt$(TIME.startMoney)} and hand tools.</p>`;
   return`<div class="card"><h3>You're in the Sandbox</h3><p>Every part, class, arena and opponent, fitted for free, with no calendar and no bills. A test bench for ideas.</p>${where}
     <div class="row"><button type="button" class="btn pri" data-cr="mode-career">Switch to Career</button></div>
@@ -507,10 +507,10 @@ function crSandboxCard(){const c=S.career;
 function crHelpCard(){return`<div class="card"><h3>How a week works</h3><p>Fit and test your bot, repair it, enter the week's event and fight it, then <b>Close week</b>: the rent comes out and the next week's workshop hours come in.</p>
   <p>Events pay prizes and rep. Tools in the Shop unlock parts and cut build hours. Top two at the championship, or enough rep, moves you up an act at the end of the season.</p></div>`;}
 function crStatusCard(){const c=S.career,st=crStage(),act=crAct(),lv=crLevel(),next=TIME.levels.find(l=>l[1]>(c.driverXp||0));
-  return`<div class="card crstat"><h3>${esc(act.name)} act · season ${c.season+1}</h3>
-    <dl class="crdl"><div><dt>Week</dt><dd class="readout">${c.week} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
-      <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${c.rep}</dd></div>
-      <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-c.driverXp} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
+  return`<div class="card crstat"><h3>${esc(act.name)} act · season ${svNum(c.season)+1}</h3>
+    <dl class="crdl"><div><dt>Week</dt><dd class="readout">${svNum(c.week)} / ${TIME.weeks}</dd></div><div><dt>Money</dt><dd class="readout">${fmt$(c.money)}</dd></div>
+      <div><dt>Workshop</dt><dd class="readout">${crR1(c.hours)} h</dd></div><div><dt>Rep</dt><dd class="readout">${svNum(c.rep)}</dd></div>
+      <div><dt>Driver</dt><dd>${lv}<small>${next?` · ${next[1]-svNum(c.driverXp)} xp to ${next[0]}`:""}</small></dd></div><div><dt>Bank</dt><dd>${c.loan.owed>0?`<span class="worn">owe ${fmt$(c.loan.owed)}</span>`:c.loan.taken?"loan repaid":"no loan"}</dd></div></dl>
     ${crTitleLine()}<p class="hint">${esc(ftCap(st.name))}: ${fmt$(st.rent)} rent at Close week, ${st.hours} h a week (up to ${st.hours*TIME.bankWeeks} h saved up).</p></div>`;}
 function crTitleEnd(t){if(!t)return"";
   return t.k==="defended"?`<p class="ok"><b>Title defended:</b> ${t.n} Opens in a row. Next season the champion's ballast takes more off your weight limit.</p>`
@@ -564,18 +564,18 @@ function crDayCard(day){const e=crEv(day.ev),k=EVENT_KINDS[day.kind],nx=crNext(d
   const partner=k.format==="tag"?day.field[1]:null;
   return`<div class="card crday"><h3>${esc(e.name)} <small>${esc(WORLD.venues[e.venue].name)}</small></h3>
     ${crTable(day)}
-    <p>Your bot: damage <span class="${sh>0.5?"broke":sh>0.15?"worn":"ok"}">${Math.round(sh*100)}%</span>${Object.keys(me.flags).length?` · <span class="worn">${crFlagTxt(me.flags)}</span>`:""} · kit: ${day.kit==="none"?"none":Object.keys(me.left).map(x=>`${PIT_NAMES[x].toLowerCase()} ${me.left[x]}`).join(", ")}</p>
+    <p>Your bot: damage <span class="${sh>0.5?"broke":sh>0.15?"worn":"ok"}">${Math.round(sh*100)}%</span>${Object.keys(me.flags).length?` · <span class="worn">${crFlagTxt(me.flags)}</span>`:""} · kit: ${day.kit==="none"?"none":Object.keys(me.left).map(x=>`${PIT_NAMES[x].toLowerCase()} ${svNum(me.left[x])}`).join(", ")}</p>
     ${crFightsHtml(day.fights)}
     ${nx?`<div class="crnext"><p><b>Next: the ${esc(nx.label)}</b>${nx.bo>1?" (best of three)":""} against ${crAnd(opp.map(o=>`<b>${esc(o.name)}</b>${o.who?` (${esc(o.who)})`:""}`))}${partner?`, with ${esc(partner.name)} as your partner`:""}.</p>
       ${rv.map(r=>{const g=opp.length===1&&crGrudge(r.id),m=S.rivals[r.id]||{};return`${g?`<p class="crgrudge"><b>Grudge match</b> · meeting ${crMeets(r.id)+1} · you <span class="readout">${m.w|0}–${m.l|0}</span> · win it for +${RIVAL_STORY.grudgeRep} rep</p>`:""}<p class="crtalk">“${esc(crTalk(r,g))}” <small>${esc(r.name)}</small></p>`;}).join("")}
       <div class="row"><button type="button" class="btn pri" data-cr="drive">Drive it</button><button type="button" class="btn" data-cr="watch">Watch it</button><button type="button" class="btn" data-cr="quick">Quick sim</button></div>
       <p class="hint">Watch it or Quick sim: ${esc(crSimWho())} and your crew does the pit work. Watch it plays the fight out; Quick sim jumps to the result. Less driver xp.</p></div>`:`<p class="hint">Waiting on the other fights…</p>`}</div>`;}
-function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${f.esc} speed controller dead`:""].filter(Boolean).join(", ");}
-function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${f.score}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}${f.grudge?` · grudge match${f.rep?`, +${f.rep} rep`:""}`:""}</small></li>`).join("")}</ul>`;}
+function crFlagTxt(f){return[f.bent?"bent disc":"",f.smoke?"battery smoking":"",f.cell?"battery on its last cell":"",f.esc?`${esc(f.esc)} speed controller dead`:""].filter(Boolean).join(", ");}
+function crFightsHtml(fs){if(!fs||!fs.length)return"";return(CR.seen&&FT.rounds.length?`<p class="hint"><button type="button" class="lnk" data-cr="see">Watch your last fight</button> (results, post-mortem, replay)</p>`:"")+`<ul class="crfights">${fs.map((f,i)=>`<li><span class="${f.draw?"":f.won?"ok":"broke"}">${f.how==="forfeit"?"forfeit":f.draw?"draw":f.won?"won":"lost"}</span> ${esc(ftCap(f.label))} vs ${esc(f.vs)}${f.score?` <span class="readout">${esc(f.score)}</span>`:""} <small>${f.how==="ko"?"by knockout":f.how==="pit"?"into the pit":f.how==="forfeit"?"":"on the judges"}${f.grudge?` · grudge match${f.rep?`, +${svNum(f.rep)} rep`:""}`:""}</small></li>`).join("")}</ul>`;}
 /* the round robin's table, or the bracket so far */
 function crTable(day){const k=EVENT_KINDS[day.kind],nm=i=>i===0?"<b>You</b>":esc(day.field[i].name);
   if(k.format==="league"){const order=day.field.map((f,i)=>i).sort((a,b)=>day.field[b].pts-day.field[a].pts||day.field[b].diff-day.field[a].diff||a-b);
-    return`<table class="crtab"><thead><tr><th scope="col">Table</th><th scope="col">Played</th><th scope="col">Points</th></tr></thead><tbody>${order.map(i=>`<tr><th scope="row">${nm(i)}</th><td class="readout">${day.res.filter(r=>r.a===i||r.b===i).length}</td><td class="readout">${day.field[i].pts}</td></tr>`).join("")}</tbody></table>`;}
+    return`<table class="crtab"><thead><tr><th scope="col">Table</th><th scope="col">Played</th><th scope="col">Points</th></tr></thead><tbody>${order.map(i=>`<tr><th scope="row">${nm(i)}</th><td class="readout">${day.res.filter(r=>r.a===i||r.b===i).length}</td><td class="readout">${svNum(day.field[i].pts)}</td></tr>`).join("")}</tbody></table>`;}
   if(k.format==="bracket")return crBracketHtml(day);
   if(k.format==="tag")return`<p class="hint">You and ${esc(day.field[1].name)} against ${esc(day.field[2].name)} and ${esc(day.field[3].name)}.</p>`;
   return`<p class="hint">In the arena: you, ${day.field.slice(1).map(f=>esc(f.name)).join(", ")}.</p>`;}
@@ -619,7 +619,7 @@ function crCalendarCard(){const c=S.career,list=crCalendar().filter(e=>e.week>=c
 function crRivalsCard(){const c=S.career,cls=TIME.acts[c.act].classes;
   return`<div class="card"><h3>Rivals</h3><ul class="crriv">${RIVALS.map(r=>{const m=S.rivals[r.id]||{w:0,l:0},bc=cls.find(x=>r.bots[x])||Object.keys(r.bots)[0];
     return`<li><b>${esc(r.name)}</b> <small>${esc(WORLD.venues[r.from].name)} · ${esc(r.bots[bc].name)} (${esc(SIM.CLASSES[bc].name.toLowerCase())}, ${esc(SIM.part("weapon",crRivalCfg(r,bc).weapon).name.toLowerCase())})</small><br><span class="hint">${esc(r.line)}</span>
-      ${m.w+m.l?`<br><span>You <span class="readout">${m.w}–${m.l}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}${crGrudge(r.id)?` · <b>next one-on-one is a grudge match</b>`:""}</span>`:""}
+      ${m.w+m.l?`<br><span>You <span class="readout">${svNum(m.w)}–${svNum(m.l)}</span> against them${m.last?` · last: ${esc(m.last.ev)}, ${m.last.won?"you won":"they won"}`:""}${crGrudge(r.id)?` · <b>next one-on-one is a grudge match</b>`:""}</span>`:""}
       ${crCtrLine(r,bc)}${crThread(r)}</li>`;}).join("")}</ul></div>`;}
 /* what a rival has fitted against you, and their last messages, newest first (0.1.67) */
 function crCtrLine(r,cls){const m=S.rivals[r.id];if(!m||!Array.isArray(m.ctr)||!m.ctr.length)return"";const base=crRivalCfg(r,cls,true);let cfg=base;const on=[];
@@ -627,9 +627,9 @@ function crCtrLine(r,cls){const m=S.rivals[r.id];if(!m||!Array.isArray(m.ctr)||!
   return on.length?`<br><small>Fitted against you: ${esc(crAnd(on))}</small>`:"";}
 function crThread(r){const m=S.rivals[r.id];if(!m||!Array.isArray(m.msgs)||!m.msgs.length)return"";
   const list=m.msgs.slice(-3).reverse().map(g=>({g,t:crMsgTxt(r,g)})).filter(x=>x.t);if(!list.length)return"";
-  return`<ul class="crmsg">${list.map(({g,t})=>`<li><small class="readout">${g.y} wk ${g.wk}</small> “${esc(t)}”</li>`).join("")}</ul>`;}
+  return`<ul class="crmsg">${list.map(({g,t})=>`<li><small class="readout">${svNum(g.y)} wk ${svNum(g.wk)}</small> “${esc(t)}”</li>`).join("")}</ul>`;}
 function crResultsCard(){const c=S.career;if(!c||!c.results.length)return"";
-  return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${r.y} wk ${r.w}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
+  return`<div class="card"><h3>Results</h3><ul class="crres">${c.results.slice(0,10).map(r=>`<li><span class="readout">${svNum(r.y)} wk ${svNum(r.w)}</span> ${esc(r.name)}: <b class="${r.place===1?"ok":""}">${crPlaceTxt(r.kind,r.place)}</b>${r.prize?` · ${fmt$(r.prize)}`:""}</li>`).join("")}</ul></div>`;}
 function crClick(e){if(tmClick(e))return;const x=e.target.closest("[data-cr],[data-crfix]");if(!x)return;
   if(x.dataset.crfix){crFix(x.dataset.crfix,x.dataset.crkey||null);return;}
   const a=x.dataset.cr;
