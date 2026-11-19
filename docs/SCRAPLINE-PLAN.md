@@ -548,4 +548,5 @@ Multiplayer, real leagues or TV brands, full 3D physics, human injury or crowd h
 - [x] 0.1.68.1: a small edge for auto-drive (named opponents, rivals and event fields 0.05 lower)
 - [x] 0.1.68.2: Ultra's start-up add-ons load with their integrity fingerprints (security test, 19 November)
 - [x] 0.1.68.3: a restored backup is cleaned before it is shown (security test, 19 November)
+- [x] 0.1.68.4: a save that names an event, class or project the game doesn't have opens instead of stopping on an error (`crSaveGuard`)
 - [ ] Later: more of the polish pass, from Kelbo's list
