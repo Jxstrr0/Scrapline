@@ -8,7 +8,7 @@
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
    check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.68.3";
+const VERSION="0.1.68.4";
 const SIM=SCRAP_SIM;
 /* nothing from a save may reach the page as markup (0.1.68.3, after PEW 1.76.142.1). A save, a save slot or a backup code can
    come from anyone, and the screens write many of a save's values straight into the page. cleanStr(s) swaps < and > in a
@@ -391,7 +391,8 @@ function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.
   for(const k of ["staff","sponsors","hall"])if(!Array.isArray(n[k]))n[k]=[];
   /* the career's plain numbers are numbers. A backup code with text in one is refused (buSaveOk); a save edited in storage is put right here */
   if(buObjS(n.career))for(const k of ["money","year","week","season","act","hours","driverXp","rep"])if(k in n.career&&svNum(n.career[k])!==n.career[k])n.career[k]=k==="year"?WORLD.startYear:k==="week"?1:0;
-  S=n;return true;}
+  S=n;if(typeof crSaveGuard==="function")crSaveGuard();   // drops what the game can't run: an unknown event day, R&D project, trophy class (app/career.js)
+  return true;}
 function loadSaved(){try{const j=localStorage.getItem("scr-save");if(j&&hydrate(JSON.parse(j)))return true;}catch(e){}S=freshState();return false;}
 const SLOTS=3,slotKey=i=>"scr-slot"+i;
 /* a restored game: take it, store it, redraw everything */

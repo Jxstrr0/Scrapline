@@ -314,10 +314,31 @@ function crPlace(day){const k=EVENT_KINDS[day.kind];
   if(k.format==="league"){const order=day.field.map((f,i)=>i).sort((a,b)=>day.field[b].pts-day.field[a].pts||day.field[b].diff-day.field[a].diff||a-b);return order.indexOf(0)+1;}
   if(k.format==="bracket"){if(day.champ===0)return 1;const r=day.lost[0];return r===2?2:r===1?3:4;}
   return day.rank?day.rank.indexOf(0)+1:k.size;}
-function crPlaceTxt(kind,place){const f=EVENT_KINDS[kind].format;
+function crPlaceTxt(kind,place){const k=tblGet(EVENT_KINDS,kind),f=k?k.format:"";   // a kind the game doesn't have (an old result in a save from elsewhere) reads as a plain place
   if(f==="bracket")return["","won it","runner-up","semi-finalist","out in the quarter-finals"][place]||"";
   if(f==="tag")return place===1?"won it":"lost";
   return["","1st","2nd","3rd","4th"][place]||Math.round(svNum(place))+"th";}   // svNum: the place comes from a save, so it is printed as a number
+/* crSaveGuard(): a save can come from anyone, and it can name things this game doesn't have: an event kind, an event, a class,
+   an R&D project. hydrate (app/state.js) calls this once the save is in S. What can't be used is dropped, so the game opens
+   instead of stopping on an error (0.1.68.4):
+   - the event day (c.day) has to name a real event of the same kind and class, and has to get through working out its next
+     fight and drawing its own card; one that can't is dropped as if the event had never been entered (c.entered goes too);
+   - a result or a trophy that isn't a record is dropped, and so is a trophy in a class the game doesn't have, and a kit line
+     whose class doesn't exist or isn't its design's class;
+   - an R&D project that isn't in RND is put down.
+   A real save passes untouched. */
+function crSaveGuard(){const c=S.career;if(!buObjS(c))return;
+  const isCls=x=>!!tblGet(SIM.CLASSES,x);
+  if(Array.isArray(c.results))c.results=c.results.filter(buObjS);
+  if(Array.isArray(c.trophies))c.trophies=c.trophies.filter(t=>buObjS(t)&&(t.cls==null||isCls(t.cls)));
+  if(c.kit!=null&&!(buObjS(c.kit)&&buObjS(c.kit.cfg)&&isCls(c.kit.cls)&&c.kit.cfg.cls===c.kit.cls))c.kit=null;   // the kit's design is tested at each season's end, in its own class
+  if(buObjS(c.rnd)&&c.rnd.cur!=null&&!tblGet(RND,c.rnd.cur))c.rnd.cur=null;
+  if(c.day!=null){const d=c.day;let ok=false;
+    try{const e=buObjS(d)&&crEv(d.ev);
+      ok=!!(e&&tblGet(EVENT_KINDS,d.kind)&&e.kind===d.kind&&e.cls===d.cls&&Array.isArray(d.field)&&Array.isArray(d.fights));
+      if(ok){crNext(d);crDayCard(d);}}
+    catch(err){ok=false;}
+    if(!ok){c.day=null;c.entered=null;}}}
 /* the day is over: prize, rep, the damage goes home with the bot */
 function crFinish(day){const c=S.career,e=crEv(day.ev),k=EVENT_KINDS[day.kind],place=crPlace(day);
   const pi=k.format==="bracket"?Math.min(place-1,3):place-1;let prize=crPrize(e,pi),rep=k.rep[Math.min(pi,k.rep.length-1)]||0;
