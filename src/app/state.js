@@ -7,8 +7,9 @@
    and the small UI helpers every tab uses ($, fmt$, toast, the sheet).
    localStorage keys (every access wrapped in try/catch): "scr-save" (the current game, settings included) and
    "scr-slot1" .. "scr-slot3" (the save slots). A new key must also go into buMake / buWrite in app/savecode.js and KEYS in
-   check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate. */
-const VERSION="0.1.68.4";
+   check-savecode.js; stop and ask before adding one. New fields inside scr-save are fine: bump SAVE_V and migrate (a new
+   top-level one also goes into freshState(), or saveTrim drops it). */
+const VERSION="0.1.68.5";
 const SIM=SCRAP_SIM;
 /* nothing from a save may reach the page as markup (0.1.68.3, after PEW 1.76.142.1). A save, a save slot or a backup code can
    come from anyone, and the screens write many of a save's values straight into the page. cleanStr(s) swaps < and > in a
@@ -377,10 +378,17 @@ function migrate(o){let v=typeof o.v==="number"?o.v:1;while(v<SAVE_V){if(!MIGRAT
 let TUT_ON=false;
 function save(){if(TUT_ON)return;try{localStorage.setItem("scr-save",JSON.stringify(S));}catch(e){return;}buSaved();}   // buSaved: app/savecode.js (asks the browser to keep our storage)
 function snapshot(){return JSON.parse(JSON.stringify(S));}
+/* saveTrim(o): a save keeps only the top-level fields the game has (the ones freshState() lists). Anything else at the top of
+   a save, a save slot or a backup code is left behind (0.1.68.5): the game never read such a field, but it used to carry it
+   along into every later save, slot and backup. It changes o and returns it; a save the game wrote itself comes through
+   unchanged. So a new top-level field must be in freshState(), or it is dropped here; and a MIGRATE step that reads a
+   top-level field the game has since dropped would need that name kept (none does). Kept on one line: check-savecode.js
+   lifts it out of this file. */
+function saveTrim(o){const f=freshState();for(const k of Object.keys(o))if(!Object.prototype.hasOwnProperty.call(f,k))delete o[k];return o;}
 /* load a save object into S. false (and S untouched) if it isn't one of ours, or comes from a newer version */
 function hydrate(o){if(!buObjS(o)||typeof o.v!=="number"||o.v>SAVE_V||!buObjS(o.settings)||!buObjS(o.bots))return false;
   o=migrate(cleanText(JSON.parse(JSON.stringify(o))));if(!o)return false;   // cleanText: no text in a save can open a tag (top of this file)
-  const n=freshState();Object.assign(n,o);
+  const n=freshState();Object.assign(n,saveTrim(o));   // saveTrim: only the fields the game has (above)
   n.settings=Object.assign(freshSettings(),o.settings);
   n.unlocks=Object.assign({tools:{},rnd:{}},buObjS(o.unlocks)?o.unlocks:{});
   for(const k of ["designs","rivals","parked","school","met"])if(!buObjS(n[k]))n[k]={};

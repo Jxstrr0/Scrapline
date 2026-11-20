@@ -76,7 +76,7 @@ function buSum(body){let h=2166136261;for(let i=0;i<body.length;i++){h^=body.cha
 
 /* ---- making a code ---- */
 function buStored(k){try{const j=localStorage.getItem(k);if(!j)return null;const o=JSON.parse(j);return o&&typeof o==="object"&&!Array.isArray(o)?o:null;}catch(e){return null;}}
-function buMake(){const slots=[];for(let i=1;i<=SLOTS;i++)slots.push(buStored(slotKey(i)));
+function buMake(){const slots=[];for(let i=1;i<=SLOTS;i++){const o=buStored(slotKey(i));slots.push(o?saveTrim(o):null);}   // saveTrim: a slot edited in storage takes no stray field into the code (state.js)
   return{v:BU_V,at:Date.now(),ver:VERSION,save:buGame(),slots};}
 /* the game to back up: during the tutorial S is the loaner, so it is the real game put aside (TUT.bak, app/help.js)
    with this phone's settings */
@@ -124,7 +124,9 @@ function buRead(text){
   if(buSum(body)!==c.slice(-6))throw buFail("damaged");
   let d;try{d=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(buUnzip(body))));}catch(e){throw buFail("damaged");}
   if(!buFullOk(d))throw buFail("bad");
-  return{kind:"full",data:cleanText(d)};}   // cleanText: nothing in a restored game or its slots can open a tag (state.js)
+  cleanText(d);   // nothing in a restored game or its slots can open a tag (state.js)
+  saveTrim(d.save);for(const o of d.slots)if(o)saveTrim(o);   // and each keeps only the fields the game has (state.js), so a stray one isn't written to storage
+  return{kind:"full",data:d};}
 
 /* ---- writing a checked backup: all four keys, or none of them ---- */
 function buWrite(d){

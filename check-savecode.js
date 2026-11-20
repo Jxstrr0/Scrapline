@@ -7,6 +7,7 @@
  * (snapshot, hydrate, ...), so it runs in plain node with no browser. hydrate is a copy of the real one's rule (false without a
  * numeric v no newer than SAVE_V, a settings object and a bots object). It also makes sure index.html was rebuilt with the current savecode.js.
  * cleanStr and cleanText (the pass that makes a save's text harmless) are lifted out of src/app/state.js, one line each.
+ * So are saveTrim (a save keeps only the fields the game has) and the freshState() it reads, with SAVE_V, freshSettings and freshTeam.
  * Keys checked: scr-save, scr-slot1 .. scr-slot3. A new localStorage key goes into KEYS here as well as buMake / buWrite.
  * Zero dependencies (node >= 16).
  */
@@ -32,6 +33,9 @@ function load() {
   const code = fs.readFileSync(SRC, "utf8"), state = fs.readFileSync(STATE, "utf8");
   const cln = [/^function cleanStr\(.*$/m.exec(state), /^function cleanText\(.*$/m.exec(state)];
   if (!cln[0] || !cln[1]) throw new Error("cleanStr / cleanText not found in src/app/state.js");
+  /* saveTrim and what it reads: the real freshState(), so the check knows the game's own list of save fields */
+  const trim = [/^const SAVE_V=\d+;$/m, /^function freshSettings\(.*$/m, /^function freshTeam\(.*$/m, /^function freshState\(\)\{[\s\S]*?^  lastBackup:0\};\}$/m, /^function saveTrim\(.*$/m].map(re => re.exec(state));
+  if (trim.some(m => !m)) throw new Error("SAVE_V / freshSettings / freshTeam / freshState / saveTrim not found in src/app/state.js");
   const ctx = {
     localStorage: fakeStorage(), TextEncoder, TextDecoder, Uint8Array,
     SLOTS: 3, slotKey: i => "scr-slot" + i, VERSION: "test", WORLD: { startYear: 2026 },
@@ -44,6 +48,7 @@ function load() {
   };
   vm.createContext(ctx);
   vm.runInContext(cln[0][0] + "\n" + cln[1][0], ctx, { filename: "state.js (cleanStr, cleanText)" });
+  vm.runInContext(trim.map(m => m[0]).join("\n"), ctx, { filename: "state.js (freshState, saveTrim)" });
   vm.runInContext(code, ctx, { filename: "savecode.js" });
   return ctx;
 }
@@ -72,8 +77,9 @@ function game7(over) {
 const seed = st => {
   st.clear();
   st.setItem("scr-save", JSON.stringify(game()));
-  st.setItem("scr-slot1", JSON.stringify(Object.assign(game({ career: null }), { savedAt: 1760000000000 })));
-  st.setItem("scr-slot3", JSON.stringify(Object.assign(game({ career: Object.assign(game().career, { week: 3, money: 9000 }) }), { savedAt: 1760100000000 })));
+  /* a slot is the game as it was saved (shop.js), nothing more: a field the game doesn't have would be dropped on restore */
+  st.setItem("scr-slot1", JSON.stringify(game({ career: null })));
+  st.setItem("scr-slot3", JSON.stringify(game({ career: Object.assign(game().career, { week: 3, money: 9000 }) })));
 };
 const plain = o => JSON.parse(JSON.stringify(o));   // objects made inside the vm have their own Object/Array, so copy them out before comparing
 const msg = (ctx, text) => { try { ctx.buRead(text); } catch (e) { return e.bu || "crash:" + e.message; } return "ok"; };
@@ -215,7 +221,8 @@ check("trial load never changes the running game", () => {
 check("packing survives big, varied saves (LZW dictionary fills up)", () => {
   const a = load();
   let x = 12345; const rnd = () => (x = (x * 1103515245 + 12345) >>> 0) / 4294967296;
-  const big = game({ notes: Array.from({ length: 4000 }, (_, i) => ({ name: "p" + i + "_" + rnd().toString(36), rate: rnd() * 20 - 10, note: "é ü ⚙ Stahlbrück " + i })) });
+  /* the bulk sits in a field the game has (the hall of fame): one it doesn't have would be dropped on reading */
+  const big = game({ hall: Array.from({ length: 4000 }, (_, i) => ({ name: "p" + i + "_" + rnd().toString(36), rate: rnd() * 20 - 10, note: "é ü ⚙ Stahlbrück " + i })) });
   a.live = big;
   const code = a.buCode();
   assert.deepStrictEqual(plain(a.buRead(code).data.save), big);
@@ -270,6 +277,30 @@ check("a code that hides markup is made harmless: nothing restored keeps < or >,
   /* a key named __proto__ (no real save has one) is dropped */
   const p = a.cleanText(JSON.parse('{"a":{"__proto__":{"x":1},"b":2}}'));
   assert.deepStrictEqual(Object.keys(p.a), ["b"]); assert.strictEqual(p.a.x, undefined);
+});
+check("a field the game doesn't have is left behind: a restored game and its slots keep only the game's own fields", () => {
+  const a = load(); seed(a.localStorage);
+  const own = Object.keys(plain(a.freshState()));
+  /* a stray field at the top of the game and of a slot: a note, and a big lump that would ride along in every backup */
+  const g = game7(), slot = game7();
+  g.supportNote = "call this number about your save"; g.extra = { lump: "x".repeat(5000) }; slot.supportNote = "and here"; slot.constructor = "odd";
+  const code = "SCR1:" + (body => body + a.buSum(body))(a.buZip(new TextEncoder().encode(JSON.stringify({ v: 1, at: 1760000000000, ver: "test", save: g, slots: [null, slot, null] }))));
+  const r = a.buRead(code); assert.strictEqual(r.kind, "full");
+  assert.strictEqual(a.buWrite(r.data), true);
+  for (const k of ["scr-save", "scr-slot2"]) {
+    const o = JSON.parse(a.localStorage.getItem(k));
+    for (const f of Object.keys(o)) assert(own.includes(f), k + " kept a field the game doesn't have: " + f);
+    assert.deepStrictEqual(o, game7(), k + " lost something of its own");
+  }
+  /* and the stray text is nowhere in what was stored, or in the next backup made from it */
+  assert(!JSON.stringify(a.localStorage.dump()).includes("supportNote"));
+  a.S = JSON.parse(a.localStorage.getItem("scr-save")); a.live = a.S;
+  const again = a.buRead(a.buCode()).data;
+  assert(!JSON.stringify(plain(again)).includes("supportNote"));
+  /* a save the game wrote itself, with every field it has, comes through untouched */
+  const full = Object.assign(plain(a.freshState()), game7());
+  assert.deepStrictEqual(plain(a.saveTrim(plain(full))), full);
+  assert.deepStrictEqual(Object.keys(plain(a.saveTrim(plain(a.freshState())))), own);
 });
 
 let bad = 0;
